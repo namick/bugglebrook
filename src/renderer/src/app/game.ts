@@ -1,5 +1,5 @@
 import type { Application, FederatedPointerEvent, FederatedWheelEvent } from 'pixi.js';
-import { Container, UPDATE_PRIORITY } from 'pixi.js';
+import { Container, Point, UPDATE_PRIORITY } from 'pixi.js';
 import { CONTENT, FixedStepper, Sim, VIEW_WIDTH_M, VIEW_WIDTH_PX } from '../../../game';
 import type { BugglebrookApi } from '../../../shared/ipc';
 import type { AudioBackend } from '../audio/synth';
@@ -31,6 +31,12 @@ interface WorldSession {
   input: PointerController;
   root: Container;
   home: PictureButton;
+}
+
+/** The native moves the browser merged into this one, oldest first, if it can tell us. */
+function coalesced(e: FederatedPointerEvent): PointerEvent[] {
+  const native = e.nativeEvent as PointerEvent & { getCoalescedEvents?: () => PointerEvent[] };
+  return typeof native.getCoalescedEvents === 'function' ? native.getCoalescedEvents() : [];
 }
 
 /** When the DOM event happened (Pixi stamps its own events with the handling time). */
@@ -157,11 +163,20 @@ export class Game {
         if (t instanceof PictureButton) this.overButton = true;
         t = (t as { parent?: unknown }).parent;
       }
-      this.session?.input.move(
-        { x: e.global.x, y: e.global.y },
-        this.app.ticker.deltaMS / 1000,
-        eventTime(e),
-      );
+      const input = this.session?.input;
+      if (input) {
+        // Chromium merges fast moves into one event per frame. Replay the
+        // merged ones so quick shakes and flicks keep every stroke.
+        const dt = this.app.ticker.deltaMS / 1000;
+        const merged = coalesced(e);
+        if (merged.length > 1) {
+          for (const c of merged) {
+            const p = new Point();
+            this.app.renderer.events.mapPositionToPoint(p, c.clientX, c.clientY);
+            input.move({ x: p.x, y: p.y }, dt, c.timeStamp);
+          }
+        } else input.move({ x: e.global.x, y: e.global.y }, dt, eventTime(e));
+      }
       this.refreshCursor();
     });
     const up = (e: FederatedPointerEvent): void => {

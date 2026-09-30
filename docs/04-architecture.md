@@ -127,7 +127,7 @@ Input never touches physics directly. `PointerController` sends `grab {x, y}`, `
 
 Holding a bug still for 600 ms (within 6 px of the press) sends `tickle {on: true}`, and moving the hand sends `tickle {on: false}`. Three back-and-forth strokes of 80 px or more within 0.8 s send `shake` (`ShakeDetector` is pure and tested). `set_need` is for tests and debugging.
 
-On `release`, the controller sends the cursor's average velocity over the last 80 ms, measured in world space and interpolated to exactly 80 ms. The body leaves at that velocity, capped at 26 m/s (2600 px/s). At 2.5 m/s or more it counts as a fling. Pointer samples use each DOM event's own timestamp and the release event's position, because on a slow frame events arrive in a burst after they happened. A press and release within 200 ms and 6 px sends `poke` instead: the sim lets go of whatever the press picked up, then makes an item hop or a bug react.
+On `release`, the controller sends the cursor's average velocity over the last 80 ms, measured in world space and interpolated to exactly 80 ms. The body leaves at that velocity, capped at 26 m/s (2600 px/s). At 2.5 m/s or more it counts as a fling. Pointer samples use each DOM event's own timestamp and the release event's position, because on a slow frame events arrive in a burst after they happened. Chromium also merges fast moves into one event per frame, so `Game` replays each move from `getCoalescedEvents()` through the controller. Without that, a quick shake loses its strokes. A press and release within 200 ms and 6 px sends `poke` instead: the sim lets go of whatever the press picked up, then makes an item hop or a bug react.
 
 ### Drop targets
 

@@ -156,9 +156,12 @@ test('every verb makes a sound', async () => {
     await expectSound('grab', 'grab');
     await clear();
     // Drag it quickly back and forth: a swish, and three strokes make a shake.
-    for (const dx of [140, -20, 140, -20, 140, -20]) {
-      await page.mouse.move(at.x + dx, at.y - 150, { steps: 2 });
-    }
+    // The moves go out back to back so a slow renderer cannot stretch them
+    // out in time (waiting on each one would make a fast shake look slow).
+    const strokes: Promise<void>[] = [];
+    for (const dx of [70, 140, 60, -20, 60, 140, 60, -20, 60, 140, 60, -20])
+      strokes.push(page.mouse.move(at.x + dx, at.y - 150));
+    await Promise.all(strokes);
     await expectSound('drag', 'swish');
     await expectSound('shake', 'shake');
     at = { x: at.x + 60, y: at.y - 150 };
