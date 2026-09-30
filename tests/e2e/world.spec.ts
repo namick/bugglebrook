@@ -33,7 +33,7 @@ test('choosing a slot opens the world, and dragging a prop with the mouse moves 
     await clickSlot(page, 0);
 
     const all = await entities(page);
-    expect(all.filter((e) => e.kind === 'bug').length).toBe(4);
+    expect(all.filter((e) => e.kind === 'bug').length).toBe(5);
     expect(all.filter((e) => e.kind === 'item').length).toBeGreaterThanOrEqual(10);
 
     // Bugs wander on their own.
@@ -104,7 +104,7 @@ test('the world autosaves, survives going home, and survives a restart', async (
     await clickSlot(bb.page, 2);
     const restored = await entities(bb.page);
     expect(restored.find((e) => e.id === pebble.id)?.defId).toBe('item_pebble');
-    expect(restored.filter((e) => e.kind === 'bug')).toHaveLength(4);
+    expect(restored.filter((e) => e.kind === 'bug')).toHaveLength(5);
     expect(bb.errors).toEqual([]);
   } finally {
     await bb.close();

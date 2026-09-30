@@ -87,7 +87,7 @@ export async function bugNamed(page: Page, defId: string): Promise<EntityView> {
 /** Fill a bug's needs so it does not go off to eat or play while a test stages something. */
 export async function content(page: Page, id: number): Promise<void> {
   await page.evaluate((bug) => {
-    for (const need of ['need_hunger', 'need_fun', 'need_energy'] as const)
+    for (const need of ['need_hunger', 'need_fun', 'need_energy', 'need_social', 'need_clean'] as const)
       window.__bb!.send({ type: 'set_need', id: bug, need, value: 100 });
   }, id);
 }

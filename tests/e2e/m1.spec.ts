@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { dizzySeconds } from '../../src/game/systems/bugAi';
 import { MAX_FLING_SPEED } from '../../src/game/constants';
-import { PLAZA_X, clickSlot, entities, entity, launchApp } from './app';
+import { PLAZA_X, clickSlot, content, entities, entity, launchApp } from './app';
 import type { EntityView } from './app';
 
 // M1 acceptance (game design doc, section 19), driven with the real mouse.
@@ -68,7 +68,13 @@ test('launches into the plaza within 5 s and holds 60 fps with 3 bugs and 20 ite
         .filter((e) => e.kind === 'bug')
         .map((e) => e.defId)
         .sort(),
-    ).toEqual(['bug_ladybug_dot', 'bug_pillbug_rollo', 'bug_snail_glorp', 'bug_waterstrider_skeet']);
+    ).toEqual([
+      'bug_grasshopper_boing',
+      'bug_ladybug_dot',
+      'bug_pillbug_rollo',
+      'bug_snail_glorp',
+      'bug_waterstrider_skeet',
+    ]);
     const items = all.filter((e) => e.kind === 'item').length;
     for (let i = items; i < 20; i++) {
       await page.evaluate(
@@ -182,6 +188,8 @@ test('a hard landing makes a bug dizzy for the design-doc duration', async () =>
     const { page } = bb;
     await clickSlot(page, 0);
     const dot = await bugNamed(page, 'bug_ladybug_dot');
+    // Friends pat a dizzy bug better sooner (M4); keep them happy so the base formula shows.
+    for (const b of (await entities(page)).filter((e) => e.kind === 'bug')) await content(page, b.id);
     let at = await pressOn(page, dot);
     // Lift her high, then throw her down.
     at = await glide(page, at, 60, -560, 20);

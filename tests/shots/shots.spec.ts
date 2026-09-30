@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   bugNamed,
@@ -468,6 +468,78 @@ test('pond and properties tour', async () => {
     const sv = (await entity(page, soap))!;
     await closeUp(page, '55-soap-bubbles', sv.x, sv.y - 1, 4, 3);
   } finally {
+    await bb.close();
+  }
+});
+
+/** Wheel the camera until its left edge is near world x. */
+async function panTo(page: Page, x: number): Promise<void> {
+  await page.mouse.move(960, 200);
+  for (let i = 0; i < 60; i++) {
+    const cam = (await page.evaluate(() => window.__bb!.camera())).x;
+    const d = x - cam;
+    if (Math.abs(d) < 0.5) return;
+    await page.mouse.wheel(0, Math.max(-600, Math.min(600, (d * 100) / 1.5)));
+    await page.waitForTimeout(25);
+  }
+}
+
+// Files 60- to 89-: leave the plaza alone and watch. Each sample skips ahead
+// some seconds of sim time, then lets the real renderer run a moment so
+// bubbles, faces, and particles show. The camera follows the busiest spot.
+// `idle-log.txt` lists what the bugs got up to between samples.
+test('idle watch', async () => {
+  test.setTimeout(600_000);
+  mkdirSync(DIR, { recursive: true });
+  const bb = await launchApp();
+  const { app, page } = bb;
+  const log: string[] = [];
+  const names = new Map<number, string>();
+  try {
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1920, 1080));
+    await page.waitForTimeout(500);
+    await clickSlot(page, 2);
+    await page.waitForTimeout(800);
+    await page.mouse.move(960, 60);
+    for (const e of await entities(page)) names.set(e.id, e.defId.replace(/^(bug|item)_/, ''));
+    const skip = [
+      0, 6, 9, 5, 8, 7, 10, 6, 9, 12, 8, 7, 11, 9, 10, 8, 12, 9, 10, 11, 8, 9, 10, 12, 9, 11, 10, 8,
+    ];
+    for (let i = 0; i < skip.length; i++) {
+      await page.evaluate(() => window.__bb!.clearLogs());
+      await page.evaluate((n) => window.__bb!.step(n), skip[i]! * 60);
+      // Follow the plaza bugs.
+      const bugs = (await entities(page)).filter((e) => e.kind === 'bug' && e.x > 32);
+      const cx = bugs.reduce((a, b) => a + b.x, 0) / Math.max(1, bugs.length);
+      await panTo(page, Math.max(32, Math.min(70.4 - 19.2, cx - 9.6)));
+      await page.mouse.move(960, 60);
+      await page.waitForTimeout(1700);
+      const tick = await page.evaluate(() => window.__bb!.tick());
+      const events = await page.evaluate(() => window.__bb!.events());
+      for (const e of await entities(page)) names.set(e.id, e.defId.replace(/^(bug|item)_/, ''));
+      const keep =
+        /bug_(socialized|chatted|tagged|threw|caught|shared|snatched|comforted|gawked|rode|slept|woke|posed|inspected|ate|curled|hid|slipped|dizzy|picked_up|bumped)|stack_fell/;
+      for (const ev of events) {
+        if (!keep.test(ev.name)) continue;
+        const p = ev.payload as Record<string, unknown>;
+        const who = names.get(p.id as number) ?? '';
+        const other = p.partnerId ?? p.mountId ?? p.itemId;
+        const bit = typeof other === 'number' ? (names.get(other) ?? other) : '';
+        const extra = p.topic
+          ? ` ${String(p.topic)}${p.about ? `:${String(p.about)}` : ''}`
+          : p.kind
+            ? ` ${String(p.kind)}`
+            : '';
+        log.push(
+          `${(ev.tick / 60).toFixed(1).padStart(7)} ${who} ${ev.name.replace('bug_', '')} ${bit}${extra}`,
+        );
+      }
+      const modes = bugs.map((b) => `${names.get(b.id)}:${b.bug?.mode}`).join(' ');
+      log.push(`--- shot ${60 + i} at ${(tick / 60).toFixed(0)} s: ${modes}`);
+      await shot(page, `${60 + i}-idle-${String(Math.round(tick / 60)).padStart(4, '0')}s`);
+    }
+  } finally {
+    writeFileSync(join(DIR, 'idle-log.txt'), log.join('\n') + '\n');
     await bb.close();
   }
 });

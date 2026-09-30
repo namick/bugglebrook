@@ -197,12 +197,16 @@ test('a hot pepper dropped in the water hisses out in steam', async () => {
     const { page } = bb;
     await clickSlot(page, 0);
     await scrollTo(page, 0);
+    // Skeet would happily go and eat it before it gets to the water.
+    await content(page, (await entities(page)).find((e) => e.defId === 'bug_waterstrider_skeet')!.id);
     const water = (await page.evaluate(() => window.__bb!.water())).surfaces[0]!;
     const pepper = await spawn(page, 'item', 'item_pepper_hot', 3.4, 7.5);
     await settle(page, pepper);
     expect((await entity(page, pepper))!.tags).toContain('tag_hot');
     const at = await pressOn(page, pepper);
-    await carryTo(page, at, await openWater(page), water.level - 0.8);
+    // High enough that Skeet, who comes over to sniff new things, cannot catch it in his mouth.
+    const skeetX = (await entities(page)).find((e) => e.defId === 'bug_waterstrider_skeet')!.x;
+    await carryTo(page, at, await openWater(page, [skeetX - 1, skeetX, skeetX + 1]), water.level - 1.6);
     await page.mouse.up();
     await expect.poll(async () => (await events(page, 'steamed')).length).toBeGreaterThanOrEqual(1);
     await expect.poll(() => page.evaluate(() => window.__bb!.sfxLog())).toContain('tsss');
@@ -310,9 +314,12 @@ test('the pond sleeps when the camera is far across the plaza, and wakes when it
     await expect.poll(() => page.evaluate(() => window.__bb!.areaAsleep('area_puddle_pond'))).toBe(true);
     const skeet = (await entities(page)).find((e) => e.defId === 'bug_waterstrider_skeet')!;
     expect(skeet.asleep).toBe(true);
-    const x0 = skeet.x;
+    // Asleep, Skeet runs the coarse off-screen model: no physics, but he may
+    // stroll along the pond at 0.6 m/s every 2 s.
     await page.waitForTimeout(1500);
-    expect((await entity(page, skeet.id))!.x).toBe(x0);
+    const later = (await entity(page, skeet.id))!;
+    expect(later.asleep).toBe(true);
+    expect(later.x).toBeLessThan(32);
     await scrollTo(page, 20);
     await expect.poll(() => page.evaluate(() => window.__bb!.areaAsleep('area_puddle_pond'))).toBe(false);
     expect(await page.evaluate(() => window.__bb!.areaAsleep('area_stump_plaza'))).toBe(false);
