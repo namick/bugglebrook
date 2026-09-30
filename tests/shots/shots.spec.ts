@@ -543,3 +543,125 @@ test('idle watch', async () => {
     await bb.close();
   }
 });
+
+/** Click a named UI control with the real mouse. */
+async function clickUi(
+  page: Page,
+  name: Parameters<NonNullable<typeof window.__bb>['uiClient']>[0],
+): Promise<void> {
+  const p = await page.evaluate((n) => window.__bb!.uiClient(n), name);
+  if (!p) throw new Error(`No ${name} on screen`);
+  await page.mouse.move(p.x, p.y, { steps: 4 });
+  await page.mouse.click(p.x, p.y);
+}
+
+/** Carry an entity with the real mouse into pocket slot `slot`, stopping over it before letting go. */
+async function carryToPocket(page: Page, id: number, slot: number, shotName?: string): Promise<void> {
+  const e = (await entity(page, id))!;
+  const at = await toClient(page, e.x, e.y);
+  await page.mouse.move(at.x, at.y);
+  await page.mouse.down();
+  await page.waitForTimeout(150);
+  const to = (await page.evaluate((s) => window.__bb!.pocketSlotClient(s), slot))!;
+  for (let i = 1; i <= 20; i++) {
+    await page.mouse.move(at.x + ((to.x - at.x) * i) / 20, at.y + ((to.y - 40 - at.y) * i) / 20);
+    await page.waitForTimeout(16);
+  }
+  const over = (await page.evaluate((s) => window.__bb!.pocketSlotClient(s), slot))!;
+  await page.mouse.move(over.x, over.y, { steps: 3 });
+  await page.waitForTimeout(350);
+  if (shotName) await shot(page, shotName);
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+}
+
+test('menu, pause, pocket, and first scene tour', async () => {
+  mkdirSync(DIR, { recursive: true });
+  const bb = await launchApp();
+  const { app, page } = bb;
+  try {
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1920, 1080));
+    await page.waitForTimeout(350);
+    await shot(page, '90-menu-letters-drop');
+    await page.waitForTimeout(1800);
+    await shot(page, '91-menu');
+    await clickUi(page, 'gear');
+    await page.waitForTimeout(900);
+    await shot(page, '92-menu-settings');
+    await clickUi(page, 'resume');
+    await page.waitForTimeout(600);
+
+    // A new world with the first scene.
+    await page.evaluate(() => window.__bb!.enableIntro(true));
+    await clickSlot(page, 0);
+    await page.waitForTimeout(250);
+    await shot(page, '93-intro-fade');
+    await page.waitForTimeout(1300);
+    await shot(page, '94-intro-slide');
+    await page.waitForTimeout(2200);
+    await shot(page, '95-intro-dot-asleep');
+    const dot = await bug(page, 'bug_ladybug_dot');
+    await closeUp(page, '96-intro-dot-closeup', dot.x + 0.4, dot.y - 0.5, 4, 2.6);
+    const near = await toClient(page, dot.x + 1.4, dot.y - 1.2);
+    await page.mouse.move(near.x, near.y, { steps: 8 });
+    await page.waitForTimeout(1600);
+    await closeUp(page, '97-intro-dot-wakes', dot.x + 0.4, dot.y - 0.8, 4, 2.6);
+    // Skip ahead to the "again!" nudge.
+    await page.evaluate(() => {
+      const bb = window.__bb!;
+      bb.setPaused(true);
+    });
+    await page.evaluate(() => window.__bb!.setPaused(false));
+
+    // The pause board.
+    await clickUi(page, 'pause');
+    await page.waitForTimeout(900);
+    await shot(page, '98-pause');
+    await clickUi(page, 'resume');
+    await page.waitForTimeout(700);
+
+    // The pocket: a pebble in, then Rollo.
+    for (const b of (await entities(page)).filter((e) => e.kind === 'bug')) await content(page, b.id);
+    const pebble = await spawnItem(page, 'item_pebble', 40);
+    await carryToPocket(page, pebble, 0, '99a-pocket-open-glow');
+    const pebble2 = await spawnItem(page, 'item_pebble', 41);
+    await carryToPocket(page, pebble2, 0);
+    const rollo = await bug(page, 'bug_pillbug_rollo');
+    await carryToPocket(page, rollo.id, 1);
+    await page.mouse.move(960, 1060, { steps: 6 });
+    await page.waitForTimeout(600);
+    await shot(page, '99b-pocket-with-things');
+    await page.screenshot({
+      path: join(DIR, '99c-pocket-closeup.png'),
+      clip: { x: 520, y: 900, width: 880, height: 180 },
+    });
+    await page.mouse.move(960, 500, { steps: 6 });
+    await page.waitForTimeout(600);
+    await shot(page, '99d-pocket-tab');
+
+    // Back to the menu: the slot now shows its picture.
+    await clickUi(page, 'pause');
+    await page.waitForTimeout(700);
+    await clickUi(page, 'to_menu');
+    await page.waitForFunction(() => window.__bb!.scene() === 'menu');
+    await page.waitForTimeout(2200);
+    await shot(page, '99e-menu-with-save');
+    // Drag the sign toward the bin.
+    const sign = (await page.evaluate(() => window.__bb!.slotButtonClient(0)))!;
+    const bin = (await page.evaluate(() => window.__bb!.uiClient('bin')))!;
+    await page.mouse.move(sign.x, sign.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 20; i++) {
+      await page.mouse.move(sign.x + ((bin.x - sign.x) * i) / 20, sign.y + ((bin.y - 80 - sign.y) * i) / 20);
+      await page.waitForTimeout(20);
+    }
+    await page.waitForTimeout(500);
+    await shot(page, '99f-menu-bin-closing');
+    await page.mouse.move(sign.x, sign.y, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForTimeout(800);
+    await shot(page, '99g-menu-bin-cancelled');
+  } finally {
+    await bb.close();
+  }
+});
