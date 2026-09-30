@@ -1,0 +1,61 @@
+{
+  "name": "bugglebrook",
+  "productName": "Bugglebrook",
+  "version": "0.1.0",
+  "description": "A weird, silly sandbox about tiny bugs in a backyard world.",
+  "homepage": "https://github.com/namick/bugglebrook",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/namick/bugglebrook.git"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "author": {
+    "name": "namick",
+    "email": "namick@users.noreply.github.com"
+  },
+  "type": "module",
+  "main": "./out/main/index.js",
+  "packageManager": "pnpm@12.4.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.game.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.e2e.json",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write . && eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "electron-vite build && playwright test",
+    "icon": "node scripts/make-icon.mjs",
+    "dist:linux": "electron-vite build && electron-builder --linux --publish never",
+    "dist:appimage": "electron-vite build && electron-builder --linux AppImage --publish never",
+    "dist:win": "electron-vite build && electron-builder --win --publish never",
+    "dist:mac": "electron-vite build && electron-builder --mac --publish never"
+  },
+  "dependencies": {
+    "electron-updater": "6.8.9"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@napi-rs/canvas": "^1.0.9",
+    "@playwright/test": "1.63.0",
+    "@types/node": "^24.19.0",
+    "electron": "44.5.0",
+    "electron-builder": "26.15.3",
+    "electron-vite": "5.0.0",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.12.0",
+    "pixi.js": "8.21.0",
+    "planck": "1.5.0",
+    "prettier": "3.9.9",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.0",
+    "vite": "7.3.6",
+    "vitest": "5.0.2"
+  }
+}
