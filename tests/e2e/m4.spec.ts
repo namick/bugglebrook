@@ -1,11 +1,26 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { PLAZA_X, bugNamed, clickSlot, content, entities, entity, launchApp, pressOn, toClient } from './app';
+import {
+  PLAZA_X,
+  bugNamed,
+  clickSlot,
+  content,
+  entities,
+  entity,
+  frames,
+  framesUntil,
+  freeze,
+  launchApp,
+  openFrozen,
+  pressFrozen,
+  toClient,
+} from './app';
 
 // M4 acceptance (game design doc, section 19): the needs AI, playing
 // together, and the setup rule, driven with the real mouse and checked
-// through window.__bb. Long stretches of bug life run through __bb.step so
-// the tests stay quick on CI's software renderer.
+// through window.__bb. The sim is frozen (__bb.setPaused) and driven frame by
+// frame (__bb.frames), and long stretches of bug life run through __bb.step,
+// so the tests see the same steps on CI's software renderer as anywhere.
 test.setTimeout(180_000);
 
 type Logged = { name: string; tick: number; payload: Record<string, unknown> };
@@ -22,33 +37,43 @@ const setNeed = (page: Page, id: number, need: string, value: number): Promise<v
     [id, need, value] as const,
   );
 
-/** Spawn an item from the sky and wait for it to land. */
+/** With the sim frozen: spawn an item from the sky and step until it has landed. */
 async function drop(page: Page, defId: string, x: number): Promise<number> {
   const before = new Set((await entities(page)).map((e) => e.id));
   await page.evaluate(
     ([d, px]) => window.__bb!.send({ type: 'spawn', kind: 'item', defId: d!, x: px!, y: 6 }),
     [defId, x] as const,
   );
-  let id = -1;
-  await expect
-    .poll(async () => {
-      const e = (await entities(page)).find((v) => !before.has(v.id) && v.defId === defId);
-      id = e?.id ?? -1;
-      return !!e && Math.hypot(e.vx, e.vy) < 0.3 && e.y > 7;
-    })
-    .toBe(true);
+  await frames(page, 1);
+  const id = (await entities(page)).find((v) => !before.has(v.id) && v.defId === defId)!.id;
+  const landed = await framesUntil(
+    page,
+    async () => {
+      const e = (await entity(page, id))!;
+      return Math.hypot(e.vx, e.vy) < 0.3 && e.y > 7;
+    },
+    10 * 60,
+    15,
+  );
+  expect(landed).toBe(true);
   return id;
 }
 
-/** Carry a held thing to a world point with the real mouse, then let go gently. */
+/**
+ * With the sim frozen: carry a held thing to a world point with the real
+ * mouse, a frame per step, hold it still, then let go gently.
+ */
 async function carryAndDrop(page: Page, from: { x: number; y: number }, x: number, y: number): Promise<void> {
   const to = await toClient(page, x, y);
   for (let i = 1; i <= 20; i++) {
     await page.mouse.move(from.x + ((to.x - from.x) * i) / 20, from.y + ((to.y - from.y) * i) / 20);
-    await page.waitForTimeout(16);
+    await frames(page, 1);
   }
-  await page.waitForTimeout(400);
+  await frames(page, 24);
+  // Still for longer than the fling window, so the release is a drop.
+  await page.waitForTimeout(150);
   await page.mouse.up();
+  await frames(page, 2);
   await page.mouse.move(960, 80, { steps: 3 });
 }
 
@@ -56,12 +81,13 @@ test('a new thing the player drops near a bug gets sniffed, and the bugs leave i
   const bb = await launchApp();
   try {
     const { page } = bb;
-    await clickSlot(page, 0);
+    await openFrozen(page, 0);
     const rollo = await bugNamed(page, 'bug_pillbug_rollo');
     // Nobody grabs it for a snack before the player gets to it.
     for (const b of (await entities(page)).filter((e) => e.kind === 'bug')) await content(page, b.id);
+    await freeze(page, true);
     const berry = await drop(page, 'item_berry_red', rollo.x + 3);
-    const at = await pressOn(page, berry);
+    const at = await pressFrozen(page, berry);
     await carryAndDrop(page, at, rollo.x + 2.5, 8.3);
     const placed = (await entity(page, berry))!;
     const placedAt = await page.evaluate(() => window.__bb!.tick());
@@ -80,6 +106,7 @@ test('a new thing the player drops near a bug gets sniffed, and the bugs leave i
     expect(after(await events(page, 'bug_fed'))).toEqual([]);
     expect(after(await events(page, 'bug_picked_up'))).toEqual([]);
     expect(await entity(page, berry)).not.toBeNull();
+    await freeze(page, false);
     expect(bb.errors).toEqual([]);
   } finally {
     await bb.close();
@@ -90,13 +117,14 @@ test('a stack of three built with the mouse stays standing while the bugs go abo
   const bb = await launchApp();
   try {
     const { page } = bb;
-    await clickSlot(page, 0);
+    await openFrozen(page, 0);
     const bugs = (await entities(page)).filter((e) => e.kind === 'bug');
     for (const b of bugs) await content(page, b.id);
+    await freeze(page, true);
     // Dot starts on the plaza's bottle cap: lift her off it first.
     const dot = await bugNamed(page, 'bug_ladybug_dot');
-    await carryAndDrop(page, await pressOn(page, dot.id), PLAZA_X + 3.2, 8.3);
-    await page.waitForTimeout(600);
+    await carryAndDrop(page, await pressFrozen(page, dot.id), PLAZA_X + 3.2, 8.3);
+    await frames(page, 36);
     // The plaza's own bottle cap is the base; two more are set on top of it.
     const base = (await entities(page)).find((e) => e.defId === 'item_bottle_cap' && e.x > PLAZA_X)!;
     const baseX = base.x;
@@ -108,27 +136,31 @@ test('a stack of three built with the mouse stays standing while the bugs go abo
           window.__bb!.send({ type: 'spawn', kind: 'item', defId: 'item_bottle_cap', x: x!, y: y! }),
         [baseX, base.y - i * 0.17 - 0.01] as const,
       );
-      await expect
-        .poll(async () => (await entities(page)).find((e) => !before.has(e.id))?.id ?? -1)
-        .toBeGreaterThan(0);
+      await frames(page, 1);
       caps.push((await entities(page)).find((e) => !before.has(e.id))!.id);
-      await page.waitForTimeout(300);
+      await frames(page, 18);
     }
     // The player sets the top one straight with the hand (press, hold a moment, let
     // go). One touched piece makes the whole stack the player's for good.
     for (const c of [caps[2]!]) {
-      await pressOn(page, c);
-      await page.waitForTimeout(300);
+      await pressFrozen(page, c);
+      await frames(page, 18);
+      await page.waitForTimeout(150);
       await page.mouse.up();
+      await frames(page, 2);
       await page.mouse.move(960, 80, { steps: 2 });
-      await page.waitForTimeout(300);
+      await frames(page, 18);
     }
-    await expect
-      .poll(async () => {
+    const stacked = await framesUntil(
+      page,
+      async () => {
         const v = await Promise.all(caps.map((c) => entity(page, c)));
         return v[2]!.y < v[1]!.y && v[1]!.y < v[0]!.y && Math.abs(v[2]!.x - v[0]!.x) < 0.25;
-      })
-      .toBe(true);
+      },
+      5 * 60,
+      10,
+    );
+    expect(stacked).toBe(true);
     await step(page, 60);
     const before = await Promise.all(caps.map((c) => entity(page, c)));
     for (const b of before) expect(b!.tags).toContain('tag_player_setup');
@@ -143,6 +175,7 @@ test('a stack of three built with the mouse stays standing while the bugs go abo
       const b = before[i]!;
       expect(Math.hypot(a!.x - b.x, a!.y - b.y), `cap ${i}`).toBeLessThan(0.08);
     });
+    await freeze(page, false);
     expect(bb.errors).toEqual([]);
   } finally {
     await bb.close();
@@ -175,7 +208,7 @@ test('a click wakes a napping bug, groggy', async () => {
   const bb = await launchApp();
   try {
     const { page } = bb;
-    await clickSlot(page, 0);
+    await openFrozen(page, 0);
     const glorp = await bugNamed(page, 'bug_snail_glorp');
     await content(page, glorp.id);
     await setNeed(page, glorp.id, 'need_energy', 8);
@@ -210,7 +243,7 @@ test('lonely bugs chat with pictures in speech bubbles, and like each other more
   const bb = await launchApp();
   try {
     const { page } = bb;
-    await clickSlot(page, 0);
+    await openFrozen(page, 0);
     const dot = await bugNamed(page, 'bug_ladybug_dot');
     const rollo = await bugNamed(page, 'bug_pillbug_rollo');
     const all = (await entities(page)).filter((e) => e.kind === 'bug');
@@ -226,8 +259,10 @@ test('lonely bugs chat with pictures in speech bubbles, and like each other more
       }, defs);
     const aff0 = await affinities();
     let bubbles: { bugId: number; kind: string; pictos: readonly string[] }[] = [];
+    await freeze(page, true);
     for (let i = 0; i < 60; i++) {
-      await step(page, 20);
+      await frames(page, 20);
+      // Bubbles are drawn by the view, which keeps rendering while the sim is frozen.
       await page.waitForTimeout(30);
       const now = await page.evaluate(() => window.__bb!.bubbles());
       const speech = now.filter((b) => b.kind === 'speech' && (b.bugId === dot.id || b.bugId === rollo.id));
@@ -247,6 +282,7 @@ test('lonely bugs chat with pictures in speech bubbles, and like each other more
     const key = [defOf(chat.id), defOf(chat.partnerId)].sort().join('|');
     const aff1 = await affinities();
     expect(aff1[key]).toBeGreaterThan(aff0[key]!);
+    await freeze(page, false);
   } finally {
     await bb.close();
   }

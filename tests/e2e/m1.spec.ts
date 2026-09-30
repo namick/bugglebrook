@@ -2,12 +2,27 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { dizzySeconds } from '../../src/game/systems/bugAi';
 import { MAX_FLING_SPEED } from '../../src/game/constants';
-import { PLAZA_X, clickSlot, content, entities, entity, launchApp } from './app';
+import {
+  PLAZA_X,
+  clickSlot,
+  content,
+  entities,
+  entity,
+  frames,
+  framesUntil,
+  freeze,
+  glideFrames,
+  launchApp,
+  openFrozen,
+  pressFrozen,
+} from './app';
 import type { EntityView } from './app';
 
 // M1 acceptance (game design doc, section 19), driven with the real mouse.
-// CI renders WebGL in software at a few frames per second, and the sim runs
-// at most 0.1 s per frame, so waits here are generous.
+// CI renders WebGL in software at a few frames per second, so apart from the
+// launch and frame-time check, every test freezes the sim (__bb.setPaused)
+// and steps it frame by frame (__bb.frames): a slow machine then sees the
+// same steps as a fast one.
 test.setTimeout(300_000);
 
 type Logged = { name: string; tick: number; payload: Record<string, number | string | boolean> };
@@ -22,16 +37,7 @@ async function bugNamed(page: Page, defId: string): Promise<EntityView> {
   return (await entities(page)).find((e) => e.defId === defId)!;
 }
 
-/** Press on an entity and wait until the sim says it is held. */
-async function pressOn(page: Page, e: EntityView): Promise<{ x: number; y: number }> {
-  const p = await toClient(page, e.x, e.y);
-  await page.mouse.move(p.x, p.y);
-  await page.mouse.down();
-  await expect.poll(async () => (await entity(page, e.id))?.held).toBe(true);
-  return p;
-}
-
-/** Move the mouse in small steps, one per frame. */
+/** Move the mouse in small steps with real time between them (for camera pans, which ignore the sim). */
 async function glide(page: Page, from: { x: number; y: number }, dx: number, dy: number, steps: number) {
   for (let i = 1; i <= steps; i++) {
     await page.mouse.move(from.x + (dx * i) / steps, from.y + (dy * i) / steps);
@@ -119,18 +125,21 @@ test('pressing a bug holds it; a fast release flings it at the cursor velocity',
   const bb = await launchApp();
   try {
     const { page } = bb;
-    await clickSlot(page, 0);
+    await openFrozen(page, 0);
+    await freeze(page, true);
     const rollo = await bugNamed(page, 'bug_pillbug_rollo');
-    let at = await pressOn(page, rollo);
+    let at = await pressFrozen(page, rollo.id);
     expect((await entity(page, rollo.id))!.bug!.mode).toBe('st_held');
     const voices = await page.evaluate(() => window.__bb!.voiceLog());
     expect(voices.some((v) => v.defId === 'bug_pillbug_rollo')).toBe(true);
 
-    at = await glide(page, at, 0, -250, 12);
+    at = await glideFrames(page, at, 0, -250, 12);
+    await page.waitForTimeout(100);
     // A quick throw up and to the right.
     await flick(page, at, 240, -120, 6);
+    await frames(page, 2);
 
-    await expect.poll(async () => (await events(page, 'item_dropped')).length).toBe(1);
+    expect((await events(page, 'item_dropped')).length).toBe(1);
     const [dropped] = await events(page, 'item_dropped');
     const cursor = (await page.evaluate(() => window.__bb!.lastRelease()))!;
     expect(dropped!.payload.flung).toBe(true);
@@ -157,6 +166,7 @@ test('pressing a bug holds it; a fast release flings it at the cursor velocity',
     const sounds = await page.evaluate(() => window.__bb!.sfxLog());
     expect(sounds).toContain('grab_bug');
     expect(sounds).toContain('fling');
+    await freeze(page, false);
     expect(bb.errors).toEqual([]);
   } finally {
     await bb.close();
@@ -167,11 +177,12 @@ test('a released bug is st_airborne on the next step', async () => {
   const bb = await launchApp();
   try {
     const { page } = bb;
-    await clickSlot(page, 1);
+    await openFrozen(page, 1);
+    await freeze(page, true);
     const dot = await bugNamed(page, 'bug_ladybug_dot');
-    const at = await pressOn(page, dot);
-    const top = await glide(page, at, 0, -300, 10);
-    await page.evaluate(() => window.__bb!.setPaused(true));
+    const at = await pressFrozen(page, dot.id);
+    const top = await glideFrames(page, at, 0, -300, 10);
+    await page.waitForTimeout(100);
     await flick(page, top, 200, -100, 5);
     // Paused, so the release is still queued; one step applies it.
     await page.evaluate(() => window.__bb!.step(1));
@@ -186,19 +197,19 @@ test('a hard landing makes a bug dizzy for the design-doc duration', async () =>
   const bb = await launchApp();
   try {
     const { page } = bb;
-    await clickSlot(page, 0);
+    await openFrozen(page, 0);
     const dot = await bugNamed(page, 'bug_ladybug_dot');
     // Friends pat a dizzy bug better sooner (M4); keep them happy so the base formula shows.
     for (const b of (await entities(page)).filter((e) => e.kind === 'bug')) await content(page, b.id);
-    let at = await pressOn(page, dot);
+    await freeze(page, true);
+    let at = await pressFrozen(page, dot.id);
     // Lift her high, then throw her down.
-    at = await glide(page, at, 60, -560, 20);
+    at = await glideFrames(page, at, 60, -560, 20);
+    await frames(page, 12);
     await page.waitForTimeout(200);
     await flick(page, at, 30, 220, 4);
-
-    await expect
-      .poll(async () => (await events(page, 'bug_dizzy')).length, { timeout: 30_000 })
-      .toBeGreaterThan(0);
+    await framesUntil(page, async () => (await events(page, 'bug_dizzy')).length > 0, 10 * 60);
+    expect((await events(page, 'bug_dizzy')).length).toBeGreaterThan(0);
     const [dizzy] = await events(page, 'bug_dizzy');
     expect(dizzy!.payload.id).toBe(dot.id);
     const speed = dizzy!.payload.speed as number;
@@ -209,10 +220,11 @@ test('a hard landing makes a bug dizzy for the design-doc duration', async () =>
 
     const mine = async () =>
       (await events(page, 'bug_recovered')).filter((e) => e.payload.id === dot.id && e.tick > dizzy!.tick);
-    await expect.poll(async () => (await mine()).length, { timeout: 90_000 }).toBeGreaterThan(0);
+    await framesUntil(page, async () => (await mine()).length > 0, 12 * 60, 20);
     const [recovered] = await mine();
     expect(Math.abs((recovered!.tick - dizzy!.tick) / 60 - expected)).toBeLessThanOrEqual(0.1);
     expect(await page.evaluate(() => window.__bb!.sfxLog())).toContain('dizzy');
+    await freeze(page, false);
     expect(bb.errors).toEqual([]);
   } finally {
     await bb.close();
@@ -223,11 +235,13 @@ test('a quick click pokes: bugs react, items hop', async () => {
   const bb = await launchApp();
   try {
     const { page } = bb;
-    await clickSlot(page, 2);
+    await openFrozen(page, 2);
+    await freeze(page, true);
     const glorp = await bugNamed(page, 'bug_snail_glorp');
     const g = await toClient(page, glorp.x, glorp.y);
     await page.mouse.click(g.x, g.y);
-    await expect.poll(async () => (await events(page, 'bug_poked')).length).toBe(1);
+    await frames(page, 2);
+    expect((await events(page, 'bug_poked')).length).toBe(1);
     expect((await events(page, 'bug_poked'))[0]!.payload.id).toBe(glorp.id);
 
     // The on-screen item farthest from any bug, so the click lands on it.
@@ -239,9 +253,11 @@ test('a quick click pokes: bugs react, items hop', async () => {
       .sort((a, b) => gap(b) - gap(a))[0]!;
     const c = await toClient(page, cap.x, cap.y);
     await page.mouse.click(c.x, c.y);
-    await expect.poll(async () => (await events(page, 'item_poked')).length).toBeGreaterThanOrEqual(1);
+    await frames(page, 2);
+    expect((await events(page, 'item_poked')).length).toBeGreaterThanOrEqual(1);
     expect(await events(page, 'item_dropped')).toEqual([]);
     expect(await page.evaluate(() => window.__bb!.sfxLog())).toContain('poke');
+    await freeze(page, false);
   } finally {
     await bb.close();
   }
@@ -251,11 +267,13 @@ test('scrolling and dragging the background move the camera and never move items
   const bb = await launchApp();
   try {
     const { page } = bb;
-    await clickSlot(page, 1);
+    await openFrozen(page, 1);
+    for (const b of (await entities(page)).filter((e) => e.kind === 'bug')) await content(page, b.id);
+    await freeze(page, true);
     // The toy pile, far from every bug; let it settle first.
     const pile = async (): Promise<EntityView[]> =>
       (await entities(page)).filter((e) => e.kind === 'item' && e.x > PLAZA_X + 27 && e.y > 8);
-    await expect.poll(async () => (await pile()).every((e) => Math.hypot(e.vx, e.vy) < 0.02)).toBe(true);
+    await framesUntil(page, async () => (await pile()).every((e) => Math.hypot(e.vx, e.vy) < 0.02), 20 * 60);
     const before = await pile();
     const cam0 = (await page.evaluate(() => window.__bb!.camera())).x;
 
@@ -279,12 +297,15 @@ test('scrolling and dragging the background move the camera and never move items
       .poll(async () => (await page.evaluate(() => window.__bb!.camera())).x)
       .toBeLessThan(cam1 - 3);
 
+    // A second of sim with the camera moved: nothing it passed over was touched.
+    await frames(page, 60);
     const after = await pile();
     for (const b of before) {
       const a = after.find((e) => e.id === b.id)!;
       expect(Math.hypot(a.x - b.x, a.y - b.y), b.defId).toBeLessThan(0.02);
     }
     expect(await events(page, 'item_grabbed')).toEqual([]);
+    await freeze(page, false);
   } finally {
     await bb.close();
   }

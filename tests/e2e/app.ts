@@ -226,3 +226,67 @@ export async function clickUi(page: Page, name: UiName): Promise<void> {
   await page.mouse.move(p.x, p.y, { steps: 3 });
   await page.mouse.click(p.x, p.y);
 }
+
+/** Run `n` frames of input and sim at 60 Hz right now (the sim should be frozen with `setPaused`). */
+export const frames = (page: Page, n: number): Promise<void> =>
+  page.evaluate((k) => window.__bb!.frames(k), n);
+
+/** Freeze the sim's clock (or let it run again). Frozen, only `frames` and `step` move it. */
+export const freeze = (page: Page, on: boolean): Promise<void> =>
+  page.evaluate((p) => window.__bb!.setPaused(p), on);
+
+/**
+ * With the sim frozen: press on an entity with the real mouse and run two
+ * frames, so the grab lands however slow the machine is. Returns where the
+ * mouse is.
+ */
+export async function pressFrozen(page: Page, id: number): Promise<{ x: number; y: number }> {
+  const e = (await entity(page, id))!;
+  const at = await toClient(page, e.x, e.y);
+  await page.mouse.move(at.x, at.y);
+  await page.mouse.down();
+  await frames(page, 2);
+  expect((await entity(page, id))?.held).toBe(true);
+  return at;
+}
+
+/** With the sim frozen: move the mouse in `steps` even steps, running `per` frames after each. */
+export async function glideFrames(
+  page: Page,
+  from: { x: number; y: number },
+  dx: number,
+  dy: number,
+  steps: number,
+  per = 1,
+): Promise<{ x: number; y: number }> {
+  for (let i = 1; i <= steps; i++) {
+    await page.mouse.move(from.x + (dx * i) / steps, from.y + (dy * i) / steps);
+    await frames(page, per);
+  }
+  return { x: from.x + dx, y: from.y + dy };
+}
+
+/** With the sim frozen: run frames until `done` says yes, up to `max` frames. Returns whether it did. */
+export async function framesUntil(
+  page: Page,
+  done: () => Promise<boolean>,
+  max: number,
+  chunk = 30,
+): Promise<boolean> {
+  for (let n = 0; n < max; n += chunk) {
+    if (await done()) return true;
+    await frames(page, chunk);
+  }
+  return done();
+}
+
+/**
+ * Open a slot with its world frozen before the first step. Test worlds are
+ * seeded by slot, so a test that then drives the sim with `frames` and
+ * `step` sees exactly the same world every run.
+ */
+export async function openFrozen(page: Page, slot: number): Promise<void> {
+  await page.evaluate(() => window.__bb!.freezeNextWorld(true));
+  await clickSlot(page, slot);
+  expect(await page.evaluate(() => window.__bb!.isPaused())).toBe(true);
+}
