@@ -1,16 +1,78 @@
 export type EntityId = number;
 export type EntityKind = 'bug' | 'item';
 
-export type BugMode = 'idle' | 'walk' | 'held' | 'tumble' | 'dizzy';
+/**
+ * Bug states, named as in the game design doc (section 5). Only the M1
+ * subset exists so far.
+ */
+export type BugMode =
+  | 'st_idle'
+  | 'st_wander'
+  | 'st_seek'
+  | 'st_use'
+  | 'st_eat'
+  | 'st_react'
+  | 'st_held'
+  | 'st_airborne'
+  | 'st_landing'
+  | 'st_dizzy'
+  | 'st_recover';
+
+export const BUG_MODES: readonly BugMode[] = [
+  'st_idle',
+  'st_wander',
+  'st_seek',
+  'st_use',
+  'st_eat',
+  'st_react',
+  'st_held',
+  'st_airborne',
+  'st_landing',
+  'st_dizzy',
+  'st_recover',
+];
+
+export interface Needs {
+  need_hunger: number;
+  need_fun: number;
+  need_energy: number;
+}
 
 /** Bug AI state. Plain data so it serializes as-is. */
 export interface BugBrain {
   mode: BugMode;
-  /** Ticks left in the current mode (idle and dizzy count down). */
+  /** Ticks left in the current mode, for modes that time out. */
   timer: number;
   /** World x the bug is walking toward. */
   targetX: number;
+  /** Entity the bug is seeking or using, if any. */
+  targetId: EntityId | null;
+  /** What it will do with the target. */
+  action: 'eat' | 'bounce' | null;
   facing: 1 | -1;
+  /** 0 to 100; 100 is fully satisfied. */
+  needs: Needs;
+  /** Ticks until the bug next scores what to do. */
+  decideIn: number;
+  /** Hardest impact since it left the ground, m/s. */
+  airPeak: number;
+  /** Airborne by its own hop or bounce, so the landing never makes it dizzy. */
+  selfLaunched: boolean;
+  /** Tick of the last hard landing, or -1. Repeats within 10 s stack dizziness. */
+  lastHardLanding: number;
+  dizzyStreak: number;
+  /** Length of the current dizzy spell in ticks, for the renderer. */
+  dizzyTicks: number;
+  /** Recent uses, newest last: novelty and repeat penalties read this. */
+  used: { id: EntityId; tick: number }[];
+  /** Ticks spent walking without getting anywhere. */
+  stuck: number;
+  /** Hop attempts at the current target. */
+  tries: number;
+  /** The current use has paid off (the spring launched it). */
+  done: boolean;
+  /** x at the previous tick, for stuck detection. */
+  lastX: number;
 }
 
 export interface Entity {

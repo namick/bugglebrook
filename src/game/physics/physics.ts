@@ -1,6 +1,7 @@
-import { AABB, Box, Circle, Edge, MouseJoint, Vec2, World } from 'planck';
+import { AABB, Box, Chain, Circle, Edge, MouseJoint, Vec2, World } from 'planck';
 import type { Body, Contact } from 'planck';
 import type { EntityId } from '../core/entities';
+import type { Terrain } from '../world/terrain';
 
 export type ShapeSpec = { type: 'circle'; radius: number } | { type: 'box'; width: number; height: number };
 
@@ -26,11 +27,24 @@ export interface BodyOptions {
   angularDamping?: number;
 }
 
+/** A contact that began during the last step. */
 export interface Impact {
+  /** Entity IDs, or null for the ground and walls. */
   a: EntityId | null;
   b: EntityId | null;
   /** Relative approach speed along the contact normal, m/s. */
   speed: number;
+  /** Contact normal, pointing from a to b. */
+  nx: number;
+  ny: number;
+  /** Contact point. */
+  px: number;
+  py: number;
+}
+
+export interface Vec {
+  x: number;
+  y: number;
 }
 
 /** Wrap an angle into (-PI, PI] so saved state has one canonical form. */
@@ -56,31 +70,33 @@ export class Physics {
   private grabJoint: MouseJoint | null = null;
   private grabbedId: EntityId | null = null;
   private pendingImpacts: Impact[] = [];
+  private halfExtents = new Map<EntityId, Vec>();
 
   constructor(
     gravity: number,
     readonly width: number,
-    readonly groundY: number,
+    readonly terrain: Terrain,
   ) {
     this.world = new World({ gravity: { x: 0, y: gravity } });
     this.ground = this.world.createBody({ type: 'static' });
-    const wallTop = groundY - 60;
-    this.ground.createFixture(new Edge(Vec2(-1, groundY), Vec2(width + 1, groundY)), {
-      friction: 0.8,
-    });
-    this.ground.createFixture(new Edge(Vec2(0, wallTop), Vec2(0, groundY)), { friction: 0.3 });
-    this.ground.createFixture(new Edge(Vec2(width, wallTop), Vec2(width, groundY)), {
-      friction: 0.3,
-    });
+    const pts = terrain.points.map(([x, y]) => Vec2(x, y));
+    // Extend past the walls so nothing slips around the ends.
+    const first = pts[0]!;
+    const last = pts[pts.length - 1]!;
+    pts.unshift(Vec2(first.x - 2, first.y));
+    pts.push(Vec2(last.x + 2, last.y));
+    this.ground.createFixture(new Chain(pts, false), { friction: 0.8 });
+    const wallTop = -60;
+    const wallBottom = Math.max(...terrain.points.map((p) => p[1])) + 1;
+    this.ground.createFixture(new Edge(Vec2(0, wallTop), Vec2(0, wallBottom)), { friction: 0.3 });
+    this.ground.createFixture(new Edge(Vec2(width, wallTop), Vec2(width, wallBottom)), { friction: 0.3 });
 
     this.world.on('begin-contact', (contact: Contact) => this.recordImpact(contact));
   }
 
   private recordImpact(contact: Contact): void {
-    const fa = contact.getFixtureA();
-    const fb = contact.getFixtureB();
-    const ba = fa.getBody();
-    const bb = fb.getBody();
+    const ba = contact.getFixtureA().getBody();
+    const bb = contact.getFixtureB().getBody();
     const manifold = contact.getWorldManifold(null);
     if (!manifold) return;
     const n = manifold.normal;
@@ -88,12 +104,16 @@ export class Physics {
     const va = ba.getLinearVelocityFromWorldPoint(point);
     const vb = bb.getLinearVelocityFromWorldPoint(point);
     const approach = (va.x - vb.x) * n.x + (va.y - vb.y) * n.y;
-    // Grazing contacts are not impacts.
-    if (approach < 1) return;
+    // Grazing contacts and bodies drifting apart are not impacts.
+    if (approach < 0.05) return;
     this.pendingImpacts.push({
       a: (ba.getUserData() as EntityId | null) ?? null,
       b: (bb.getUserData() as EntityId | null) ?? null,
       speed: approach,
+      nx: n.x,
+      ny: n.y,
+      px: point.x,
+      py: point.y,
     });
   }
 
@@ -119,6 +139,7 @@ export class Physics {
     const planckShape =
       shape.type === 'circle' ? new Circle(shape.radius) : new Box(shape.width / 2, shape.height / 2);
     body.createFixture(planckShape, material);
+    if (shape.type === 'box') this.halfExtents.set(id, { x: shape.width / 2, y: shape.height / 2 });
     body.setUserData(id);
     this.bodies.set(id, body);
   }
@@ -129,6 +150,7 @@ export class Physics {
     if (this.grabbedId === id) this.release();
     this.world.destroyBody(body);
     this.bodies.delete(id);
+    this.halfExtents.delete(id);
   }
 
   has(id: EntityId): boolean {
@@ -155,6 +177,13 @@ export class Physics {
     body.setAwake(true);
   }
 
+  /** Move a body, keeping its velocity. Used to rescue things stuck in the ground. */
+  setPosition(id: EntityId, x: number, y: number): void {
+    const body = this.requireBody(id);
+    body.setPosition(Vec2(x, y));
+    body.setAwake(true);
+  }
+
   applyImpulse(id: EntityId, ix: number, iy: number): void {
     const body = this.requireBody(id);
     body.applyLinearImpulse(Vec2(ix, iy), body.getWorldCenter(), true);
@@ -164,19 +193,66 @@ export class Physics {
     return this.requireBody(id).getMass();
   }
 
-  /** True if the body touches something below it (ground or another body). */
-  isSupported(id: EntityId): boolean {
+  /**
+   * Let a body roll freely as a bouncy ball, or stand it back upright with
+   * its normal material. Rollo curls up this way.
+   */
+  setRolling(id: EntityId, rolling: boolean, restitution: number): void {
     const body = this.requireBody(id);
+    body.setFixedRotation(!rolling);
+    if (!rolling) {
+      body.setAngle(0);
+      body.setAngularVelocity(0);
+    }
+    body.setAngularDamping(rolling ? 1.2 : 0.1);
+    for (let f = body.getFixtureList(); f; f = f.getNext()) f.setRestitution(restitution);
+    body.setAwake(true);
+  }
+
+  /**
+   * The upward normal of whatever the body is standing on, or null if it is
+   * not supported. Picks the most upright contact.
+   */
+  supportNormal(id: EntityId): Vec | null {
+    const body = this.requireBody(id);
+    let best: Vec | null = null;
     for (let edge = body.getContactList(); edge; edge = edge.next ?? null) {
       const contact = edge.contact;
       if (!contact.isTouching()) continue;
       const manifold = contact.getWorldManifold(null);
       if (!manifold) continue;
-      // The normal points from fixture A to fixture B.
-      const sign = contact.getFixtureA().getBody() === body ? 1 : -1;
-      if (manifold.normal.y * sign > 0.5) return true;
+      // The normal points from fixture A to fixture B; flip it to point into this body.
+      const sign = contact.getFixtureA().getBody() === body ? -1 : 1;
+      const nx = manifold.normal.x * sign;
+      const ny = manifold.normal.y * sign;
+      if (ny < -0.3 && (best === null || ny < best.y)) best = { x: nx, y: ny };
     }
-    return false;
+    return best;
+  }
+
+  /**
+   * The entity touching this body on its `dir` side (1 right, -1 left), such
+   * as a pebble in a walking bug's way. Null if nothing is there.
+   */
+  blockedBy(id: EntityId, dir: 1 | -1): EntityId | null {
+    const body = this.requireBody(id);
+    for (let edge = body.getContactList(); edge; edge = edge.next ?? null) {
+      const contact = edge.contact;
+      if (!contact.isTouching()) continue;
+      const other = edge.other;
+      const otherId = other ? (other.getUserData() as EntityId | null) : null;
+      if (otherId == null) continue;
+      const manifold = contact.getWorldManifold(null);
+      if (!manifold) continue;
+      const sign = contact.getFixtureA().getBody() === body ? -1 : 1;
+      if (manifold.normal.x * sign * dir < -0.6) return otherId;
+    }
+    return null;
+  }
+
+  /** True if the body touches something below it (ground or another body). */
+  isSupported(id: EntityId): boolean {
+    return this.supportNormal(id) !== null;
   }
 
   /** Topmost (highest ID) dynamic body containing the point, or null. */
@@ -200,6 +276,14 @@ export class Physics {
       if (shape instanceof Circle) {
         const c = body.getWorldPoint(shape.getCenter());
         if (Vec2.distance(c, point) <= shape.getRadius() + pad) return true;
+      } else {
+        // Boxes: distance from the point to the box in its local frame.
+        const half = this.halfExtents.get(body.getUserData() as EntityId);
+        if (!half) continue;
+        const local = body.getLocalPoint(point);
+        const dx = Math.max(0, Math.abs(local.x) - half.x);
+        const dy = Math.max(0, Math.abs(local.y) - half.y);
+        if (Math.hypot(dx, dy) <= pad) return true;
       }
     }
     return false;
@@ -221,17 +305,23 @@ export class Physics {
   }
 
   moveGrab(x: number, y: number): void {
-    this.grabJoint?.setTarget(Vec2(x, Math.min(y, this.groundY - 0.05)));
+    const cx = Math.min(this.width - 0.05, Math.max(0.05, x));
+    this.grabJoint?.setTarget(Vec2(cx, Math.min(y, this.terrain.surfaceY(cx) - 0.05)));
   }
 
-  /** Drop the held body, capping its speed so it cannot tunnel. */
-  release(maxSpeed = Infinity): EntityId | null {
+  /**
+   * Drop the held body. With a velocity, the body leaves at that velocity
+   * (the cursor's fling); without one it keeps the joint's. Either way the
+   * speed is capped so nothing can tunnel.
+   */
+  release(maxSpeed = Infinity, velocity?: Vec): EntityId | null {
     const id = this.grabbedId;
     if (this.grabJoint) this.world.destroyJoint(this.grabJoint);
     this.grabJoint = null;
     this.grabbedId = null;
     if (id !== null && this.bodies.has(id)) {
       const body = this.requireBody(id);
+      if (velocity) body.setLinearVelocity(Vec2(velocity.x, velocity.y));
       const v = body.getLinearVelocity();
       const speed = v.length();
       if (speed > maxSpeed) body.setLinearVelocity(Vec2.mul(v, maxSpeed / speed));

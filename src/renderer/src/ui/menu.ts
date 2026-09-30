@@ -1,14 +1,14 @@
 import { Container, Graphics } from 'pixi.js';
 import { CONTENT } from '../../../game/data';
 import { VIEW_HEIGHT_PX, VIEW_WIDTH_PX } from '../../../game/constants';
-import { bugPose } from '../render/bugPose';
-import { BugSprite } from '../render/draw/bug';
+import { BugSprite, standaloneFrame } from '../render/draw/bug';
 import { stroke } from '../render/palette';
 import type { SlotSummary } from '../app/saveService';
 import { PictureButton } from './button';
 
-/** Each slot has its own bug color so players can tell them apart without words. */
-export const SLOT_COLORS = [0xff4d5e, 0x7bd84a, 0x4d9bff] as const;
+/** Each slot has its own bug and card color so players can tell them apart without words. */
+export const SLOT_BUGS = ['bug_ladybug_dot', 'bug_pillbug_rollo', 'bug_snail_glorp'] as const;
+const SLOT_TINTS = [0xffe3de, 0xe6e9f0, 0xf0e6ff] as const;
 const CARD_W = 360;
 const CARD_H = 420;
 
@@ -37,8 +37,8 @@ export class MenuScene extends Container {
     bg.moveTo(0, 930).lineTo(VIEW_WIDTH_PX, 930).stroke(stroke());
     this.addChild(bg);
 
-    const bip = CONTENT.bugs.get('bip');
-    this.logo = new BugSprite({ ...bip, radius: 1.1 });
+    const dot = CONTENT.bugs.get('bug_ladybug_dot');
+    this.logo = new BugSprite({ ...dot, radius: 1.1 });
     this.logo.position.set(VIEW_WIDTH_PX / 2, 230);
     this.addChild(this.logo);
 
@@ -54,10 +54,10 @@ export class MenuScene extends Container {
 
   private cardArt(slot: SlotSummary, index: number): Container {
     const c = new Container();
-    const color = SLOT_COLORS[index % SLOT_COLORS.length]!;
+    const tint = SLOT_TINTS[index % SLOT_TINTS.length]!;
     const card = new Graphics()
       .roundRect(-CARD_W / 2, -CARD_H / 2, CARD_W, CARD_H, 40)
-      .fill(0xfffbef)
+      .fill(tint)
       .stroke(stroke(8));
     // Window onto the slot's world.
     card
@@ -67,8 +67,9 @@ export class MenuScene extends Container {
     card.roundRect(-CARD_W / 2 + 30, -CARD_H / 2 + 30, CARD_W - 60, CARD_H - 150, 26).stroke(stroke(5));
     c.addChild(card);
 
-    const bug = new BugSprite({ ...CONTENT.bugs.get('bip'), body: color, spots: null, radius: 0.5 });
-    bug.position.set(0, 140);
+    const def = CONTENT.bugs.get(SLOT_BUGS[index % SLOT_BUGS.length]!);
+    const bug = new BugSprite({ ...def, radius: def.radius * 1.3 });
+    bug.position.set(0, 175 - def.radius * 130);
     this.cardBugs.push(bug);
     c.addChild(bug);
 
@@ -99,18 +100,8 @@ export class MenuScene extends Container {
 
   update(dt: number): void {
     this.time += dt;
-    this.logo.setPose(
-      bugPose({ mode: 'idle', vx: 0, vy: 0, time: this.time, squash: 0, phase: 0 }),
-      1,
-      this.time,
-    );
-    this.cardBugs.forEach((b, i) =>
-      b.setPose(
-        bugPose({ mode: 'walk', vx: 0, vy: 0, time: this.time * 0.5, squash: 0, phase: i }),
-        1,
-        this.time,
-      ),
-    );
+    this.logo.update(standaloneFrame('st_idle', this.time, dt, 0));
+    this.cardBugs.forEach((b, i) => b.update(standaloneFrame('st_wander', this.time, dt, i * 2.3)));
     for (const b of this.buttons) b.update(dt);
   }
 }

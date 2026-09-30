@@ -7,6 +7,8 @@ import { SECRETS } from './secrets';
 import type { Registry } from './registry';
 import { ID_PATTERN } from './registry';
 import type { AreaDef, BugDef, ItemDef, PotionDef, RecipeDef, SecretDef } from './types';
+import { NEED_IDS } from './types';
+import { VIEW_HEIGHT_M } from '../constants';
 
 export * from './types';
 export { AREAS, BUGS, ITEMS, POTIONS, RECIPES, SECRETS };
@@ -78,9 +80,46 @@ export function validateContent(content: Content = CONTENT): string[] {
   if (!content.areas.all.some((a) => a.unlockedByDefault))
     errors.push('at least one area must be unlocked by default');
 
+  for (const area of content.areas.all) {
+    const where = `area ${area.id}`;
+    const width = area.xEnd - area.xStart;
+    const t = area.terrain;
+    const first = t[0];
+    const last = t[t.length - 1];
+    if (!first || !last || t.length < 2) errors.push(`${where} terrain needs at least two points`);
+    else {
+      if (first[0] !== 0) errors.push(`${where} terrain must start at x=0`);
+      if (Math.abs(last[0] - width) > 1e-9) errors.push(`${where} terrain must end at the area width`);
+      t.forEach(([x, y], i) => {
+        const prev = t[i - 1];
+        if (prev && x - prev[0] < 0.01) errors.push(`${where} terrain x must increase (point ${i})`);
+        if (!(y > 0 && y < VIEW_HEIGHT_M)) errors.push(`${where} terrain y is off screen (point ${i})`);
+      });
+    }
+    for (const s of area.start) {
+      const reg = s.kind === 'bug' ? content.bugs : content.items;
+      ref(reg, s.defId, `${where} start`);
+      if (s.x < 0 || s.x > width) errors.push(`${where} start ${s.defId} is outside the area`);
+    }
+    for (const r of area.respawn) {
+      ref(content.items, r.item, `${where} respawn`);
+      if (!(r.count > 0)) errors.push(`${where} respawn count must be positive`);
+    }
+  }
+
   for (const bug of content.bugs.all) {
-    if (bug.radius <= 0) errors.push(`bug ${bug.id} radius must be positive`);
-    if (bug.speed <= 0) errors.push(`bug ${bug.id} speed must be positive`);
+    const where = `bug ${bug.id}`;
+    if (bug.radius <= 0) errors.push(`${where} radius must be positive`);
+    if (bug.speed <= 0) errors.push(`${where} speed must be positive`);
+    ref(content.areas, bug.home, where);
+    for (const id of [...bug.loves, ...bug.likes, ...bug.dislikes]) ref(content.items, id, where);
+    for (const need of NEED_IDS) {
+      const w = bug.needWeights[need];
+      if (!(w >= 0.5 && w <= 1.5)) errors.push(`${where} ${need} weight must be 0.5 to 1.5`);
+    }
+    const v = bug.voice;
+    if (!(v.low > 0 && v.high >= v.low && v.syllablesPerSecond > 0))
+      errors.push(`${where} voice needs a positive pitch range and syllable rate`);
   }
 
   for (const item of content.items.all) {
@@ -88,6 +127,8 @@ export function validateContent(content: Content = CONTENT): string[] {
     const s = item.shape;
     if (s.type === 'circle' ? s.radius <= 0 : s.width <= 0 || s.height <= 0)
       errors.push(`item ${item.id} has a non-positive size`);
+    if (item.launchSpeed !== undefined && !(item.launchSpeed > 0))
+      errors.push(`item ${item.id} launchSpeed must be positive`);
   }
 
   const recipeKeys = new Set<string>();

@@ -25,6 +25,16 @@ export interface TestHook {
   setPaused(paused: boolean): void;
   isPaused(): boolean;
   sfxLog(): string[];
+  /** Recent gibberish lines: which bug and in what mood. */
+  voiceLog(): { defId: string; emotion: string }[];
+  /** Recent sim events, newest last. */
+  events(): { name: string; tick: number; payload: unknown }[];
+  /** The cursor velocity (m/s) sent with the last release, or null after a poke. */
+  lastRelease(): Point | null;
+  /** Update-plus-render time (ms) of the last `n` frames in the world. */
+  frameTimes(n: number): number[];
+  /** Live particles and entity sprites. */
+  renderStats(): { particles: number; sprites: number };
   saveNow(): Promise<void>;
   listSlots(): Promise<SlotInfo[]>;
 }
@@ -65,6 +75,14 @@ export function installTestHook(game: Game): void {
     setPaused: (p) => game.setPaused(p),
     isPaused: () => game.paused,
     sfxLog: () => [...game.sfx.log],
+    voiceLog: () => game.voices.log.map((l) => ({ ...l })),
+    events: () => game.eventLog.map((e) => ({ ...e })),
+    lastRelease: () => game.session?.input.lastRelease ?? null,
+    frameTimes: (n) => game.frameTimes.slice(-n),
+    renderStats: () => ({
+      particles: game.session?.view.particles.count ?? 0,
+      sprites: game.session?.view.spriteCount ?? 0,
+    }),
     saveNow: () => game.saveNow(),
     listSlots: () => game.api.saves.list(),
   };

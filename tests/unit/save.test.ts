@@ -45,7 +45,7 @@ describe('serialization', () => {
   it('keeps entity IDs unique after load', () => {
     const sim = Sim.create();
     const restored = Sim.load(sim.serialize());
-    const fresh = restored.spawn('item', 'pebble', 3, GROUND_Y - 1);
+    const fresh = restored.spawn('item', 'item_pebble', 7, GROUND_Y - 1);
     expect(sim.entities.has(fresh.id)).toBe(false);
   });
 
@@ -104,6 +104,54 @@ describe('loadSaveFile', () => {
     const out = loadSaveFile(JSON.parse(JSON.stringify(v1)), migrations, 3);
     expect(out.version).toBe(3);
     expect(out.view.cameraX).toBe(7);
+  });
+
+  it('migrates a version 1 save: new bug brains, and placeholder content is dropped on load', () => {
+    const v1 = {
+      version: 1,
+      savedAt: '2026-01-01T00:00:00.000Z',
+      view: { cameraX: 2 },
+      world: {
+        seed: 'old',
+        tick: 50,
+        rng: [1, 2, 3, 4],
+        nextId: 4,
+        entities: [
+          {
+            id: 1,
+            kind: 'bug',
+            defId: 'bug_ladybug_dot',
+            body: { x: 7, y: 8.6, angle: 0, vx: 0, vy: 0, av: 0 },
+            bug: { mode: 'dizzy', timer: 40, targetX: 7, facing: -1 },
+          },
+          {
+            id: 2,
+            kind: 'bug',
+            defId: 'bip',
+            body: { x: 9, y: 8.5, angle: 0, vx: 0, vy: 0, av: 0 },
+            bug: { mode: 'walk', timer: 0, targetX: 12, facing: 1 },
+          },
+          { id: 3, kind: 'item', defId: 'pebble', body: { x: 5, y: 8.7, angle: 0, vx: 0, vy: 0, av: 0 } },
+        ],
+      },
+    };
+    const save = loadSaveFile(JSON.stringify(v1));
+    expect(save.version).toBe(SAVE_VERSION);
+    const dot = save.world.entities[0]!.bug!;
+    expect(dot).toMatchObject({ mode: 'st_dizzy', timer: 40, facing: -1, targetId: null, dizzyTicks: 40 });
+    expect(dot.needs.need_hunger).toBeGreaterThan(0);
+    expect(save.world.entities[1]!.bug!.mode).toBe('st_wander');
+    const sim = Sim.load(save.world);
+    expect(sim.entities.all().map((e) => e.defId)).toEqual(['bug_ladybug_dot']);
+    sim.run(60);
+  });
+
+  it('rejects a bug brain with missing needs', () => {
+    const save = valid();
+    const bug = save.world.entities.find((e) => e.kind === 'bug')!;
+    const broken = { ...bug, bug: { ...bug.bug!, needs: { need_hunger: 1 } } };
+    const bad = { ...save, world: { ...save.world, entities: [broken] } };
+    expect(() => loadSaveFile(bad)).toThrow(/needs are invalid/);
   });
 
   it('fails clearly when a migration is missing or wrong', () => {

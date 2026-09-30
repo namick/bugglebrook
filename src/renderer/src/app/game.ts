@@ -1,9 +1,10 @@
 import type { Application, FederatedPointerEvent, FederatedWheelEvent } from 'pixi.js';
-import { Container } from 'pixi.js';
-import { FixedStepper, Sim, VIEW_WIDTH_M, VIEW_WIDTH_PX } from '../../../game';
+import { Container, UPDATE_PRIORITY } from 'pixi.js';
+import { CONTENT, FixedStepper, Sim, VIEW_WIDTH_M, VIEW_WIDTH_PX } from '../../../game';
 import type { BugglebrookApi } from '../../../shared/ipc';
 import type { AudioBackend } from '../audio/synth';
 import { Sfx } from '../audio/sfx';
+import { BugVoices } from '../audio/voices';
 import { PointerController } from '../input/pointerController';
 import { Camera } from '../render/camera';
 import { WorldView } from '../render/worldView';
@@ -14,6 +15,10 @@ import { SaveService } from './saveService';
 export type SceneName = 'boot' | 'menu' | 'world';
 
 const AUTOSAVE_SECONDS = 20;
+/** Where the camera starts in a new world: Dot, Rollo, and the stump in view. */
+export const START_CAMERA_X = 3;
+/** How many recent frame times to keep for the performance check. */
+const FRAME_HISTORY = 900;
 
 interface WorldSession {
   slot: number;
@@ -36,6 +41,12 @@ export class Game {
   session: WorldSession | null = null;
   readonly saves: SaveService;
   readonly sfx: Sfx;
+  readonly voices: BugVoices;
+  /** Milliseconds of work (update and render) for recent frames, newest last. */
+  readonly frameTimes: number[] = [];
+  /** Recent sim events, newest last, for the test hook. */
+  readonly eventLog: { name: string; tick: number; payload: unknown }[] = [];
+  private frameStart = 0;
   private readonly stepper = new FixedStepper();
   private sinceSave = 0;
   private saving: Promise<void> = Promise.resolve();
@@ -47,10 +58,24 @@ export class Game {
   ) {
     this.saves = new SaveService(api.saves);
     this.sfx = new Sfx(audio);
+    this.voices = new BugVoices(audio, CONTENT.bugs);
     this.wireInput();
     api.onFlushRequest(() => this.saveNow());
     document.addEventListener('visibilitychange', () => this.setPaused(document.hidden));
-    app.ticker.add((ticker) => this.frame(Math.min(0.1, ticker.deltaMS / 1000)));
+    app.ticker.add((ticker) => {
+      this.frameStart = performance.now();
+      this.frame(Math.min(0.1, ticker.deltaMS / 1000));
+    });
+    // Runs after Pixi renders, so the time covers update and render.
+    app.ticker.add(
+      () => {
+        if (!this.session) return;
+        this.frameTimes.push(performance.now() - this.frameStart);
+        if (this.frameTimes.length > FRAME_HISTORY) this.frameTimes.shift();
+      },
+      undefined,
+      UPDATE_PRIORITY.UTILITY,
+    );
   }
 
   async start(): Promise<void> {
@@ -71,6 +96,7 @@ export class Game {
     const up = (): void => this.session?.input.up();
     stage.on('pointerup', up);
     stage.on('pointerupoutside', up);
+    stage.on('pointerleave', () => this.session?.input.leave());
     stage.on('wheel', (e: FederatedWheelEvent) => this.session?.input.wheel(e.deltaX, e.deltaY));
   }
 
@@ -94,9 +120,9 @@ export class Game {
     const save = await this.saves.load(slot);
     const sim = save ? Sim.load(save.world) : Sim.create({ seed: `slot-${slot}-${Date.now()}` });
     const camera = new Camera(sim.worldWidth, VIEW_WIDTH_M);
-    camera.set(save ? save.view.cameraX : 0);
-    const view = new WorldView(sim);
+    camera.set(save ? save.view.cameraX : START_CAMERA_X);
     const input = new PointerController(sim, camera, VIEW_WIDTH_PX);
+    const view = new WorldView(sim, input);
     const root = new Container();
     const home = homeButton(() => {
       this.sfx.play('ui_pop');
@@ -108,6 +134,13 @@ export class Game {
     this.menu = null;
     this.app.stage.addChild(root);
     this.sfx.attach(sim.events);
+    this.voices.attach(sim.events);
+    this.frameTimes.length = 0;
+    this.eventLog.length = 0;
+    sim.events.onAny((name, payload) => {
+      this.eventLog.push({ name, tick: sim.tick, payload });
+      if (this.eventLog.length > 400) this.eventLog.shift();
+    });
     this.session = { slot, sim, camera, view, input, root, home };
     this.stepper.reset();
     this.sinceSave = 0;
@@ -118,6 +151,7 @@ export class Game {
   private closeWorld(): void {
     if (!this.session) return;
     this.sfx.detach();
+    this.voices.detach();
     this.session.sim.events.clear();
     this.session.root.destroy({ children: true });
     this.session = null;

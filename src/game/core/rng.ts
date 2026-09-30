@@ -86,8 +86,9 @@ export class Rng {
     return items[this.int(0, items.length - 1)] as T;
   }
 
+  /** The state as four unsigned 32-bit integers (some steps leave them signed). */
   getState(): RngState {
-    return [this.a, this.b, this.c, this.d];
+    return [this.a >>> 0, this.b >>> 0, this.c >>> 0, this.d >>> 0];
   }
 
   setState(state: RngState): void {

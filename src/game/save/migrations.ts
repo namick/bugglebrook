@@ -9,9 +9,49 @@ import { validateSaveFile } from './validate';
  */
 export type Migration = (save: Record<string, unknown>) => Record<string, unknown>;
 
+const V1_MODES: Readonly<Record<string, string>> = {
+  idle: 'st_idle',
+  walk: 'st_wander',
+  held: 'st_airborne',
+  tumble: 'st_airborne',
+  dizzy: 'st_dizzy',
+};
+
 export const MIGRATIONS: Readonly<Record<number, Migration>> = {
-  // Example for the first real change:
-  // 1: (save) => ({ ...save, version: 2, world: { ...(save.world as object), weather: 'sunny' } }),
+  // 1 -> 2: M1 bug brains. Modes take their design-doc names, and bugs gain
+  // needs and the bookkeeping for seeking, using, and dizzy spells.
+  1: (save) => {
+    const world = save.world as Record<string, unknown>;
+    const entities = (world.entities as Record<string, unknown>[]).map((e) => {
+      if (e.kind !== 'bug') return e;
+      const old = e.bug as Record<string, unknown>;
+      const targetX = typeof old.targetX === 'number' ? old.targetX : 0;
+      return {
+        ...e,
+        bug: {
+          mode: V1_MODES[old.mode as string] ?? 'st_idle',
+          timer: old.timer,
+          targetX,
+          targetId: null,
+          action: null,
+          facing: old.facing,
+          needs: { need_hunger: 70, need_fun: 70, need_energy: 80 },
+          decideIn: 30,
+          airPeak: 0,
+          selfLaunched: false,
+          lastHardLanding: -1,
+          dizzyStreak: 0,
+          dizzyTicks: old.mode === 'dizzy' ? old.timer : 0,
+          used: [],
+          stuck: 0,
+          tries: 0,
+          done: false,
+          lastX: targetX,
+        },
+      };
+    });
+    return { ...save, version: 2, world: { ...world, entities } };
+  },
 };
 
 export class SaveError extends Error {

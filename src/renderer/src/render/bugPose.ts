@@ -6,14 +6,16 @@ export interface BugPoseInput {
   vy: number;
   /** Seconds since start, for idle animation. */
   time: number;
-  /** Landing squash, 0 (none) to 1 (full), decays in the renderer. */
-  squash: number;
   /** Per-bug phase offset so bugs do not animate in lockstep. */
   phase: number;
+  /** Ticks left in the current mode (for timed wiggles). */
+  timer?: number;
+  /** Walking speed of this species in m/s, to pace the legs. */
+  walkSpeed?: number;
 }
 
 export interface BugPose {
-  /** Horizontal and vertical scale for squash and stretch. */
+  /** Horizontal and vertical scale for breathing and gait. */
   sx: number;
   sy: number;
   /** Body rotation in radians. */
@@ -22,68 +24,118 @@ export interface BugPose {
   bob: number;
   /** Leg animation phase in radians. */
   legPhase: number;
+  /** How far legs swing, 0 (still) to 1 (full stride). */
+  stride: number;
   /** Eye openness, 0 closed to 1 open. */
   eyeOpen: number;
   dizzy: boolean;
+  /** Flailing legs: held or flying. */
+  flail: boolean;
 }
 
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
 
+/** Cheap deterministic hash to [0, 1). */
+export function hash01(a: number, b: number): number {
+  const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
+  return s - Math.floor(s);
+}
+
+/**
+ * Blinks every few seconds at pseudo-random moments: one blink per 4 s
+ * bucket, at a hashed offset, so gaps range from about 1 to 7 s.
+ */
+export function blinkAmount(time: number, phase: number): number {
+  const bucket = Math.floor(time / 4);
+  const at = bucket * 4 + 0.3 + hash01(bucket, phase) * 3.4;
+  const d = time - at;
+  if (d < 0 || d > 0.16) return 0;
+  // Close fast, open a touch slower.
+  return d < 0.06 ? d / 0.06 : 1 - (d - 0.06) / 0.1;
+}
+
 /**
  * Compute a bug's cartoon pose from its sim state. Pure so it can be tested
- * and so the renderer stays a thin layer. Volume is roughly preserved:
- * stretching tall makes the bug thinner and squashing makes it wider.
+ * and so the renderer stays a thin layer. Scales keep volume roughly
+ * constant: stretching tall makes the bug thinner.
  */
 export function bugPose(input: BugPoseInput): BugPose {
   const t = input.time + input.phase;
+  const speed = Math.hypot(input.vx, input.vy);
   let sx = 1;
   let sy = 1;
   let tilt = 0;
   let bob = 0;
   let legPhase = 0;
+  let stride = 0;
+  let flail = false;
 
   switch (input.mode) {
-    case 'idle':
-      sy = 1 + 0.035 * Math.sin(t * 3);
-      sx = 1 - 0.02 * Math.sin(t * 3);
-      legPhase = Math.sin(t * 1.5) * 0.2;
-      break;
-    case 'walk':
-      bob = -Math.abs(Math.sin(t * 11)) * 5;
-      legPhase = t * 11;
-      tilt = Math.sin(t * 11) * 0.05;
-      break;
-    case 'held':
-      legPhase = t * 28;
-      sy = 1.08 + 0.03 * Math.sin(t * 20);
-      sx = 1 / sy;
-      break;
-    case 'tumble': {
-      const stretch = clamp(Math.hypot(input.vx, input.vy) / 30, 0, 0.3);
-      sy = 1 + stretch;
-      sx = 1 - stretch * 0.5;
-      tilt = clamp(input.vx * 0.04, -0.6, 0.6);
-      legPhase = t * 20;
+    case 'st_idle':
+    case 'st_react':
+    case 'st_recover':
+    case 'st_landing': {
+      // Breathing: 1.0 to 1.03 tall at 0.3 Hz.
+      const breath = (Math.sin(t * Math.PI * 2 * 0.3) + 1) / 2;
+      sy = 1 + 0.03 * breath;
+      sx = 1 / Math.sqrt(sy);
+      if (input.mode === 'st_recover') tilt = Math.sin(t * 22) * 0.12; // shaking it off
+      if (input.mode === 'st_react') {
+        const wiggle = Math.sin(t * 30) * 0.06;
+        tilt = wiggle;
+        sy *= 1.04;
+      }
       break;
     }
-    case 'dizzy':
-      tilt = Math.sin(t * 4) * 0.15;
-      legPhase = Math.sin(t * 2) * 0.3;
+    case 'st_wander':
+    case 'st_seek': {
+      const pace = Math.max(0.3, input.walkSpeed ?? 1) * 7;
+      legPhase = t * pace;
+      stride = clamp(speed / Math.max(0.3, input.walkSpeed ?? 1), 0, 1);
+      bob = -Math.abs(Math.sin(legPhase)) * 4 * stride;
+      tilt = Math.sin(legPhase) * 0.04 * stride;
+      sy = 1 + 0.025 * Math.sin(legPhase * 2) * stride;
+      sx = 1 / sy;
+      break;
+    }
+    case 'st_eat': {
+      // Three chews: a little squash on each bite.
+      const chew = Math.max(0, Math.sin(t * 12));
+      sx = 1 + 0.08 * chew;
+      sy = 1 - 0.05 * chew;
+      tilt = 0.08;
+      break;
+    }
+    case 'st_held':
+      flail = true;
+      legPhase = t * 26;
+      stride = 1;
+      tilt = Math.sin(t * 5) * 0.1;
+      break;
+    case 'st_airborne':
+    case 'st_use':
+      flail = true;
+      legPhase = t * 20;
+      stride = 1;
+      break;
+    case 'st_dizzy':
+      tilt = Math.sin(t * 3.5) * 0.18;
+      legPhase = t * 4;
+      stride = 0.5;
+      bob = -Math.abs(Math.sin(t * 3.5)) * 3;
       break;
   }
 
-  const squash = clamp(input.squash, 0, 1);
-  sy *= 1 - 0.4 * squash;
-  sx *= 1 + 0.4 * squash;
-
-  const blinking = input.mode !== 'dizzy' && t % 3.7 < 0.12;
+  const blink = input.mode === 'st_dizzy' ? 0 : blinkAmount(input.time, input.phase);
   return {
     sx,
     sy,
     tilt,
     bob,
     legPhase,
-    eyeOpen: blinking ? 0.1 : 1,
-    dizzy: input.mode === 'dizzy',
+    stride,
+    eyeOpen: 1 - blink,
+    dizzy: input.mode === 'st_dizzy',
+    flail,
   };
 }

@@ -9,7 +9,7 @@ async function lonelyItem(page: Page): Promise<EntityView> {
   const bugs = all.filter((e) => e.kind === 'bug');
   const items = all.filter((e) => e.kind === 'item');
   const distance = (e: EntityView): number => Math.min(...bugs.map((b) => Math.abs(b.x - e.x)));
-  const onScreen = items.filter((e) => e.x > 2 && e.x < 17);
+  const onScreen = items.filter((e) => e.x > 4 && e.x < 15 && e.defId !== 'item_leaf');
   return onScreen.sort((a, b) => distance(b) - distance(a))[0]!;
 }
 
@@ -33,8 +33,8 @@ test('choosing a slot opens the world, and dragging a prop with the mouse moves 
     await clickSlot(page, 0);
 
     const all = await entities(page);
-    expect(all.filter((e) => e.kind === 'bug').length).toBeGreaterThanOrEqual(2);
-    expect(all.filter((e) => e.kind === 'item').length).toBeGreaterThanOrEqual(2);
+    expect(all.filter((e) => e.kind === 'bug').length).toBe(3);
+    expect(all.filter((e) => e.kind === 'item').length).toBeGreaterThanOrEqual(10);
 
     // Bugs wander on their own.
     const tick0 = await page.evaluate(() => window.__bb!.tick());
@@ -85,10 +85,12 @@ test('the world autosaves, survives going home, and survives a restart', async (
   const userData = bb.userData;
   try {
     await clickSlot(bb.page, 2);
+    const before = new Set((await entities(bb.page)).map((e) => e.id));
     await bb.page.evaluate(() =>
-      window.__bb!.send({ type: 'spawn', kind: 'item', defId: 'pebble', x: 9, y: 3 }),
+      window.__bb!.send({ type: 'spawn', kind: 'item', defId: 'item_pebble', x: 9, y: 3 }),
     );
-    await expect.poll(async () => (await entities(bb.page)).length).toBe(9);
+    await expect.poll(async () => (await entities(bb.page)).some((e) => !before.has(e.id))).toBe(true);
+    const pebble = (await entities(bb.page)).find((e) => !before.has(e.id))!;
 
     // Home button saves and returns to the menu.
     const home = await bb.page.evaluate(() => window.__bb!.homeButtonClient());
@@ -100,7 +102,9 @@ test('the world autosaves, survives going home, and survives a restart', async (
     await bb.close({ keepUserData: true });
     bb = await launchApp(userData);
     await clickSlot(bb.page, 2);
-    expect((await entities(bb.page)).length).toBe(9);
+    const restored = await entities(bb.page);
+    expect(restored.find((e) => e.id === pebble.id)?.defId).toBe('item_pebble');
+    expect(restored.filter((e) => e.kind === 'bug')).toHaveLength(3);
     expect(bb.errors).toEqual([]);
   } finally {
     await bb.close();

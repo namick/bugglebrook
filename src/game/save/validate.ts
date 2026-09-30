@@ -1,9 +1,44 @@
+import { BUG_MODES } from '../core/entities';
+
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
 const BODY_KEYS = ['x', 'y', 'angle', 'vx', 'vy', 'av'] as const;
-const BUG_MODES = new Set(['idle', 'walk', 'held', 'tumble', 'dizzy']);
+const BUG_MODES_SET = new Set<string>(BUG_MODES);
+const NEEDS = ['need_hunger', 'need_fun', 'need_energy'] as const;
+const BRAIN_NUMBERS = [
+  'timer',
+  'targetX',
+  'decideIn',
+  'airPeak',
+  'lastHardLanding',
+  'dizzyStreak',
+  'dizzyTicks',
+  'stuck',
+  'tries',
+  'lastX',
+] as const;
+
+/** Problems with a saved bug brain, or an empty list. */
+function brainProblems(bug: unknown): string[] {
+  if (!isObj(bug)) return ['is not an object'];
+  const errors: string[] = [];
+  if (!BUG_MODES_SET.has(bug.mode as string)) errors.push('has an unknown mode');
+  for (const k of BRAIN_NUMBERS) if (!isNum(bug[k])) errors.push(`${k} must be a number`);
+  if (bug.facing !== 1 && bug.facing !== -1) errors.push('facing must be 1 or -1');
+  if (bug.targetId !== null && !isNum(bug.targetId)) errors.push('targetId must be a number or null');
+  if (bug.action !== null && bug.action !== 'eat' && bug.action !== 'bounce')
+    errors.push('action is invalid');
+  const needs = bug.needs;
+  if (!isObj(needs) || !NEEDS.every((n) => isNum(needs[n]))) errors.push('needs are invalid');
+  if (typeof bug.selfLaunched !== 'boolean' || typeof bug.done !== 'boolean')
+    errors.push('flags are invalid');
+  const used = bug.used;
+  if (!Array.isArray(used) || !used.every((u) => isObj(u) && isNum(u.id) && isNum(u.tick)))
+    errors.push('used is invalid');
+  return errors;
+}
 
 /**
  * Structural check of a current-version save. Returns problems as strings.
@@ -44,15 +79,8 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
     const body = e.body;
     if (!isObj(body) || !BODY_KEYS.every((k) => isNum(body[k]))) errors.push(`${at}.body is invalid`);
     if (e.kind === 'bug') {
-      const bug = e.bug;
-      if (
-        !isObj(bug) ||
-        !BUG_MODES.has(bug.mode as string) ||
-        !isNum(bug.timer) ||
-        !isNum(bug.targetX) ||
-        (bug.facing !== 1 && bug.facing !== -1)
-      )
-        errors.push(`${at}.bug is invalid`);
+      const problems = brainProblems(e.bug);
+      if (problems.length > 0) errors.push(`${at}.bug is invalid: ${problems.join(', ')}`);
     }
     return undefined;
   });
