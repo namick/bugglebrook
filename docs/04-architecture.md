@@ -54,11 +54,15 @@ src/
     physics/physics.ts  The only planck import. Bodies are addressed by entity ID.
     systems/            Per-tick behavior. bugAi.ts is the bug state machine, needs, moods,
                         and reactions. dropTargets.ts picks where a dropped thing goes.
+                        tags.ts is tag state, water.ts is pure water math, and
+                        environment.ts runs water, fixtures, and the property rules.
     world/terrain.ts    The ground surface as a height field built from area polylines.
     data/               Content registries: areas, bugs, items, recipes, potions, secrets.
+                        materials.ts is the material table.
                         types.ts, registry.ts, and validateContent() in index.ts.
     save/               schema.ts (SAVE_VERSION, types), migrations.ts, validate.ts
-    commands.ts         The Command union: grab, drag, release, poke, tickle, shake, spawn, set_need
+    commands.ts         The Command union: grab, drag, release, poke, tickle, shake, spawn,
+                        focus, set_need, set_tag, set_weather
     events.ts           GameEvents: every event name and payload
     constants.ts        Units, gravity, logical resolution
     sim.ts              The Sim class that ties it together
@@ -72,8 +76,9 @@ src/
       main.ts           Boot: Pixi app, letterboxing, Game, test hook
       app/              game.ts (scene switching, loop, autosave), saveService.ts, memorySaves.ts
       render/           camera.ts, viewport.ts, bugPose.ts, bugFace.ts, juice.ts,
-                        reactions.ts, thoughts.ts (all pure), background.ts, worldView.ts,
-                        particles.ts, bubbles.ts, palette.ts,
+                        reactions.ts, thoughts.ts, tagLooks.ts, waveSurface.ts (all pure),
+                        background.ts, pondArt.ts, water.ts, worldView.ts, particles.ts,
+                        soapBubbles.ts, bubbles.ts, palette.ts,
                         draw/bug.ts, draw/face.ts, draw/item.ts, draw/pictogram.ts
       input/            pointerController.ts: pointer gestures to commands, camera moves,
                         tickles, shakes, and gesture sounds
@@ -100,7 +105,8 @@ build/icon.png          App icon source for electron-builder
 - The sim uses meters. The renderer multiplies by `PIXELS_PER_METER` (100).
 - Y points down in both sim and screen space, so no flipping is needed. Gravity is +20 m/s², about twice Earth's, which makes flings feel snappy at this scale.
 - Each area has a `terrain` polyline of [area-local x, y] points. `Terrain.fromAreas` joins them into one height field, and physics turns it into a static planck chain. The flat ground is at `GROUND_Y` = 9 m. The plaza's stump top is at 4 m, with root flares on both sides that are never steeper than about 60 degrees, so bugs can walk over it. Invisible walls sit at x = 0 and at the world's right edge.
-- The world is as wide as its areas. Areas tile left to right with no gaps, and `validateContent` checks that. M1 has one area, Mossy Stump Plaza, 38.4 m wide (2 screens). When the pond goes in to its left, a save migration has to shift every saved x by the pond's width.
+- The world is as wide as its areas. Areas tile left to right with no gaps, and `validateContent` checks that. Puddle Pond runs from 0 to 32 m and Mossy Stump Plaza from 32 to 70.4 m. Save version 4 moved everything in older saves 32 m to the right. Area data keeps area-local x, so plaza layout numbers did not change. Tests add `PLAZA_X` (`tests/unit/world.ts`, `tests/e2e/app.ts`) to plaza-local positions.
+- The pond is a dip in the terrain. Its rims sit at y 8.5, the bottom at 10.4, and the water rests at 8.72. The screen ends at 10.8, so the pond is 1.7 m deep, shallower than the doc's 2.6 m. The banks ease in at under 50 degrees so swimmers can walk out.
 - The logical resolution is 1920x1080, so one screen is 19.2 m wide. `fitViewport` letterboxes that into any window. The renderer resolution tracks the real device pixels, capped at 2x, so outlines stay sharp.
 
 ## The simulation
@@ -108,22 +114,25 @@ build/icon.png          App icon source for electron-builder
 `Sim` owns an `EntityStore`, a `Physics` world, an `Rng`, a `CommandQueue`, and an `EventBus<GameEvents>`. `sim.step()` advances exactly 1/60 s:
 
 1. Drain the command queue and apply each command.
-2. Run bug AI. Each bug reads its body state, what it stands on, and last step's impacts, and returns a velocity plus notices that become events.
-3. Step physics with 8 velocity and 3 position iterations.
-4. Handle new contacts. Contacts above 6 m/s become `bonked` events. Anything landing on a spring's top gets launched along the spring's axis. Impacts on bugs are kept for the next AI tick.
-5. Lift anything that ended up inside the ground back out (`sim.rescues` counts these; tests expect zero).
-6. Every 45 s, drop berries and leaves back in from the sky if the area has fewer than its `respawn` list asks for.
-7. Increment `tick`.
+2. Every 15 ticks, and whenever a `focus` command arrives, put far-away areas to sleep and wake near ones.
+3. Run bug AI. Each bug reads its body state, what it stands on, how deep it is in water, and last step's impacts, and returns a velocity plus notices that become events.
+4. `Environment.beforePhysics`: raise or drain the water, move lily pads and ice sheets, and apply buoyancy, water drag, the current, Skeet's surface stance, parachute drag, wind, magnet pulls, and the hose's push. Then tear any weld pulled too fast.
+5. Step physics with 8 velocity and 3 position iterations.
+6. Handle new contacts. Contacts above 6 m/s become `bonked` events. Anything landing on a spring's top gets launched along the spring's axis. Impacts on bugs are kept for the next AI tick.
+7. `Environment.afterPhysics`: measure how submerged each thing is, announce splashes and skips, weld sticky contacts, and every 15 ticks run the property rules.
+8. Lift anything that ended up inside the ground back out (`sim.rescues` counts these; tests expect zero).
+9. Every 45 s, drop consumables back in from the sky if an area has fewer than its `respawn` list asks for.
+10. Increment `tick`.
 
 Determinism rests on four things. The only randomness is the seeded sfc32 `Rng`. Entities iterate in ascending ID order. Time is the tick counter and never the clock. Commands only take effect at step boundaries. A test runs the same scripted commands on two sims and asserts that both serialize to identical saves.
 
 ### Entities
 
-An entity is `{ id, kind: 'bug' | 'item', defId, bug?: BugBrain }`. A new world is built from each area's `start` list. Physics state (position, angle, velocities) lives in the planck body, and `sim.views()` joins the two into plain `EntityView` objects for the renderer and the test hook. Component data stays plain JSON so it serializes without adapters. Add optional fields to `Entity` for new components such as hats, paint, or potion effects, and extend the save schema and validator to match.
+An entity is `{ id, kind: 'bug' | 'item', defId, bug?: BugBrain, tags?: TagState, soak?: number }`. A new world is built from each area's `start` list. Physics state (position, angle, velocities) lives in the planck body, and `sim.views()` joins the two into plain `EntityView` objects for the renderer and the test hook. Component data stays plain JSON so it serializes without adapters. Add optional fields to `Entity` for new components such as hats, paint, or potion effects, and extend the save schema and validator to match.
 
 ### Commands
 
-Input never touches physics directly. `PointerController` sends `grab {x, y}`, `drag {x, y}`, `release {vx, vy}`, `poke {x, y}`, and the tests also send `spawn`. On `grab`, the sim picks the topmost body within 0.2 m of the point. That is the highest entity ID, and the renderer draws in ID order, so the thing you see on top is the thing you grab. A planck `MouseJoint` then pulls the body toward the pointer.
+Input never touches physics directly. `PointerController` sends `grab {x, y}`, `drag {x, y}`, `release {vx, vy}`, `poke {x, y}`, and the tests also send `spawn`. A quick click on empty space also sends `poke`, which is how the hose tap and the sunken boot get clicked; the hand shows `hover_poke` over them. `Game` sends `focus` as the camera moves. `set_tag` and `set_weather` are for tests and debugging. On `grab`, the sim picks the topmost body within 0.2 m of the point. That is the highest entity ID, and the renderer draws in ID order, so the thing you see on top is the thing you grab. A planck `MouseJoint` then pulls the body toward the pointer.
 
 Holding a bug still for 600 ms (within 6 px of the press) sends `tickle {on: true}`, and moving the hand sends `tickle {on: false}`. Three back-and-forth strokes of 80 px or more within 0.8 s send `shake` (`ShakeDetector` is pure and tested). `set_need` is for tests and debugging.
 
@@ -133,15 +142,51 @@ On `release`, the controller sends the cursor's average velocity over the last 8
 
 When the player lets go gently, `pickDropTarget` in `systems/dropTargets.ts` checks every target within its snap radius and takes the one with the best priority, then the nearest. The rules come from section 2 of the design doc. Only priority 4 exists so far: a bug's mouth takes anything tagged `tag_edible` within 0.5 m (50 px) of the mouth anchor. Bugs that are held, flying, or already chewing offer no mouth. A thrown food that hits a bug within 1.5 s of leaving the hand also counts if it lands near the mouth. Later milestones add the pocket, containers, heads, paint, hands, and seats to `DROP_RULES`.
 
-Each bug def has a `mouth` anchor in meters from its center, facing right. `sim.mouthAnchor(id)` mirrors it for the bug's facing, and `sim.dropTargetFor(itemId)` answers "where would this go if dropped now". The renderer uses that to light up the mouth it would feed.
+Each bug def has a `mouth` anchor in meters from its center, facing right. `sim.mouthAnchor(id)` mirrors it for the bug's facing, and `sim.dropTargetFor(itemId)` answers "where would this go if dropped now". The renderer uses that to light up the mouth it would feed. M3 added no drop targets.
+
+### Tags and property rules
+
+Section 6 of the design doc drives this. Each item has a material (`data/materials.ts`), and the material's tags join the item def's tags as its defaults. Bugs have no defaults. `entity.tags` stores only changes from the defaults, as a map from tag to tick (see `systems/tags.ts`): a tick above 0 means "on until then", -1 means on for good, 0 means a default switched off for good, and a negative tick means a default switched off until that tick. Water and soap switch defaults off for 20 to 30 s, so washed gum is sticky again once it dries and a rinsed banana starts to stink again. `validateContent` rejects tags that are not in `TAG_IDS`.
+
+Use `sim.hasTag`, `sim.addTag(id, tag, cause, seconds?)`, `sim.removeTag`, and `sim.tagsOf`. They emit `tag_gained` and `tag_lost` with a cause, and update friction (wet 0.7x, frozen 0.05x). Adding wet to something hot, or hot to something wet, steams both off at once.
+
+`Environment` in `systems/environment.ts` holds the rules. Contact rules run on every touching pair, plus pairs that touched briefly since the last check, every 15 ticks (4 Hz), in both orders:
+
+- Soap cleans the other thing (sticky, slimy, smelly, painted, muddy) and soaks into absorbent things.
+- R2: wet meets hot. Both go, with a `steamed` event.
+- R4: frozen meets hot. It thaws to wet.
+- R3: wet meets cold (and the cold thing is not also hot). The wet thing freezes: 15 s for items, 4 s in an ice block for bugs. It thaws to wet.
+- R6: sticky welds to what it touches, also on first contact. Each sticky thing holds at most 3 welds. A weld tears when the hand pulls its target faster than 9 m/s (900 px/s), or when the two bodies move apart faster than that, which is how flings tear it. Hand speed spreads each move over the steps since the last move, because slow frames run several steps per drag. Bugs wriggle loose after 6 s. `env.sticks` saves welds, and loading rebuilds them.
+- R8: stink soaks into absorbent things.
+
+Area effects run at the same 4 Hz: water (R1: wet, and washes off muddy, smelly, slimy, painted, sticky, and hot with steam), rain after 5 s (R15), the hose spray, soap plus wet blowing bubbles every half second (R7), stink reaching bugs within 1.5 m (R8), and sparky things in water electrifying it for 2 s so swimming bugs get fuzzy hair (R9). Magnets (R10) and wind (R14) are forces applied every step. A cold thing that hits the water freezes a 2 m ice sheet for 30 s (R5), once per entry. Wringing a shaken sponge (R18) drips its water or soap onto everything below it.
+
+Some things M3 can only reach through debug commands: `set_weather` sets wind and rain until M6 brings weather, and `set_tag` adds sparky or painted since no item has them yet.
+
+Eating leaves tags too. Hot food makes the eater hot for 20 s, cold food cold for 10 s, bouncy food (the jelly bean) makes it hop once 50 ticks later, and soap comes back up as a bubbly burp.
+
+### Water
+
+`systems/water.ts` has the pure math: the submerged fraction of a circle or box, where a flat surface meets the terrain, buoyant acceleration, the stone-skip test, and the hose's spray arc. Each area may have a `water` def and `fixtures`.
+
+- Buoyancy uses the def's density divided by `hull`. Rafts and boats are hollow, so they carry bugs. A floater settles where its submerged fraction equals that density. Vertical damping follows each floater's own bob frequency, so a cork settles as fast as a raft. Flat floaters get a righting torque, and boats right themselves to upright. Paper boats go soggy after 40 s soaking and sink.
+- Floaters ride a 0.08 m/s current to the right.
+- A low, fast throw (under 20 degrees, over 10 m/s) skips.
+- The hose tap is a fixture. A click on empty space sends `poke`, and `pokeFixture` toggles the hose. While it runs, the water rises 0.02 m/s up to 0.18 m and drains at 0.005 m/s after. The spray wets what it passes and pushes light things along.
+- Lily pads and ice sheets are kinematic platforms in `Physics` (`setPlatform`). They are part of the world, not entities, so they cannot be grabbed. Pads sink a little under weight and bob back.
+- `overOpenWater(x)` is water with no pad or ice on it. Bugs that cannot skate never walk or wander onto open water, and never seek food floating there.
+
+### Area sleep
+
+The renderer sends `focus {x0, x1}` when the camera moves more than 0.25 m. An area sleeps when a whole screen (19.2 m) or more of space separates it from the view. Its bodies are switched off, and its bugs, water, and fixtures pause. Held things never sleep. With only two areas, the pond sleeps only when the camera is at the plaza's far right. Without a focus (tests, headless runs) nothing sleeps. Off-screen coarse simulation of sleeping bugs waits for M4.
 
 ### Events
 
-`GameEvents` in `src/game/events.ts` lists every event. Names are snake_case and past tense, for example `item_grabbed`, `item_dropped`, `item_poked`, `item_shaken`, `bonked`, `spring_bounced`, `bug_landed`, `bug_dizzy`, `bug_recovered`, `bug_fed`, `bug_ate`, `bug_spat`, `bug_burped`, `bug_reacted`, `bug_tickled`, `bug_wriggled_free`, `bug_used`, and `entity_removed`. Handlers run synchronously during `step()`. A throwing handler does not stop the others. Subscribers must not change sim state from a handler. If a reaction needs to change the world, it sends a command.
+`GameEvents` in `src/game/events.ts` lists every event. Names are snake_case and past tense, for example `item_grabbed`, `item_dropped`, `item_poked`, `item_shaken`, `bonked`, `spring_bounced`, `bug_landed`, `bug_dizzy`, `bug_recovered`, `bug_fed`, `bug_ate`, `bug_spat`, `bug_burped`, `bug_reacted`, `bug_tickled`, `bug_wriggled_free`, `bug_used`, and `entity_removed`. M3 added `tag_gained`, `tag_lost`, `splashed`, `left_water`, `skipped`, `steamed`, `froze`, `thawed`, `ice_formed`, `ice_melted`, `stuck`, `unstuck`, `bubbles_blown`, `bug_smelled`, `water_zapped`, `magnet_snapped`, `bug_swam`, `bug_shook_dry`, `wrung_out`, `hose_toggled`, `boot_bubbled`, `area_slept`, and `area_woke`. Handlers run synchronously during `step()`. A throwing handler does not stop the others. Subscribers must not change sim state from a handler. If a reaction needs to change the world, it sends a command.
 
 Current subscribers:
 
-- `Sfx` plays grabs and impacts tuned to each material (wood, metal, rubber, stone, glass, leaf, food, bug), whooshes, pokes, springs, the three chomps of a bite, the gulp of a swallow, a gag, "ptoo", sneezes, burps, flame and chill puffs, a chime for loved food, tickles, rattles, hops, dizzy tweets, and the respawn whistle.
+- `Sfx` plays grabs and impacts tuned to each material (wood, metal, rubber, stone, glass, leaf, food, bug), whooshes, pokes, springs, the three chomps of a bite, the gulp of a swallow, a gag, "ptoo", sneezes, burps, flame and chill puffs, a chime for loved food, tickles, rattles, hops, dizzy tweets, and the respawn whistle. For M3 it adds splashes and plops, skips, steam hisses, freezing crackles, thaw drips, the gum's squelch and pop, the magnet's clink, bubbles, stink, the shake-dry "brrr", the tap's clicks, the boot's blub, the sponge's squish, and the zap. `WorldView.onSound` adds bubble pops and the running hose's trickle.
 - `BugVoices` speaks the voice of each `bug_reacted` (from the reaction table), plus giggles for tickles, gasps for disliked food, and lines for dizzy spells, recoveries, bounces, and choices.
 - `WorldView` kicks squash springs, shows speech bubbles, and spawns dust, stars, sparkles, crumbs, hearts, flame puffs, snowflakes, spit droplets, burp clouds, bubbles, and fling trails. Very hard landings shake the screen a few pixels.
 
@@ -163,6 +208,11 @@ The journal, secrets, and music will subscribe the same way.
 - Moods. `moodOf` follows section 5: grumpy (for 8 s after disliked food), then sleepy, hungry, bored, happy, and content. The renderer uses mood for idle faces and for voice pitch and pace.
 - Tickles and shakes. A tickled bug laughs a level harder each second (`bug_tickled` levels 1 to 3) and wriggles free of the hand at 3 s. A shaken bug is woozy for 1 s.
 - Glorp is `dizzyProof`. A hard landing sends him into his shell for a `land_hard` reaction (2.5 s in `st_react`, spinning like a top) instead of `st_dizzy`.
+- Swimming. A bug that cannot skate and is more than 35 percent under water enters `st_swim` and plays `splash`. Each bug def has a `swim` style that sets its float density: Dot paddles, Glorp floats shell-up like a boat, and Rollo sinks and walks the bottom holding his breath. A swimmer heads for the nearest shore, kicks up and over when stuck against a pad or bank, and climbs out. On land it plays `shake_dry` in `st_react`, which removes `tag_wet`. A bug stranded on a pad or ice with water all round jumps back in now and then.
+- Skeet (`swim: 'skate'`) stands on open water. Before each step the environment snaps him to the surface and cancels gravity, and the sim hands his AI a flat support normal, so walking works unchanged. Touchdown counts as a gentle landing and never makes him dizzy. On a raft or pad he stands like anywhere else. `glidesWhenFlung` gives him parachute drag, so he falls at about 3 m/s.
+- Home and water. Wandering keeps a bug inside its home area when it is there and drifts it back when it is not. Non-skaters stop at the water's edge.
+- Stink (R8). `smellBug` makes a bug in `st_idle`, `st_wander`, `st_seek`, `st_landing`, or `st_recover` react at most every 10 s. Stink lovers (`likesStink`, Rollo) stop for a happy sniff. The rest pull a face and walk 4 m away. Held and mouthed things give off no smell, so feeding still works.
+- A frozen bug does nothing until it thaws.
 
 Bug bodies use `fixedRotation`, so bugs stay upright. Tumbling, stretch, and squash are cosmetic and live in the renderer.
 
@@ -178,14 +228,14 @@ Each file in `src/game/data/` exports one registry built with `createRegistry(ki
 
 `tests/unit/data.test.ts` requires the list to be empty. When a new kind of reference appears, add a check there.
 
-Content follows `03-game-design.md` and uses its IDs. There is one area (`area_stump_plaza`), three bugs (`bug_ladybug_dot`, `bug_pillbug_rollo`, `bug_snail_glorp`), and sixteen item kinds. M2 added six foods to the plaza: sugar cube, mint leaf, hot pepper flake, banana mush, moss tuft, and jelly bean. Some of them live in other areas in the design doc; they sit in the plaza until those areas exist. Each bug's `loves`, `likes`, and `dislikes` follow its profile, limited to foods that exist, and every bug has a loved, liked, neutral, and disliked food in the plaza (a unit test checks this). `validateContent` also rejects an item listed under two tastes and a mouth anchor behind the bug or far from its body. The recipe, potion, and secret registries are empty until their milestones. Item and bug sizes run a bit larger than the doc's pixel sizes so they read at 1080p.
+Content follows `03-game-design.md` and uses its IDs. There are two areas (`area_puddle_pond`, `area_stump_plaza`), four bugs (`bug_ladybug_dot`, `bug_pillbug_rollo`, `bug_snail_glorp`, and Skeet, `bug_waterstrider_skeet`), and twenty-six item kinds. M3 added the blueberry, cork, leaf raft, paper boat, sponge, soap sliver, bubble wand, and feather to the pond. The gum blob and horseshoe magnet come from the porch in the doc; they wait on the pond's banks until the porch exists. Glorp loves soap (his weird favorite) and Skeet loves blueberries. M2 added six foods to the plaza: sugar cube, mint leaf, hot pepper flake, banana mush, moss tuft, and jelly bean. Some of them live in other areas in the design doc; they sit in the plaza until those areas exist. Each bug's `loves`, `likes`, and `dislikes` follow its profile, limited to foods that exist, and every bug has a loved, liked, neutral, and disliked food in the plaza (a unit test checks this). `validateContent` also rejects an item listed under two tastes, a mouth anchor behind the bug or far from its body, unknown materials or tags, water outside its area, `onWater` starts or lily pads that are not on water, and bad fixture IDs or radii. The recipe, potion, and secret registries are empty until their milestones. Item and bug sizes run a bit larger than the doc's pixel sizes so they read at 1080p.
 
 ## Rendering
 
 The renderer reads the sim and never writes to it.
 
 - `WorldView` keeps one sprite per entity. Each frame it creates sprites for new entities, removes sprites for entities that are gone, skips anything off screen, and draws a soft shadow under everything. Per-entity juice (a `SquashSpring`, cosmetic spin, trail timer) lives here, not in the sim.
-- `BugSprite` draws three species: a ladybug whose shell opens for flying, a pill bug that curls into a ball, and a snail that pulls into its shell. Static parts are drawn once per body form. Legs, feet, antennae (spring-simulated), eyes, mouth, wings, and dizzy stars are redrawn each frame. Nested containers stretch along the velocity, squash on the feet, and flip for facing.
+- `BugSprite` draws four species: a ladybug whose shell opens for flying, a pill bug that curls into a ball, a snail that pulls into its shell, and a water strider with long rowing legs that leave dimples on the water, walk stiffly on land, spread like a parachute when flung, and dangle when held. Static parts are drawn once per body form. Legs, feet, antennae (spring-simulated), eyes, mouth, wings, and dizzy stars are redrawn each frame. Nested containers stretch along the velocity, squash on the feet, and flip for facing.
 - `bugPose()` (breathing, gait, flail, blinks) and `bugFace()` (eye and mouth shapes and body form per state and needs) are pure and unit-tested. So is `juice.ts`: the squash spring (stiffness 300, damping 18) and the stretch formula from section 15.
 - Pupils follow the cursor within 3 m, or food on offer. `PointerController.hoverWorld` and `hoverId` are the only input the view reads.
 - Reactions. `render/reactions.ts` is the table of how each reaction variant looks and sounds per bug: eyes, mouth, blush, face tint, body form, one or two pictograms, a voice emotion, a body move, and one-off particles. Love (heart eyes), yum (a lick), yuck (green, squeezed shut, tongue out), and hate (angry brows, gritted teeth, steam) are kept distinct on purpose, and a test checks it. `reactionShowing` limits each reaction to its own modes, and `movePose` turns a move (hop, spin, shrug, stomp, shell spin, and so on) into pose offsets. All of it is pure and tested.
@@ -199,6 +249,9 @@ The renderer reads the sim and never writes to it.
 - The static backdrop layers are baked once into 1024 px wide textures (`Background.bakeAll`), so a frame draws a few sprites instead of thousands of shapes.
 - When WebGL runs in software (SwiftShader or llvmpipe, as on CI under xvfb), `main.ts` renders at half resolution. Software GL is fill-rate bound and otherwise runs at a few frames per second.
 - Props use the shared 6 px outline from `palette.ts`.
+- Water. `WaterView` (`render/water.ts`) draws the pond in two layers. The back layer, behind entities, has the deep gradient, sun shafts, caustics, pond weed, the sunken teacup and boot, tadpoles that flee splashes, frog eyes that blink, lily pads with a bloom, ice sheets, the hose tap's wheel, and a dragonfly. The front layer, over entities, is a clear tint over whatever is under the surface, a pale band, the surface line, ripples, glints, and the hose spray. The surface wobbles with a spring-column `WaveSurface` plus a gentle swell. Splashes, paddlers, Skeet, and the spray disturb it, and heights cap at 22 px so it never tears. Floating things ride the ripples (`WaterView.bob`) in the renderer only.
+- The pond's static art lives in `pondArt.ts`: the sandy basin, muddy rims, reeds, cattails, boulders, the sitting stone and mud bank, the coiled hose, and a far glimpse of the pond in the mid layer. The front grass leaves a gap so it never hides the pond. The plaza's props are drawn relative to the plaza's `xStart`.
+- Tag looks. `tagLook(tags, submerged)` in `tagLooks.ts` is the pure table. `WorldView.tagEffects` draws it: wet tints darker and drips (faster for sponges, not in water) with beads on top, hot glows and shimmers, frozen sits in an ice block, cold sparkles with frost, smelly gives off stink lines and green puffs, soapy foams, sticky shines, and fuzzy grows spiky hair. Goo blobs mark welds, and red and blue field lines show a magnet pulling. `SoapBubbles` floats bubbles that pop on anything they touch.
 
 ### Camera
 
@@ -228,7 +281,7 @@ The renderer does not interpolate between sim steps yet. At 60 Hz that does not 
 - A `SaveFile` is `{ version, savedAt, world: WorldSave, view: { cameraX } }`. `WorldSave` holds the seed, tick, RNG state, next entity ID, and every entity with its body state and component data. A held item is saved as if it had been dropped.
 - `loadSaveFile(raw)` parses the JSON, refuses versions newer than the game, runs migrations one version at a time, then validates the structure. Any failure throws `SaveError`. The menu treats an unreadable slot as empty and does not overwrite it until the player picks that slot.
 - To change the format, bump `SAVE_VERSION` and add `MIGRATIONS[oldVersion]`. Never edit a migration that has shipped. Tests cover chained migrations and the error cases.
-- The format is at version 3. Version 2 was M1's bug brains. Version 3 adds `mouthful`, `reaction`, `variants`, `grumpyUntil`, `burpAt`, `tickle`, and `woozyUntil` to each bug. Its migration stops a bug that was mid-meal under the old rules, because M1 bugs ate food where it lay.
+- The format is at version 4. Version 4 moves every saved x (bodies, bug targets, the camera) 32 m right for the pond, adds bug `smelledAt` and `hopAt`, and adds optional entity `tags` and `soak` and `world.env` (water rise, hose, ice, welds, pads, weather). Version 2 was M1's bug brains. Version 3 adds `mouthful`, `reaction`, `variants`, `grumpyUntil`, `burpAt`, `tickle`, and `woozyUntil` to each bug. Its migration stops a bug that was mid-meal under the old rules, because M1 bugs ate food where it lay.
 - `Sim.load` skips entities whose definitions no longer exist. Removing content never bricks a save.
 - The game autosaves every 20 seconds while in the world. It also saves when the player goes home, when the window hides, and before quitting. On quit, main sends `app:flush-request`, waits up to 2 seconds for `app:flush-done`, then closes.
 
@@ -244,7 +297,7 @@ Setting `BUGGLEBROOK_USER_DATA=/some/dir` points userData at a throwaway directo
 
 `window.__bb` (type `TestHook` in `src/renderer/src/debug/testHook.ts`) offers:
 
-- state queries: `scene()`, `tick()`, `entities()`, `entity(id)`, `camera()`, `isPaused()`, `sfxLog()`, `voiceLog()`, `events()` (recent sim events with their tick), `lastRelease()` (the fling velocity sent), `frameTimes(n)` (update plus render ms), `renderStats()`, `listSlots()`, `cursor()` (pose, and the frames of the last pose change and pointer move), `bubbles()`, `glowing()`, `mouthOf(id)`, `dropTarget(itemId)`
+- state queries: `water()` (surfaces, hose, ice, pads, welds), `fixture(id)`, `areaAsleep(id)`, `areaAt(x)`, `soapBubbles()`, `scene()`, `tick()`, `entities()` (with `tags`, `submerged`, `soggy`, `asleep`), `entity(id)`, `camera()`, `isPaused()`, `sfxLog()`, `voiceLog()`, `events()` (recent sim events with their tick), `lastRelease()` (the fling velocity sent), `frameTimes(n)` (update plus render ms), `renderStats()`, `listSlots()`, `cursor()` (pose, and the frames of the last pose change and pointer move), `bubbles()`, `glowing()`, `mouthOf(id)`, `dropTarget(itemId)`
 - coordinate helpers for driving the real mouse: `worldToClient(x, y)`, `slotButtonClient(slot)`, `homeButtonClient()`
 - control: `send(command)`, `step(n)`, `setPaused()`, `saveNow()`, `clearLogs()`
 
@@ -256,7 +309,8 @@ E2E tests move the real mouse with `page.mouse`, then assert on game state throu
 - `tests/e2e/m1.spec.ts` checks the M1 acceptance criteria with the real mouse: launch time and frame time, hold and fling velocity, dizzy duration, pokes, and camera moves that leave items alone.
 - `tests/e2e/m2.spec.ts` checks M2: a berry dropped within 50 px of a mouth is eaten and one dropped farther away falls; disliked food is spat out and stays; three pokes never repeat a variant back to back; every verb makes a sound; hovering switches the hand to `hover_grab` within a frame; tickling ends in a wriggle; Glorp never gets dizzy. `tests/e2e/app.ts` has helpers for staging these: `content()` fills a bug's needs so it stays put, `spawnItem()` drops an item on a clear flat spot, and `holdNearMouth()` holds an item at an offset from a mouth.
 - `tests/unit/feeding.test.ts` and `tests/unit/reactions.test.ts` cover the M2 sim (drop targets, eating, spitting, burps, catches, saves mid-chew, variants, moods, tickles, shakes, Glorp) and the pure renderer modules (the reaction table, faces, moves, thoughts, bubbles, the cursor, shake detection, voices by mood, and sounds by material).
-- `pnpm shots` builds and runs `tests/shots/`, which walks through the game and writes screenshots to `/tmp/bb-shots` (or `$BB_SHOTS_DIR`). The first tour covers M1. The second (files `20-` to `37-`) feeds Rollo and Dot, catches the yum, yuck, hate, and love faces, the flame puff, burp, sneeze, a tickle, a thought bubble, and Glorp's shell spin. Use it to check art changes by eye. It is not part of CI.
+- `tests/unit/water.test.ts` and `tests/unit/properties.test.ts` cover M3's sim: buoyancy for every item, splashes, skips, the current, soggy paper, the hose, lily pads, Skeet, swimming, area sleep, each property rule, eating effects, saves, and the version 3 migration. `tests/unit/pondView.test.ts` covers the tag looks, the wave surface, swim faces, fixture clicks, and water sounds. `tests/e2e/m3.spec.ts` covers the M3 acceptance criteria with the real mouse: carrying something across the screen edge into the pond with its tags, floating and sinking, steam, the hose tap, a bug swimming out and shaking dry, gum sticking and tearing, and the pond sleeping. Pick drop spots on open water with its `openWater()`, because floaters drift and Skeet roams.
+- `pnpm shots` builds and runs `tests/shots/`, which walks through the game and writes screenshots to `/tmp/bb-shots` (or `$BB_SHOTS_DIR`). The first tour covers M1. The third (files `40-` to `55-`) visits the pond: Skeet, a splash, floaters, the hose, swimmers, shaking dry, ice, tag looks on items and bugs, gum, and soap bubbles. The second (files `20-` to `37-`) feeds Rollo and Dot, catches the yum, yuck, hate, and love faces, the flame puff, burp, sneeze, a tickle, a thought bubble, and Glorp's shell spin. Use it to check art changes by eye. It is not part of CI.
 - The frame-time check always requires update time under 16.7 ms (mean and 95th percentile over 600 frames). It checks update plus render time only on a hardware GPU, since software GL rasterizes on the CPU.
 - `BB_ELECTRON_ARGS` passes extra Chromium switches to the E2E launcher. `BB_ELECTRON_ARGS="--use-angle=swiftshader --use-gl=angle"` approximates CI's software renderer locally, though launches with it are flaky on Wayland.
 - `pnpm test:e2e` builds the app, then runs Playwright against `out/`. Each test launches a fresh app with its own userData. Locally it opens real windows in your desktop session. CI runs it under `xvfb-run`. The launcher removes `ELECTRON_RUN_AS_NODE` from the environment, because some editors built on Electron set it and it turns Electron into plain Node.
