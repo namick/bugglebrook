@@ -122,7 +122,7 @@ An entity is `{ id, kind: 'bug' | 'item', defId, bug?: BugBrain }`. A new world 
 
 Input never touches physics directly. `PointerController` sends `grab {x, y}`, `drag {x, y}`, `release {vx, vy}`, `poke {x, y}`, and the tests also send `spawn`. On `grab`, the sim picks the topmost body within 0.2 m of the point. That is the highest entity ID, and the renderer draws in ID order, so the thing you see on top is the thing you grab. A planck `MouseJoint` then pulls the body toward the pointer.
 
-On `release`, the controller sends the cursor's average velocity over the last 80 ms, measured in world space and interpolated to exactly 80 ms. The body leaves at that velocity, capped at 26 m/s (2600 px/s). At 2.5 m/s or more it counts as a fling. A press and release within 200 ms and 6 px sends `poke` instead: the sim lets go of whatever the press picked up, then makes an item hop or a bug react.
+On `release`, the controller sends the cursor's average velocity over the last 80 ms, measured in world space and interpolated to exactly 80 ms. The body leaves at that velocity, capped at 26 m/s (2600 px/s). At 2.5 m/s or more it counts as a fling. Pointer samples use each DOM event's own timestamp and the release event's position, because on a slow frame events arrive in a burst after they happened. A press and release within 200 ms and 6 px sends `poke` instead: the sim lets go of whatever the press picked up, then makes an item hop or a bug react.
 
 ### Events
 
@@ -172,6 +172,8 @@ The renderer reads the sim and never writes to it.
 - Pupils follow the cursor within 3 m. `PointerController.hoverWorld` is the only input the view reads.
 - `Background` layers, back to front: sky gradient and a smiling sun, drifting clouds (0.12 parallax), hills (0.28), big grass and dandelions (0.55), then the near layer at 1.0 with back props (ant hill, sundial, mushroom ring, signpost), soil with pebbles and roots, the stump, moss, and tufts. A foreground of dark grass blades sits in front of entities at 1.22. Background art has thinner, fainter outlines than grabbable things.
 - `Particles` draws every particle into one `Graphics` per frame, with a 400-particle budget. Fling trails use a second instance behind the entities.
+- The static backdrop layers are baked once into 1024 px wide textures (`Background.bakeAll`), so a frame draws a few sprites instead of thousands of shapes.
+- When WebGL runs in software (SwiftShader or llvmpipe, as on CI under xvfb), `main.ts` renders at half resolution. Software GL is fill-rate bound and otherwise runs at a few frames per second.
 - Props use the shared 6 px outline from `palette.ts`.
 
 ### Camera
@@ -228,6 +230,8 @@ E2E tests move the real mouse with `page.mouse`, then assert on game state throu
 - `pnpm test` runs Vitest in Node. It covers the sim (RNG, stepper, event bus, entities, terrain, physics grab and fling, 1000 full-speed flings with no tunneling, springs, pokes, respawn, bug AI and needs, eating, bouncing, dizzy timing, determinism), saves (round trip, migrations, validation, SaveStore on a temp dir), content validation, and the pure renderer modules (camera, viewport fit, bug pose and face, squash springs, pointer velocity and pokes, sfx and voices with the null backend).
 - `tests/e2e/m1.spec.ts` checks the M1 acceptance criteria with the real mouse: launch time and frame time, hold and fling velocity, dizzy duration, pokes, and camera moves that leave items alone.
 - `pnpm shots` builds and runs `tests/shots/`, which walks through the game and writes screenshots to `/tmp/bb-shots` (or `$BB_SHOTS_DIR`). Use it to check art changes by eye. It is not part of CI.
+- The frame-time check always requires update time under 16.7 ms (mean and 95th percentile over 600 frames). It checks update plus render time only on a hardware GPU, since software GL rasterizes on the CPU.
+- `BB_ELECTRON_ARGS` passes extra Chromium switches to the E2E launcher. `BB_ELECTRON_ARGS="--use-angle=swiftshader --use-gl=angle"` approximates CI's software renderer locally, though launches with it are flaky on Wayland.
 - `pnpm test:e2e` builds the app, then runs Playwright against `out/`. Each test launches a fresh app with its own userData. Locally it opens real windows in your desktop session. CI runs it under `xvfb-run`. The launcher removes `ELECTRON_RUN_AS_NODE` from the environment, because some editors built on Electron set it and it turns Electron into plain Node.
 - Every feature needs tests. Put logic in pure modules and test it in Vitest. Write at least one E2E test for each player-facing flow.
 
