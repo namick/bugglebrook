@@ -12,10 +12,13 @@ Read `docs/00-decisions.md` (locked product decisions) and `docs/04-architecture
 - Save format changes need a `SAVE_VERSION` bump and a new entry in `MIGRATIONS`, plus a test. Never edit a shipped migration.
 - The renderer is sandboxed. It reaches main only through `window.bugglebrook` (`src/shared/ipc.ts`). Keep that API narrow and validate every IPC argument in main.
 - All art is drawn in code with Pixi `Graphics` using the shared outline from `render/palette.ts`. All sound is synthesized. Don't add image or audio files.
-- Put logic in pure modules (like `camera.ts`, `bugPose.ts`, `bugFace.ts`, `juice.ts`, `reactions.ts`, `thoughts.ts`, `bugAi.ts`, `dropTargets.ts`, `tags.ts`, `water.ts`, `tagLooks.ts`, `waveSurface.ts`) so Vitest can test it without Pixi.
+- Put logic in pure modules (like `camera.ts`, `bugPose.ts`, `bugFace.ts`, `juice.ts`, `reactions.ts`, `thoughts.ts`, `bugAi.ts`, `bugMove.ts`, `bugSocial.ts`, `needs.ts`, `dropTargets.ts`, `tags.ts`, `water.ts`, `tagLooks.ts`, `waveSurface.ts`) so Vitest can test it without Pixi.
+- The bug AI never reaches into the sim. It reads a `BugContext` and its `world` (`BugWorld` in `systems/bugTypes.ts`), changes brains, and returns a `BugDecision`. Social play is run by the bug that started it (`lead`), which may change its partner's brain and speaks for it with `by` in its notices.
+- The setup rule is a hard rule: bugs never eat, carry, pack, or shove anything with `tag_player_setup` (or anything touching it). New AI that moves bugs or items must keep it: check `world.setupNear`, `setupBetween`, and `clearLanding` before walking, hopping, or throwing. `tests/unit/m4.test.ts` has the 10-minute and 30-minute checks.
 - The sim picks reactions and their variants (`bug_reacted`); `render/reactions.ts` says how each variant looks and sounds. Add a reaction type in `events.ts` and give every bug three variants in the table. A test checks both.
 - New foods and toys are item defs with `adverts`. When a food goes in, update each bug's `loves`, `likes`, and `dislikes` and keep a loved, liked, neutral, and disliked food for every bug in the plaza (a test checks this).
 - Tags go through `sim.addTag`, `sim.removeTag`, and `sim.hasTag`, never by editing `entity.tags` directly: they emit events and update friction. A new tag goes in `TAG_IDS` (`systems/tags.ts`). Property rules live in `systems/environment.ts`; give each rule a unit test and a look in `render/tagLooks.ts` so players can see it.
+- A new bug needs a `BugDef` with `traits` and `habits`, an entry in every personal table in `render/reactions.ts` (the table test covers all arts), art in `draw/bug.ts` (body, legs, antennae, face, rim, tint), and affinity entries in `data/affinity.ts` if it has friends. Starting bugs that a save predates are added on load.
 - The world strip is pond (0 to 32 m) then plaza (32 to 70.4 m). Area data uses area-local x. Tests use `PLAZA_X` from `tests/unit/world.ts` or `tests/e2e/app.ts` for plaza positions.
 - Bug states use the design doc's names (`st_idle`, `st_dizzy`, ...). Content IDs use its prefixes (`area_`, `bug_`, `item_`).
 
@@ -29,9 +32,11 @@ pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e
 - `pnpm test:e2e` builds, then runs Playwright against the real Electron app (`tests/e2e/`). It needs a display. Use `xvfb-run -a pnpm test:e2e` when there is none.
 - `pnpm format` runs Prettier and ESLint with `--fix`.
 - `pnpm shots` saves a screenshot tour to `/tmp/bb-shots`. Look at the PNGs after any art change. Faces are small at 1080p, so zoom in (`magick in.png -crop WxH+X+Y -scale 400% out.png`) before judging an expression. Move the hand out of the way before a close-up; it draws over whatever it hovers.
-- E2E tests that stage bugs should call `content()` from `tests/e2e/app.ts` first, or bugs walk off to eat the food you spawn. Dot and Rollo start close together, so use Glorp (alone on the stump) when only one mouth may be in range.
+- E2E tests that stage bugs should call `content()` from `tests/e2e/app.ts` first, or bugs walk off to eat the food you spawn. Dot and Rollo start close together, so use Glorp (alone on the stump) when only one mouth may be in range. Content bugs still come to sniff anything the player just dropped (that is an M4 acceptance rule), and Dot starts on the plaza's bottle cap.
+- For long stretches of bug life in E2E tests, fast-forward with `__bb.step(n)` rather than waiting. The event log keeps only the last 400 events, so check it as you go.
 - In the pond, floaters drift with the current and Skeet roams the surface, so a fixed drop spot can land on the raft or on him. Pick one at run time (`openWater()` in `tests/e2e/m3.spec.ts`), and keep carried things well inside the screen or the camera edge-scrolls. The camera starts in the plaza; wheel it left (`scrollTo`) to reach the pond.
 - `pnpm shots` has a pond tour (files `40-` to `55-`). It spawns extra bugs and sets tags with `set_tag` to show every look.
+- `pnpm shots -g "idle watch"` runs only the idle watch (files `60-` to `87-`): five simulated minutes of the plaza left alone, with `idle-log.txt` listing what the bugs did. Read the log next to the frames when tuning the AI.
 - Some shells set `ELECTRON_RUN_AS_NODE=1`. The E2E launcher clears it, but unset it yourself before running Electron any other way.
 
 ## Rules
