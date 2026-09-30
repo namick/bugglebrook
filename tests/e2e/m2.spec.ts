@@ -178,12 +178,22 @@ test('every verb makes a sound', async () => {
     ]);
     await expectSound('fling', 'fling');
 
-    // Poke a bug.
-    const rollo = await bugNamed(page, 'bug_pillbug_rollo');
-    const rp = await toClient(page, rollo.x, rollo.y);
+    // Poke a bug standing on the ground (a bug in the air ignores pokes).
+    await page.waitForTimeout(1500);
     await clear();
-    await page.mouse.click(rp.x, rp.y);
-    await expectSound('poke', 'poke');
+    await expect
+      .poll(async () => {
+        const bug = (await entities(page)).find(
+          (e) => e.kind === 'bug' && ['st_idle', 'st_wander', 'st_seek'].includes(e.bug!.mode),
+        );
+        if (bug) {
+          const p = await toClient(page, bug.x, bug.y);
+          await page.mouse.click(p.x, p.y);
+          await page.waitForTimeout(200);
+        }
+        return heard();
+      })
+      .toContain('poke');
     await page.waitForTimeout(800);
 
     // Hold-poke a bug: it gets tickled.
