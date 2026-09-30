@@ -193,6 +193,8 @@ export interface BugBrain {
   hopAt: number;
   /** Something held in the front legs (a pebble, a toy, a snack), or null. */
   carrying: EntityId | null;
+  /** What it carries is held up overhead as an umbrella against the rain. Absent before M6. */
+  umbrella?: boolean;
   /** The interaction with another bug under way, if any. */
   social: SocialState | null;
   /** The last few notable moments, newest last. */

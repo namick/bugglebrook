@@ -4,7 +4,7 @@ import { createRegistry } from './registry';
 const GROUND = 9;
 const STUMP_TOP = 4;
 
-/** A shallow dip in the ground, where rain puddles will form later. */
+/** A shallow dip in the ground, where rain puddles form (`fix_puddle_*`). */
 function dip(center: number, halfWidth: number, depth: number): Point2[] {
   const out: Point2[] = [];
   for (let i = 0; i <= 6; i++) {
@@ -144,6 +144,8 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { id: 'fix_rubber_boot', kind: 'rubber_boot', x: 19.4, y: 9.95, radius: 0.55 },
       // A half-sunk teacup on the bottom: things that sink above it land inside.
       { id: 'fix_sunken_teacup', kind: 'teacup', x: 12, y: 10.4, radius: 0.62 },
+      // The reeds and cattails on the right bank, where fireflies blink at night.
+      { id: 'fix_reeds', kind: 'reeds', x: 24.8, y: 7.4, radius: 2 },
     ],
   },
   {
@@ -184,6 +186,9 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'bug', defId: 'bug_pillbug_rollo', x: 5.4 },
       { kind: 'bug', defId: 'bug_snail_glorp', x: 18.6 },
       { kind: 'bug', defId: 'bug_grasshopper_boing', x: 25.6 },
+      // New in M6, listed last so the older things keep their IDs. It lies on
+      // the path from the pond, a short carry from the reeds.
+      { kind: 'item', defId: 'item_flashlight_pen', x: 0.45 },
     ],
     respawn: [
       { item: 'item_berry_red', count: 3 },
@@ -202,5 +207,16 @@ export const AREAS = createRegistry<AreaDef>('area', [
     dirt: 0xa8744f,
     dirtDark: 0x7a4e32,
     unlockedByDefault: true,
+    fixtures: [
+      // A bent-spoon rooster on a twig pole: click to spin it, three quick clicks for a gust.
+      { id: 'fix_weather_vane', kind: 'weather_vane', x: 0.9, y: 5.55, radius: 0.55 },
+      // The stone sundial beside the ant hill: drag its rim clockwise to turn time forward.
+      { id: 'fix_sundial', kind: 'sundial', x: 9.2, y: 7.9, radius: 0.95 },
+      // The dark hole in the stump: click to peek.
+      { id: 'fix_stump_knothole', kind: 'knothole', x: 19.9, y: 6.9, radius: 0.6 },
+      // The two dips in the ground fill with rain.
+      { id: 'fix_puddle_west', kind: 'puddle', x: 2.2, y: 9.1, radius: 0.8 },
+      { id: 'fix_puddle_east', kind: 'puddle', x: 36.4, y: 9.1, radius: 0.8 },
+    ],
   },
 ]);

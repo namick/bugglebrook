@@ -9,7 +9,7 @@ import { BONK_SPEED, FLING_SPEED, GRAVITY, MAX_FLING_SPEED, VIEW_WIDTH_M } from 
 import type { Content } from './data';
 import { CONTENT, areaAt, worldWidth } from './data';
 import { MATERIALS } from './data/materials';
-import type { AreaDef, ItemDef } from './data/types';
+import type { AreaDef, BugDef, ItemDef } from './data/types';
 import { NEED_IDS } from './data/types';
 import { baseAffinity, pairKey } from './data/affinity';
 import type { GameEvents, Liking, Mood, ReactionType, TagCause } from './events';
@@ -18,7 +18,15 @@ import { Physics } from './physics/physics';
 import type { SavedEntity, WorldCounters, WorldSave } from './save/schema';
 import { Environment } from './systems/environment';
 import { TAG_IDS, addTag, effectiveTags, expireTags, removeTag, shiftTags, tagOn } from './systems/tags';
-import type { AdvertCandidate, BugNotice, BugWorld, LooseItem, OtherBug, TargetInfo } from './systems/bugAi';
+import type {
+  AdvertCandidate,
+  BugNotice,
+  BugSky,
+  BugWorld,
+  LooseItem,
+  OtherBug,
+  TargetInfo,
+} from './systems/bugAi';
 import {
   GAWK_RANGE,
   PERCEPTION,
@@ -44,9 +52,13 @@ import {
   tickleBug,
   updateBug,
   wakeBug,
+  wonderBug,
 } from './systems/bugAi';
 import { CATCH_WINDUP } from './systems/bugSocial';
 import { SetupRule } from './systems/setup';
+import type { WeatherId } from './systems/sky';
+import { newSkyState } from './systems/sky';
+import { Weather } from './systems/weather';
 import type { Pocketable, PocketState } from './systems/pocket';
 import { emptyPocket, fits, isPocketSlot, pocketPut, pocketTake, tidyPocket } from './systems/pocket';
 import { OffScreen } from './systems/offscreen';
@@ -105,6 +117,8 @@ export interface BugView {
   groggy: boolean;
   /** Gliding down on open wings. */
   gliding: boolean;
+  /** Holding what it carries overhead, as an umbrella against the rain. */
+  umbrella: boolean;
 }
 
 /** Read-only view of one entity for the renderer and the test hook. */
@@ -195,6 +209,10 @@ export class Sim {
   private readonly pocketed = new Set<EntityId>();
   /** Running counts kept for the menu: how often the player fed each bug. Saved. */
   counters: WorldCounters = { fed: {} };
+  /** Day, night, and weather: the clock, the sundial, the vane, puddles. */
+  readonly weather: Weather;
+  /** Secrets found in this world, in the order they were found. Saved. */
+  secrets: string[] = [];
 
   private constructor(seed: string, content: Content) {
     this.seed = seed;
@@ -204,6 +222,7 @@ export class Sim {
     this.terrain = Terrain.fromAreas(content.areas.all);
     this.physics = new Physics(GRAVITY, this.worldWidth, this.terrain);
     this.environment = new Environment(this);
+    this.weather = new Weather(this);
     this.setup = new SetupRule(this);
     this.offscreen = new OffScreen(this);
     this.buildFixtures();
@@ -289,6 +308,10 @@ export class Sim {
     for (const bug of sim.entities.ofKind('bug'))
       if (bug.bug?.mode === 'st_pocketed' && !sim.pocketed.has(bug.id)) bug.bug.mode = 'st_airborne';
     sim.environment.restore(save.env ? clone(save.env) : sim.environment.state);
+    // Saves from before the clock start at 09:00 in clear weather, and get M6's new things.
+    sim.weather.restore(save.sky ? clone(save.sky) : newSkyState(save.seed, save.tick));
+    if (!save.sky) sim.addMissingItems(['item_flashlight_pen']);
+    sim.secrets = save.secrets ? [...save.secrets] : [];
     sim.affinity = save.social ? clone(save.social.affinity) : {};
     sim.addMissingBugs();
     sim.refreshFriction();
@@ -307,6 +330,20 @@ export class Sim {
         const x = area.xStart + st.x;
         const r = this.content.bugs.get(st.defId).radius;
         this.spawn('bug', st.defId, x, this.surfaceY(x) - r - 0.3);
+        have.add(st.defId);
+      }
+  }
+
+  /** Starting items a save predates join it where they would have started. */
+  private addMissingItems(defIds: readonly string[]): void {
+    const have = new Set(this.entities.ofKind('item').map((e) => e.defId));
+    for (const area of this.content.areas.all)
+      for (const st of area.start) {
+        if (st.kind !== 'item' || !defIds.includes(st.defId) || have.has(st.defId)) continue;
+        if (!this.content.items.has(st.defId)) continue;
+        const x = area.xStart + st.x;
+        const half = halfExtents(this.content.items.get(st.defId).shape, 0).h;
+        this.spawn('item', st.defId, x, this.surfaceY(x) - half - 0.3);
         have.add(st.defId);
       }
   }
@@ -374,6 +411,7 @@ export class Sim {
   /** Advance the world by one fixed step. */
   step(): void {
     for (const command of this.commands.drain()) this.apply(command);
+    this.weather.update();
     if (this.tick % 15 === 0) this.updateSleep();
     this.offscreen.update();
     this.worldCache = null;
@@ -417,6 +455,10 @@ export class Sim {
           x: command.x,
           y: command.y,
         });
+        // Picking up something that glows flashes its light about: the fireflies notice.
+        // (A lamp counts when its click switches it, not when it is picked up.)
+        if (this.glows(entity) && !(entity.kind === 'item' && this.content.items.get(entity.defId).lamp))
+          this.weather.noteLight(command.x, command.y);
         return;
       }
       case 'drag':
@@ -501,12 +543,21 @@ export class Sim {
         return;
       }
       case 'set_weather': {
-        const env = this.environment.state;
-        if (Number.isFinite(command.wind)) env.wind = Math.max(-6, Math.min(6, command.wind));
-        if (command.rain && !env.rain) env.rainSince = this.tick;
-        env.rain = !!command.rain;
+        const wind = Number.isFinite(command.wind) ? command.wind : 0;
+        const weather: WeatherId =
+          command.weather ?? (command.rain ? 'weather_rain' : wind !== 0 ? 'weather_wind' : 'weather_clear');
+        this.weather.force(weather, wind);
         return;
       }
+      case 'set_time':
+        this.weather.setTime(command.hour);
+        return;
+      case 'dial_turn':
+        this.weather.turnDial(command.minutes);
+        return;
+      case 'dial_release':
+        this.weather.releaseDial();
+        return;
       case 'pocket_put': {
         const held = this.physics.grabbed;
         const entity = held === null ? undefined : this.entities.get(held);
@@ -643,6 +694,11 @@ export class Sim {
     }
   }
 
+  /** Half the height of a bug or an item, upright. */
+  halfHeight(e: Entity): number {
+    return this.halfHeightOf(e);
+  }
+
   private halfHeightOf(e: Entity): number {
     return e.kind === 'bug'
       ? this.content.bugs.get(e.defId).radius
@@ -698,6 +754,14 @@ export class Sim {
       this.physics.setVelocity(entity.id, 0, -2.2);
       this.events.emit('bug_poked', { id: entity.id, defId: entity.defId, x: s.x, y: s.y });
       for (const notice of notices) this.emitNotice(entity, notice, s);
+    } else if (this.content.items.get(entity.defId).lamp) {
+      // A light: the click switches it on or off.
+      this.setup.touch(entity.id);
+      const on = !this.hasTag(entity.id, 'tag_glowing');
+      if (on) this.addTag(entity.id, 'tag_glowing', 'player');
+      else this.removeTag(entity.id, 'tag_glowing', 'player');
+      this.events.emit('light_toggled', { id: entity.id, on, x: s.x, y: s.y });
+      this.weather.noteLight(s.x, s.y);
     } else {
       // A poke is a touch: it stays the player's.
       this.setup.touch(entity.id);
@@ -957,6 +1021,7 @@ export class Sim {
         tick: this.tick,
         id: entity.id,
         world,
+        sky: this.skyFor(entity, def),
         def,
         state,
         held: held === entity.id,
@@ -1021,7 +1086,10 @@ export class Sim {
       if (brain && brain.mouthful !== null && brain.mode !== 'st_eat') {
         const itemId = brain.mouthful;
         brain.mouthful = null;
-        if (this.entities.has(itemId)) this.physics.setActive(itemId, true);
+        if (this.entities.has(itemId)) {
+          this.aboveGround(itemId);
+          this.physics.setActive(itemId, true);
+        }
       }
       this.syncRolling(entity);
       if (def.habits.slimeTrail) this.environment.slime(entity, state, def.radius);
@@ -1258,10 +1326,12 @@ export class Sim {
     this.pendingThrows.clear();
   }
 
-  /** Where a bug holds things. */
+  /** Where a bug holds things: in its front legs, or overhead for an umbrella. */
   private handOf(bug: Entity): { x: number; y: number } {
     const s = this.physics.getState(bug.id);
-    return handPoint(s.x, s.y, this.content.bugs.get(bug.defId).radius, bug.bug?.facing ?? 1);
+    const r = this.content.bugs.get(bug.defId).radius;
+    if (bug.bug?.umbrella) return { x: s.x + (bug.bug.facing ?? 1) * r * 0.1, y: s.y - r * 1.3 - 0.08 };
+    return handPoint(s.x, s.y, r, bug.bug?.facing ?? 1);
   }
 
   /** Carried things ride along in their bug's front legs. */
@@ -1509,6 +1579,67 @@ export class Sim {
       case 'affinity':
         this.nudgeAffinity(entity.defId, partnerDef(notice.partnerId), notice.delta);
         return;
+      case 'umbrella':
+        this.events.emit('bug_umbrella', { ...base, itemId: notice.itemId, on: notice.on });
+        return;
+    }
+  }
+
+  // --- Day, night, and weather -----------------------------------------------
+
+  /** What a bug's AI knows about the time and the weather where it stands. */
+  private skyFor(bug: Entity, def: BugDef): BugSky {
+    const w = this.weather;
+    return {
+      bedtime: w.bedtime(def, bug.id),
+      evening: w.eveningFor(def),
+      rain: w.raining && !this.sheltered(bug),
+      raining: w.raining,
+      wind: this.environment.state.wind,
+      dark: w.dark,
+    };
+  }
+
+  /** Does this thing glow: a glowing item, or a bug like Flick? */
+  glows(e: Entity): boolean {
+    if (e.kind === 'bug') return !!this.content.bugs.get(e.defId).glows;
+    return this.hasTag(e.id, 'tag_glowing');
+  }
+
+  /**
+   * Out of the rain: something is overhead (a leaf held up as an umbrella,
+   * or anything with a body within 6 m straight above), or it is under water.
+   */
+  sheltered(e: Entity): boolean {
+    if (e.bug?.umbrella && e.bug.carrying !== null) return true;
+    if (!this.physics.has(e.id) || !this.physics.isActive(e.id)) return true;
+    const s = this.physics.getState(e.id);
+    const half = this.halfHeightOf(e);
+    return this.physics.coveredAbove(e.id, s.x, s.y - half * 0.6, 6);
+  }
+
+  /** A secret was found: the first time, it is logged and announced. */
+  findSecret(id: string, x: number, y: number): void {
+    if (this.secrets.includes(id)) return;
+    this.secrets.push(id);
+    this.events.emit('secret_found', { id, x, y });
+  }
+
+  /** The world x range the camera shows, or the whole world when nobody is watching. */
+  view0(): { x0: number; x1: number } {
+    return this.focus ?? { x0: 0, x1: this.worldWidth };
+  }
+
+  /** Something wonderful in the sky over x: bugs that are up turn and look (a shooting star, a rainbow). */
+  lookUp(x: number, y: number): void {
+    for (const bug of this.entities.ofKind('bug')) {
+      const b = bug.bug;
+      if (!b || this.isSleeping(bug.id)) continue;
+      if (b.mode !== 'st_idle' && b.mode !== 'st_wander') continue;
+      const s = this.physics.getState(bug.id);
+      if (Math.abs(s.x - x) > 12 || !this.physics.isSupported(bug.id)) continue;
+      for (const n of wonderBug(b, s.x, x, this.rng, this.tick)) this.emitNotice(bug, n, s);
+      this.events.emit('bug_gawked', { id: bug.id, defId: bug.defId, x, y });
     }
   }
 
@@ -1759,6 +1890,21 @@ export class Sim {
     });
   }
 
+  /**
+   * A mouth on a steep root can sit below the ground next to it: food let go
+   * of there is lifted clear of the ground first, so it never starts buried.
+   */
+  private aboveGround(itemId: EntityId): void {
+    const e = this.entities.get(itemId);
+    if (!e) return;
+    const s = this.physics.getState(itemId);
+    const ext = halfExtents(this.content.items.get(e.defId).shape, s.angle);
+    let floor = Infinity;
+    for (const dx of [-ext.w, 0, ext.w]) floor = Math.min(floor, this.terrain.surfaceY(s.x + dx));
+    const top = floor - ext.h - 0.01;
+    if (s.y > top) this.physics.setPosition(itemId, s.x, top);
+  }
+
   /** Food in a mouth sits just in front of the mouth anchor. */
   private placeMouthful(bug: Entity, itemId: EntityId): void {
     const m = this.mouthAnchor(bug.id);
@@ -1779,6 +1925,7 @@ export class Sim {
     if (!item || !bug.bug) return;
     const facing = bug.bug.facing;
     this.placeMouthful(bug, itemId);
+    this.aboveGround(itemId);
     this.physics.setActive(itemId, true);
     const vx = facing * SPIT_SPEED.x + this.rng.range(-0.6, 0.6);
     const vy = SPIT_SPEED.y + this.rng.range(-0.8, 0.4);
@@ -2003,6 +2150,7 @@ export class Sim {
       carrying: b.carrying,
       groggy: this.tick < b.groggyUntil,
       gliding: b.gliding,
+      umbrella: !!b.umbrella && b.carrying !== null,
     };
   }
 
@@ -2036,6 +2184,8 @@ export class Sim {
       social: { affinity: clone(this.affinity) },
       pocket: clone(this.pocket),
       counters: clone(this.counters),
+      sky: this.weather.serialize(),
+      secrets: [...this.secrets],
     };
   }
 }

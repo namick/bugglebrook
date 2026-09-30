@@ -1,5 +1,6 @@
 import type { BugAction, EntityId, EntityKind, SocialKind } from './core/entities';
 import type { AdvertAction } from './data/types';
+import type { PhaseId, WeatherId } from './systems/sky';
 
 /**
  * Every game event and its payload. Audio, particles, and the journal
@@ -198,6 +199,35 @@ export interface GameEvents {
   pocket_swapped: { id: EntityId; defId: string; slot: number; x: number; y: number };
   /** In the first scene, a bug came over to ask to be flung ("again!"). */
   bug_beckoned: { id: EntityId; defId: string; x: number; y: number };
+
+  // --- Day, night, and weather (M6) --------------------------------------
+  /** The clock passed into dawn, day, dusk, or night. `clock` is game time in clock ticks. */
+  phase_changed: { phase: PhaseId; clock: number };
+  weather_changed: { weather: WeatherId; from: WeatherId };
+  /** The sundial finished fast-forwarding, from one clock to another. */
+  time_skipped: { from: number; to: number };
+  /** The weather vane was clicked and spun round; its rooster now faces `facing`. */
+  vane_spun: { facing: 1 | -1; x: number; y: number };
+  /** Three quick spins of the vane: a gust of wind blows `dir` for `seconds`. */
+  gust_started: { dir: 1 | -1; x: number; y: number; seconds: number };
+  /** The sun painted on the sundial was clicked (`count` quick clicks so far). */
+  sun_clicked: { count: number; x: number; y: number };
+  /** The stump's knothole was clicked: at night eyes blink back. `itemId` is what popped out, if anything. */
+  knothole_peeked: { x: number; y: number; night: boolean; itemId: EntityId | null };
+  /** A shooting star streaked across the sky above world x. */
+  shooting_star: { x: number; y: number; dir: 1 | -1 };
+  /** A light was switched on or off with a click (the flashlight pen). */
+  light_toggled: { id: EntityId; on: boolean; x: number; y: number };
+  /** The fireflies over the reeds blinked back at a light. `answer` is the big blink that brings Flick. */
+  fireflies_blinked: { x: number; y: number; answer: boolean };
+  /** A hidden bug was found and joined the world. */
+  bug_joined: { id: EntityId; defId: string; x: number; y: number };
+  /** A bug put something up over its head against the rain, or put it down. */
+  bug_umbrella: { id: EntityId; defId: string; itemId: EntityId; on: boolean };
+  /** Something turned into something else (a pebble in the moonlit teacup). */
+  item_transformed: { id: EntityId; newId: EntityId; from: string; to: string; x: number; y: number };
+  /** A secret was found for the first time in this world. */
+  secret_found: { id: string; x: number; y: number };
 }
 
 /** What a chat line is about. The renderer draws it as a pictogram. */
@@ -241,7 +271,9 @@ export type TagCause =
   | 'debug'
   | 'player'
   | 'stack'
-  | 'slime';
+  | 'slime'
+  | 'dew'
+  | 'puddle';
 
 export type Liking = 'loved' | 'liked' | 'neutral' | 'disliked';
 
@@ -253,6 +285,8 @@ export type Liking = 'loved' | 'liked' | 'neutral' | 'disliked';
  * something new), `wake`, `gawk` (looking at a crash), `robbed` (a snack
  * snatched away), `slip` (on slime), `show_off` (a pose), `play` (the happy
  * end of a game together), and `peek` (uncurling, or peeking out of cover).
+ * M6 adds `rain_joy` (rain lovers splashing about), `rain_gloom` (the rest,
+ * caught in it), and `wonder` (looking up at a shooting star).
  */
 export type ReactionType =
   | 'grab'
@@ -275,7 +309,10 @@ export type ReactionType =
   | 'slip'
   | 'show_off'
   | 'play'
-  | 'peek';
+  | 'peek'
+  | 'rain_joy'
+  | 'rain_gloom'
+  | 'wonder';
 
 export const REACTION_TYPES: readonly ReactionType[] = [
   'grab',
@@ -299,6 +336,9 @@ export const REACTION_TYPES: readonly ReactionType[] = [
   'show_off',
   'play',
   'peek',
+  'rain_joy',
+  'rain_gloom',
+  'wonder',
 ];
 
 /** Variants per reaction type. */

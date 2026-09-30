@@ -45,9 +45,11 @@ export class OffScreen {
     const sim = this.sim;
     const def = sim.content.bugs.get(bug.defId);
     this.settle(bug, brain, def);
-    decayNeeds(brain, def, COARSE_TICKS);
+    const bedtime = sim.weather.bedtime(def, bug.id);
+    decayNeeds(brain, def, COARSE_TICKS, false, bedtime);
     if (brain.mode === 'st_sleep') {
-      if (brain.needs.need_energy >= 99.5) {
+      // Asleep through its night, whatever its energy.
+      if (brain.needs.need_energy >= 99.5 && !bedtime) {
         enterIdle(brain, sim.rng, def);
         brain.plan = null;
       }
@@ -100,7 +102,7 @@ export class OffScreen {
     const n = brain.needs;
     const area = sim.areaOf(at);
     const home = sim.content.areas.tryGet(def.home);
-    if (n.need_energy < 45) {
+    if (n.need_energy < 45 || sim.weather.bedtime(def, bug.id)) {
       enter(brain, 'st_sleep');
       return { kind: 'sleep', at, x: at, targetId: null };
     }

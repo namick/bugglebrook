@@ -182,6 +182,13 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
       },
     };
   },
+  // 6 -> 7: M6's day, night, and weather. The world gains a list of found
+  // secrets. It has no clock yet: loading starts it at 09:00 in clear
+  // weather (and brings the flashlight pen, new with M6).
+  6: (save) => {
+    const world = save.world as Record<string, unknown>;
+    return { ...save, version: 7, world: { ...world, secrets: [] } };
+  },
 };
 
 export class SaveError extends Error {

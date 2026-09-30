@@ -72,6 +72,12 @@ export interface EnvState {
   slime: SlimeStrip[];
 }
 
+/** Where the sun is painted on the sundial, and how big a spot a click on it has. */
+export const SUN_SPOT = 0.24;
+export function sundialSun(f: { x: number; y: number }): { x: number; y: number } {
+  return { x: f.x - 0.5, y: f.y };
+}
+
 export function newEnvState(): EnvState {
   return {
     rise: {},
@@ -108,9 +114,18 @@ const ICE_THICK = 0.14;
 const MAX_ICE = 6;
 export const PAD_WIDTH = 1.3;
 const PAD_THICK = 0.1;
-/** Water rises this fast while the hose runs, and drains this fast after (m/s). */
-const HOSE_RISE = 0.02;
-const DRAIN = 0.005;
+/** Water rises this fast while the hose runs, and drains this fast after (m/s): 1 px per 2 s. */
+export const HOSE_RISE = 0.02;
+export const DRAIN = 0.005;
+/** Rain raises the pond more gently than the hose: 0.3 px/s (m/s). */
+export const RAIN_RISE = 0.003;
+/** Wind pushes the pond's floaters along: current plus this much of the wind (3x faster at 2 m/s). */
+const WIND_CURRENT = 0.08;
+/** Wind drifts flying bugs (and Dot gliding) a little. */
+const WIND_AIR = 2.5;
+/** A glowing thing warms up bugs this close at night: social +5 per second (rule R16). */
+export const GLOW_RANGE = 1.6;
+const GLOW_SOCIAL = 5;
 /** Where the spray leaves the nozzle relative to the tap, its velocity, and its gravity. */
 export const SPRAY = { dx: -1.05, dy: 0.3, vx: -6, vy: -3.4, gravity: 12 };
 const SPRAY_REACH = 0.35;
@@ -148,6 +163,8 @@ export class Environment {
   private readonly cooldown = new Map<string, number>();
   private readonly pending = new Set<string>();
   private readonly skips = new Map<EntityId, number>();
+  /** Things standing in a rain puddle. */
+  private readonly inPuddle = new Set<EntityId>();
   private surfaceCache: WaterSurface[] | null = null;
   private surfaceTick = -1;
 
@@ -241,7 +258,7 @@ export class Environment {
   fixtureAt(x: number, y: number): { id: string; kind: FixtureDef['kind']; x: number; y: number } | null {
     for (const area of this.sim.content.areas.all)
       for (const f of area.fixtures ?? []) {
-        if (f.kind === 'lily_pad') continue;
+        if (f.kind === 'lily_pad' || f.kind === 'puddle' || f.kind === 'reeds') continue;
         const fx = area.xStart + f.x;
         if (Math.hypot(x - fx, y - f.y) <= f.radius) return { id: f.id, kind: f.kind, x: fx, y: f.y };
       }
@@ -257,6 +274,14 @@ export class Environment {
       this.sim.events.emit('hose_toggled', { on: this.state.hoseOn, x: f.x, y: f.y });
     } else if (f.kind === 'rubber_boot') {
       this.sim.events.emit('boot_bubbled', { x: f.x, y: f.y });
+    } else if (f.kind === 'weather_vane') {
+      this.sim.weather.clickVane(f.x, f.y);
+    } else if (f.kind === 'sundial') {
+      // The sun painted on the dial's left: five quick clicks and the sun puts on sunglasses.
+      const sun = sundialSun(f);
+      if (Math.hypot(x - sun.x, y - sun.y) <= SUN_SPOT) this.sim.weather.clickSun(sun.x, sun.y);
+    } else if (f.kind === 'knothole') {
+      this.sim.weather.pokeKnothole(f);
     }
     return true;
   }
@@ -318,6 +343,7 @@ export class Environment {
     this.skating.delete(id);
     this.inWater.delete(id);
     this.skips.delete(id);
+    this.inPuddle.delete(id);
     for (let i = this.state.sticks.length - 1; i >= 0; i--) {
       const s = this.state.sticks[i]!;
       if (s.a === id || s.b === id) this.unstick(i, false);
@@ -379,6 +405,11 @@ export class Environment {
       if (this.state.wind !== 0 && !held && sim.hasTag(e.id, 'tag_light')) {
         const push = this.state.wind - s.vx;
         if (Math.sign(push) === Math.sign(this.state.wind)) physics.applyForce(e.id, mass * 14 * push, 0);
+      } else if (this.state.wind !== 0 && !held && e.bug?.mode === 'st_airborne' && frac === 0) {
+        // Flying bugs drift with the wind.
+        const push = this.state.wind - s.vx;
+        if (Math.sign(push) === Math.sign(this.state.wind))
+          physics.applyForce(e.id, mass * WIND_AIR * push, 0);
       }
     }
     this.pullMagnets();
@@ -402,7 +433,10 @@ export class Environment {
         : (shape.width / 2) * Math.abs(Math.sin(s.angle)) + (shape.height / 2) * Math.abs(Math.cos(s.angle));
     const floating = density < 1 && frac < 0.99;
     // Floaters ride the surface current; everything else sits in still water.
-    const current = floating && !held ? (this.sim.content.areas.get(w.areaId).water?.current ?? 0) : 0;
+    const current =
+      floating && !held
+        ? (this.sim.content.areas.get(w.areaId).water?.current ?? 0) + this.state.wind * WIND_CURRENT
+        : 0;
     const bob = Math.sqrt(GRAVITY / (Math.max(0.05, density) * 2 * half));
     const damp = floating
       ? Math.max(WATER_DRAG * frac, 0.7 * bob * Math.min(1, frac / density))
@@ -457,8 +491,9 @@ export class Environment {
       const w = area.water;
       if (!w || this.sim.isAreaAsleep(area.id)) continue;
       const hose = this.state.hoseOn && (area.fixtures ?? []).some((f) => f.kind === 'hose_tap');
+      const rate = (hose ? HOSE_RISE : 0) + (this.state.rain ? RAIN_RISE : 0);
       const rise = this.state.rise[area.id] ?? 0;
-      const next = hose ? Math.min(w.maxRise, rise + HOSE_RISE * SIM_DT) : Math.max(0, rise - DRAIN * SIM_DT);
+      const next = rate > 0 ? Math.min(w.maxRise, rise + rate * SIM_DT) : Math.max(0, rise - DRAIN * SIM_DT);
       if (next !== rise) {
         this.state.rise[area.id] = next;
         this.surfaceCache = null;
@@ -670,9 +705,9 @@ export class Environment {
   }
 
   /** Rule R1: in the water, things get wet and washed. A dip gets a bug fully clean. */
-  private immerse(id: EntityId): void {
+  private immerse(id: EntityId, cause: TagCause = 'water'): void {
     const sim = this.sim;
-    sim.addTag(id, 'tag_wet', 'water');
+    sim.addTag(id, 'tag_wet', cause);
     const brain = sim.entities.get(id)?.bug;
     if (brain) brain.needs.need_clean = 100;
     for (const tag of WASHED)
@@ -805,7 +840,7 @@ export class Environment {
       const s = physics.getState(e.id);
       if (frac > 0.2) this.immerse(e.id);
       // R15: rain soaks anything under the open sky, and rinses bugs (+2/s).
-      if (raining && frac <= 0.2 && physics.isActive(e.id)) {
+      if (raining && frac <= 0.2 && physics.isActive(e.id) && !sim.sheltered(e)) {
         sim.addTag(e.id, 'tag_wet', 'rain');
         if (e.bug) e.bug.needs.need_clean = Math.min(100, e.bug.needs.need_clean + 0.5);
       }
@@ -828,6 +863,11 @@ export class Environment {
         this.state.zappedUntil = this.tick + 2 * SIM_HZ;
       }
     }
+    this.puddleRule();
+    if (sim.weather.dark) {
+      this.glowRule();
+      this.moonRule();
+    }
     if (this.tick < this.state.zappedUntil)
       for (const e of sim.entities.ofKind('bug'))
         if ((this.submerged.get(e.id) ?? 0) > 0 && !sim.isSleeping(e.id))
@@ -835,11 +875,99 @@ export class Environment {
     sim.refreshFriction();
   }
 
+  /**
+   * Puddles act like tiny ponds (game design doc, section 3): anything
+   * standing in one gets wet and washed (R1), with a little splash going in.
+   */
+  private puddleRule(): void {
+    const sim = this.sim;
+    const puddles = sim.weather.puddles();
+    for (const e of sim.entities.all()) {
+      if (sim.isSleeping(e.id) || !sim.physics.isActive(e.id)) {
+        this.inPuddle.delete(e.id);
+        continue;
+      }
+      const s = sim.physics.getState(e.id);
+      const bottom = s.y + this.sim.halfHeight(e);
+      const p = puddles.find((q) => Math.abs(s.x - q.x) <= q.half && Math.abs(bottom - q.y) < 0.2);
+      if (!p) {
+        this.inPuddle.delete(e.id);
+        continue;
+      }
+      if (!this.inPuddle.has(e.id)) {
+        this.inPuddle.add(e.id);
+        sim.events.emit('splashed', {
+          id: e.id,
+          kind: e.kind,
+          defId: e.defId,
+          x: s.x,
+          y: p.y,
+          speed: Math.max(0.5, Math.hypot(s.vx, s.vy)),
+          size: 0.08,
+        });
+      }
+      this.immerse(e.id, 'puddle');
+    }
+  }
+
+  /** R16: at night, glowing things are a campfire: bugs close by warm up to each other. */
+  private glowRule(): void {
+    const sim = this.sim;
+    const lights: { x: number; y: number; id: EntityId }[] = [];
+    for (const e of sim.entities.all()) {
+      if (sim.isSleeping(e.id) || !sim.physics.isActive(e.id) || !sim.glows(e)) continue;
+      const s = sim.physics.getState(e.id);
+      lights.push({ x: s.x, y: s.y, id: e.id });
+    }
+    if (lights.length === 0) return;
+    for (const bug of sim.entities.ofKind('bug')) {
+      const b = bug.bug;
+      if (!b || sim.isSleeping(bug.id) || b.mode === 'st_sleep') continue;
+      const s = sim.physics.getState(bug.id);
+      if (!lights.some((l) => l.id !== bug.id && Math.hypot(l.x - s.x, l.y - s.y) <= GLOW_RANGE)) continue;
+      b.needs.need_social = Math.min(100, b.needs.need_social + GLOW_SOCIAL / (SIM_HZ / RULE_TICKS));
+    }
+  }
+
+  /**
+   * `secret_moon_pebble`: at night a pebble that comes to rest in the sunken
+   * teacup, where the moon's reflection falls, comes out a moon pebble.
+   */
+  private moonRule(): void {
+    const sim = this.sim;
+    for (const { area, fixture } of this.fixtures('teacup')) {
+      const cx = area.xStart + fixture.x;
+      const bottom = sim.surfaceY(cx);
+      for (const e of sim.entities.ofKind('item')) {
+        if (e.defId !== 'item_pebble' || sim.isSleeping(e.id) || !sim.physics.isActive(e.id)) continue;
+        if (sim.physics.grabbed === e.id) continue;
+        const s = sim.physics.getState(e.id);
+        if (Math.abs(s.x - cx) > fixture.radius - 0.05 || s.y < bottom - 0.75 || s.y > bottom) continue;
+        if (Math.hypot(s.vx, s.vy) > 0.4 || !sim.content.items.has('item_moon_pebble')) continue;
+        sim.remove(e.id);
+        const moon = sim.spawn('item', 'item_moon_pebble', s.x, s.y - 0.05);
+        sim.physics.setVelocity(moon.id, 0, -1.2);
+        sim.events.emit('item_transformed', {
+          id: e.id,
+          newId: moon.id,
+          from: e.defId,
+          to: moon.defId,
+          x: s.x,
+          y: s.y,
+        });
+        sim.findSecret('secret_moon_pebble', s.x, s.y);
+      }
+    }
+  }
+
   private stink(source: Entity, x: number, y: number): void {
+    // Wind carries a smell farther downwind.
+    const wind = this.state.wind;
     for (const bug of this.sim.entities.ofKind('bug')) {
       if (bug.id === source.id || this.sim.isSleeping(bug.id)) continue;
       const s = this.sim.physics.getState(bug.id);
-      if (Math.hypot(s.x - x, s.y - y) > STINK_RANGE) continue;
+      const downwind = wind !== 0 && Math.sign(s.x - x) === Math.sign(wind) ? Math.abs(wind) * 0.8 : 0;
+      if (Math.hypot(s.x - x, s.y - y) > STINK_RANGE + downwind) continue;
       this.sim.smell(bug, source.id, x);
     }
   }

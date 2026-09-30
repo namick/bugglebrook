@@ -36,7 +36,9 @@ export type Picto =
   | 'stink'
   | 'food'
   | 'friend'
-  | 'sun';
+  | 'sun'
+  | 'rain'
+  | 'moon';
 
 /** A short body move that plays with the reaction. */
 export type Move =
@@ -267,6 +269,62 @@ const PEEK: Triple = three(
   { eyes: 'worried', mouth: 'o', pictos: ['question'], emotion: 'question', move: 'none', seconds: 1 },
   { eyes: 'open', mouth: 'smile', pictos: ['dots'], emotion: 'meh', move: 'nod', seconds: 1 },
   { eyes: 'worried', mouth: 'smile', pictos: ['sweat'], emotion: 'scared', move: 'shiver', seconds: 1 },
+);
+
+// Weather (M6), shared by everyone: joy in the rain for those who love it,
+// a soggy grumble for the rest, and wonder at a shooting star.
+const RAIN_JOY: Triple = three(
+  {
+    eyes: 'happy',
+    mouth: 'whee',
+    blush: true,
+    pictos: ['rain', 'heart'],
+    emotion: 'whee',
+    move: 'hop',
+    fx: 'splash',
+    seconds: 1.3,
+  },
+  {
+    eyes: 'happy',
+    mouth: 'grin',
+    pictos: ['drop', 'laugh'],
+    emotion: 'giggle',
+    move: 'wiggle',
+    seconds: 1.3,
+  },
+  { eyes: 'wide', mouth: 'whee', pictos: ['rain', 'star'], emotion: 'whee', move: 'spin', seconds: 1.4 },
+);
+const RAIN_GLOOM: Triple = three(
+  { eyes: 'worried', mouth: 'wobble', pictos: ['rain'], emotion: 'sleepy', move: 'shiver', seconds: 1.3 },
+  {
+    eyes: 'squint',
+    mouth: 'frown',
+    pictos: ['drop', 'cross'],
+    emotion: 'grumpy',
+    move: 'shake_off',
+    fx: 'spray',
+  },
+  {
+    eyes: 'worried',
+    mouth: 'o',
+    pictos: ['rain', 'question'],
+    emotion: 'question',
+    move: 'cower',
+    seconds: 1.2,
+  },
+);
+const WONDER: Triple = three(
+  { eyes: 'wide', mouth: 'o', pictos: ['star', 'exclaim'], emotion: 'ooh', move: 'none', seconds: 1.6 },
+  {
+    eyes: 'heart',
+    mouth: 'o',
+    blush: true,
+    pictos: ['star', 'heart'],
+    emotion: 'ooh',
+    move: 'nod',
+    seconds: 1.6,
+  },
+  { eyes: 'wide', mouth: 'whee', pictos: ['star', 'star'], emotion: 'whee', move: 'hop', seconds: 1.6 },
 );
 
 /** Show-off poses for bugs that are not Dot: a little star turn. */
@@ -791,6 +849,120 @@ const PERSONAL: Record<BugArt, Record<Classic, Triple>> = {
       },
     ),
   },
+  // Flick: an excitable prankster who talks in blinks.
+  firefly: {
+    grab: three(
+      {
+        eyes: 'happy',
+        mouth: 'grin',
+        blush: true,
+        pictos: ['star', 'laugh'],
+        emotion: 'giggle',
+        move: 'wiggle',
+      },
+      { eyes: 'wide', mouth: 'whee', pictos: ['exclaim', 'star'], emotion: 'whee', move: 'wiggle' },
+      { eyes: 'happy', mouth: 'lick', pictos: ['laugh'], emotion: 'giggle', move: 'wiggle' },
+    ),
+    poke: three(
+      { eyes: 'happy', mouth: 'grin', pictos: ['star'], emotion: 'giggle', move: 'hop', seconds: 0.7 },
+      { eyes: 'wide', mouth: 'o', pictos: ['exclaim'], emotion: 'gasp', move: 'hop', seconds: 0.7 },
+      {
+        eyes: 'happy',
+        mouth: 'teeth',
+        blush: true,
+        pictos: ['laugh'],
+        emotion: 'giggle',
+        move: 'spin',
+        seconds: 0.7,
+      },
+    ),
+    fling: three(
+      { eyes: 'wide', mouth: 'whee', blush: true, pictos: ['star', 'star'], emotion: 'whee' },
+      { eyes: 'happy', mouth: 'whee', pictos: ['exclaim'], emotion: 'whee' },
+      { eyes: 'happy', mouth: 'grin', blush: true, pictos: ['star', 'up'], emotion: 'whee' },
+    ),
+    land: three(
+      { eyes: 'happy', mouth: 'grin', pictos: ['star', 'up'], emotion: 'happy', move: 'hop', seconds: 1.3 },
+      {
+        eyes: 'happy',
+        mouth: 'whee',
+        blush: true,
+        pictos: ['laugh'],
+        emotion: 'giggle',
+        move: 'spin',
+        seconds: 1.3,
+      },
+      {
+        eyes: 'open',
+        mouth: 'grin',
+        pictos: ['thumbs_up', 'star'],
+        emotion: 'happy',
+        move: 'pose',
+        seconds: 1.3,
+      },
+    ),
+    // Dunked: his glow fizzes out with a "pfft".
+    splash: three(
+      { eyes: 'wide', mouth: 'o', pictos: ['drop', 'exclaim'], emotion: 'gasp', fx: 'splash', seconds: 1.6 },
+      {
+        eyes: 'x',
+        mouth: 'wobble',
+        pictos: ['drop', 'sweat'],
+        emotion: 'scared',
+        fx: 'splash',
+        seconds: 1.6,
+      },
+      { eyes: 'worried', mouth: 'o', pictos: ['drop', 'question'], emotion: 'question', seconds: 1.6 },
+    ),
+    shake_dry: three(
+      {
+        eyes: 'happy',
+        mouth: 'grin',
+        pictos: ['drop', 'star'],
+        emotion: 'giggle',
+        move: 'shake_off',
+        fx: 'spray',
+      },
+      { eyes: 'squint', mouth: 'teeth', pictos: ['star'], emotion: 'happy', move: 'shake_off', fx: 'spray' },
+      {
+        eyes: 'happy',
+        mouth: 'whee',
+        pictos: ['star', 'star'],
+        emotion: 'whee',
+        move: 'shake_off',
+        fx: 'spray',
+      },
+    ),
+    // Stink clouds put his light out.
+    stink: three(
+      {
+        eyes: 'x',
+        mouth: 'tongue',
+        tint: 'green',
+        pictos: ['stink', 'cross'],
+        emotion: 'yuck',
+        move: 'cower',
+        fx: 'stink',
+      },
+      {
+        eyes: 'squint',
+        mouth: 'puff',
+        tint: 'green',
+        pictos: ['stink'],
+        emotion: 'yuck',
+        move: 'shake_head',
+        fx: 'stink',
+      },
+      {
+        eyes: 'angry',
+        mouth: 'frown',
+        pictos: ['stink', 'grr'],
+        emotion: 'grumpy',
+        move: 'stomp',
+        fx: 'stink',
+      },
+    ),
+  },
 };
 
 /**
@@ -1091,6 +1263,55 @@ const EVERYDAY_LOOKS: Record<BugArt, Record<Everyday, Triple>> = {
     ),
     show_off: POSE,
   },
+  // Flick: first to any light show, laughs at every stunt.
+  firefly: {
+    inspect: three(
+      { eyes: 'wide', mouth: 'whee', pictos: ['food', 'star'], emotion: 'whee', move: 'hop', seconds: 1.1 },
+      {
+        eyes: 'open',
+        mouth: 'o',
+        pictos: ['food', 'question'],
+        emotion: 'question',
+        move: 'sniff',
+        seconds: 1.1,
+      },
+      {
+        eyes: 'happy',
+        mouth: 'grin',
+        pictos: ['food', 'exclaim'],
+        emotion: 'happy',
+        move: 'sniff',
+        seconds: 1.1,
+      },
+    ),
+    gawk: three(
+      {
+        eyes: 'happy',
+        mouth: 'whee',
+        blush: true,
+        pictos: ['laugh', 'laugh'],
+        emotion: 'giggle',
+        move: 'hop',
+        seconds: 1.2,
+      },
+      { eyes: 'wide', mouth: 'o', pictos: ['exclaim', 'star'], emotion: 'gasp', move: 'none', seconds: 1.2 },
+      { eyes: 'happy', mouth: 'grin', pictos: ['thumbs_up'], emotion: 'happy', move: 'nod', seconds: 1.2 },
+    ),
+    play: three(
+      {
+        eyes: 'happy',
+        mouth: 'whee',
+        blush: true,
+        pictos: ['star', 'laugh'],
+        emotion: 'giggle',
+        move: 'spin',
+        seconds: 1.2,
+      },
+      { eyes: 'happy', mouth: 'grin', pictos: ['heart', 'star'], emotion: 'whee', move: 'hop', seconds: 1.2 },
+      { eyes: 'x', mouth: 'whee', pictos: ['laugh'], emotion: 'giggle', move: 'wiggle', seconds: 1.2 },
+    ),
+    show_off: POSE,
+  },
 };
 
 /** What reaction `type`, variant `variant`, looks like on a bug drawn as `art`. */
@@ -1108,11 +1329,17 @@ export function reactionLook(art: BugArt, type: ReactionType, variant: number): 
               ? SLIP
               : type === 'peek'
                 ? PEEK
-                : CLASSIC.has(type)
-                  ? PERSONAL[art][type as Classic]
-                  : EVERYDAY.has(type)
-                    ? EVERYDAY_LOOKS[art][type as Everyday]
-                    : FED[type as keyof typeof FED];
+                : type === 'rain_joy'
+                  ? RAIN_JOY
+                  : type === 'rain_gloom'
+                    ? RAIN_GLOOM
+                    : type === 'wonder'
+                      ? WONDER
+                      : CLASSIC.has(type)
+                        ? PERSONAL[art][type as Classic]
+                        : EVERYDAY.has(type)
+                          ? EVERYDAY_LOOKS[art][type as Everyday]
+                          : FED[type as keyof typeof FED];
   return set[((variant % 3) + 3) % 3]!;
 }
 
@@ -1139,6 +1366,9 @@ const SHOWS_IN: Readonly<Record<ReactionType, readonly BugMode[]>> = {
   show_off: ['st_perform'],
   play: ['st_react', 'st_idle', 'st_wander'],
   peek: ['st_react', 'st_idle'],
+  rain_joy: ['st_react', 'st_idle', 'st_wander'],
+  rain_gloom: ['st_react', 'st_idle', 'st_wander'],
+  wonder: ['st_react', 'st_idle'],
 };
 
 /** Is a reaction that started `ageSeconds` ago still showing in `mode`? */

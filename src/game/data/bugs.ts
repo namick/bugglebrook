@@ -34,6 +34,9 @@ export const BUGS = createRegistry<BugDef>('bug', [
     glidesWhenFlung: false,
     swim: 'paddle',
     likesStink: false,
+    active: 'day',
+    // Rain: she hides under a leaf.
+    rain: 'dislikes',
     voice: {
       wave: 'square',
       low: 520,
@@ -80,6 +83,8 @@ export const BUGS = createRegistry<BugDef>('bug', [
     swim: 'sink',
     // Rotten banana is his favorite: he sniffs stink happily.
     likesStink: true,
+    active: 'day',
+    rain: 'neutral',
     voice: {
       wave: 'triangle',
       low: 180,
@@ -119,6 +124,9 @@ export const BUGS = createRegistry<BugDef>('bug', [
     // Dunked, he floats shell-up like a little boat.
     swim: 'boat',
     likesStink: false,
+    active: 'day',
+    // Rain is the best weather: out he goes to splash.
+    rain: 'likes',
     voice: {
       wave: 'sine',
       low: 120,
@@ -166,6 +174,9 @@ export const BUGS = createRegistry<BugDef>('bug', [
     // He walks on water.
     swim: 'skate',
     likesStink: false,
+    active: 'day',
+    // Rain is the best weather: out he goes to splash.
+    rain: 'likes',
     voice: {
       wave: 'sine',
       low: 250,
@@ -205,6 +216,9 @@ export const BUGS = createRegistry<BugDef>('bug', [
     glidesWhenFlung: false,
     swim: 'paddle',
     likesStink: false,
+    active: 'day',
+    // Rain: soggy legs, no thanks. He takes a leaf for an umbrella.
+    rain: 'dislikes',
     voice: {
       wave: 'sawtooth',
       low: 400,
@@ -213,6 +227,59 @@ export const BUGS = createRegistry<BugDef>('bug', [
       vibratoHz: 0,
       vibratoDepth: 0,
       formantShift: 1.15,
+    },
+  },
+  {
+    id: 'bug_firefly_flick',
+    name: 'Flick',
+    species: 'Firefly',
+    art: 'firefly',
+    size: 'small',
+    radius: 0.4,
+    speed: 1.7,
+    body: 0x2b2438,
+    belly: 0xe85a2e,
+    accent: 0xd8ff4f,
+    // Found at night by the reeds (secret_firefly_flick).
+    hidden: true,
+    home: 'area_puddle_pond',
+    // Excitable and a bit of a prankster; other bugs gather round his glow.
+    traits: {
+      restless: 0.9,
+      bouncy: 0.6,
+      curious: 0.9,
+      sociable: 0.9,
+      cheeky: 0.9,
+      generous: 0.5,
+      nervous: 0.1,
+    },
+    habits: {},
+    needWeights: { need_hunger: 0.8, need_fun: 1.3, need_energy: 0.9, need_social: 1.3, need_clean: 0.7 },
+    // Sweet nectar for a firefly. His weird favorite, the toy battery, arrives with the porch.
+    loves: ['item_sugar_cube'],
+    likes: ['item_blueberry', 'item_berry_red', 'item_jelly_bean'],
+    // Stink clouds put his light out.
+    dislikes: ['item_rotten_banana_bit', 'item_pepper_hot'],
+    likesFlinging: true,
+    dizzyProof: false,
+    mouth: [0.4, 0.12],
+    curlsWhenFlung: false,
+    // Flung, he opens his wings and flutters down.
+    glidesWhenFlung: true,
+    swim: 'paddle',
+    likesStink: false,
+    // Up all night, asleep in the reeds all day.
+    active: 'night',
+    rain: 'neutral',
+    glows: true,
+    voice: {
+      wave: 'sine',
+      low: 800,
+      high: 1600,
+      syllablesPerSecond: 10,
+      vibratoHz: 0,
+      vibratoDepth: 0,
+      formantShift: 1.25,
     },
   },
 ]);

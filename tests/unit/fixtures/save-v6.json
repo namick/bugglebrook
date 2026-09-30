@@ -1,0 +1,923 @@
+{
+ "version": 6,
+ "savedAt": "2026-01-06T00:00:00.000Z",
+ "world": {
+  "seed": "fixture-v6",
+  "tick": 1500,
+  "rng": [
+   1184223115,
+   1895899140,
+   2298095737,
+   370214848
+  ],
+  "nextId": 39,
+  "entities": [
+   {
+    "id": 1,
+    "kind": "item",
+    "defId": "item_magnet",
+    "body": {
+     "x": 0.9999999999680041,
+     "y": 8.78504892808065,
+     "angle": 0.000012818823199909816,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 2,
+    "kind": "item",
+    "defId": "item_sponge",
+    "body": {
+     "x": 2.290788904446639,
+     "y": 8.684270272984415,
+     "angle": -0.15373853463491974,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 3,
+    "kind": "item",
+    "defId": "item_feather",
+    "body": {
+     "x": 3.390756222247217,
+     "y": 8.565118779869707,
+     "angle": -0.23204981907467817,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 4,
+    "kind": "item",
+    "defId": "item_cork",
+    "body": {
+     "x": 7.017706616850223,
+     "y": 8.767960427194476,
+     "angle": 0.007722810227789357,
+     "vx": 5.990528898417863e-7,
+     "vy": -0.01314111054842846,
+     "av": -2.4064720117366323e-7
+    },
+    "tags": {
+     "tag_wet": 3285
+    }
+   },
+   {
+    "id": 5,
+    "kind": "item",
+    "defId": "item_leaf_raft",
+    "body": {
+     "x": 7.859226298598622,
+     "y": 8.545342011452053,
+     "angle": 0.0036035808877262093,
+     "vx": 1.4999673712134755e-8,
+     "vy": -0.013141317157949686,
+     "av": -2.4064720130121417e-7
+    },
+    "tags": {
+     "tag_wet": 2655
+    }
+   },
+   {
+    "id": 6,
+    "kind": "bug",
+    "defId": "bug_waterstrider_skeet",
+    "body": {
+     "x": 15.210945799952803,
+     "y": 8.22,
+     "angle": 0,
+     "vx": 0,
+     "vy": -5.541878658694625e-17,
+     "av": 0
+    },
+    "bug": {
+     "mode": "st_idle",
+     "timer": 104,
+     "targetX": 15.320490772494658,
+     "targetId": null,
+     "action": null,
+     "facing": 1,
+     "needs": {
+      "need_hunger": 78.37500000000512,
+      "need_fun": 75.99999999999966,
+      "need_energy": 57.85919999999706,
+      "need_social": 77.40000000000839,
+      "need_clean": 95.80000000000126
+     },
+     "decideIn": 82,
+     "airPeak": 0.8178701079912677,
+     "selfLaunched": false,
+     "lastHardLanding": -1,
+     "dizzyStreak": 0,
+     "dizzyTicks": 0,
+     "used": [],
+     "stuck": 0,
+     "tries": 0,
+     "done": false,
+     "lastX": 15.210945799952803,
+     "mouthful": null,
+     "reaction": null,
+     "variants": {},
+     "grumpyUntil": -1,
+     "burpAt": -1,
+     "tickle": 0,
+     "woozyUntil": -1,
+     "smelledAt": -1,
+     "hopAt": -1,
+     "carrying": null,
+     "social": null,
+     "memory": [],
+     "inspected": [],
+     "groggyUntil": -1,
+     "napAt": -1,
+     "pokes": [],
+     "gliding": false,
+     "fidgetAt": 1544,
+     "slippedAt": -1,
+     "restX": 15,
+     "plan": null,
+     "resume": null,
+     "hopReady": 0,
+     "touchedAt": -1,
+     "airTop": 7.81752448971063,
+     "audience": 0
+    }
+   },
+   {
+    "id": 7,
+    "kind": "item",
+    "defId": "item_cork",
+    "body": {
+     "x": 20.795570801314476,
+     "y": 8.655,
+     "angle": 0,
+     "vx": 0.07529411760843858,
+     "vy": 1.2535074283028413e-14,
+     "av": 0
+    },
+    "tags": {
+     "tag_wet": 3285
+    }
+   },
+   {
+    "id": 8,
+    "kind": "item",
+    "defId": "item_paper_boat",
+    "body": {
+     "x": 21.924282094236226,
+     "y": 8.562499999999998,
+     "angle": 0,
+     "vx": 0.07111023560147994,
+     "vy": 4.3318110686040666e-14,
+     "av": 0
+    },
+    "tags": {
+     "tag_wet": 1800
+    },
+    "soak": 1500
+   },
+   {
+    "id": 9,
+    "kind": "item",
+    "defId": "item_gum_blob",
+    "body": {
+     "x": 24.3,
+     "y": 8.250000000000002,
+     "angle": 0,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 10,
+    "kind": "item",
+    "defId": "item_blueberry",
+    "body": {
+     "x": 27.538793802175242,
+     "y": 8.345293321608557,
+     "angle": -2.0193539916154855,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 11,
+    "kind": "item",
+    "defId": "item_blueberry",
+    "body": {
+     "x": 27.83665173560662,
+     "y": 8.346648454173636,
+     "angle": 2.9070440387657603,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 12,
+    "kind": "item",
+    "defId": "item_soap_sliver",
+    "body": {
+     "x": 28.211403661171364,
+     "y": 8.407917260055507,
+     "angle": 0.018179815791631377,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 13,
+    "kind": "item",
+    "defId": "item_bubble_wand",
+    "body": {
+     "x": 29.103444530697484,
+     "y": 8.452560165165126,
+     "angle": 0.09477744525937884,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 14,
+    "kind": "item",
+    "defId": "item_pebble",
+    "body": {
+     "x": 39.06316062652327,
+     "y": 8.790544042428097,
+     "angle": -2.429655474810993,
+     "vx": -8.379675588866273e-12,
+     "vy": 0,
+     "av": -4.195544179539706e-11
+    }
+   },
+   {
+    "id": 15,
+    "kind": "item",
+    "defId": "item_mint_leaf",
+    "body": {
+     "x": 34.60312979899438,
+     "y": 9.00449834194286,
+     "angle": -0.1795132176304582,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 17,
+    "kind": "item",
+    "defId": "item_pebble",
+    "body": {
+     "x": 36.46183930853945,
+     "y": 8.795000000000003,
+     "angle": 0.5516278973495861,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 18,
+    "kind": "item",
+    "defId": "item_bottle_cap",
+    "body": {
+     "x": 39.546680590651285,
+     "y": 8.899745258134288,
+     "angle": 0.0009099184695070065,
+     "vx": -8.649321532855139e-18,
+     "vy": 6.596808378110046e-17,
+     "av": -2.7370506885127146e-17
+    }
+   },
+   {
+    "id": 20,
+    "kind": "item",
+    "defId": "item_twig",
+    "body": {
+     "x": 41.41414432762741,
+     "y": 8.930021515429848,
+     "angle": 0.000002773494240057782,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 21,
+    "kind": "item",
+    "defId": "item_rotten_banana_bit",
+    "body": {
+     "x": 42.77898485692347,
+     "y": 8.805000001321364,
+     "angle": 3.1071044554786282,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 22,
+    "kind": "item",
+    "defId": "item_spring_coil",
+    "body": {
+     "x": 43.241451734291694,
+     "y": 8.685003742252734,
+     "angle": -7.732197386086765e-7,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 23,
+    "kind": "item",
+    "defId": "item_sugar_cube",
+    "body": {
+     "x": 44.525228204788235,
+     "y": 8.680583602240858,
+     "angle": -0.527092784800377,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 24,
+    "kind": "item",
+    "defId": "item_pebble",
+    "body": {
+     "x": 48.697055055633534,
+     "y": 3.795000000000001,
+     "angle": -1.0318580370991546,
+     "vx": -0.04028422381967454,
+     "vy": 6.808789643208968e-17,
+     "av": -0.20397075351733973
+    }
+   },
+   {
+    "id": 26,
+    "kind": "item",
+    "defId": "item_pepper_hot",
+    "body": {
+     "x": 51.89028054896472,
+     "y": 3.905006780998539,
+     "angle": 0.0000024943454842068453,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 27,
+    "kind": "item",
+    "defId": "item_berry_red",
+    "body": {
+     "x": 53.67674109881294,
+     "y": 3.825000000000001,
+     "angle": 1.7798662996556054,
+     "vx": 0.015541087949789636,
+     "vy": 0,
+     "av": 0.09278261462561004
+    }
+   },
+   {
+    "id": 28,
+    "kind": "item",
+    "defId": "item_jelly_bean",
+    "body": {
+     "x": 54.62267894048603,
+     "y": 3.895010880672987,
+     "angle": 0.000005375128604857642,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 29,
+    "kind": "item",
+    "defId": "item_marble_blue",
+    "body": {
+     "x": 60.44770963311255,
+     "y": 8.853909706294557,
+     "angle": 1.2314559014450914,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 30,
+    "kind": "item",
+    "defId": "item_ruler_ramp",
+    "body": {
+     "x": 62.599998126923566,
+     "y": 8.905016928125747,
+     "angle": 0.0000024360478463249593,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 31,
+    "kind": "item",
+    "defId": "item_pebble",
+    "body": {
+     "x": 63.30080095187723,
+     "y": 8.620034279332078,
+     "angle": 0.004043284387531504,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 32,
+    "kind": "item",
+    "defId": "item_rubber_ball",
+    "body": {
+     "x": 65.8,
+     "y": 8.735000545614428,
+     "angle": 0,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 33,
+    "kind": "item",
+    "defId": "item_marble_red",
+    "body": {
+     "x": 66.9,
+     "y": 8.855000545614429,
+     "angle": 0,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 34,
+    "kind": "item",
+    "defId": "item_berry_red",
+    "body": {
+     "x": 69.6,
+     "y": 8.82,
+     "angle": 0,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 35,
+    "kind": "bug",
+    "defId": "bug_ladybug_dot",
+    "body": {
+     "x": 46.26362495010697,
+     "y": 5.614671155387252,
+     "angle": 0,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    },
+    "bug": {
+     "mode": "st_idle",
+     "timer": 86,
+     "targetX": 46.37771801398369,
+     "targetId": null,
+     "action": null,
+     "facing": 1,
+     "needs": {
+      "need_hunger": 94.31666666667184,
+      "need_fun": 92.4999999999925,
+      "need_energy": 57.72429999999461,
+      "need_social": 76.59999999999127,
+      "need_clean": 70.60000000000804
+     },
+     "decideIn": 2,
+     "airPeak": 8.271775335846986,
+     "selfLaunched": false,
+     "lastHardLanding": -1,
+     "dizzyStreak": 0,
+     "dizzyTicks": 0,
+     "used": [
+      {
+       "id": 19,
+       "tick": 135
+      },
+      {
+       "id": 22,
+       "tick": 1059
+      }
+     ],
+     "stuck": 0,
+     "tries": 0,
+     "done": true,
+     "lastX": 46.26362495010697,
+     "mouthful": null,
+     "reaction": {
+      "type": "stink",
+      "variant": 2,
+      "tick": 600
+     },
+     "variants": {
+      "fed_liked": 2,
+      "stink": 2
+     },
+     "grumpyUntil": -1,
+     "burpAt": -1,
+     "tickle": 0,
+     "woozyUntil": -1,
+     "smelledAt": 600,
+     "hopAt": -1,
+     "carrying": null,
+     "social": null,
+     "memory": [
+      {
+       "id": 22,
+       "good": true,
+       "tick": 1059
+      }
+     ],
+     "inspected": [],
+     "groggyUntil": -1,
+     "napAt": -1,
+     "pokes": [],
+     "gliding": false,
+     "fidgetAt": 1600,
+     "slippedAt": -1,
+     "restX": 39,
+     "plan": null,
+     "resume": null,
+     "hopReady": 0,
+     "touchedAt": -1,
+     "airTop": 4.52223757247087,
+     "audience": 0
+    }
+   },
+   {
+    "id": 36,
+    "kind": "bug",
+    "defId": "bug_pillbug_rollo",
+    "body": {
+     "x": 38.34678328295117,
+     "y": 8.464336649744482,
+     "angle": 0,
+     "vx": 2.986158381139379,
+     "vy": -4.239801015331325,
+     "av": 0
+    },
+    "bug": {
+     "mode": "st_airborne",
+     "timer": 1004,
+     "targetX": 45.85222806681848,
+     "targetId": 35,
+     "action": "soc_chat",
+     "facing": 1,
+     "needs": {
+      "need_hunger": 98.92291666666765,
+      "need_fun": 73.99999999999267,
+      "need_energy": 71.0600000000099,
+      "need_social": 60.04999999999555,
+      "need_clean": 81.6500000000097
+     },
+     "decideIn": 90,
+     "airPeak": 0,
+     "selfLaunched": true,
+     "lastHardLanding": -1,
+     "dizzyStreak": 0,
+     "dizzyTicks": 0,
+     "used": [
+      {
+       "id": 14,
+       "tick": 508
+      },
+      {
+       "id": 16,
+       "tick": 1264
+      }
+     ],
+     "stuck": 0,
+     "tries": 0,
+     "done": false,
+     "lastX": 38.29701397659885,
+     "mouthful": null,
+     "reaction": {
+      "type": "fed_liked",
+      "variant": 1,
+      "tick": 1264
+     },
+     "variants": {
+      "fed_liked": 1
+     },
+     "grumpyUntil": -1,
+     "burpAt": -1,
+     "tickle": 0,
+     "woozyUntil": -1,
+     "smelledAt": -1,
+     "hopAt": -1,
+     "carrying": null,
+     "social": {
+      "kind": "soc_chat",
+      "partner": 35,
+      "role": "lead",
+      "stage": 1,
+      "count": 0,
+      "goal": 0,
+      "beat": 0,
+      "left": 0,
+      "item": null,
+      "last": null
+     },
+     "memory": [
+      {
+       "id": 21,
+       "good": false,
+       "tick": 161
+      }
+     ],
+     "inspected": [],
+     "groggyUntil": -1,
+     "napAt": -1,
+     "pokes": [],
+     "gliding": false,
+     "fidgetAt": 1688,
+     "slippedAt": -1,
+     "restX": 37.4,
+     "plan": null,
+     "resume": "st_seek",
+     "hopReady": 0,
+     "touchedAt": -1,
+     "airTop": 8.535000000000004,
+     "audience": 0
+    }
+   },
+   {
+    "id": 37,
+    "kind": "bug",
+    "defId": "bug_snail_glorp",
+    "body": {
+     "x": 50.01248491109235,
+     "y": 3.4345095085561215,
+     "angle": 0,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    },
+    "bug": {
+     "mode": "st_idle",
+     "timer": 253,
+     "targetX": 48.59519278640796,
+     "targetId": null,
+     "action": null,
+     "facing": -1,
+     "needs": {
+      "need_hunger": 93.47500000000593,
+      "need_fun": 65.49999999999983,
+      "need_energy": 67.79883333333409,
+      "need_social": 70.39999999999836,
+      "need_clean": 87.7499999999917
+     },
+     "decideIn": 3,
+     "airPeak": 3.2436016066207984,
+     "selfLaunched": false,
+     "lastHardLanding": -1,
+     "dizzyStreak": 0,
+     "dizzyTicks": 0,
+     "used": [
+      {
+       "id": 25,
+       "tick": 194
+      },
+      {
+       "id": -101,
+       "tick": 1412
+      },
+      {
+       "id": 38,
+       "tick": 1412
+      }
+     ],
+     "stuck": 0,
+     "tries": 0,
+     "done": false,
+     "lastX": 50.01248491109235,
+     "mouthful": null,
+     "reaction": {
+      "type": "fed_loved",
+      "variant": 1,
+      "tick": 194
+     },
+     "variants": {
+      "fed_loved": 1
+     },
+     "grumpyUntil": -1,
+     "burpAt": -1,
+     "tickle": 0,
+     "woozyUntil": -1,
+     "smelledAt": -1,
+     "hopAt": -1,
+     "carrying": null,
+     "social": null,
+     "memory": [
+      {
+       "id": 38,
+       "good": true,
+       "tick": 1412
+      }
+     ],
+     "inspected": [],
+     "groggyUntil": -1,
+     "napAt": -1,
+     "pokes": [],
+     "gliding": false,
+     "fidgetAt": 1872,
+     "slippedAt": -1,
+     "restX": 50.6,
+     "plan": null,
+     "resume": null,
+     "hopReady": 0,
+     "touchedAt": -1,
+     "airTop": 3.2013748941695908,
+     "audience": 0
+    }
+   },
+   {
+    "id": 38,
+    "kind": "bug",
+    "defId": "bug_grasshopper_boing",
+    "body": {
+     "x": 48.44358797484777,
+     "y": 3.1426673331251207,
+     "angle": 0,
+     "vx": -0.0783089408437208,
+     "vy": 0.014735356754353349,
+     "av": 0
+    },
+    "bug": {
+     "mode": "st_idle",
+     "timer": 88,
+     "targetX": 52.508844897623696,
+     "targetId": null,
+     "action": null,
+     "facing": 1,
+     "needs": {
+      "need_hunger": 82.75000000000568,
+      "need_fun": 99.38399999999956,
+      "need_energy": 87.59523333332689,
+      "need_social": 84.14999999999765,
+      "need_clean": 82.69999999999004
+     },
+     "decideIn": 55,
+     "airPeak": 3.6884119337283017,
+     "selfLaunched": false,
+     "lastHardLanding": -1,
+     "dizzyStreak": 0,
+     "dizzyTicks": 0,
+     "used": [
+      {
+       "id": -107,
+       "tick": 1240
+      },
+      {
+       "id": 37,
+       "tick": 1240
+      },
+      {
+       "id": -101,
+       "tick": 1412
+      },
+      {
+       "id": 37,
+       "tick": 1412
+      }
+     ],
+     "stuck": 0,
+     "tries": 0,
+     "done": false,
+     "lastX": 48.44489312386184,
+     "mouthful": null,
+     "reaction": null,
+     "variants": {},
+     "grumpyUntil": -1,
+     "burpAt": -1,
+     "tickle": 0,
+     "woozyUntil": -1,
+     "smelledAt": -1,
+     "hopAt": -1,
+     "carrying": null,
+     "social": null,
+     "memory": [
+      {
+       "id": 37,
+       "good": true,
+       "tick": 1240
+      },
+      {
+       "id": 37,
+       "good": true,
+       "tick": 1412
+      }
+     ],
+     "inspected": [],
+     "groggyUntil": -1,
+     "napAt": -1,
+     "pokes": [],
+     "gliding": false,
+     "fidgetAt": 1675,
+     "slippedAt": -1,
+     "restX": 57.6,
+     "plan": null,
+     "resume": null,
+     "hopReady": 453,
+     "touchedAt": -1,
+     "airTop": 2.7239965845085803,
+     "audience": 0
+    }
+   }
+  ],
+  "env": {
+   "rise": {},
+   "hoseOn": false,
+   "ice": [],
+   "nextIce": 1,
+   "sticks": [],
+   "zappedUntil": -1,
+   "wind": 0,
+   "rain": false,
+   "rainSince": -1,
+   "pads": {
+    "fix_lily_pad_west": {
+     "dy": 0.007680000000057474,
+     "vy": 2.761039964933232e-13
+    },
+    "fix_lily_pad_middle": {
+     "dy": 0.000001364256233691971,
+     "vy": 0.00008030735171154978
+    },
+    "fix_lily_pad_east": {
+     "dy": -4.831213262087844e-33,
+     "vy": 5.593153733469355e-32
+    }
+   },
+   "slime": [
+    {
+     "x0": 49.72939982337999,
+     "x1": 51.38724060050804,
+     "y": 3.43,
+     "until": 2548
+    },
+    {
+     "x0": 51.833204679616685,
+     "x1": 52.6865458335977,
+     "y": 3.2859468195959143,
+     "until": 2901
+    },
+    {
+     "x0": 49.340484911092354,
+     "x1": 51.29604355914723,
+     "y": 3.433672664385815,
+     "until": 3153
+    }
+   ]
+  },
+  "social": {
+   "affinity": {
+    "bug_grasshopper_boing|bug_snail_glorp": 0.02
+   }
+  },
+  "pocket": {
+   "slots": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    []
+   ],
+   "at": {}
+  },
+  "counters": {
+   "fed": {}
+  }
+ },
+ "view": {
+  "cameraX": 35
+ },
+ "meta": {
+  "createdAt": "2026-01-06T00:00:00.000Z",
+  "thumb": null
+ }
+}

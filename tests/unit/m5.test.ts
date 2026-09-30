@@ -287,8 +287,17 @@ describe('the setup rule with pocketed things', () => {
     sim.run(40 * 60);
     expect(sim.entities.has(berry)).toBe(true);
     expect(sim.pocket.slots[0]).toEqual([berry]);
-    // Out, it is a player setup: hungry bugs leave it be.
-    takeOut(sim, 0, PLAZA_X + 26);
+    // Out, it is a player setup: hungry bugs leave it be. (Set down well away
+    // from every mouth, or dropping it there would be the player feeding them.)
+    const bugsX = sim
+      .views()
+      .filter((v) => v.bug)
+      .map((v) => v.x);
+    let spot = PLAZA_X + 26;
+    for (let x = PLAZA_X + 2; x < PLAZA_X + 37; x += 0.5)
+      if (Math.min(...bugsX.map((b) => Math.abs(b - x))) > Math.min(...bugsX.map((b) => Math.abs(b - spot))))
+        spot = x;
+    takeOut(sim, 0, spot);
     expect(sim.setup.has(berry)).toBe(true);
     const eaten: number[] = [];
     sim.events.on('bug_ate', (e) => eaten.push(e.itemId));
@@ -380,7 +389,7 @@ describe('save migrations from every shipped version', () => {
   const fixture = (v: number): Record<string, unknown> =>
     JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures', `save-v${v}.json`), 'utf8'));
 
-  for (const v of [1, 2, 3, 4, 5]) {
+  for (const v of [1, 2, 3, 4, 5, 6, 7]) {
     it(`loads a real version ${v} save and plays on`, () => {
       const raw = fixture(v);
       expect(raw.version).toBe(v);
@@ -753,9 +762,14 @@ describe('the first two minutes', () => {
     const log: string[] = [];
     sim.events.on('bug_beckoned', (e) => log.push(e.defId));
     sim.send({ type: 'beckon', id: dot.id, x: dot.x + 5 });
-    sim.run(240);
+    // She heads for the hand (and may bounce off a toy on the way).
+    let furthest = dot.x;
+    for (let i = 0; i < 240; i++) {
+      sim.step();
+      furthest = Math.max(furthest, sim.view(dot.id)!.x);
+    }
     expect(log).toEqual(['bug_ladybug_dot']);
-    expect(sim.view(dot.id)!.x).toBeGreaterThan(dot.x + 2);
+    expect(furthest).toBeGreaterThan(dot.x + 2);
   });
 });
 

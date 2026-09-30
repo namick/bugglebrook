@@ -108,6 +108,22 @@ export interface BugWorld {
   cover(x: number, fromX: number): { id: EntityId; x: number } | null;
 }
 
+/** What a bug knows about the time and the weather (game design doc, section 5). */
+export interface BugSky {
+  /** Its time to sleep: night for day bugs, day for night bugs. */
+  bedtime: boolean;
+  /** Dusk for day bugs: the tired ones head to bed early. */
+  evening: boolean;
+  /** Rain is falling on it right now (it is out in it, with nothing overhead). */
+  rain: boolean;
+  /** Rain is falling anywhere. */
+  raining: boolean;
+  /** Wind in m/s, positive blowing right. */
+  wind: number;
+  /** Dark out. */
+  dark: boolean;
+}
+
 export interface BugContext {
   tick: number;
   /** The bug's own entity ID. */
@@ -139,6 +155,8 @@ export interface BugContext {
   home?: { x0: number; x1: number } | null;
   /** The rest of the world. Tests may leave it out. */
   world?: BugWorld;
+  /** Time and weather. Without it (older tests), it is always a dry day. */
+  sky?: BugSky;
 }
 
 export interface Obstacle {
@@ -182,6 +200,7 @@ export type BugNotice = (
   | { type: 'curled'; on: boolean }
   | { type: 'hid'; coverId: EntityId | null; on: boolean }
   | { type: 'affinity'; partnerId: EntityId; delta: number }
+  | { type: 'umbrella'; itemId: EntityId; on: boolean }
 ) & { by?: EntityId };
 
 export interface BugDecision {

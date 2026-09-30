@@ -477,7 +477,10 @@ describe('soak', () => {
             expect(n).toBeLessThanOrEqual(100);
           }
           const h = history.get(v.id) ?? [];
-          h.push(`${v.bug.mode}:${Math.round(v.x * 2)}`);
+          // Sleeping through the night is what bugs do (M6): that is never "stuck".
+          const def = sim.content.bugs.get(v.defId);
+          const night = v.bug.mode === 'st_sleep' && sim.weather.bedtime(def, v.id);
+          h.push(night ? `night:${h.length}` : `${v.bug.mode}:${Math.round(v.x * 2)}`);
           history.set(v.id, h);
         }
       }

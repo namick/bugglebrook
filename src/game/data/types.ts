@@ -73,7 +73,21 @@ export interface WaterDef {
   current: number;
 }
 
-export type FixtureKind = 'hose_tap' | 'lily_pad' | 'rubber_boot' | 'teacup';
+/**
+ * Built-in parts of an area. `sundial`, `weather_vane`, and `knothole` are
+ * clicked (and the sundial dragged); `puddle` is a dip rain fills; `reeds`
+ * is where fireflies gather at night.
+ */
+export type FixtureKind =
+  | 'hose_tap'
+  | 'lily_pad'
+  | 'rubber_boot'
+  | 'teacup'
+  | 'sundial'
+  | 'weather_vane'
+  | 'knothole'
+  | 'puddle'
+  | 'reeds';
 
 /** A fixed part of an area. Positions are area-local x and world y, in meters. */
 export interface FixtureDef {
@@ -109,7 +123,7 @@ export interface VoiceProfile {
   formantShift: number;
 }
 
-export type BugArt = 'ladybug' | 'pillbug' | 'snail' | 'strider' | 'grasshopper';
+export type BugArt = 'ladybug' | 'pillbug' | 'snail' | 'strider' | 'grasshopper' | 'firefly';
 
 /**
  * Personality knobs that the AI reads, 0 to 1. `curious` sniffs new things,
@@ -198,6 +212,12 @@ export interface BugDef {
   swim: SwimStyle;
   /** Sniffs stink clouds happily instead of holding its nose. */
   likesStink: boolean;
+  /** Awake by day and asleep at night, or the other way round (game design doc, section 11). */
+  active: 'day' | 'night';
+  /** How it feels about rain: lovers go out and splash, the rest take shelter. */
+  rain: 'likes' | 'dislikes' | 'neutral';
+  /** Its body glows in the dark and lights things up (Flick's tail). */
+  glows?: boolean;
   voice: VoiceProfile;
 }
 
@@ -252,14 +272,17 @@ export type ItemArt =
   | 'bubble_wand'
   | 'feather'
   | 'gum_blob'
-  | 'magnet';
+  | 'magnet'
+  | 'flashlight'
+  | 'moon_pebble';
 
 /**
  * What a bug can do with an advert (game design doc, section 5). Items offer
  * eat, bounce, sleep, and carry; any item a bug has not met offers inspect;
  * spots in the world offer splash and perform.
  */
-export type AdvertAction = 'eat' | 'bounce' | 'inspect' | 'sleep' | 'splash' | 'carry' | 'perform';
+export type AdvertAction =
+  'eat' | 'bounce' | 'inspect' | 'sleep' | 'splash' | 'carry' | 'perform' | 'shelter';
 
 export const ADVERT_ACTIONS: readonly AdvertAction[] = [
   'eat',
@@ -269,6 +292,7 @@ export const ADVERT_ACTIONS: readonly AdvertAction[] = [
   'splash',
   'carry',
   'perform',
+  'shelter',
 ];
 
 /** What an object offers a bug (game design doc, section 5). */
@@ -310,6 +334,8 @@ export interface ItemDef {
   blowsBubbles?: boolean;
   /** Small and round enough for two bugs to play catch with. */
   catchable?: boolean;
+  /** A light: a click switches it on and off (`tag_glowing`) instead of making it hop. */
+  lamp?: boolean;
 }
 
 export interface RecipeDef {
@@ -329,6 +355,8 @@ export interface PotionDef {
 }
 
 export type SecretTrigger =
+  /** Found by a system in the sim (the sundial, the knothole, the fireflies), in `area`. */
+  | { type: 'scripted'; area: string }
   | { type: 'bug_holds_item'; bug: string; item: string; area: string }
   | { type: 'recipe'; recipe: string }
   | { type: 'potion_on_bug'; potion: string; bug: string };

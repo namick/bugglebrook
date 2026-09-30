@@ -4,6 +4,8 @@ import { createRegistry } from './registry';
 const EAT_FOOD: Advert = { action: 'eat', needs: { need_hunger: 20 } };
 /** Something soft or snug to curl up on for a nap. */
 const NAP = (energy: number): Advert => ({ action: 'sleep', needs: { need_energy: energy } });
+/** Held overhead as an umbrella by bugs that dislike rain (game design doc, section 5). */
+const SHELTER: Advert = { action: 'shelter', needs: { need_clean: 10, need_fun: 4 } };
 
 // Props and foods for the plaza and the pond (game design doc, sections 7.1, 7.2, 7.5).
 // Sizes are a little larger than the doc's pixel sizes so they read well
@@ -153,7 +155,7 @@ export const ITEMS = createRegistry<ItemDef>('item', [
     color: 0x7ccf4f,
     accent: 0x4e9a3a,
     tags: ['tag_leafy', 'tag_edible', 'tag_light', 'tag_floaty'],
-    adverts: [EAT_FOOD, NAP(40)],
+    adverts: [EAT_FOOD, NAP(40), SHELTER],
   },
   {
     id: 'item_sugar_cube',
@@ -365,7 +367,7 @@ export const ITEMS = createRegistry<ItemDef>('item', [
     color: 0xffffff,
     accent: 0x9ad0f5,
     tags: ['tag_light', 'tag_floaty'],
-    adverts: [],
+    adverts: [SHELTER],
   },
   {
     // From the porch in the doc; it waits by the pond until the porch opens.
@@ -398,5 +400,39 @@ export const ITEMS = createRegistry<ItemDef>('item', [
     tags: ['tag_magnetic', 'tag_heavy'],
     adverts: [],
     magnet: 30,
+  },
+  {
+    // From the porch in the doc; it waits at the plaza's pond end until the
+    // porch opens. A click switches it on and off.
+    id: 'item_flashlight_pen',
+    name: 'Flashlight pen',
+    shape: { type: 'box', width: 0.64, height: 0.15 },
+    material: 'mat_plastic',
+    density: 1.3,
+    friction: 0.5,
+    restitution: 0.3,
+    angularDamping: 2,
+    art: 'flashlight',
+    color: 0x4d7cff,
+    accent: 0xfff3a8,
+    tags: [],
+    adverts: [],
+    lamp: true,
+  },
+  {
+    // A pebble dropped into the teacup under the moon comes out like this (secret_moon_pebble).
+    id: 'item_moon_pebble',
+    name: 'Moon pebble',
+    shape: { type: 'circle', radius: 0.2 },
+    material: 'mat_stone',
+    density: 2.5,
+    friction: 0.7,
+    restitution: 0.15,
+    angularDamping: 4,
+    art: 'moon_pebble',
+    color: 0xe6ecff,
+    accent: 0xb9c7ff,
+    tags: ['tag_heavy', 'tag_glowing', 'tag_stackable'],
+    adverts: [],
   },
 ]);

@@ -148,7 +148,11 @@ export function stepToward(
   if (ob && ob.id === target && ob.setup) return 'blocked';
   if (ob && (ob.isBug || ob.setup || bottom - ob.top > STEP_HEIGHT)) return 'blocked';
   if (ob) {
-    // A little hop over pebbles and twigs instead of bulldozing them.
+    // A little hop over pebbles and twigs instead of bulldozing them. If
+    // the hop would carry it past where it is going, it is there already:
+    // hopping back and forth over the same pebble helps nobody. (Only when
+    // wandering: a bug going to a thing may need to hop right up to it.)
+    if (brain.mode === 'st_wander' && Math.abs(dx) < def.radius * 2 + 0.3) return 'blocked';
     const landX = state.x + brain.facing * (def.radius * 2 + 0.3);
     if (!clearLanding(ctx, landX)) return 'blocked';
     const rise = Math.max(0.1, bottom - ob.top + 0.12);

@@ -204,6 +204,9 @@ export function validateContent(
     const where = `secret ${secret.id}`;
     const t = secret.trigger;
     switch (t.type) {
+      case 'scripted':
+        ref(content.areas, t.area, where);
+        break;
       case 'bug_holds_item':
         ref(content.bugs, t.bug, where);
         ref(content.items, t.item, where);

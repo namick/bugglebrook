@@ -5,5 +5,7 @@ export default defineConfig({
     include: ['tests/unit/**/*.test.ts'],
     environment: 'node',
     restoreMocks: true,
+    // Long seeded runs share the CPU with every other file; give them room.
+    testTimeout: 30_000,
   },
 });

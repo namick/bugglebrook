@@ -305,6 +305,39 @@ export function drawPicto(g: Graphics, picto: Picto, x: number, y: number, s: nu
         .stroke(stroke(2.5));
       return;
     }
+    case 'rain': {
+      // A little grey cloud with three drops falling from it.
+      for (let i = -1; i <= 1; i++) {
+        const dx = x + i * h * 0.5;
+        const dy = y + h * 0.55 + ((time * 1.6 + (i + 1) * 0.33) % 1) * h * 0.4;
+        g.moveTo(dx, dy - h * 0.16)
+          .lineTo(dx - h * 0.06, dy + h * 0.16)
+          .stroke({ width: 3.5, color: 0x4d9bff, cap: 'round' });
+      }
+      for (const [cx, cy, r] of [
+        [x - h * 0.45, y + h * 0.05, h * 0.34],
+        [x, y - h * 0.18, h * 0.45],
+        [x + h * 0.45, y + h * 0.05, h * 0.34],
+      ] as const)
+        g.circle(cx, cy, r + LINE / 2).fill(OUTLINE);
+      for (const [cx, cy, r] of [
+        [x - h * 0.45, y + h * 0.05, h * 0.34],
+        [x, y - h * 0.18, h * 0.45],
+        [x + h * 0.45, y + h * 0.05, h * 0.34],
+      ] as const)
+        g.circle(cx, cy, r - LINE / 2).fill(0xc9d2e3);
+      return;
+    }
+    case 'moon': {
+      // A sleepy crescent moon.
+      g.circle(x, y, h * 0.8).fill(OUTLINE);
+      g.circle(x, y, h * 0.8 - LINE / 2).fill(0xfff1b8);
+      g.circle(x + h * 0.4, y - h * 0.22, h * 0.62).fill(0x5a64a8);
+      g.moveTo(x - h * 0.5, y + h * 0.05)
+        .quadraticCurveTo(x - h * 0.38, y + h * 0.18, x - h * 0.26, y + h * 0.05)
+        .stroke(stroke(2.5));
+      return;
+    }
     case 'food':
     case 'friend':
       return;

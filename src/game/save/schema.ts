@@ -3,10 +3,11 @@ import type { RngState } from '../core/rng';
 import type { BodyState } from '../physics/physics';
 import type { EnvState } from '../systems/environment';
 import type { PocketState } from '../systems/pocket';
+import type { SkyState } from '../systems/sky';
 import type { TagState } from '../systems/tags';
 
 /** Bump when the save shape changes, and add a migration in migrations.ts. */
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 export interface SavedEntity {
   id: number;
@@ -35,6 +36,13 @@ export interface WorldSave {
   pocket?: PocketState;
   /** Counts kept for the menu's slot badge. Absent in saves before version 6. */
   counters?: WorldCounters;
+  /**
+   * The clock and the weather. Absent in saves before version 7: those
+   * worlds start at 09:00 in clear weather.
+   */
+  sky?: SkyState;
+  /** Secrets found, in order. Absent in saves before version 7. */
+  secrets?: string[];
 }
 
 /** Running counts about how the world has been played. */

@@ -16,7 +16,11 @@ describe('content registries', () => {
       'bug_snail_glorp',
       'bug_waterstrider_skeet',
       'bug_grasshopper_boing',
+      'bug_firefly_flick',
     ]);
+    // Flick is hidden until found at night by the reeds.
+    expect(CONTENT.bugs.get('bug_firefly_flick').hidden).toBe(true);
+    expect(CONTENT.bugs.get('bug_firefly_flick').active).toBe('night');
     const pond = CONTENT.areas.get('area_puddle_pond').start.map((s) => s.defId);
     for (const id of [
       'item_sponge',

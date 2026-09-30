@@ -1,4 +1,5 @@
 import type { NeedId } from './data/types';
+import type { WeatherId } from './systems/sky';
 
 /**
  * Commands are the only way input changes the sim. They are plain data so
@@ -30,8 +31,18 @@ export type Command =
   | { type: 'focus'; x0: number; x1: number }
   /** Debug and tests: turn a tag on (for `seconds`, or its usual time) or off. */
   | { type: 'set_tag'; id: number; tag: string; on: boolean; seconds?: number }
-  /** Debug and tests until weather arrives: wind in m/s (+ blows right) and rain. */
-  | { type: 'set_weather'; wind: number; rain: boolean }
+  /**
+   * Debug and tests: set the weather. `weather` picks a state; without it,
+   * rain means `weather_rain`, wind means `weather_wind`, and neither clear.
+   * `wind` is in m/s (+ blows right). It runs until the next natural change.
+   */
+  | { type: 'set_weather'; wind: number; rain: boolean; weather?: WeatherId }
+  /** Debug and tests: jump to `hour` (0 to 24, fractions allowed) on today's clock. */
+  | { type: 'set_time'; hour: number }
+  /** The player turned the sundial's rim forward: the world fast-forwards by this many game minutes. */
+  | { type: 'dial_turn'; minutes: number }
+  /** The player let go of the sundial: it snaps to a nearby phase start and finishes its sweep. */
+  | { type: 'dial_release' }
   /**
    * The player let go of what they hold over pocket slot `slot` (0 to 5):
    * it goes in the pocket. A slot that cannot take it swaps: what was there

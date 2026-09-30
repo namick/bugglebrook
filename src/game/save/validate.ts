@@ -2,6 +2,7 @@ import { BUG_MODES, SOCIAL_KINDS } from '../core/entities';
 import { ADVERT_ACTIONS } from '../data/types';
 import { REACTION_TYPES } from '../events';
 import { POCKET_SLOTS, STACK_MAX } from '../systems/pocket';
+import { WEATHER_IDS } from '../systems/sky';
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const isObj = (v: unknown): v is Record<string, unknown> =>
@@ -62,6 +63,8 @@ function brainProblems(bug: unknown): string[] {
   )
     errors.push('flags are invalid');
   if (!isIdOrNull(bug.carrying)) errors.push('carrying must be a number or null');
+  if (bug.umbrella !== undefined && typeof bug.umbrella !== 'boolean')
+    errors.push('umbrella must be a boolean');
   if (bug.resume !== null && !BUG_MODES_SET.has(bug.resume as string)) errors.push('resume is invalid');
   const social = bug.social;
   if (
@@ -162,6 +165,50 @@ function envProblems(env: unknown): string[] {
   return errors;
 }
 
+const WEATHERS = new Set<string>(WEATHER_IDS);
+const isTicks = (v: unknown): boolean => Array.isArray(v) && v.every(isNum);
+
+/** Problems with the saved clock and weather, or an empty list. */
+function skyProblems(sky: unknown): string[] {
+  if (!isObj(sky)) return ['is not an object'];
+  const errors: string[] = [];
+  for (const k of [
+    'clock',
+    'since',
+    'next',
+    'wind',
+    'shades',
+    'starsRolled',
+    'starAt',
+    'rainEnded',
+    'knotholeAt',
+  ])
+    if (!isNum(sky[k])) errors.push(`${k} must be a number`);
+  if (isNum(sky.clock) && sky.clock < 0) errors.push('clock must be >= 0');
+  if (!WEATHERS.has(sky.weather as string)) errors.push('weather is unknown');
+  const gust = sky.gust;
+  if (gust !== null && !(isObj(gust) && (gust.dir === 1 || gust.dir === -1) && isNum(gust.until)))
+    errors.push('gust is invalid');
+  const vane = sky.vane;
+  if (!(
+    isObj(vane) &&
+    (vane.facing === 1 || vane.facing === -1) &&
+    isTicks(vane.clicks) &&
+    isNum(vane.spinUntil)
+  ))
+    errors.push('vane is invalid');
+  const dial = sky.dial;
+  if (
+    dial !== null &&
+    !(isObj(dial) && isNum(dial.target) && isNum(dial.from) && typeof dial.held === 'boolean')
+  )
+    errors.push('dial is invalid');
+  if (!isTicks(sky.sunClicks) || !isTicks(sky.flashes)) errors.push('click lists are invalid');
+  if (!isNumMap(sky.puddles)) errors.push('puddles are invalid');
+  if (!Array.isArray(sky.rng) || sky.rng.length !== 4 || !sky.rng.every(isNum)) errors.push('rng is invalid');
+  return errors;
+}
+
 /**
  * Structural check of a current-version save. Returns problems as strings.
  * Hand-written to keep the sim free of dependencies.
@@ -219,6 +266,13 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
     const problems = pocketProblems(world.pocket, ids);
     if (problems.length > 0) errors.push(`world.pocket is invalid: ${problems.join(', ')}`);
   }
+  if (world.sky !== undefined) {
+    const problems = skyProblems(world.sky);
+    if (problems.length > 0) errors.push(`world.sky is invalid: ${problems.join(', ')}`);
+  }
+  const secrets = world.secrets;
+  if (secrets !== undefined && !(Array.isArray(secrets) && secrets.every((x) => typeof x === 'string')))
+    errors.push('world.secrets is invalid');
   const counters = world.counters;
   if (counters !== undefined && !(isObj(counters) && isNumMap(counters.fed)))
     errors.push('world.counters is invalid');

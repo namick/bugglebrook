@@ -511,6 +511,21 @@ export class Physics {
     return this.supportNormal(id) !== null;
   }
 
+  /**
+   * Is anything with a body (not `self`, not the ground) straight above
+   * (x, y) within `reach` meters? Rain uses it: things under a roof stay dry.
+   */
+  coveredAbove(self: EntityId, x: number, y: number, reach: number): boolean {
+    let hit = false;
+    this.world.rayCast(Vec2(x, y), Vec2(x, y - reach), (fixture) => {
+      const body = fixture.getBody();
+      if (body === this.ground || body.getUserData() === self) return -1;
+      hit = true;
+      return 0;
+    });
+    return hit;
+  }
+
   /** Topmost (highest ID) dynamic body containing the point, or null. */
   bodyAt(x: number, y: number, pad = 0.05): EntityId | null {
     const point = Vec2(x, y);

@@ -47,6 +47,7 @@ export type {
   BugContext,
   BugDecision,
   BugNotice,
+  BugSky,
   BugWorld,
   LooseItem,
   Obstacle,
@@ -495,7 +496,8 @@ export function wakeBug(brain: BugBrain, early: boolean, rng: Rng, tick: number)
   clearIntent(brain);
   if (early) {
     brain.groggyUntil = tick + GROGGY_TICKS;
-    brain.napAt = brain.needs.need_energy < 50 ? tick + RENAP_TICKS : -1;
+    // Still tired, or woken at bedtime: back to sleep in 20 s.
+    brain.napAt = tick + RENAP_TICKS;
   }
   return [{ type: 'woke', early }, react(brain, 'wake', rng, tick)];
 }
@@ -565,6 +567,150 @@ export function gawkBug(
   }
   enter(brain, 'st_react', 80);
   return [{ type: 'gawked', x: src.x, y: src.y }, react(brain, 'gawk', rng, tick)];
+}
+
+/**
+ * Something wonderful in the sky (a shooting star): the bug stops, turns to
+ * look up, and wonders. The sim only calls this for idle and wandering bugs.
+ */
+export function wonderBug(brain: BugBrain, x: number, skyX: number, rng: Rng, tick: number): BugNotice[] {
+  clearIntent(brain);
+  brain.facing = skyX >= x ? 1 : -1;
+  enter(brain, 'st_react', 100);
+  return [react(brain, 'wonder', rng, tick)];
+}
+
+/** Modes a bug leaves to go to bed at bedtime. Meals, flights, and swims finish first. */
+const BEDABLE: ReadonlySet<BugMode> = new Set<BugMode>([
+  'st_idle',
+  'st_wander',
+  'st_seek',
+  'st_react',
+  'st_landing',
+  'st_recover',
+  'st_social',
+  'st_use',
+  'st_hide',
+  'st_perform',
+]);
+
+/** Modes a bug keeps its umbrella up in. */
+const UMBRELLA_MODES: ReadonlySet<BugMode> = new Set<BugMode>([
+  'st_idle',
+  'st_wander',
+  'st_seek',
+  'st_react',
+  'st_landing',
+  'st_recover',
+  'st_use',
+  'st_eat',
+  'st_hide',
+  'st_perform',
+]);
+
+/** A bed is within this reach at bedtime; farther than that, a bug sleeps where it stands. */
+const BED_REACH = 5;
+/** How often (ticks) a bug checks the time and the weather. */
+const SKY_EVERY = 30;
+
+/**
+ * Time for bed (game design doc, section 5): drop whatever it was doing and
+ * go to a bed nearby (something that advertises sleep, or a sleeping
+ * friend), or sleep right here if there is none.
+ */
+function goToBed(me: EntityId, brain: BugBrain, ctx: BugContext, out: BugDecision): void {
+  const { def, state, tick } = ctx;
+  const world = ctx.world ?? EMPTY_WORLD;
+  letGo(me, brain, ctx, out);
+  brain.umbrella = false;
+  const beds: AdvertCandidate[] = ctx
+    .adverts()
+    .filter(
+      (c) =>
+        c.action === 'sleep' &&
+        !c.claimed &&
+        Math.abs(c.x - state.x) < BED_REACH &&
+        Math.abs(c.y - state.y) < 1.5 &&
+        memoryModifier(brain, c.id, tick) >= 1 &&
+        !(ctx.overWater?.(c.x) ?? false),
+    );
+  for (const o of world.bugs())
+    if (
+      o.id !== me &&
+      o.brain.mode === 'st_sleep' &&
+      Math.abs(o.x - state.x) < BED_REACH &&
+      Math.abs(o.y - state.y) < 1.5 &&
+      world.affinity(def.id, o.defId) >= 0.2 &&
+      memoryModifier(brain, o.id, tick) >= 1
+    )
+      beds.push({ id: o.id, defId: o.defId, x: o.x, y: o.y, action: 'sleep', needs: {}, claimed: false });
+  beds.sort((a, b) => Math.abs(a.x - state.x) - Math.abs(b.x - state.x) || a.id - b.id);
+  const bed = beds[0];
+  if (bed && Math.abs(bed.x - state.x) > def.radius + 0.3) {
+    start(brain, ctx, bed, out);
+    return;
+  }
+  out.notices.push({ type: 'chose', action: 'sleep', targetId: null }, ...enterSleep(brain, def, state.x));
+}
+
+/**
+ * Time and weather, checked every half second: bedtime, and rain. Returns
+ * true if the bug did something that ends this tick's thinking.
+ */
+function skyCheck(me: EntityId, brain: BugBrain, ctx: BugContext, out: BugDecision): boolean {
+  const sky = ctx.sky;
+  const { def, state, rng, tick } = ctx;
+  if (!sky || !ctx.support) return false;
+  // The rain has stopped: down comes the umbrella.
+  if (brain.umbrella && (!sky.raining || brain.carrying === null)) {
+    if ((tick + me * 7) % SKY_EVERY !== 0 && brain.carrying !== null) return false;
+    if (brain.carrying !== null) out.notices.push({ type: 'umbrella', itemId: brain.carrying, on: false });
+    brain.umbrella = false;
+    brain.carrying = null;
+  }
+  if ((tick + me * 13) % SKY_EVERY !== 0) return false;
+  const sleepy = sky.bedtime || (sky.evening && brain.needs.need_energy < 50);
+  if (
+    sleepy &&
+    BEDABLE.has(brain.mode) &&
+    !isAirborne(brain) &&
+    !(brain.mode === 'st_seek' && brain.action === 'sleep') &&
+    (brain.napAt < 0 || tick >= brain.napAt)
+  ) {
+    goToBed(me, brain, ctx, out);
+    return true;
+  }
+  if (!sky.rain || (brain.mode !== 'st_idle' && brain.mode !== 'st_wander')) return false;
+  if (def.rain === 'likes') {
+    // Out in the rain and loving it: a splashy little dance now and then.
+    if (rng.chance(0.08)) {
+      addNeeds(brain.needs, { need_fun: 6 });
+      enter(brain, 'st_react', 70);
+      clearIntent(brain);
+      out.notices.push(react(brain, 'rain_joy', rng, tick));
+      out.velocity = { x: 0, y: -3.2 };
+      return true;
+    }
+    return false;
+  }
+  if (def.rain !== 'dislikes' || brain.umbrella || brain.carrying !== null) return false;
+  // Caught in the rain: find a leaf to hold overhead.
+  const leaf = ctx
+    .adverts()
+    .filter((c) => c.action === 'shelter' && !c.claimed && Math.abs(c.x - state.x) < PERCEPTION)
+    .filter((c) => Math.abs(c.y - state.y) < 2 && memoryModifier(brain, c.id, tick) >= 1)
+    .sort((a, b) => Math.abs(a.x - state.x) - Math.abs(b.x - state.x) || a.id - b.id)[0];
+  if (leaf) {
+    start(brain, ctx, leaf, out);
+    return true;
+  }
+  if (rng.chance(0.12)) {
+    enter(brain, 'st_react', 60);
+    clearIntent(brain);
+    out.notices.push(react(brain, 'rain_gloom', rng, tick));
+    return true;
+  }
+  return false;
 }
 
 /** Is this bug napping right next to a sleeping friend? */
@@ -760,6 +906,8 @@ function candidates(me: EntityId, brain: BugBrain, ctx: BugContext): AdvertCandi
     if (c.action === 'carry') return !!def.habits.rowsPebbles;
     // Day bugs look for a bed when their energy runs under about half.
     if (c.action === 'sleep') return brain.needs.need_energy < 55;
+    // Umbrellas are for rain, picked by `skyCheck`.
+    if (c.action === 'shelter') return false;
     return true;
   });
   let carry = items.filter((c) => c.action === 'carry');
@@ -936,7 +1084,13 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
   const me = ctx.id ?? entity.id;
   const { def, state, rng } = ctx;
   const speed = Math.hypot(state.vx, state.vy);
-  decayNeeds(brain, def, 1, brain.mode === 'st_sleep' && inPile(me, state.x, def, ctx));
+  decayNeeds(
+    brain,
+    def,
+    1,
+    brain.mode === 'st_sleep' && inPile(me, state.x, def, ctx),
+    ctx.sky?.bedtime ?? false,
+  );
   const moved = Math.abs(state.x - brain.lastX);
   brain.lastX = state.x;
   if (brain.burpAt >= 0 && ctx.tick >= brain.burpAt) {
@@ -980,7 +1134,9 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
     brain.mode === 'st_seek' ||
     (brain.mode === 'st_airborne' && brain.selfLaunched);
   if (brain.social && !socialOk) endSocial(me, brain, ctx, false, out);
-  if (brain.carrying !== null && !socialOk) brain.carrying = null;
+  const umbrellaUp = !!brain.umbrella && UMBRELLA_MODES.has(brain.mode);
+  if (brain.carrying !== null && !socialOk && !umbrellaUp) brain.carrying = null;
+  if (brain.umbrella && brain.carrying === null) brain.umbrella = false;
 
   // Fell in the water: swim for it (skaters stand on the surface instead).
   if (def.swim !== 'skate' && brain.mode !== 'st_swim' && (ctx.submerged ?? 0) > SWIM_DEPTH) {
@@ -1031,6 +1187,10 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
   }
 
   const n = ctx.support;
+  if (brain.mode !== 'st_sleep' && skyCheck(me, brain, ctx, out)) {
+    out.velocity ??= n ? grip(n) : null;
+    return out;
+  }
   switch (brain.mode) {
     case 'st_airborne':
     case 'st_use': {
@@ -1065,7 +1225,9 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
     case 'st_sleep':
       out.velocity = n ? grip(n) : null;
       if (ctx.impact > WAKE_IMPACT) out.notices.push(...wakeBug(brain, true, rng, ctx.tick));
-      else if (brain.needs.need_energy >= RESTED) out.notices.push(...wakeBug(brain, false, rng, ctx.tick));
+      // Rested, it wakes on its own; but never in the middle of its night.
+      else if (brain.needs.need_energy >= RESTED && !ctx.sky?.bedtime)
+        out.notices.push(...wakeBug(brain, false, rng, ctx.tick));
       return out;
 
     case 'st_rolled':
@@ -1650,6 +1812,18 @@ function seek(me: EntityId, brain: BugBrain, ctx: BugContext, moved: number, out
         return out;
       }
       out.notices.push(...enterSleep(brain, def, state.x));
+      return out;
+    }
+    case 'shelter': {
+      // Up over its head it goes: an umbrella.
+      if (world.isSetup(id) || brain.carrying !== null || world.bugs().some((o) => o.brain.carrying === id))
+        return giveUp();
+      brain.carrying = id;
+      brain.umbrella = true;
+      recordUse(brain, id, tick);
+      addNeeds(brain.needs, { need_fun: 4 });
+      out.notices.push({ type: 'umbrella', itemId: id, on: true });
+      enterIdle(brain, rng, def);
       return out;
     }
     case 'carry': {

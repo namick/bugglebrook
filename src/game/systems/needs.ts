@@ -10,7 +10,7 @@ import type { Mood } from '../events';
  * is fully satisfied. Needs only drive behavior: nothing bad happens at 0.
  */
 
-/** Base decay per second. Energy uses the day rate until the clock arrives in M6. */
+/** Base decay per second. Energy runs down 2.5 times as fast when a bug is up past its bedtime. */
 export const DECAY: Readonly<Record<NeedId, number>> = {
   need_hunger: 0.25,
   need_fun: 0.3,
@@ -19,6 +19,8 @@ export const DECAY: Readonly<Record<NeedId, number>> = {
   need_clean: 0.02,
 };
 
+/** Energy decays this much faster at night (0.25 instead of 0.10 per second). */
+export const NIGHT_ENERGY = 2.5;
 /** Energy regained per second asleep. */
 export const SLEEP_ENERGY = 1.5;
 /** Energy regained per second while resting (standing about, chewing, riding). */
@@ -65,15 +67,17 @@ export function addNeeds(needs: Needs, deltas: Readonly<Partial<Record<NeedId, n
 /**
  * Advance a bug's needs by `ticks` steps: every need decays at its base rate
  * times the bug's weight; sleeping and resting refill energy; moving spends a
- * little more. `pile` is true while napping next to a friend.
+ * little more. `pile` is true while napping next to a friend; `night` while
+ * the bug is up past its bedtime (energy runs down faster).
  */
-export function decayNeeds(brain: BugBrain, def: BugDef, ticks = 1, pile = false): void {
+export function decayNeeds(brain: BugBrain, def: BugDef, ticks = 1, pile = false, night = false): void {
   const seconds = ticks / SIM_HZ;
   const n = brain.needs;
   const asleep = brain.mode === 'st_sleep';
   for (const need of NEED_IDS) {
     if (asleep && need === 'need_energy') continue;
-    n[need] = clamp(n[need] - DECAY[need] * def.needWeights[need] * seconds);
+    const k = need === 'need_energy' && night ? NIGHT_ENERGY : 1;
+    n[need] = clamp(n[need] - DECAY[need] * k * def.needWeights[need] * seconds);
   }
   if (brain.mode === 'st_sleep') {
     // Sleeping bugs don't get hungry or bored as fast.
