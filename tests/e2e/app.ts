@@ -159,22 +159,36 @@ export async function pressOn(page: Page, id: number): Promise<{ x: number; y: n
 /**
  * Pick an item up with the real mouse and hold it at an offset from a
  * bug's mouth anchor (in meters), following the bug if it moves. Leaves the
- * mouse button down.
+ * mouse button down. The sim is frozen and stepped frame by frame while the
+ * hand moves, so a slow machine carries it exactly like a fast one.
  */
 export async function holdNearMouth(page: Page, itemId: number, bugId: number, dx: number, dy: number) {
-  let at = await pressOn(page, itemId);
-  for (let round = 0; round < 12; round++) {
-    const m = (await page.evaluate((b) => window.__bb!.mouthOf(b), bugId))!;
-    const to = await toClient(page, m.x + dx, m.y + dy);
-    for (let i = 1; i <= 4; i++) {
-      await page.mouse.move(at.x + ((to.x - at.x) * i) / 4, at.y + ((to.y - at.y) * i) / 4);
-      await page.waitForTimeout(16);
+  const frames = (n: number): Promise<void> => page.evaluate((k) => window.__bb!.frames(k), n);
+  await page.evaluate(() => window.__bb!.setPaused(true));
+  try {
+    const e = (await entity(page, itemId))!;
+    let at = await toClient(page, e.x, e.y);
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.down();
+    await frames(2);
+    expect((await entity(page, itemId))?.held).toBe(true);
+    for (let round = 0; round < 8; round++) {
+      const m = (await page.evaluate((b) => window.__bb!.mouthOf(b), bugId))!;
+      const to = await toClient(page, m.x + dx, m.y + dy);
+      for (let i = 1; i <= 4; i++) {
+        await page.mouse.move(at.x + ((to.x - at.x) * i) / 4, at.y + ((to.y - at.y) * i) / 4);
+        await frames(2);
+      }
+      at = to;
+      await frames(4);
     }
-    at = to;
-    await page.waitForTimeout(40);
+    // Let the item settle under the hand before letting go gently, and keep
+    // the hand still longer than the fling window so the release is a drop.
+    await frames(30);
+    await page.waitForTimeout(150);
+  } finally {
+    await page.evaluate(() => window.__bb!.setPaused(false));
   }
-  // Let the item settle under the hand before letting go gently.
-  await page.waitForTimeout(250);
 }
 
 const camera = async (page: Page): Promise<number> => (await page.evaluate(() => window.__bb!.camera())).x;

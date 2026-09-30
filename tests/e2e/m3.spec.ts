@@ -1,17 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import {
-  PLAZA_X,
-  clickSlot,
-  content,
-  entities,
-  entity,
-  launchApp,
-  pressOn,
-  scrollTo,
-  spawnItem,
-  toClient,
-} from './app';
+import { PLAZA_X, clickSlot, content, entities, entity, launchApp, pressOn, scrollTo, toClient } from './app';
 
 // M3 acceptance (game design doc, section 19): properties and the pond,
 // driven with the real mouse and checked through window.__bb. Waits are
@@ -58,7 +47,7 @@ async function openWater(page: Page, not: number[] = []): Promise<number> {
   const level = water.surfaces[0]!.level;
   const things = (await entities(page)).filter((e) => Math.abs(e.y - level) < 1.3 && e.x < 23);
   const blockers = [
-    ...water.pads.map((p) => ({ x: p.x, r: 0.7 })),
+    ...water.pads.map((p) => ({ x: p.x, r: 1.1 })),
     ...things.map((e) => ({ x: e.x, r: e.defId === 'item_leaf_raft' ? 1.1 : 0.6 })),
     ...not.map((x) => ({ x, r: 0.6 })),
   ];
@@ -242,9 +231,26 @@ test('a bug dropped in the pond swims to shore and shakes itself dry', async () 
     const dot = await spawn(page, 'bug', 'bug_ladybug_dot', 2.6, 7.5);
     await content(page, dot);
     await settle(page, dot);
-    const at = await pressOn(page, dot);
-    await carryTo(page, at, await openWater(page), water.level - 1.2);
+    // Carry her out over open water frame by frame, so a slow machine drops her in the same spot.
+    const frames = (n: number): Promise<void> => page.evaluate((k) => window.__bb!.frames(k), n);
+    await page.evaluate(() => window.__bb!.setPaused(true));
+    const d = (await entity(page, dot))!;
+    const at = await toClient(page, d.x, d.y);
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.down();
+    await frames(2);
+    expect((await entity(page, dot))!.held).toBe(true);
+    const to = await toClient(page, await openWater(page), water.level - 1.2);
+    for (let i = 1; i <= 12; i++) {
+      await page.mouse.move(at.x + ((to.x - at.x) * i) / 12, at.y + ((to.y - at.y) * i) / 12);
+      await frames(3);
+    }
+    await frames(40);
+    // A still hand for longer than the fling window: a gentle drop, not a throw.
+    await page.waitForTimeout(150);
     await page.mouse.up();
+    await frames(2);
+    await page.evaluate(() => window.__bb!.setPaused(false));
     await page.mouse.move(960, 100);
     await expect.poll(async () => (await entity(page, dot))!.bug!.mode).toBe('st_swim');
     await expect.poll(async () => (await entity(page, dot))!.tags).toContain('tag_wet');
@@ -271,35 +277,75 @@ test('gum sticks to what it lands on, and a hard yank tears it off', async () =>
     const { page } = bb;
     await clickSlot(page, 0);
     for (const b of (await entities(page)).filter((e) => e.kind === 'bug')) await content(page, b.id);
+    // Freeze the clock and drive the sim frame by frame: slow renderers then
+    // see exactly the same steps as fast ones (the gum once missed a pebble
+    // that was still rolling on CI's software renderer).
+    // The plaza's far right: flat, and usually free of bugs.
+    await scrollTo(page, PLAZA_X + 19);
+    await page.evaluate(() => window.__bb!.setPaused(true));
     const cam = await camera(page);
-    // A clear, flat spot on screen, as far from every bug as can be, so none wanders into the gum.
+    // A clear, flat spot on screen, as far from every bug as can be.
     const bugsNow = (await entities(page)).filter((e) => e.kind === 'bug');
     let spot = cam + 9;
     let best = -1;
     for (let x = cam + 2; x < cam + 17; x += 0.25) {
-      if (!((x > PLAZA_X + 1 && x < PLAZA_X + 11.8) || (x > PLAZA_X + 27 && x < PLAZA_X + 37.5))) continue;
+      if (!(x > PLAZA_X + 27 && x < PLAZA_X + 35)) continue;
+      const near = (await entities(page)).filter(
+        (e) => e.kind === 'item' && Math.abs(e.x - x) < 0.8 && e.y > 6,
+      );
+      if (near.length > 0) continue;
       const d = Math.min(...bugsNow.map((b) => Math.abs(b.x - x)));
       if (d > best) {
         best = d;
         spot = x;
       }
     }
-    const pebble = await spawnItem(page, 'item_pebble', spot);
+    const step = (n: number): Promise<void> => page.evaluate((k) => window.__bb!.frames(k), n);
+    const newest = async (defId: string, before: Set<number>): Promise<number> =>
+      (await entities(page)).find((e) => !before.has(e.id) && e.defId === defId)!.id;
+    let before = new Set((await entities(page)).map((e) => e.id));
+    await page.evaluate(
+      (x) => window.__bb!.send({ type: 'spawn', kind: 'item', defId: 'item_pebble', x, y: 8 }),
+      spot,
+    );
+    await step(1);
+    const pebble = await newest('item_pebble', before);
+    // Let it land and stop rolling.
+    for (let i = 0; i < 12; i++) {
+      await step(60);
+      const p = await entity(page, pebble);
+      if (p && Math.hypot(p.vx, p.vy) < 0.02 && p.y > 8) break;
+    }
     const pv = (await entity(page, pebble))!;
-    const gum = await spawn(page, 'item', 'item_gum_blob', pv.x, pv.y - 1.5);
+    expect(Math.hypot(pv.vx, pv.vy)).toBeLessThan(0.05);
+    before = new Set((await entities(page)).map((e) => e.id));
+    await page.evaluate(
+      ([x, y]) => window.__bb!.send({ type: 'spawn', kind: 'item', defId: 'item_gum_blob', x: x!, y: y! }),
+      [pv.x, pv.y - 0.5],
+    );
+    await step(90);
+    const gum = await newest('item_gum_blob', before);
     const stuck = async (): Promise<boolean> =>
       (await page.evaluate(() => window.__bb!.water())).sticks.some(
         (t) => (t.a === gum && t.b === pebble) || (t.a === pebble && t.b === gum),
       );
-    await expect.poll(stuck).toBe(true);
+    expect(await stuck()).toBe(true);
     expect(await page.evaluate(() => window.__bb!.sfxLog())).toContain('squelch');
-    // Yank the gum away fast.
-    const at = await pressOn(page, gum);
-    await page.waitForTimeout(100);
+    // Grab the gum with the real mouse, then yank it away fast.
+    const g = (await entity(page, gum))!;
+    const at = await toClient(page, g.x, g.y);
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.down();
+    await step(2);
+    expect((await entity(page, gum))!.held).toBe(true);
     await page.mouse.move(at.x + 300, at.y - 300, { steps: 2 });
-    await expect.poll(async () => (await events(page, 'unstuck')).length).toBeGreaterThanOrEqual(1);
+    await step(3);
+    expect(await events(page, 'unstuck')).not.toHaveLength(0);
     await page.mouse.up();
+    await step(2);
     expect(await stuck()).toBe(false);
+    expect((await entity(page, gum))!.held).toBe(false);
+    await page.evaluate(() => window.__bb!.setPaused(false));
   } finally {
     await bb.close();
   }
