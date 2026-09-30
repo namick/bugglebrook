@@ -16,7 +16,7 @@ import { BugSprite } from './draw/bug';
 import type { Look } from './draw/face';
 import { ItemSprite } from './draw/item';
 import { SquashSpring, approach, shakeOffset, stretchFor } from './juice';
-import { OUTLINE } from './palette';
+import { OUTLINE, mix } from './palette';
 import { Particles } from './particles';
 import type { Move, Picto, ReactionLook } from './reactions';
 import { movePose, reactionLook, reactionShowing } from './reactions';
@@ -26,6 +26,12 @@ import type { Obstacle } from './soapBubbles';
 import { tagLook } from './tagLooks';
 import type { TagLook } from './tagLooks';
 import { WaterView } from './water';
+import { FixtureArt } from './fixtureArt';
+import { NO_WEATHER, easeWeather, skyLook, weatherTarget } from './skyLook';
+import type { SkyLook, WeatherMix } from './skyLook';
+import { WeatherView } from './weatherView';
+import { hourOf } from '../../../game/systems/sky';
+import type { SkyExtras } from './background';
 
 const PPM = PIXELS_PER_METER;
 
@@ -95,6 +101,22 @@ export class WorldView extends Container {
   private readonly background: Background;
   /** Everything that scrolls with the world at full speed. */
   private readonly world = new Container();
+  /** The part of the world graded by the time of day (all but lights, glows, and bubbles). */
+  private readonly graded = new Container();
+  /** Day, night, and weather: rain, puddles, leaves, mist, and lights. */
+  readonly weather: WeatherView;
+  /** The sundial, the weather vane, and the knothole's eyes. */
+  readonly fixtures: FixtureArt;
+  /** The weather's look right now, eased so changes roll in. */
+  private weatherMix: WeatherMix = NO_WEATHER;
+
+  /** How much of each weather shows right now (eased), for tests. */
+  get weatherAmount(): WeatherMix {
+    return this.weatherMix;
+  }
+  /** The current look, for tests and the thumbnail. */
+  look: SkyLook = skyLook(9);
+  private shooting: { x: number; y: number; dir: 1 | -1; age: number }[] = [];
   private readonly shadows = new Graphics();
   private readonly entityLayer = new Container();
   /** Mouth glows, over the bugs. */
@@ -137,9 +159,13 @@ export class WorldView extends Container {
     this.background = new Background(sim.content.areas.all, sim.terrain, sim.worldWidth, renderer);
     const bg = this.background;
     this.water = new WaterView(sim, this.particles);
+    this.weather = new WeatherView(sim, this.water);
+    this.fixtures = new FixtureArt(sim);
     this.entityLayer.sortableChildren = true;
-    this.world.addChild(
+    this.graded.addChild(
       bg.near,
+      this.fixtures,
+      this.weather.puddles,
       this.water.back,
       this.behind,
       this.shadows,
@@ -147,17 +173,29 @@ export class WorldView extends Container {
       this.entityLayer,
       this.over,
       this.water.front,
+      this.weather.splashLayer,
       this.soapBubbles,
-      this.glows,
       this.particles,
-      this.bubbles,
     );
+    this.world.addChild(this.graded, this.weather.lights, this.fixtures.eyes, this.glows, this.bubbles);
+    this.weatherMix = weatherTarget(sim.weather.weather);
     this.soapBubbles.onPop = (x, y) => {
       this.particles.ring(x, y, 14);
       this.onSound?.('pop', 0.5);
     };
-    this.addChild(bg.sky, bg.clouds, bg.hills, bg.mid, this.world, bg.front);
+    this.addChild(
+      bg.sky,
+      bg.rainbow,
+      bg.clouds,
+      bg.hills,
+      this.weather.back,
+      bg.mid,
+      this.world,
+      bg.front,
+      this.weather.front,
+    );
     this.listen();
+    this.listenSky();
   }
 
   /**
@@ -766,9 +804,75 @@ export class WorldView extends Container {
     this.shakeLeft = Math.max(this.shakeLeft, seconds);
   }
 
+  /** Day, night, and weather events: the vane, the knothole, shooting stars, fireflies, secrets. */
+  private listenSky(): void {
+    const ev = this.sim.events;
+    const px = (m: number): number => m * PPM;
+    this.offs.push(
+      ev.on('vane_spun', () => this.fixtures.spin()),
+      ev.on('gust_started', (e) => {
+        this.particles.puff(px(e.x), px(e.y), 0xffffff, 8, e.dir * 160, -10, 18);
+      }),
+      ev.on('knothole_peeked', (e) => {
+        if (e.night) this.fixtures.peek();
+        this.particles.dust(px(e.x), px(e.y), 4);
+      }),
+      ev.on('sun_clicked', (e) => this.particles.sparkles(px(e.x), px(e.y), 3 + e.count)),
+      ev.on('shooting_star', (e) => {
+        this.shooting.push({
+          x: 300 + Math.random() * (VIEW_WIDTH_PX - 600),
+          y: px(e.y) * 0.4 + 40,
+          dir: e.dir,
+          age: 0,
+        });
+      }),
+      ev.on('fireflies_blinked', (e) => this.weather.blinkBack(e.answer)),
+      ev.on('light_toggled', (e) => this.particles.sparkles(px(e.x), px(e.y), e.on ? 6 : 2)),
+      ev.on('bug_joined', (e) => {
+        this.particles.sparkles(px(e.x), px(e.y), 14);
+        this.particles.stars(px(e.x), px(e.y));
+      }),
+      ev.on('item_transformed', (e) => {
+        this.particles.sparkles(px(e.x), px(e.y), 12);
+        this.particles.ring(px(e.x), px(e.y), 40);
+      }),
+      ev.on('secret_found', (e) => {
+        this.particles.sparkles(px(e.x), px(e.y), 18);
+        this.particles.hearts(px(e.x), px(e.y) - 30, 3);
+      }),
+      ev.on('bug_umbrella', (e) => {
+        const v = this.sim.view(e.id);
+        if (v) this.particles.sparkles(px(v.x), px(v.y) - 50, 3);
+      }),
+    );
+  }
+
+  /** What the sky looks like right now, eased toward the weather. */
+  private updateLook(dt: number): SkyExtras {
+    const sky = this.sim.weather;
+    this.weatherMix = easeWeather(this.weatherMix, weatherTarget(sky.weather), dt, 4);
+    this.look = skyLook(hourOf(sky.clock), this.weatherMix);
+    this.shooting = this.shooting.filter((s) => (s.age += dt) < 1.2);
+    return {
+      shades:
+        sky.state.shades >= 0 &&
+        sky.state.shades === Math.floor(sky.clock / 86400) &&
+        sky.phase !== 'phase_night',
+      rainbow: this.weatherMix.rainbow,
+      wind: this.sim.environment.state.wind,
+      shooting: this.shooting,
+    };
+  }
+
   update(dt: number, camera: Camera): void {
     this.time += dt;
-    this.background.update(camera, this.time);
+    const extras = this.updateLook(dt);
+    this.background.update(camera, this.time, this.look, extras);
+    this.graded.tint = this.look.near;
+    // Water reads the sky too: orange at dusk, deep teal at night.
+    const water = mix(mix(0xffffff, 0xffc8a0, this.look.warmth * 0.5), 0x5f8fb0, this.look.glow * 0.7);
+    this.water.back.tint = this.water.front.tint = water;
+    this.fixtures.update(dt, this.time, this.look.glow);
     if (this.shakeLeft > 0) this.shakeLeft -= dt;
     const shake = shakeOffset(this.shakePower, this.shakeLeft, this.reduced);
     if (this.shakeLeft <= 0) this.shakePower = 0;
@@ -780,6 +884,8 @@ export class WorldView extends Container {
     this.entityLayer.x = this.shadows.x = this.particles.x = this.trails.x = scroll;
     this.glows.x = this.bubbles.x = scroll;
     this.water.back.x = this.water.front.x = this.behind.x = this.over.x = this.soapBubbles.x = scroll;
+    this.fixtures.x = this.fixtures.eyes.x = this.weather.puddles.x = this.weather.lights.x = scroll;
+    this.weather.splashLayer.x = scroll;
     this.particles.update(dt);
     this.trails.update(dt);
     const behind = this.behind.clear();
@@ -799,6 +905,7 @@ export class WorldView extends Container {
     // Pocketed things are drawn by the pocket tray, not the world.
     const views = this.sim.views().filter((v) => v.pocket === undefined);
     this.water.update(dt, camera, views);
+    this.weather.update(dt, camera, this.look, this.weatherMix, views);
     this.soapBubbles.update(dt, this.obstacles(views, left, right));
     if (this.sim.environment.state.hoseOn) {
       this.trickleIn -= dt;

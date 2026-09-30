@@ -10,6 +10,7 @@ import {
   entity,
   holdNearMouth,
   launchApp,
+  scrollTo,
   spawnItem,
   toClient,
 } from '../e2e/app';
@@ -670,6 +671,135 @@ test('menu, pause, pocket, and first scene tour', async () => {
     await page.mouse.up();
     await page.waitForTimeout(800);
     await shot(page, '99g-menu-bin-cancelled');
+  } finally {
+    await bb.close();
+  }
+});
+
+test('day, night, and weather tour', async () => {
+  mkdirSync(DIR, { recursive: true });
+  const bb = await launchApp();
+  const { app, page } = bb;
+  const send = (c: Parameters<NonNullable<typeof window.__bb>['send']>[0]): Promise<void> =>
+    page.evaluate((cmd) => window.__bb!.send(cmd), c);
+  const frames = (n: number): Promise<void> => page.evaluate((k) => window.__bb!.frames(k), n);
+  /** Jump to an hour and let the look settle for a moment of real frames. */
+  const at = async (hour: number, settle = 700): Promise<void> => {
+    await send({ type: 'set_time', hour });
+    await frames(2);
+    await page.waitForTimeout(settle);
+  };
+  try {
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1920, 1080));
+    await clickSlot(page, 0);
+    await page.waitForTimeout(800);
+    for (const b of (await entities(page)).filter((e) => e.kind === 'bug')) await content(page, b.id);
+    await page.mouse.move(1900, 60);
+    await at(5.6);
+    await shot(page, '100-dawn');
+    await at(6.3);
+    await shot(page, '101-sunrise');
+    await at(12);
+    await shot(page, '102-noon');
+    await at(18.4);
+    await shot(page, '103-sunset');
+    await at(19.3);
+    await shot(page, '104-dusk');
+    await at(22, 1200);
+    await shot(page, '105-night');
+    // The pond by night: fireflies over the reeds, the moon on the water.
+    await scrollTo(page, 17);
+    await page.mouse.move(1900, 60);
+    await page.waitForTimeout(900);
+    await shot(page, '106-night-pond');
+    // The flashlight at night, near the reeds.
+    const pen = (await entities(page)).find((e) => e.defId === 'item_flashlight_pen');
+    if (pen) {
+      const reeds = (await page.evaluate(() => window.__bb!.fixture('fix_reeds')))!;
+      await page.evaluate(() => window.__bb!.setPaused(true));
+      const p = await toClient(page, pen.x, pen.y);
+      await page.mouse.move(p.x, p.y);
+      await page.mouse.down();
+      await frames(2);
+      const to = await toClient(page, reeds.x + 2.5, 8.2);
+      for (let i = 1; i <= 10; i++) {
+        await page.mouse.move(p.x + ((to.x - p.x) * i) / 10, p.y + ((to.y - p.y) * i) / 10);
+        await frames(2);
+      }
+      await frames(20);
+      await page.mouse.up();
+      await frames(40);
+      await page.evaluate(() => window.__bb!.setPaused(false));
+      const now = (await entities(page)).find((e) => e.id === pen.id)!;
+      const c = await toClient(page, now.x, now.y);
+      await page.mouse.click(c.x, c.y);
+      await page.waitForTimeout(700);
+      await page.mouse.move(960, 120);
+      await shot(page, '107-night-flashlight');
+      // Three clicks call Flick.
+      for (let k = 0; k < 2; k++) {
+        const e = (await entities(page)).find((v) => v.id === pen.id)!;
+        const q = await toClient(page, e.x, e.y);
+        await page.mouse.click(q.x, q.y);
+        await page.waitForTimeout(400);
+      }
+      await page.waitForTimeout(1500);
+      await page.mouse.move(960, 120);
+      await shot(page, '108-flick-joins');
+      const flick = (await entities(page)).find((e) => e.defId === 'bug_firefly_flick');
+      if (flick) await closeUp(page, '109-flick-closeup', flick.x, flick.y - 0.3, 3, 2);
+    }
+    // Back to the plaza by night: sleeping bugs, glowing mushrooms, eyes in the knothole.
+    await scrollTo(page, 35);
+    await page.mouse.move(1900, 60);
+    await page.evaluate(() => window.__bb!.step(60 * 60));
+    await page.waitForTimeout(800);
+    await shot(page, '110-night-plaza-asleep');
+    // Rain by day.
+    await at(11);
+    await send({ type: 'set_weather', wind: 0, rain: true });
+    await page.evaluate(() => window.__bb!.step(60 * 40));
+    await page.waitForTimeout(4500);
+    await shot(page, '111-rain');
+    await closeUp(page, '112-rain-closeup', (await bugNamed(page, 'bug_ladybug_dot')).x, 8, 6, 3.4);
+    // After the rain: a rainbow over the pond.
+    await send({ type: 'set_weather', wind: 0, rain: false, weather: 'weather_rainbow' });
+    await page.waitForTimeout(4500);
+    await shot(page, '113-rainbow');
+    // Wind.
+    await send({ type: 'set_weather', wind: 2.2, rain: false });
+    await page.waitForTimeout(4000);
+    await shot(page, '114-wind');
+    // Cloudy.
+    await send({ type: 'set_weather', wind: 0, rain: false, weather: 'weather_cloudy' });
+    await page.waitForTimeout(4500);
+    await shot(page, '115-cloudy');
+    // Shooting stars at night.
+    await send({ type: 'set_weather', wind: 0, rain: false, weather: 'weather_shooting_stars' });
+    await at(23, 300);
+    await page.evaluate(() => window.__bb!.step(60 * 20));
+    await page.waitForTimeout(250);
+    await shot(page, '116-shooting-star');
+    // The sundial, close up at noon and at midnight.
+    await send({ type: 'set_weather', wind: 0, rain: false, weather: 'weather_clear' });
+    const dial = (await page.evaluate(() => window.__bb!.fixture('fix_sundial')))!;
+    await at(12);
+    await closeUp(page, '117-sundial-noon', dial.x, dial.y, 4, 2.4);
+    await at(0);
+    await closeUp(page, '118-sundial-midnight', dial.x, dial.y, 4, 2.4);
+    const vane = (await page.evaluate(() => window.__bb!.fixture('fix_weather_vane')))!;
+    await scrollTo(page, vane.x - 4);
+    await page.mouse.move(1900, 60);
+    await at(10);
+    const v = await toClient(page, vane.x, vane.y);
+    for (let k = 0; k < 3; k++) {
+      await page.mouse.click(v.x, v.y);
+      await page.waitForTimeout(120);
+    }
+    await page.mouse.move(1900, 60);
+    await page.waitForTimeout(1500);
+    await shot(page, '119-weather-vane-gust');
+    await closeUp(page, '120-weather-vane', vane.x + 0.5, vane.y + 1.2, 4, 4);
   } finally {
     await bb.close();
   }

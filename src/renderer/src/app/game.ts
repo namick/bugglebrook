@@ -368,7 +368,9 @@ export class Game {
     const loaded = await this.saves.loadWithRecovery(slot);
     if (loaded.recovered) this.recoveries.push(slot);
     const save = loaded.save;
-    const sim = save ? Sim.load(save.world) : Sim.create({ seed: `slot-${slot}-${Date.now()}` });
+    // Test mode seeds new worlds by slot alone, so every test run starts from the same world.
+    const seed = this.api.testMode ? `slot-${slot}-test` : `slot-${slot}-${Date.now()}`;
+    const sim = save ? Sim.load(save.world) : Sim.create({ seed });
     const intro = !save && this.introEnabled ? new Intro() : null;
     if (intro) sim.send({ type: 'stage_intro' });
     const camera = new Camera(sim.worldWidth, VIEW_WIDTH_M);
@@ -441,6 +443,7 @@ export class Game {
       this.sfx.play(gesture, strength);
     };
     view.onSound = (name, strength) => this.sfx.play(name, strength);
+    view.weather.onSound = (name, strength) => this.sfx.ambient(name, strength);
     sim.events.onAny((name, payload) => {
       this.eventLog.push({ name, tick: sim.tick, payload });
       if (this.eventLog.length > 400) this.eventLog.shift();
@@ -453,6 +456,10 @@ export class Game {
     this.stepper.reset();
     this.sinceSave = 0;
     this.sinceAreaSave = 0;
+    if (this.freezeNextWorld) {
+      this.freezeNextWorld = false;
+      this.frozen = true;
+    }
     this.scene = 'world';
     // The first save runs in the background: the picture can take a moment on slow GPUs.
     if (!save) void this.saveNow();
@@ -626,6 +633,9 @@ export class Game {
       else s.intro = null;
     }
   }
+
+  /** Tests can have the next world open frozen, so not one step runs before they say. */
+  freezeNextWorld = false;
 
   /** Tests can stop the menu's clock and step it with `menuFrames`. */
   menuFrozen = false;

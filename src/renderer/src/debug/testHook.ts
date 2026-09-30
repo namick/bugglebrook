@@ -74,6 +74,8 @@ export interface TestHook {
   /** Run `n` frames of input and sim at 60 Hz right now, whatever the screen's speed. */
   frames(n: number): void;
   setPaused(paused: boolean): void;
+  /** Open the next world already frozen (as `setPaused(true)`), before its first step. */
+  freezeNextWorld(on: boolean): void;
   isPaused(): boolean;
   sfxLog(): string[];
   /** Recent gibberish lines: which bug and in what mood. */
@@ -125,6 +127,38 @@ export interface TestHook {
   soapBubbles(): number;
   /** How much two bug defs like each other now, -1 to 1. */
   affinity(a: string, b: string): number;
+  /**
+   * The clock and the weather: game time in clock ticks (60 a game minute),
+   * the hour as a fraction, the phase, the weather, wind (m/s), whether it
+   * rains, is dark, or the sundial is sweeping, and rain puddles.
+   */
+  sky(): {
+    clock: number;
+    hour: number;
+    phase: string;
+    weather: string;
+    wind: number;
+    rain: boolean;
+    dark: boolean;
+    fastForward: boolean;
+    shades: boolean;
+    vaneFacing: number;
+    puddles: { id: string; fill: number }[];
+  };
+  /** Secrets found in this world, in order. */
+  secrets(): string[];
+  /** How the scene is graded right now: tints per depth, stars, glow, and how much weather shows. */
+  look(): {
+    near: number;
+    far: number;
+    skyTop: number;
+    skyBottom: number;
+    stars: number;
+    glow: number;
+    rain: number;
+  };
+  /** Rain drops, leaves, and light sprites being drawn now (particle budgets). */
+  weatherStats(): { drops: number; leaves: number; lights: number };
 }
 
 declare global {
@@ -230,6 +264,9 @@ export function installTestHook(game: Game): void {
     step: (n) => game.stepSim(n),
     frames: (n) => game.stepFrames(n),
     setPaused: (p) => game.setPaused(p),
+    freezeNextWorld: (on) => {
+      game.freezeNextWorld = on;
+    },
     isPaused: () => game.paused,
     sfxLog: () => [...game.sfx.log],
     voiceLog: () => game.voices.log.map((l) => ({ ...l })),
@@ -278,6 +315,52 @@ export function installTestHook(game: Game): void {
     areaAt: (x) => game.session?.sim.areaOf(x).id ?? '',
     soapBubbles: () => game.session?.view.soapBubbleCount ?? 0,
     affinity: (a, b) => game.session?.sim.affinityOf(a, b) ?? 0,
+    sky: () => {
+      const sim = game.session?.sim;
+      if (!sim)
+        return {
+          clock: 0,
+          hour: 0,
+          phase: '',
+          weather: '',
+          wind: 0,
+          rain: false,
+          dark: false,
+          fastForward: false,
+          shades: false,
+          vaneFacing: 1,
+          puddles: [],
+        };
+      const w = sim.weather;
+      return {
+        clock: w.clock,
+        hour: (w.clock % 86400) / 3600,
+        phase: w.phase,
+        weather: w.weather,
+        wind: sim.environment.state.wind,
+        rain: sim.environment.state.rain,
+        dark: w.dark,
+        fastForward: w.fastForward,
+        shades: w.state.shades === Math.floor(w.clock / 86400),
+        vaneFacing: w.state.vane.facing,
+        puddles: w.puddles().map((p) => ({ id: p.id, fill: p.fill })),
+      };
+    },
+    secrets: () => [...(game.session?.sim.secrets ?? [])],
+    look: () => {
+      const view = game.session?.view;
+      const l = view?.look;
+      return {
+        near: l?.near ?? 0xffffff,
+        far: l?.far ?? 0xffffff,
+        skyTop: l?.skyTop ?? 0,
+        skyBottom: l?.skyBottom ?? 0,
+        stars: l?.stars ?? 0,
+        glow: l?.glow ?? 0,
+        rain: view?.weatherAmount.rain ?? 0,
+      };
+    },
+    weatherStats: () => game.session?.view.weather.stats() ?? { drops: 0, leaves: 0, lights: 0 },
     clearLogs: () => {
       game.sfx.log.length = 0;
       game.voices.log.length = 0;

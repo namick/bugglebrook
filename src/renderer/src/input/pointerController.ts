@@ -1,11 +1,13 @@
 import type { EntityId } from '../../../game/core/entities';
 import type { Sim } from '../../../game/sim';
 import type { Camera, Point } from '../render/camera';
+import { dialMinutes } from '../render/fixtureArt';
 
-export type PointerMode = 'none' | 'hold' | 'pan';
+/** `dial` is turning the sundial's rim. */
+export type PointerMode = 'none' | 'hold' | 'pan' | 'dial';
 
 /** Input gestures that make a sound but are not sim events. */
-export type Gesture = 'hover' | 'swish' | 'pan' | 'scroll' | 'edge';
+export type Gesture = 'hover' | 'swish' | 'pan' | 'scroll' | 'edge' | 'dial';
 
 /** Fling velocity is the cursor's average over this window (game design doc, section 2). */
 export const FLING_WINDOW_MS = 80;
@@ -146,6 +148,9 @@ export class PointerController {
   private travelled = 0;
   private panLastX = 0;
   private panVelocity = 0;
+  /** The sundial being turned: its centre (world px), where the pointer was, and how far forward it has gone. */
+  private dial: { cx: number; cy: number; last: Point; net: number; best: number } | null = null;
+  private dialSound = 0;
 
   constructor(
     private readonly sim: Sim,
@@ -183,9 +188,20 @@ export class PointerController {
     this.tickling = false;
     this.shake.reset();
     this.shake.push(t, view.x);
+    const fixture = hit === null ? this.sim.environment.fixtureAt(world.x, world.y) : null;
     if (hit !== null) {
       this.mode = 'hold';
       this.sim.send({ type: 'grab', x: world.x, y: world.y });
+    } else if (fixture?.kind === 'sundial') {
+      // The sundial's rim: turning it clockwise moves time forward.
+      this.mode = 'dial';
+      this.dial = {
+        cx: fixture.x * 100,
+        cy: fixture.y * 100,
+        last: { x: world.x * 100, y: world.y * 100 },
+        net: 0,
+        best: 0,
+      };
     } else {
       this.mode = 'pan';
       this.panLastX = view.x;
@@ -259,6 +275,21 @@ export class PointerController {
         this.gesture('swish', Math.min(1, speed / 4000));
       }
     }
+    if (this.mode === 'dial' && this.dial) {
+      const d = this.dial;
+      const at = { x: this.hoverWorld.x * 100, y: this.hoverWorld.y * 100 };
+      d.net += dialMinutes(d.cx, d.cy, d.last, at);
+      d.last = at;
+      // Only forward: turning back and forth adds nothing until it passes the furthest point.
+      if (d.net > d.best + 0.5 && this.travelled > POKE_PX) {
+        this.sim.send({ type: 'dial_turn', minutes: d.net - d.best });
+        d.best = d.net;
+        if (t - this.dialSound > 90) {
+          this.dialSound = t;
+          this.gesture('dial', 0.6);
+        }
+      }
+    }
     if (this.mode === 'pan') {
       const dxMeters = (view.x - this.panLastX) / this.camera.ppm;
       this.camera.panBy(-dxMeters);
@@ -308,6 +339,13 @@ export class PointerController {
           this.sim.send({ type: 'release', vx: v.x, vy: v.y });
         }
       }
+    }
+    if (this.mode === 'dial') {
+      const click = t - this.pressAt <= POKE_MS && this.travelled <= POKE_PX;
+      // A click on the dial pokes it (the painted sun counts clicks); a turn lets the dial go.
+      if (click) this.sim.send({ type: 'poke', x: this.pressWorld.x, y: this.pressWorld.y });
+      else this.sim.send({ type: 'dial_release' });
+      this.dial = null;
     }
     if (this.mode === 'pan') {
       const click = t - this.pressAt <= POKE_MS && this.travelled <= POKE_PX;

@@ -49,6 +49,9 @@ export interface BugFrame {
   hopping?: boolean;
 }
 
+/** Beetles built the same way: Dot, and Flick the firefly. */
+const BEETLES: ReadonlySet<string> = new Set(['ladybug', 'firefly']);
+
 const TINTS = { green: { color: 0x8fd14f, alpha: 0.6 }, red: { color: 0xff3b2f, alpha: 0.45 } } as const;
 
 interface Hip {
@@ -154,6 +157,9 @@ export class BugSprite extends Container {
       case 'grasshopper':
         this.drawGrasshopper();
         break;
+      case 'firefly':
+        this.drawFirefly();
+        break;
     }
     this.drawRim(form);
   }
@@ -188,7 +194,7 @@ export class BugSprite extends Container {
       g.ellipse(-r * 0.62, -r * 0.3, r * 0.5, r * 0.32).stroke(white);
       return;
     }
-    if (this.def.art === 'ladybug') {
+    if (BEETLES.has(this.def.art)) {
       g.poly(this.dome(-r * 0.15, r * 0.34, r * 1.02, r * 1.14)).stroke(white);
       g.circle(r * 0.8, r * 0.12, r * 0.55).stroke(white);
       g.ellipse(-r * 0.1, r * 0.42, r * 0.95, r * 0.34).stroke(white);
@@ -204,7 +210,7 @@ export class BugSprite extends Container {
     if (!tint || this.form === 'curled' || this.form === 'in_shell') return;
     const { r } = this;
     const t = TINTS[tint];
-    if (this.def.art === 'ladybug') g.circle(r * 0.8, r * 0.12, r * 0.52).fill(t);
+    if (BEETLES.has(this.def.art)) g.circle(r * 0.8, r * 0.12, r * 0.52).fill(t);
     else if (this.def.art === 'strider') g.circle(r * 0.88, -r * 0.3, r * 0.28).fill(t);
     else if (this.def.art === 'grasshopper') g.ellipse(r * 0.8, -r * 0.18, r * 0.46, r * 0.42).fill(t);
     else if (this.def.art === 'pillbug') g.circle(r * 1.14, r * 0.36, r * 0.47).fill(t);
@@ -510,6 +516,60 @@ export class BugSprite extends Container {
     s.circle(r * 0.05, -r * 0.84, r * 0.05).fill({ color: 0xffffff, alpha: 0.75 });
   }
 
+  /**
+   * Flick: a small dark beetle with a red-orange cap and a big glowing
+   * tail. Built like Dot (her legs, feelers, and face), with wing covers
+   * that open for flying.
+   */
+  private drawFirefly(): void {
+    const { r, def } = this;
+    const b = this.body;
+    // The tail lantern sits behind the body; it glows at night (the light is drawn by the weather view).
+    b.ellipse(-r * 0.95, r * 0.28, r * 0.5, r * 0.38)
+      .fill(def.accent)
+      .stroke(stroke());
+    b.ellipse(-r * 1.0, r * 0.22, r * 0.3, r * 0.2).fill({ color: 0xf8ffd0, alpha: 0.9 });
+    for (let k = 0; k < 2; k++)
+      b.moveTo(-r * (0.72 + k * 0.2), r * 0.0)
+        .quadraticCurveTo(-r * (0.78 + k * 0.2), r * 0.3, -r * (0.72 + k * 0.2), r * 0.6)
+        .stroke({ width: 3, color: 0x9bc43a, alpha: 0.8, cap: 'round' });
+    // Underside and head.
+    b.ellipse(-r * 0.05, r * 0.44, r * 0.85, r * 0.3)
+      .fill(0x3a3050)
+      .stroke(stroke());
+    b.circle(r * 0.8, r * 0.12, r * 0.52)
+      .fill(0x3a2a40)
+      .stroke(stroke());
+    // The red-orange cap over the head.
+    b.moveTo(r * 0.32, r * 0.02)
+      .bezierCurveTo(r * 0.36, -r * 0.5, r * 0.98, -r * 0.62, r * 1.22, -r * 0.18)
+      .quadraticCurveTo(r * 0.8, -r * 0.16, r * 0.32, r * 0.02)
+      .closePath()
+      .fill(def.belly)
+      .stroke(stroke(4));
+    b.ellipse(r * 0.7, -r * 0.32, r * 0.16, r * 0.06).fill({ color: 0xffffff, alpha: 0.5 });
+    // Wing covers on their own layer, hinged at the front, like Dot's.
+    const hingeX = r * 0.4;
+    const hingeY = -r * 0.1;
+    const s = this.shell;
+    s.pivot.set(hingeX, hingeY);
+    s.position.set(hingeX, hingeY);
+    s.poly(this.dome(-r * 0.2, r * 0.36, r * 0.86, r * 0.98))
+      .fill(def.body)
+      .stroke(stroke());
+    s.poly(this.dome(-r * 0.22, r * 0.2, r * 0.66, r * 0.78)).fill({
+      color: lighten(def.body, 0.16),
+      alpha: 0.7,
+    });
+    // A pale seam and edge, and a shine.
+    s.moveTo(-r * 0.2, -r * 0.6)
+      .lineTo(-r * 0.2, r * 0.3)
+      .stroke({ width: 3, color: 0x8a7fa8, alpha: 0.6 });
+    s.moveTo(-r * 0.7, -r * 0.3)
+      .quadraticCurveTo(-r * 0.55, -r * 0.62, -r * 0.2, -r * 0.7)
+      .stroke({ width: r * 0.12, color: 0xffffff, alpha: 0.45, cap: 'round' });
+  }
+
   private drawPillbug(): void {
     const { r, def } = this;
     const b = this.body;
@@ -634,7 +694,7 @@ export class BugSprite extends Container {
 
   private hips(): Hip[] {
     const { r } = this;
-    if (this.def.art === 'ladybug') {
+    if (BEETLES.has(this.def.art)) {
       const near = [-0.5, -0.05, 0.38].map((x) => ({ x: r * x, y: r * 0.5, far: false }));
       const far = [-0.36, 0.1, 0.52].map((x) => ({ x: r * x, y: r * 0.45, far: true }));
       return [...far, ...near];
@@ -719,7 +779,7 @@ export class BugSprite extends Container {
     if (this.form === 'in_shell' || this.form === 'curled') return;
     const [a, b] = this.springs;
     const sway = Math.sin(frame.time * 2.1 + this.r) * r * 0.04;
-    if (def.art === 'ladybug') {
+    if (BEETLES.has(def.art)) {
       const bases: [number, number][] = [
         [r * 0.72, -r * 0.3],
         [r * 0.95, -r * 0.28],
@@ -843,7 +903,7 @@ export class BugSprite extends Container {
       );
       return;
     }
-    if (def.art === 'ladybug') {
+    if (BEETLES.has(def.art)) {
       drawEye(g, r * 0.6, -r * 0.02, r * 0.25, f.eyes, look, open, 0x3a2a40, frame.time, 4);
       drawEye(g, r * 0.98, r * 0.0, r * 0.3, f.eyes, look, open, 0x3a2a40, frame.time, 4);
       if (f.blush || f.mouth === 'grin')

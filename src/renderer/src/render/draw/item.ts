@@ -125,6 +125,12 @@ export class ItemSprite extends Container {
       case 'magnet':
         this.magnet(w, h);
         break;
+      case 'flashlight':
+        this.flashlight(w, h);
+        break;
+      case 'moon_pebble':
+        this.moonPebble(w / 2, seed);
+        break;
     }
     this.outline(this.rim, w, h);
     this.rim.stroke({ width: 16, color: 0xffffff, join: 'round', cap: 'round' });
@@ -136,6 +142,7 @@ export class ItemSprite extends Container {
     switch (this.def.art) {
       case 'marble':
       case 'pebble':
+      case 'moon_pebble':
       case 'ball':
       case 'banana_mush':
       case 'moss_tuft':
@@ -753,6 +760,55 @@ export class ItemSprite extends Container {
     g.moveTo(-r * 0.1, r * 0.3)
       .quadraticCurveTo(r * 0.2, r * 0.5, r * 0.5, r * 0.25)
       .stroke({ width: 3, color: darken(def.color, 0.2), alpha: 0.7, cap: 'round' });
+  }
+
+  /** A blue pen torch: a ridged barrel, a clip, and a lens at its head (on the right). */
+  private flashlight(w: number, h: number): void {
+    const { g, def } = this;
+    const head = w * 0.26;
+    g.roundRect(-w / 2, -h / 2, w - head * 0.6, h, h / 2)
+      .fill(def.color)
+      .stroke(stroke(4.5));
+    // The head flares out a little, with a yellow lens.
+    g.poly([w / 2 - head, -h / 2, w / 2, -h * 0.7, w / 2, h * 0.7, w / 2 - head, h / 2])
+      .fill(lighten(def.color, 0.15))
+      .stroke(stroke(4.5));
+    g.roundRect(w / 2 - 7, -h * 0.58, 8, h * 1.16, 3)
+      .fill(def.accent)
+      .stroke(stroke(3));
+    // Grip rings and a pocket clip.
+    for (let i = 0; i < 4; i++) {
+      const x = -w / 2 + h * 0.8 + i * 9;
+      g.moveTo(x, -h / 2 + 3)
+        .lineTo(x, h / 2 - 3)
+        .stroke({ width: 2.5, color: darken(def.color, 0.35), alpha: 0.7 });
+    }
+    g.roundRect(-w * 0.1, -h / 2 - 4, w * 0.32, 6, 3)
+      .fill(0xd9dde6)
+      .stroke(stroke(2.5));
+    // A little switch button.
+    g.circle(w * 0.06, h * 0.05, 4)
+      .fill(0xff5d73)
+      .stroke(stroke(2));
+    g.roundRect(-w / 2 + 6, -h / 2 + 3, w * 0.6, 4, 2).fill({ color: 0xffffff, alpha: 0.4 });
+  }
+
+  /** A pale pebble that glows like the moon, with a sleepy crescent on it. */
+  private moonPebble(r: number, seed: number): void {
+    const { g, def } = this;
+    const pts: number[] = [];
+    for (let i = 0; i < 11; i++) {
+      const a = (i / 11) * Math.PI * 2;
+      const k = 1 + (hash01(seed, i) - 0.5) * 0.12;
+      pts.push(Math.cos(a) * r * k * 1.06, Math.sin(a) * r * k * 0.96);
+    }
+    g.poly(pts).fill(def.color).stroke(stroke(4.5));
+    g.ellipse(-r * 0.25, -r * 0.35, r * 0.42, r * 0.2).fill({ color: 0xffffff, alpha: 0.9 });
+    // A crescent moon mark.
+    g.circle(r * 0.12, r * 0.12, r * 0.42).fill(def.accent);
+    g.circle(r * 0.28, r * 0.02, r * 0.36).fill(def.color);
+    g.circle(-r * 0.5, r * 0.4, r * 0.08).fill({ color: def.accent, alpha: 0.8 });
+    g.circle(r * 0.55, -r * 0.45, r * 0.06).fill({ color: def.accent, alpha: 0.8 });
   }
 
   private magnet(w: number, h: number): void {

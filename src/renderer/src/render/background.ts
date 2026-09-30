@@ -1,4 +1,4 @@
-import { Container, FillGradient, Graphics, Rectangle, Sprite } from 'pixi.js';
+import { Container, FillGradient, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import type { Renderer } from 'pixi.js';
 import { PIXELS_PER_METER, VIEW_HEIGHT_PX, VIEW_WIDTH_PX } from '../../../game/constants';
 import { Rng } from '../../../game/core/rng';
@@ -7,12 +7,37 @@ import type { Terrain } from '../../../game/world/terrain';
 import type { Camera } from './camera';
 import { OUTLINE, darken, lighten, mix, stroke } from './palette';
 import { drawPondBackProps, drawPondBank, drawPondMid, pondFrontGap } from './pondArt';
+import type { SkyLook } from './skyLook';
+import { gradientTexture } from './lightTextures';
 
 const PPM = PIXELS_PER_METER;
 const BOTTOM = VIEW_HEIGHT_PX + 40;
 
 /** Parallax factors: how fast each layer moves relative to the camera. */
 export const PARALLAX = { sun: 0.03, clouds: 0.12, hills: 0.28, mid: 0.55, near: 1, front: 1.22 } as const;
+
+/** The plaza's mushroom ring, plaza-local px: x, stalk height, cap radius. They glow faintly at night. */
+export const MUSHROOMS: readonly [number, number, number][] = [
+  [2780, 120, 70],
+  [2930, 190, 100],
+  [3080, 95, 58],
+  [3220, 150, 84],
+  [3360, 110, 64],
+];
+
+/** What the sky shows beyond the palette: the sun's shades, shooting stars, the rainbow. */
+export interface SkyExtras {
+  shades: boolean;
+  rainbow: number;
+  wind: number;
+  /** Shooting stars in flight: view x, y, direction, age in seconds. */
+  shooting: readonly { x: number; y: number; dir: 1 | -1; age: number }[];
+}
+
+/** Where the sun and moon ride across the sky: t 0 rises on the left, 1 sets on the right. */
+export function arcPosition(t: number): { x: number; y: number } {
+  return { x: 150 + t * (VIEW_WIDTH_PX - 300), y: 780 - Math.sin(Math.PI * t) * 640 };
+}
 
 /** Soft outline for background art: thinner and fainter than props (readability rule). */
 const soft = (
@@ -72,6 +97,33 @@ export class Background {
   readonly front = new Container();
   private readonly sunRays = new Graphics();
   private readonly sun = new Container();
+  private readonly sunDisc = new Container();
+  private readonly shades = new Graphics();
+  private readonly moon = new Container();
+  private readonly skyBase = new Sprite(Texture.WHITE);
+  private readonly skyTop = new Sprite(
+    gradientTexture([
+      [0, 1],
+      [0.3, 0.75],
+      [0.66, 0],
+    ]),
+  );
+  private readonly horizonGlow = new Sprite(
+    gradientTexture([
+      [0.3, 0],
+      [0.72, 0.85],
+      [1, 0.35],
+    ]),
+  );
+  private readonly stars: Graphics[] = [new Graphics(), new Graphics(), new Graphics()];
+  private readonly starLayer = new Container();
+  private readonly shooting = new Graphics();
+  /** Behind the clouds, over the pond. */
+  readonly rainbow = new Container();
+  private readonly rainbowArc = new Graphics();
+  /** Heavy grey clouds that roll in with cloudy and rainy weather. */
+  private readonly storm = new Container();
+  private readonly stormClouds: { g: Graphics; x: number; speed: number }[] = [];
   private readonly cloudSprites: Container[] = [];
   private readonly cloudBase: number[] = [];
   private cloudWidth = 0;
@@ -92,6 +144,9 @@ export class Background {
     this.plazaX = this.plaza.xStart * PPM;
     const rng = new Rng(`background-${area.id}`);
     this.drawSky(area);
+    this.drawStars(rng);
+    this.drawRainbow();
+    this.drawStorm(rng);
     this.drawClouds(rng);
     this.drawHills(rng);
     this.drawMid(rng);
@@ -108,7 +163,6 @@ export class Background {
   private bakeAll(renderer: Renderer): void {
     const fine = Math.min(2, Math.max(1, renderer.resolution));
     const height = BOTTOM;
-    this.bakeLayer(renderer, this.sky, [this.sky.children[0]!], VIEW_WIDTH_PX, height, 1);
     this.bakeLayer(
       renderer,
       this.hills,
@@ -178,21 +232,19 @@ export class Background {
     return (this.worldPx - VIEW_WIDTH_PX) * factor + VIEW_WIDTH_PX;
   }
 
+  /**
+   * The sky is a flat color with a gradient on top and a glow along the
+   * horizon, all tinted each frame from the time of day (`SkyLook`).
+   */
   private drawSky(area: AreaDef): void {
-    const g = new Graphics();
-    const gradient = new FillGradient({
-      type: 'linear',
-      start: { x: 0, y: 0 },
-      end: { x: 0, y: 1 },
-      colorStops: [
-        { offset: 0, color: area.skyTop },
-        { offset: 0.75, color: area.skyBottom },
-        { offset: 1, color: lighten(area.skyBottom, 0.3) },
-      ],
-      textureSpace: 'local',
-    });
-    g.rect(0, 0, VIEW_WIDTH_PX, VIEW_HEIGHT_PX).fill(gradient);
-    this.sky.addChild(g);
+    for (const s of [this.skyBase, this.skyTop, this.horizonGlow]) {
+      s.width = VIEW_WIDTH_PX;
+      s.height = VIEW_HEIGHT_PX;
+    }
+    this.skyBase.tint = area.skyBottom;
+    this.skyTop.tint = area.skyTop;
+    this.horizonGlow.alpha = 0.3;
+    this.sky.addChild(this.skyBase, this.skyTop, this.horizonGlow, this.starLayer);
 
     // Sun, top right, with slowly turning rays.
     const glow = new Graphics();
@@ -231,9 +283,121 @@ export class Background {
       .fill({ color: 0xff9f6b, alpha: 0.6 })
       .circle(38, 24, 9)
       .fill({ color: 0xff9f6b, alpha: 0.6 });
-    this.sun.addChild(glow, rays, disc);
+    // Sunglasses, for the sundial's secret.
+    const sh = this.shades;
+    for (const dx of [-24, 24]) sh.roundRect(dx - 20, -14, 40, 26, 11).fill(0x2b1d2e);
+    sh.moveTo(-6, -4).quadraticCurveTo(0, -9, 6, -4).stroke(stroke(4));
+    sh.moveTo(-44, -6).lineTo(-70, -12).stroke(stroke(4)).moveTo(44, -6).lineTo(70, -12).stroke(stroke(4));
+    for (const dx of [-24, 24]) sh.roundRect(dx - 14, -9, 11, 6, 3).fill({ color: 0xffffff, alpha: 0.55 });
+    sh.visible = false;
+    disc.addChild(sh);
+    this.sunDisc.addChild(rays, disc);
+    this.sun.addChild(glow, this.sunDisc);
     this.sun.position.set(VIEW_WIDTH_PX - 260, 170);
-    this.sky.addChild(this.sun);
+    this.drawMoon();
+    this.sky.addChild(this.moon, this.sun, this.shooting, this.storm);
+  }
+
+  /** A round, sleepy moon with a soft glow: night is cozy, not scary. */
+  private drawMoon(): void {
+    const glow = new Graphics();
+    for (let i = 14; i >= 1; i--) glow.circle(0, 0, 60 + i * 11).fill({ color: 0xe8ecff, alpha: 0.03 });
+    const g = new Graphics();
+    g.circle(0, 0, 64).fill(0xfff4cc).stroke(stroke(5));
+    // Craters, soft.
+    for (const [x, y, r] of [
+      [-26, -22, 12],
+      [22, -30, 8],
+      [30, 14, 10],
+      [-8, 34, 7],
+    ] as const)
+      g.circle(x, y, r).fill({ color: 0xe8d6a0, alpha: 0.8 });
+    g.circle(-20, -26, 16).fill({ color: 0xffffff, alpha: 0.35 });
+    // Asleep, smiling.
+    g.moveTo(-28, 4).quadraticCurveTo(-19, 12, -10, 4).stroke(stroke(4));
+    g.moveTo(10, 4).quadraticCurveTo(19, 12, 28, 4).stroke(stroke(4));
+    g.moveTo(-9, 22).quadraticCurveTo(0, 29, 9, 22).stroke(stroke(4));
+    g.circle(-34, 18, 8)
+      .fill({ color: 0xffa8b8, alpha: 0.55 })
+      .circle(34, 18, 8)
+      .fill({ color: 0xffa8b8, alpha: 0.55 });
+    this.moon.addChild(glow, g);
+    this.moon.visible = false;
+  }
+
+  /** Stars in three twinkle groups; a few are big four-point sparkles. */
+  private drawStars(rng: Rng): void {
+    const width = VIEW_WIDTH_PX + this.span(PARALLAX.sun);
+    for (let i = 0; i < 170; i++) {
+      const g = this.stars[i % 3]!;
+      const x = rng.range(0, width);
+      const y = Math.pow(rng.next(), 1.6) * 620 + 10;
+      const big = rng.chance(0.08);
+      const color = rng.pick([0xffffff, 0xfff4c2, 0xdfe6ff]);
+      if (big) {
+        const r = rng.range(7, 11);
+        g.poly([
+          x,
+          y - r,
+          x + r * 0.22,
+          y - r * 0.22,
+          x + r,
+          y,
+          x + r * 0.22,
+          y + r * 0.22,
+          x,
+          y + r,
+          x - r * 0.22,
+          y + r * 0.22,
+          x - r,
+          y,
+          x - r * 0.22,
+          y - r * 0.22,
+        ]).fill(color);
+      } else g.circle(x, y, rng.range(1.2, 2.8)).fill({ color, alpha: rng.range(0.6, 1) });
+    }
+    this.starLayer.addChild(...this.stars);
+    this.starLayer.alpha = 0;
+  }
+
+  /** A rainbow arcing over the pond, drawn once; its alpha comes and goes. */
+  private drawRainbow(): void {
+    const g = this.rainbowArc;
+    const colors = [0xff6b6b, 0xffa94d, 0xffe066, 0x8ce99a, 0x74c0fc, 0x9775fa];
+    const r0 = 760;
+    colors.forEach((c, i) => {
+      g.arc(0, 0, r0 - i * 26, Math.PI, 0).stroke({ width: 28, color: c, alpha: 0.55, cap: 'butt' });
+    });
+    g.arc(0, 0, r0 + 14, Math.PI, 0).stroke({ width: 6, color: 0xffffff, alpha: 0.35 });
+    this.rainbowArc.position.set(0, 900);
+    this.rainbow.addChild(this.rainbowArc);
+    this.rainbow.alpha = 0;
+    this.rainbow.visible = false;
+  }
+
+  /** Big soft rain clouds, hidden until the weather turns. */
+  private drawStorm(rng: Rng): void {
+    for (let i = 0; i < 7; i++) {
+      const g = new Graphics();
+      const s = rng.range(1.3, 2);
+      const puffs: [number, number, number][] = [
+        [0, 0, 60 * s],
+        [70 * s, -38 * s, 76 * s],
+        [150 * s, -18 * s, 66 * s],
+        [210 * s, 10 * s, 50 * s],
+        [100 * s, 22 * s, 58 * s],
+        [-40 * s, 18 * s, 44 * s],
+      ];
+      blob(g, puffs, 0xf4f6fb, 5, 0.25);
+      g.ellipse(90 * s, 40 * s, 150 * s, 18 * s).fill({ color: 0xc6ccd8, alpha: 0.9 });
+      const x = i * 330 + rng.range(-60, 60);
+      g.position.set(x, rng.range(30, 230));
+      // Flattened, so fading the whole cloud never shows the circles it is made of.
+      g.cacheAsTexture({ antialias: true });
+      this.stormClouds.push({ g, x, speed: rng.range(6, 14) });
+      this.storm.addChild(g);
+    }
+    this.storm.alpha = 0;
   }
 
   private drawClouds(rng: Rng): void {
@@ -510,27 +674,10 @@ export class Background {
     this.near.addChild(tufts);
   }
 
-  /** Props standing behind the walk line: weather vane, ant hill, sundial, mushrooms, signpost. */
+  /** Props standing behind the walk line: the ant hill, mushrooms, and the signpost. */
   private drawBackProps(g: Graphics, rng: Rng): void {
     const gy = 905;
-    // Weather vane: a bent spoon rooster on a twig pole.
-    {
-      const x = 90;
-      g.moveTo(x, gy)
-        .lineTo(x, gy - 330)
-        .stroke({ width: 14, color: 0x8b6a45, cap: 'round' });
-      g.moveTo(x, gy)
-        .lineTo(x, gy - 330)
-        .stroke(soft(3, 0.5));
-      g.ellipse(x + 10, gy - 350, 46, 20)
-        .fill(0xc9d4e0)
-        .stroke(soft(3, 0.6));
-      g.ellipse(x - 40, gy - 362, 16, 22)
-        .fill(0xc9d4e0)
-        .stroke(soft(3, 0.6));
-      g.poly([x - 44, gy - 384, x - 36, gy - 400, x - 28, gy - 384]).fill(0xe8453c);
-      g.circle(x - 42, gy - 366, 3).fill(OUTLINE);
-    }
+    // The weather vane and the sundial are drawn live by `FixtureArt`.
     // Ant hill: a soft brown mound with a dark doorway and a line of ants.
     {
       const x = 290;
@@ -556,30 +703,8 @@ export class Background {
           .fill(OUTLINE);
       }
     }
-    // Sundial: a stone disc with a stick gnomon.
-    {
-      const x = 920;
-      g.roundRect(x - 26, gy - 110, 52, 110, 8)
-        .fill(0xb8b1c7)
-        .stroke(soft(3, 0.6));
-      g.ellipse(x, gy - 112, 92, 26)
-        .fill(0xd4cedf)
-        .stroke(soft(3, 0.6));
-      g.poly([x - 4, gy - 116, x + 30, gy - 175, x + 34, gy - 116])
-        .fill(0x8b6a45)
-        .stroke(soft(3, 0.6));
-      g.circle(x - 50, gy - 112, 9).fill(0xffd23f);
-      g.circle(x + 58, gy - 112, 8).fill(0x6b7bd6);
-    }
     // Mushroom ring behind the toy pile.
-    const mushrooms: [number, number, number][] = [
-      [2780, 120, 70],
-      [2930, 190, 100],
-      [3080, 95, 58],
-      [3220, 150, 84],
-      [3360, 110, 64],
-    ];
-    for (const [x, h, r] of mushrooms) {
+    for (const [x, h, r] of MUSHROOMS) {
       g.roundRect(x - r * 0.28, gy - h, r * 0.56, h + 4, r * 0.2)
         .fill(0xfff1dc)
         .stroke(soft(3, 0.6));
@@ -759,19 +884,102 @@ export class Background {
     this.front.addChild(g);
   }
 
-  update(camera: Camera, time: number): void {
+  update(camera: Camera, time: number, look?: SkyLook, extras?: SkyExtras): void {
     const px = camera.x * camera.ppm;
-    this.sun.x = VIEW_WIDTH_PX - 260 - px * PARALLAX.sun;
+    const drift = -px * PARALLAX.sun;
     this.sunRays.rotation = time * 0.05;
     this.clouds.x = -px * PARALLAX.clouds;
-    // Clouds drift left and wrap around one at a time.
+    // Clouds drift left and wrap around one at a time; wind hurries them along.
     const w = this.cloudWidth;
+    this.cloudTime += (1 + Math.abs(extras?.wind ?? 0) * 2.5) * (1 / 60);
+    const ct = this.cloudTime * 60;
+    const dir = (extras?.wind ?? 0) > 0 ? -1 : 1;
     this.cloudSprites.forEach((c, i) => {
-      c.x = ((((this.cloudBase[i]! - time * 7 + 400) % w) + w) % w) - 400;
+      c.x = ((((this.cloudBase[i]! - dir * ct * 7 + 400) % w) + w) % w) - 400;
     });
     this.hills.x = -px * PARALLAX.hills;
     this.mid.x = -px * PARALLAX.mid;
     this.near.x = -px;
     this.front.x = -px * PARALLAX.front;
+    // Grass bends with the wind, rooted at the bottom of the screen.
+    const wind = extras?.wind ?? 0;
+    const bend = -wind * 0.035 - Math.sin(time * 1.9) * 0.012 * Math.min(1, Math.abs(wind) / 2);
+    for (const [layer, k] of [
+      [this.front, 1],
+      [this.mid, 0.5],
+    ] as const) {
+      layer.pivot.y = BOTTOM;
+      layer.y = BOTTOM;
+      layer.skew.x += (bend * k - layer.skew.x) * 0.08;
+    }
+    this.rainbow.x = 1040 - px * PARALLAX.clouds;
+    if (!look) {
+      this.sun.position.set(VIEW_WIDTH_PX - 260 + drift, 170);
+      return;
+    }
+    // Grade every layer: far ones lean to the sky, near ones keep their colors.
+    this.skyBase.tint = look.skyBottom;
+    this.skyTop.tint = look.skyTop;
+    this.horizonGlow.tint = look.horizon;
+    this.horizonGlow.alpha = look.horizonAlpha;
+    this.hills.tint = look.far;
+    this.mid.tint = look.mid;
+    this.near.tint = look.near;
+    this.front.tint = look.front;
+    this.clouds.tint = look.cloud;
+    this.clouds.alpha = 1 - look.cover * 0.35;
+    this.storm.tint = look.cloud;
+    this.storm.alpha = look.cover;
+    this.storm.visible = look.cover > 0.01;
+    for (const c of this.stormClouds) {
+      const span = VIEW_WIDTH_PX + 900;
+      c.g.x = ((((c.x - dir * ct * c.speed * 0.2 + 450) % span) + span) % span) - 450;
+    }
+    // Stars twinkle in three groups.
+    this.starLayer.visible = look.stars > 0.01;
+    this.starLayer.alpha = look.stars;
+    this.starLayer.x = drift;
+    this.stars.forEach((g, i) => (g.alpha = 0.7 + 0.3 * Math.sin(time * (1.3 + i * 0.7) + i * 2)));
+    // The sun and the moon ride their arcs; the sun warms to orange as it sets.
+    const sun = arcPosition(look.sun.t);
+    this.sun.visible = look.sun.alpha > 0.01;
+    this.sun.alpha = look.sun.alpha;
+    this.sun.position.set(sun.x + drift, sun.y);
+    const low = 1 - Math.sin(Math.PI * look.sun.t);
+    this.sunDisc.tint = mix(0xffffff, 0xff9a5a, Math.min(1, Math.max(0, low * 1.4 - 0.3)));
+    this.sun.scale.set(1 + low * 0.18);
+    this.shades.visible = !!extras?.shades;
+    const moon = arcPosition(look.moon.t);
+    this.moon.visible = look.moon.alpha > 0.01;
+    this.moon.alpha = look.moon.alpha;
+    this.moon.position.set(moon.x + drift, moon.y);
+    this.moon.rotation = Math.sin(time * 0.3) * 0.04;
+    // The rainbow fades in after rain.
+    const rb = extras?.rainbow ?? 0;
+    this.rainbow.visible = rb > 0.01;
+    this.rainbow.alpha = rb * (1 - look.glow * 0.8);
+    this.drawShooting(extras?.shooting ?? []);
+  }
+
+  private cloudTime = 0;
+
+  /** Shooting stars: a bright head with a fading tail. */
+  private drawShooting(list: readonly { x: number; y: number; dir: 1 | -1; age: number }[]): void {
+    const g = this.shooting.clear();
+    for (const s of list) {
+      const t = s.age / 1.1;
+      if (t < 0 || t > 1) continue;
+      const hx = s.x + s.dir * t * 700;
+      const hy = s.y + t * 260;
+      const fade = Math.sin(Math.PI * t);
+      for (let k = 0; k < 6; k++) {
+        const back = (k + 1) * 34;
+        g.moveTo(hx - s.dir * back * 0.94, hy - back * 0.35)
+          .lineTo(hx - s.dir * (back - 34) * 0.94, hy - (back - 34) * 0.35)
+          .stroke({ width: 6 - k * 0.8, color: 0xfff4c2, alpha: fade * (1 - k / 6), cap: 'round' });
+      }
+      g.circle(hx, hy, 6).fill({ color: 0xffffff, alpha: fade });
+      g.circle(hx, hy, 14).fill({ color: 0xfff4c2, alpha: fade * 0.3 });
+    }
   }
 }

@@ -201,7 +201,7 @@ function stateFace(input: BugFaceInput, face: Make): BugFace {
     case 'st_use':
       // Sniffing something new is curious; otherwise it is a spring hop.
       if (input.sniffing) return face(art === 'strider' ? 'sleepy' : 'wide', 'o');
-      return face('happy', 'whee', art === 'ladybug' ? 'flying' : 'normal', true);
+      return face('happy', 'whee', art === 'ladybug' || art === 'firefly' ? 'flying' : 'normal', true);
     case 'st_landing':
       return face('squint', 'o');
     case 'st_perform':

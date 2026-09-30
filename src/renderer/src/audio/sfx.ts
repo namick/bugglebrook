@@ -71,7 +71,20 @@ export type SfxName =
   | 'toggle_on'
   | 'toggle_off'
   | 'bin_shut'
-  | 'whoosh_in';
+  | 'whoosh_in'
+  | 'dial'
+  | 'dial_done'
+  | 'rain'
+  | 'wind'
+  | 'cricket'
+  | 'vane'
+  | 'gust'
+  | 'secret'
+  | 'twinkle'
+  | 'knock'
+  | 'blink'
+  | 'light_on'
+  | 'light_off';
 
 /**
  * The impact sound for a material. Soft materials (cloth, paper) thud like
@@ -219,6 +232,19 @@ export class Sfx {
       bus.on('unpocketed', () => this.play('pocket_out')),
       bus.on('pocket_swapped', () => this.play('pocket_out', 0.7)),
       bus.on('bug_beckoned', () => this.play('boop')),
+      // Day, night, and weather (M6).
+      bus.on('vane_spun', () => this.play('vane')),
+      bus.on('gust_started', () => this.play('gust')),
+      bus.on('time_skipped', () => this.play('dial_done')),
+      bus.on('sun_clicked', (e) => this.play('twinkle', 0.3 + e.count * 0.1)),
+      bus.on('knothole_peeked', (e) => this.play(e.night ? 'blink' : 'knock')),
+      bus.on('shooting_star', () => this.play('twinkle', 1)),
+      bus.on('light_toggled', (e) => this.play(e.on ? 'light_on' : 'light_off')),
+      bus.on('fireflies_blinked', (e) => this.play('blink', e.answer ? 1 : 0.5)),
+      bus.on('secret_found', () => this.play('secret')),
+      bus.on('bug_joined', () => this.play('ta_da')),
+      bus.on('item_transformed', () => this.play('twinkle', 1)),
+      bus.on('bug_umbrella', (e) => this.limited('pick', 150, e.on ? 0.7 : 0.4)),
     ];
   }
 
@@ -253,7 +279,12 @@ export class Sfx {
    * `intensity` scales loudness or, for dizzy, the loop length in seconds.
    * `material` tunes grab and drop sounds.
    */
-  play(name: SfxName, intensity = 1, material: Material = 'wood'): void {
+  /** Background sounds (rain, wind, crickets): played like any other, but kept out of the log. */
+  ambient(name: SfxName, intensity = 1): void {
+    this.play(name, intensity, 'wood', false);
+  }
+
+  play(name: SfxName, intensity = 1, material: Material = 'wood', log = true): void {
     const j = this.jitter();
     const v = 10 ** ((this.random() * 2 - 1) * 0.1); // about +-2 dB
     const tones: Tone[] = (() => {
@@ -732,9 +763,109 @@ export class Sfx {
             { freq: 3200 * j, to: 2200 * j, dur: 0.12, wave: 'noise', q: 3, gain: 0.07 * intensity },
             { freq: 900 * j, to: 1300 * j, dur: 0.03, wave: 'sine', gain: 0.04 * intensity, delay: 0.05 },
           ];
+        case 'dial':
+          // A stone ratchet: a dry little click per notch.
+          return [
+            { freq: 1500 * j, to: 900 * j, dur: 0.03, wave: 'noise', q: 6, gain: 0.18 * intensity },
+            { freq: 320 * j, to: 260 * j, dur: 0.04, wave: 'triangle', gain: 0.08 * intensity },
+          ];
+        case 'dial_done':
+          return [
+            { freq: 660 * j, dur: 0.12, wave: 'sine', gain: 0.14 },
+            { freq: 990 * j, dur: 0.18, wave: 'sine', gain: 0.12, delay: 0.09 },
+          ];
+        case 'rain':
+          // One soft patter: a few tiny ticks of high noise.
+          return [0, 1, 2].map((k) => ({
+            freq: (2600 + this.random() * 3400) * j,
+            dur: 0.02 + this.random() * 0.02,
+            wave: 'noise' as const,
+            q: 5,
+            gain: 0.03 * intensity,
+            delay: k * (0.02 + this.random() * 0.04),
+          }));
+        case 'wind':
+          return [
+            {
+              freq: 300 * j,
+              to: 900 * j,
+              dur: 1.6,
+              wave: 'noise',
+              q: 1.2,
+              gain: 0.1 * intensity,
+              attack: 0.6,
+            },
+          ];
+        case 'gust':
+          return [
+            { freq: 250 * j, to: 1400 * j, dur: 1.2, wave: 'noise', q: 1.5, gain: 0.22, attack: 0.3 },
+            {
+              freq: 1400 * j,
+              to: 500 * j,
+              dur: 1.4,
+              wave: 'noise',
+              q: 1.5,
+              gain: 0.16,
+              attack: 0.2,
+              delay: 1,
+            },
+          ];
+        case 'cricket':
+          // Crickets: a quick triple chirp.
+          return [0, 1, 2].map((k) => ({
+            freq: 4300 * j,
+            to: 4100 * j,
+            dur: 0.035,
+            wave: 'sine' as const,
+            gain: 0.025 * intensity,
+            delay: k * 0.07,
+            vibrato: { rate: 60, depth: 80 },
+          }));
+        case 'vane':
+          // A creaky spoon swinging round.
+          return [
+            {
+              freq: 520 * j,
+              to: 780 * j,
+              dur: 0.22,
+              wave: 'triangle',
+              gain: 0.12,
+              vibrato: { rate: 30, depth: 25 },
+            },
+            { freq: 2200 * j, to: 1600 * j, dur: 0.05, wave: 'noise', q: 8, gain: 0.08, delay: 0.2 },
+          ];
+        case 'secret':
+          // A little magic arpeggio.
+          return [523, 659, 784, 1047, 1319].map((f, k) => ({
+            freq: f * j,
+            dur: 0.28,
+            wave: 'sine' as const,
+            gain: 0.12,
+            delay: k * 0.08,
+          }));
+        case 'twinkle':
+          return [
+            { freq: 1760 * j, to: 2640 * j, dur: 0.18, wave: 'sine', gain: 0.1 * intensity },
+            { freq: 2640 * j, to: 3520 * j, dur: 0.2, wave: 'sine', gain: 0.07 * intensity, delay: 0.1 },
+          ];
+        case 'knock':
+          return [
+            { freq: 240 * j, to: 180 * j, dur: 0.07, wave: 'triangle', gain: 0.3 },
+            { freq: 240 * j, to: 180 * j, dur: 0.07, wave: 'triangle', gain: 0.25, delay: 0.14 },
+          ];
+        case 'blink':
+          return [
+            { freq: 1200 * j, to: 1600 * j, dur: 0.06, wave: 'sine', gain: 0.1 * intensity },
+            { freq: 1600 * j, to: 1200 * j, dur: 0.06, wave: 'sine', gain: 0.08 * intensity, delay: 0.12 },
+          ];
+        case 'light_on':
+          return [{ freq: 1800 * j, to: 900 * j, dur: 0.04, wave: 'square', gain: 0.1 }];
+        case 'light_off':
+          return [{ freq: 900 * j, to: 500 * j, dur: 0.04, wave: 'square', gain: 0.08 }];
       }
     })();
     for (const tone of tones) this.backend.play({ ...tone, gain: (tone.gain ?? 0.3) * v, bus: 'sfx' });
+    if (!log) return;
     this.log.push(name);
     if (this.log.length > 50) this.log.shift();
   }
