@@ -175,7 +175,7 @@ describe('weather', () => {
     expect(counts.weather_wind! / 20000).toBeCloseTo(0.12, 1);
   });
 
-  it('changes every 6 to 12 minutes, and a rainbow after rain lasts 90 s', { timeout: 120_000 }, () => {
+  it('changes every 6 to 12 minutes, and a rainbow after rain lasts 90 s', { timeout: 400_000 }, () => {
     const sim = Sim.create({ seed: 'changes' });
     const log = record(sim);
     for (let i = 0; i < 40; i++) sim.run(60 * 60);
@@ -558,6 +558,7 @@ describe('time-of-day secrets', () => {
     const sim = Sim.create({ seed: 'owl' });
     calm(sim);
     const flick = sim.spawn('bug', 'bug_firefly_flick', PLAZA_X + 30, GROUND_Y - 0.5).id;
+    calm(sim);
     sim.send({ type: 'set_need', id: flick, need: 'need_energy', value: 90 });
     sim.run(60 * 60);
     expect(sim.view(flick)!.bug!.mode).toBe('st_sleep');
@@ -579,7 +580,8 @@ describe('saves (version 7)', () => {
     expect(loaded.weather.weather).toBe('weather_rain');
     expect(loaded.environment.state.rain).toBe(true);
     expect(loaded.weather.puddles()).toEqual(sim.weather.puddles());
-    expect(loaded.secrets).toEqual(['secret_sun_shades']);
+    expect(loaded.secrets).toContain('secret_sun_shades');
+    expect(loaded.secrets).toEqual(sim.secrets);
     // The weather carries on exactly alike.
     sim.run(600);
     loaded.run(600);

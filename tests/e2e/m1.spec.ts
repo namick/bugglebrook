@@ -69,9 +69,10 @@ test('launches into the plaza within 5 s and holds 60 fps with 3 bugs and 20 ite
     expect(Date.now() - started).toBeLessThan(5000);
 
     const all = await entities(page);
+    // The starting cast (hidden bugs waiting to be found do not count yet).
     expect(
       all
-        .filter((e) => e.kind === 'bug')
+        .filter((e) => e.kind === 'bug' && !e.bug?.pending)
         .map((e) => e.defId)
         .sort(),
     ).toEqual([
@@ -85,7 +86,7 @@ test('launches into the plaza within 5 s and holds 60 fps with 3 bugs and 20 ite
     for (let i = items; i < 20; i++) {
       await page.evaluate(
         (k) =>
-          window.__bb!.send({ type: 'spawn', kind: 'item', defId: 'item_pebble', x: 36 + k * 0.7, y: 2 }),
+          window.__bb!.send({ type: 'spawn', kind: 'item', defId: 'item_pebble', x: 68 + k * 0.7, y: 2 }),
         i,
       );
     }
@@ -272,7 +273,9 @@ test('scrolling and dragging the background move the camera and never move items
     await freeze(page, true);
     // The toy pile, far from every bug; let it settle first.
     const pile = async (): Promise<EntityView[]> =>
-      (await entities(page)).filter((e) => e.kind === 'item' && e.x > PLAZA_X + 27 && e.y > 8);
+      (await entities(page)).filter(
+        (e) => e.kind === 'item' && e.x > PLAZA_X + 27 && e.x < PLAZA_X + 38.4 && e.y > 8,
+      );
     await framesUntil(page, async () => (await pile()).every((e) => Math.hypot(e.vx, e.vy) < 0.02), 20 * 60);
     const before = await pile();
     const cam0 = (await page.evaluate(() => window.__bb!.camera())).x;

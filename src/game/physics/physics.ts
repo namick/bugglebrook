@@ -3,7 +3,18 @@ import type { Body, Contact, Joint } from 'planck';
 import type { EntityId } from '../core/entities';
 import type { Terrain } from '../world/terrain';
 
-export type ShapeSpec = { type: 'circle'; radius: number } | { type: 'box'; width: number; height: number };
+export interface BoxPartSpec {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  angle: number;
+}
+
+/** A circle, or a box; a box with `parts` is built from those boxes (its size is then the bounds). */
+export type ShapeSpec =
+  | { type: 'circle'; radius: number }
+  | { type: 'box'; width: number; height: number; parts?: readonly BoxPartSpec[] };
 
 export interface MaterialSpec {
   density: number;
@@ -103,10 +114,18 @@ export class Physics {
 
     this.world.on('begin-contact', (contact: Contact) => this.recordImpact(contact));
     this.world.on('pre-solve', (contact: Contact) => {
+      const ba = contact.getFixtureA().getBody();
+      const bb = contact.getFixtureB().getBody();
+      const a = ba.getUserData() as EntityId | null;
+      const b = bb.getUserData() as EntityId | null;
+      const pass = this.platformPass;
+      if (pass && (a == null) !== (b == null)) {
+        const key = this.platformKeys.get(a == null ? ba : bb);
+        if (key !== undefined && pass(key, (a ?? b)!)) contact.setEnabled(false);
+        return;
+      }
       const filter = this.passThrough;
       if (!filter) return;
-      const a = contact.getFixtureA().getBody().getUserData() as EntityId | null;
-      const b = contact.getFixtureB().getBody().getUserData() as EntityId | null;
       if (a == null || b == null) return;
       const m = contact.getWorldManifold(null);
       if (m && filter(a, b, m.normal.x, m.normal.y)) contact.setEnabled(false);
@@ -119,6 +138,10 @@ export class Physics {
    * player's setups sideways.
    */
   passThrough: ((a: EntityId, b: EntityId, nx: number, ny: number) => boolean) | null = null;
+
+  /** Contacts between a world part and an entity that this says yes to are ignored (the cobweb letting go). */
+  platformPass: ((key: string, id: EntityId) => boolean) | null = null;
+  private readonly platformKeys = new Map<Body, string>();
 
   private recordImpact(contact: Contact): void {
     const ba = contact.getFixtureA().getBody();
@@ -162,9 +185,14 @@ export class Physics {
       angularDamping: options.angularDamping ?? 0.1,
       bullet: false,
     });
-    const planckShape =
-      shape.type === 'circle' ? new Circle(shape.radius) : new Box(shape.width / 2, shape.height / 2);
-    body.createFixture(planckShape, material);
+    if (shape.type === 'box' && shape.parts)
+      for (const p of shape.parts)
+        body.createFixture(new Box(p.width / 2, p.height / 2, Vec2(p.x, p.y), p.angle), material);
+    else {
+      const planckShape =
+        shape.type === 'circle' ? new Circle(shape.radius) : new Box(shape.width / 2, shape.height / 2);
+      body.createFixture(planckShape, material);
+    }
     if (shape.type === 'box') this.halfExtents.set(id, { x: shape.width / 2, y: shape.height / 2 });
     body.setUserData(id);
     this.bodies.set(id, body);
@@ -286,6 +314,7 @@ export class Physics {
     if (!body) return;
     this.world.destroyBody(body);
     this.platforms.delete(key);
+    this.platformKeys.delete(body);
   }
 
   hasPlatform(key: string): boolean {
@@ -316,7 +345,7 @@ export class Physics {
    * A fixed part of the world shaped as an open polyline (the sunken
    * teacup): static, never grabbed, collides like the ground.
    */
-  addStaticChain(key: string, points: readonly Vec[]): void {
+  addStaticChain(key: string, points: readonly Vec[], friction = 0.7): void {
     if (this.platforms.has(key)) return;
     const body = this.world.createBody({ type: 'static' });
     body.createFixture(
@@ -324,9 +353,107 @@ export class Physics {
         points.map((p) => Vec2(p.x, p.y)),
         false,
       ),
-      { friction: 0.7, restitution: 0.1 },
+      { friction, restitution: 0.1 },
     );
     this.platforms.set(key, body);
+    this.platformKeys.set(body, key);
+  }
+
+  /**
+   * A fixed box in the world (the porch boards, a shelf, the tin can wall):
+   * static, never grabbed, collides like the ground.
+   */
+  addStaticBox(key: string, x0: number, y0: number, x1: number, y1: number, friction = 0.7): void {
+    if (this.platforms.has(key)) return;
+    const body = this.world.createBody({ type: 'static', position: Vec2((x0 + x1) / 2, (y0 + y1) / 2) });
+    body.createFixture(new Box((x1 - x0) / 2, (y1 - y0) / 2), { friction, restitution: 0.1 });
+    this.platforms.set(key, body);
+  }
+
+  /** An invisible wall from high above down into the ground at x (a locked barrier). */
+  addWall(key: string, x: number): void {
+    if (this.platforms.has(key)) return;
+    const body = this.world.createBody({ type: 'static' });
+    const bottom = Math.max(...this.terrain.points.map((p) => p[1])) + 1;
+    body.createFixture(new Edge(Vec2(x, -60), Vec2(x, bottom)), { friction: 0.3 });
+    this.platforms.set(key, body);
+  }
+
+  /**
+   * A moving part of the world built from boxes (the bucket lift's bucket):
+   * kinematic, placed at (x, y), with parts relative to it.
+   */
+  addKinematic(key: string, x: number, y: number, parts: readonly BoxPartSpec[], friction = 0.8): void {
+    if (this.platforms.has(key)) return;
+    const body = this.world.createBody({ type: 'kinematic', position: Vec2(x, y) });
+    for (const p of parts)
+      body.createFixture(new Box(p.width / 2, p.height / 2, Vec2(p.x, p.y), p.angle), {
+        friction,
+        restitution: 0.05,
+      });
+    this.platforms.set(key, body);
+  }
+
+  /** Move a kinematic part so it arrives at (x, y) after `dt` seconds; `dt` 0 puts it there at once. */
+  moveKinematic(key: string, x: number, y: number, dt: number): void {
+    const body = this.platforms.get(key);
+    if (!body) return;
+    if (dt <= 0) {
+      body.setTransform(Vec2(x, y), 0);
+      body.setLinearVelocity(Vec2(0, 0));
+      return;
+    }
+    const p = body.getPosition();
+    body.setLinearVelocity(Vec2((x - p.x) / dt, (y - p.y) / dt));
+  }
+
+  /**
+   * Small loose bodies that are part of the world, not entities (the bead
+   * pit's beads): dynamic circles that nobody can grab. They sleep when still.
+   */
+  addBead(key: string, x: number, y: number, radius: number, density: number): void {
+    if (this.platforms.has(key)) return;
+    const body = this.world.createBody({
+      type: 'dynamic',
+      position: Vec2(x, y),
+      linearDamping: 0.8,
+      angularDamping: 1.5,
+    });
+    body.createFixture(new Circle(radius), { density, friction: 0.4, restitution: 0.2 });
+    this.platforms.set(key, body);
+  }
+
+  /** Switch a world part (a bead) on or off, as its area wakes and sleeps. */
+  setPlatformActive(key: string, active: boolean): void {
+    const body = this.platforms.get(key);
+    if (!body || body.isActive() === active) return;
+    body.setActive(active);
+  }
+
+  /** Where a world part is and how fast it moves, or null. */
+  platformState(key: string): { x: number; y: number; vx: number; vy: number; angle: number } | null {
+    const body = this.platforms.get(key);
+    if (!body) return null;
+    const p = body.getPosition();
+    const v = body.getLinearVelocity();
+    return { x: p.x, y: p.y, vx: v.x, vy: v.y, angle: body.getAngle() };
+  }
+
+  /**
+   * Pin an entity's body in place (a track piece snapped to the pegboard):
+   * static until grabbed. Or let it go again.
+   */
+  setPinned(id: EntityId, pinned: boolean): void {
+    const body = this.requireBody(id);
+    if (pinned === body.isStatic()) return;
+    body.setType(pinned ? 'static' : 'dynamic');
+    body.setLinearVelocity(Vec2(0, 0));
+    body.setAngularVelocity(0);
+    body.setAwake(true);
+  }
+
+  isPinned(id: EntityId): boolean {
+    return this.requireBody(id).isStatic();
   }
 
   /**
@@ -561,11 +688,13 @@ export class Physics {
   }
 
   /** Attach a soft "hand" joint to a body at a world point. */
-  grab(id: EntityId, x: number, y: number): void {
+  grab(id: EntityId, x: number, y: number, strength = 1): void {
     this.release();
     const body = this.requireBody(id);
+    // A pinned piece comes loose in the hand.
+    if (body.isStatic()) this.setPinned(id, false);
     const joint = new MouseJoint(
-      { maxForce: 400 * body.getMass(), frequencyHz: 8, dampingRatio: 0.9 },
+      { maxForce: 400 * strength * body.getMass(), frequencyHz: 8 * Math.sqrt(strength), dampingRatio: 0.9 },
       this.ground,
       body,
       Vec2(x, y),

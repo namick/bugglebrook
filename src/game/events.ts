@@ -228,6 +228,64 @@ export interface GameEvents {
   item_transformed: { id: EntityId; newId: EntityId; from: string; to: string; x: number; y: number };
   /** A secret was found for the first time in this world. */
   secret_found: { id: string; x: number; y: number };
+
+  // --- More areas and unlocks (M7) ----------------------------------------
+  /** A barrier opened for good: `areaId` is open to bugs and the camera now. */
+  area_unlocked: { areaId: string; barrierId: string; x: number; y: number };
+  /** The sunflower drank from its wet soil and stood up. */
+  sunflower_drank: { x: number; y: number };
+  /** Something round rolled into the can tunnel. `fits` if it bumped the latch; a marble clinks under it. */
+  tunnel_rolled: { id: EntityId; fits: boolean; x: number; y: number };
+  /** The bucket lift started up or down, or reached the top and tipped out what it carried. */
+  lift_moved: { phase: 'up' | 'top' | 'back' | 'down'; x: number; y: number; count: number; first: boolean };
+  /** The stage lights were clicked to their next mode (0 off, 1 warm, 2 disco, 3 spotlight). */
+  stage_lights_changed: { mode: number; x: number; y: number };
+  /** A bluebell speaker was clicked quiet or loud. */
+  speaker_toggled: { id: string; muted: boolean; x: number; y: number };
+  /** Dipped in a paint puddle. */
+  painted: { id: EntityId; paint: string; x: number; y: number };
+  /** A knock on the gnome. `count` quick knocks so far. */
+  gnome_knocked: { x: number; y: number; count: number };
+  /** Something inside the gnome knocked back, three times. */
+  gnome_answered: { x: number; y: number };
+  /** A hint that something is hiding: the nibbled leaf rustles, the tulip hums, eyes peek from the pot. */
+  hideout_stirred: { fixture: string; x: number; y: number };
+  /** Three or more bugs danced on the stage together. */
+  band_played: { count: number; x: number; y: number };
+  /** The porch lamp was clicked on or off. */
+  lamp_toggled: { on: boolean; x: number; y: number };
+  /** Something dropped through a gap in the porch floorboards. */
+  floor_dropped: { id: EntityId; defId: string; x: number; y: number };
+  /** The cobweb hammock caught something, or let it through. */
+  web_caught: { id: EntityId; on: boolean; x: number; y: number };
+  /** The dangling spider waved back at the hand. */
+  spider_waved: { x: number; y: number };
+  /** A shelf jar filled up with its ingredient again. */
+  jar_refilled: { id: EntityId; defId: string; x: number; y: number };
+  /** A track piece snapped onto the pegboard, or came off it. */
+  track_snapped: { id: EntityId; on: boolean; x: number; y: number; angle: number };
+  /** The claw machine: the claw went down, grabbed something (or nothing), or dropped a prize down the chute. */
+  claw_moved: { phase: 'drop' | 'grab' | 'miss' | 'prize'; x: number; y: number; id: EntityId | null };
+  /** Dominoes toppled in a chain. */
+  dominoes_fell: { count: number; x: number; y: number };
+  /** Startled, a stink bug let off a green cloud. */
+  stink_cloud: { id: EntityId; x: number; y: number };
+  /** A strong bug pulled a friend free of something sticky. */
+  bug_freed: { id: EntityId; defId: string; partnerId: EntityId; x: number; y: number };
+  /** A leaf got nibbled: `bites` holes so far. */
+  bug_nibbled: { id: EntityId; defId: string; itemId: EntityId; bites: number; x: number; y: number };
+  /** A caterpillar spun a cocoon, or came out as a butterfly (or back again). */
+  bug_changed: {
+    id: EntityId;
+    defId: string;
+    form: 'cocoon' | 'butterfly' | 'caterpillar';
+    x: number;
+    y: number;
+  };
+  /** A karate chop at something floating past. */
+  bug_chopped: { id: EntityId; defId: string; itemId: EntityId; x: number; y: number };
+  /** A hidden bug gave itself away for a moment (Twig's eyes opened). */
+  bug_blinked: { id: EntityId; defId: string; x: number; y: number };
 }
 
 /** What a chat line is about. The renderer draws it as a pictogram. */
@@ -249,7 +307,8 @@ export const CHAT_TOPICS: readonly ChatTopic[] = [
 ];
 
 /** Idle fidgets (game design doc, section 5, `st_idle`). */
-export type Fidget = 'look' | 'hum' | 'yawn' | 'scratch' | 'groom' | 'stretch' | 'kick' | 'twirl';
+export type Fidget =
+  'look' | 'hum' | 'yawn' | 'scratch' | 'groom' | 'stretch' | 'kick' | 'twirl' | 'pose' | 'freeze';
 
 /** What changed a tag, so listeners can pick the right effect. */
 export type TagCause =
@@ -273,7 +332,9 @@ export type TagCause =
   | 'stack'
   | 'slime'
   | 'dew'
-  | 'puddle';
+  | 'puddle'
+  | 'heap'
+  | 'paint';
 
 export type Liking = 'loved' | 'liked' | 'neutral' | 'disliked';
 
@@ -286,7 +347,9 @@ export type Liking = 'loved' | 'liked' | 'neutral' | 'disliked';
  * snatched away), `slip` (on slime), `show_off` (a pose), `play` (the happy
  * end of a game together), and `peek` (uncurling, or peeking out of cover).
  * M6 adds `rain_joy` (rain lovers splashing about), `rain_gloom` (the rest,
- * caught in it), and `wonder` (looking up at a shooting star).
+ * caught in it), and `wonder` (looking up at a shooting star). M7 adds
+ * `join` (a found bug joining the cast), `dance` (on the stage), `puff`
+ * (Whiff's embarrassed stink cloud), and `chop` (Prim's karate chop).
  */
 export type ReactionType =
   | 'grab'
@@ -312,7 +375,11 @@ export type ReactionType =
   | 'peek'
   | 'rain_joy'
   | 'rain_gloom'
-  | 'wonder';
+  | 'wonder'
+  | 'join'
+  | 'dance'
+  | 'puff'
+  | 'chop';
 
 export const REACTION_TYPES: readonly ReactionType[] = [
   'grab',
@@ -339,6 +406,10 @@ export const REACTION_TYPES: readonly ReactionType[] = [
   'rain_joy',
   'rain_gloom',
   'wonder',
+  'join',
+  'dance',
+  'puff',
+  'chop',
 ];
 
 /** Variants per reaction type. */

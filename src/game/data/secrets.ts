@@ -5,7 +5,8 @@ import { createRegistry } from './registry';
 // in M10; for now the sim logs each one the first time it is found
 // (`sim.secrets`, `secret_found`). M6 brings the ones that hang on the time
 // of day: the sundial, the sun, the knothole, the moonlit teacup, and the
-// fireflies.
+// fireflies. M7 adds the areas' unlocks, the found bugs, and a few secrets
+// in the new areas.
 export const SECRETS = createRegistry<SecretDef>('secret', [
   {
     id: 'secret_sundial_midnight',
@@ -36,5 +37,102 @@ export const SECRETS = createRegistry<SecretDef>('secret', [
     name: 'Flick the firefly',
     trigger: { type: 'scripted', area: 'area_puddle_pond' },
     unlocks: [{ kind: 'bug', id: 'bug_firefly_flick' }],
+  },
+  // M7: areas and the bugs found in them.
+  {
+    id: 'secret_sunflower_drink',
+    name: 'The sunflower drinks',
+    trigger: { type: 'scripted', area: 'area_puddle_pond' },
+    unlocks: [{ kind: 'area', id: 'area_flowerbed_stage' }],
+  },
+  {
+    id: 'secret_rollo_tunnel',
+    name: 'Through the can tunnel',
+    trigger: { type: 'scripted', area: 'area_under_porch' },
+    unlocks: [{ kind: 'area', id: 'area_compost_lab' }],
+  },
+  {
+    id: 'secret_whiff_found',
+    name: 'Whiff the stink bug',
+    trigger: { type: 'scripted', area: 'area_under_porch' },
+    unlocks: [{ kind: 'bug', id: 'bug_stinkbug_whiff' }],
+  },
+  {
+    id: 'secret_moose_found',
+    name: 'Moose the stag beetle',
+    trigger: { type: 'scripted', area: 'area_compost_lab' },
+    unlocks: [{ kind: 'bug', id: 'bug_stagbeetle_moose' }],
+  },
+  {
+    id: 'secret_barty_found',
+    name: 'Barty the dung beetle',
+    trigger: { type: 'scripted', area: 'area_compost_lab' },
+    unlocks: [{ kind: 'bug', id: 'bug_dungbeetle_barty' }],
+  },
+  {
+    id: 'secret_munch_found',
+    name: 'Munch the caterpillar',
+    trigger: { type: 'scripted', area: 'area_flowerbed_stage' },
+    unlocks: [{ kind: 'bug', id: 'bug_caterpillar_munch' }],
+  },
+  {
+    id: 'secret_prim_found',
+    name: 'Prim the mantis',
+    trigger: { type: 'scripted', area: 'area_treehouse_arcade' },
+    unlocks: [{ kind: 'bug', id: 'bug_mantis_prim' }],
+  },
+  {
+    id: 'secret_twig_blinks',
+    name: 'Twig the stick insect',
+    trigger: { type: 'scripted', area: 'area_stump_plaza' },
+    unlocks: [{ kind: 'bug', id: 'bug_stickinsect_twig' }],
+  },
+  {
+    id: 'secret_munch_butterfly',
+    name: 'Munch the butterfly',
+    trigger: { type: 'scripted', area: 'area_flowerbed_stage' },
+    unlocks: [],
+  },
+  {
+    id: 'secret_gnome_knock',
+    name: 'Somebody knocks back',
+    trigger: { type: 'scripted', area: 'area_flowerbed_stage' },
+    unlocks: [],
+  },
+  {
+    id: 'secret_band_of_three',
+    name: 'A band of three',
+    trigger: { type: 'scripted', area: 'area_flowerbed_stage' },
+    unlocks: [],
+  },
+  {
+    id: 'secret_paint_all_five',
+    name: 'Patchwork bug',
+    trigger: { type: 'scripted', area: 'area_flowerbed_stage' },
+    unlocks: [],
+  },
+  {
+    id: 'secret_spider_wave',
+    name: 'The spider waves back',
+    trigger: { type: 'scripted', area: 'area_under_porch' },
+    unlocks: [],
+  },
+  {
+    id: 'secret_floor_coin',
+    name: 'Caught through the floorboards',
+    trigger: { type: 'scripted', area: 'area_under_porch' },
+    unlocks: [{ kind: 'item', id: 'item_old_coin' }],
+  },
+  {
+    id: 'secret_lamp_moths',
+    name: 'Moths round the lamp',
+    trigger: { type: 'scripted', area: 'area_under_porch' },
+    unlocks: [],
+  },
+  {
+    id: 'secret_domino_chain',
+    name: 'Twelve dominoes',
+    trigger: { type: 'scripted', area: 'area_treehouse_arcade' },
+    unlocks: [],
   },
 ]);

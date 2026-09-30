@@ -35,7 +35,7 @@ import {
   pocketTake,
   tidyPocket,
 } from '../../src/game/systems/pocket';
-import { PLAZA_X } from './world';
+import { PLAZA_X, POND_X } from './world';
 
 // M5 (game design doc, section 19): save, load, menu, and pocket.
 
@@ -143,7 +143,7 @@ describe('the pocket in the sim', () => {
     expect(sim.view(pebble)!.pocket).toBe(0);
     expect(sim.isPocketed(pebble)).toBe(true);
     // Over in the pond, it comes out.
-    const x = 3;
+    const x = POND_X + 2;
     expect(sim.areaOf(x).id).toBe('area_puddle_pond');
     expect(takeOut(sim, 0, x)).toBe(pebble);
     sim.run(90);
@@ -237,8 +237,8 @@ describe('the pocket in the sim', () => {
     expect(loaded.entities.get(boing)!.bug!.mode).toBe('st_pocketed');
     loaded.run(600);
     expect(loaded.pocket.slots[5]).toEqual([boing]);
-    takeOut(loaded, 5, 2);
-    takeOut(loaded, 0, 3);
+    takeOut(loaded, 5, POND_X + 2);
+    takeOut(loaded, 0, POND_X + 3);
     loaded.run(120);
     expect(loaded.areaOf(loaded.view(boing)!.x).id).toBe('area_puddle_pond');
     expect(loaded.areaOf(loaded.view(pebble)!.x).id).toBe('area_puddle_pond');
@@ -413,10 +413,18 @@ describe('save migrations from every shipped version', () => {
     });
   }
 
-  it('keeps a version 5 world exactly, apart from the new fields', () => {
-    const raw = fixture(5) as { world: { entities: unknown[]; tick: number } };
+  it('keeps a version 5 world exactly, apart from the new fields and the flowerbed shift', () => {
+    const raw = fixture(5) as {
+      world: { entities: { id: number; body: { x: number; y: number } }[]; tick: number };
+    };
     const save = loadSaveFile(JSON.stringify(raw));
-    expect(save.world.entities).toEqual(raw.world.entities);
+    // Version 8 moved everything 32 m right for the flowerbed.
+    expect(save.world.entities.map((e) => [e.id, e.body.y])).toEqual(
+      raw.world.entities.map((e) => [e.id, e.body.y]),
+    );
+    save.world.entities.forEach((e, i) =>
+      expect(e.body.x - 32).toBeCloseTo(raw.world.entities[i]!.body.x, 9),
+    );
     expect(save.world.tick).toBe(raw.world.tick);
   });
 

@@ -12,6 +12,8 @@ export const SPOT_SLEEP_HERE = -1;
 export const SPOT_WATER = -2;
 export const SPOT_TOP = -3;
 export const SPOT_CAMERA = -4;
+/** The flowerbed's flowerpot stage, where bugs dance. */
+export const SPOT_STAGE = -7;
 
 /** Something a bug could go and do, offered by an object, another bug, or a spot nearby. */
 export interface AdvertCandidate {
@@ -106,6 +108,10 @@ export interface BugWorld {
   waterEdge(x: number): { x: number; dir: 1 | -1 } | null;
   /** Something low to duck behind near x, on the far side from `fromX`. */
   cover(x: number, fromX: number): { id: EntityId; x: number } | null;
+  /** Is this item light enough to float about (a feather, a petal)? */
+  isLight?: (id: EntityId) => boolean;
+  /** The flowerpot stage's top, if its area is open. Tests may leave it out. */
+  stage?: () => { x0: number; x1: number; y: number } | null;
 }
 
 /** What a bug knows about the time and the weather (game design doc, section 5). */
@@ -153,10 +159,14 @@ export interface BugContext {
   frozen?: boolean;
   /** Its home area's x range: wandering drifts back there. */
   home?: { x0: number; x1: number } | null;
+  /** The open stretch of the world, between shut barriers: bugs never go past it. */
+  reach?: { x0: number; x1: number };
   /** The rest of the world. Tests may leave it out. */
   world?: BugWorld;
   /** Time and weather. Without it (older tests), it is always a dry day. */
   sky?: BugSky;
+  /** Where the player's hand is over the world, if it is (Twig freezes when it is near). */
+  hand?: { x: number; y: number } | null;
 }
 
 export interface Obstacle {
@@ -201,6 +211,9 @@ export type BugNotice = (
   | { type: 'hid'; coverId: EntityId | null; on: boolean }
   | { type: 'affinity'; partnerId: EntityId; delta: number }
   | { type: 'umbrella'; itemId: EntityId; on: boolean }
+  | { type: 'freed'; partnerId: EntityId }
+  | { type: 'chopped'; itemId: EntityId }
+  | { type: 'changed'; form: 'cocoon' | 'butterfly' | 'caterpillar' }
 ) & { by?: EntityId };
 
 export interface BugDecision {

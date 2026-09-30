@@ -89,7 +89,8 @@ export function launch(brain: BugBrain, out: BugDecision, v: Vec, y: number): vo
  */
 export function clearLanding(ctx: BugContext, x: number): boolean {
   const world = ctx.world ?? EMPTY_WORLD;
-  if (x < ctx.def.radius + 0.3 || x > ctx.worldWidth - ctx.def.radius - 0.3) return false;
+  const reach = ctx.reach ?? { x0: 0, x1: ctx.worldWidth };
+  if (x < reach.x0 + ctx.def.radius + 0.3 || x > reach.x1 - ctx.def.radius - 0.3) return false;
   if (ctx.def.swim !== 'skate' && ctx.overWater?.(x)) return false;
   // Nothing of the player's under the landing, or under the arc on the way.
   const from = ctx.state.x;
@@ -121,7 +122,8 @@ export function stepToward(
   if (!n) return 'blocked';
   const ahead = state.x + brain.facing * (def.radius + 0.25);
   if (def.swim !== 'skate' && ctx.overWater?.(ahead)) return 'blocked';
-  if (ahead < 0.2 || ahead > ctx.worldWidth - 0.2) return 'blocked';
+  const reach = ctx.reach ?? { x0: 0, x1: ctx.worldWidth };
+  if (ahead < reach.x0 + 0.2 || ahead > reach.x1 - 0.2) return 'blocked';
   // Never walk into the player's work: stop short of it.
   // Walking up to a setup to use it in place (sniff it, bounce on it) is fine.
   const target = brain.targetId !== null && brain.targetId >= 0 ? brain.targetId : null;
@@ -163,7 +165,9 @@ export function stepToward(
     return 'hopped';
   }
   // Hoppers get about in big arcs.
-  if (hop && def.habits.hops && Math.abs(dx) > 1.2 && ctx.tick >= brain.hopReady) {
+  // A butterfly flutters about the same way, in floaty hops.
+  const hopper = !!def.habits.hops || brain.form === 'butterfly';
+  if (hop && hopper && Math.abs(dx) > 1.2 && ctx.tick >= brain.hopReady) {
     let d = Math.min(Math.abs(dx), rng.range(HOP_MIN, HOP_MAX));
     for (let tries = 0; tries < 3; tries++, d *= 0.55) {
       const toX = state.x + brain.facing * d;
@@ -177,7 +181,7 @@ export function stepToward(
       return 'hopped';
     }
   }
-  if (hop && def.habits.hops && ctx.tick < brain.hopReady && Math.abs(dx) > 1.2) {
+  if (hop && hopper && ctx.tick < brain.hopReady && Math.abs(dx) > 1.2) {
     // Crouched between hops.
     out.velocity = grip(n);
     return 'walking';

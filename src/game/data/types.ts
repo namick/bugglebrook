@@ -19,6 +19,38 @@ export interface StartEntity {
   lift?: number;
   /** Start floating on the area's water instead of on the ground. */
   onWater?: boolean;
+  /**
+   * A hidden bug that is in the world before it joins the cast (game design
+   * doc, section 4, "Found"): Moose stuck on his back, Barty ignoring
+   * everyone, Twig pretending to be a twig. Found through its secret.
+   */
+  pending?: PendingState;
+  /**
+   * Start resting on a surface at this world y (a shelf) instead of on the
+   * ground; with `pin`, this is the center's y.
+   */
+  y?: number;
+  /** Start pinned to the pegboard at this angle (radians). */
+  pin?: number;
+}
+
+/** How a hidden bug waits to be found: see `StartEntity.pending`. */
+export type PendingState = 'stuck' | 'aloof' | 'disguised';
+
+/**
+ * A fixed solid part of an area that is not ground: the porch floorboards
+ * overhead, shelves, the tin can wall, a slide. Static; things rest on it,
+ * bump into it, and shelter under it. Area-local x, world y, in meters.
+ */
+export interface SolidDef {
+  id: string;
+  /** A box: [x0, y0, x1, y1]. */
+  box?: readonly [number, number, number, number];
+  /** Or an open polyline. */
+  chain?: readonly Point2[];
+  friction?: number;
+  /** Removed when this area opens (the tin can wall swings open). */
+  until?: string;
 }
 
 export interface AreaDef {
@@ -54,7 +86,16 @@ export interface AreaDef {
   water?: WaterDef;
   /** Things built into the area that are not entities: taps, lily pads, the boot. */
   fixtures?: readonly FixtureDef[];
+  /** Fixed solids: roofs, shelves, walls, slides. */
+  solids?: readonly SolidDef[];
+  /** A roof overhead (the porch boards, the treehouse): the sky and sun do not reach under it. */
+  roof?: { x0: number; x1: number; y: number };
+  /** Music and ambience hints for the renderer: how the area sounds. */
+  mood: AreaMood;
 }
+
+/** The feel of an area, for its ambient sounds (game design doc, section 16). */
+export type AreaMood = 'garden' | 'pond' | 'plaza' | 'porch' | 'compost' | 'arcade';
 
 /**
  * Water in an area (game design doc, section 3, `fix_pond_water`). The
@@ -87,7 +128,36 @@ export type FixtureKind =
   | 'weather_vane'
   | 'knothole'
   | 'puddle'
-  | 'reeds';
+  | 'reeds'
+  // M7 barriers: each one `opens` an area and holds an invisible `wall` until then.
+  | 'sunflower'
+  | 'lattice'
+  | 'can_tunnel'
+  | 'bucket_lift'
+  // Flowerbed Stage.
+  | 'stage'
+  | 'stage_lights'
+  | 'bluebell'
+  | 'paint_puddle'
+  | 'gnome'
+  | 'munch_leaf'
+  | 'tulip'
+  // Under the Porch.
+  | 'whiff_pot'
+  | 'porch_lamp'
+  | 'floor_gap'
+  | 'cobweb'
+  | 'spider'
+  // Compost Lab.
+  | 'compost_heap'
+  | 'shelf_jar'
+  // Treehouse Arcade.
+  | 'pegboard'
+  | 'bead_pit'
+  | 'jar_claw'
+  | 'claw_button'
+  | 'leaf_slide'
+  | 'window';
 
 /** A fixed part of an area. Positions are area-local x and world y, in meters. */
 export interface FixtureDef {
@@ -97,7 +167,28 @@ export interface FixtureDef {
   y: number;
   /** Click radius in meters, for clickable fixtures. For the teacup, half its width. */
   radius: number;
+  /** A barrier: the area it opens. */
+  opens?: string;
+  /** A barrier: area-local x of the invisible wall that blocks bugs and the camera until it opens. */
+  wall?: number;
+  /** A region's size in meters (the pegboard, the bead pit, the compost heap, the cobweb). */
+  w?: number;
+  h?: number;
+  /** A paint puddle's color. */
+  paint?: PaintId;
+  /** What a shelf jar holds and refills. */
+  item?: string;
 }
+
+/** The five paint puddle colors (game design doc, section 3, `fix_paint_puddles`). */
+export type PaintId = 'paint_red' | 'paint_blue' | 'paint_yellow' | 'paint_white' | 'paint_black';
+export const PAINT_IDS: readonly PaintId[] = [
+  'paint_red',
+  'paint_blue',
+  'paint_yellow',
+  'paint_white',
+  'paint_black',
+];
 
 export type NeedId = 'need_hunger' | 'need_fun' | 'need_energy' | 'need_social' | 'need_clean';
 export const NEED_IDS: readonly NeedId[] = [
@@ -123,7 +214,19 @@ export interface VoiceProfile {
   formantShift: number;
 }
 
-export type BugArt = 'ladybug' | 'pillbug' | 'snail' | 'strider' | 'grasshopper' | 'firefly';
+export type BugArt =
+  | 'ladybug'
+  | 'pillbug'
+  | 'snail'
+  | 'strider'
+  | 'grasshopper'
+  | 'firefly'
+  | 'stinkbug'
+  | 'stagbeetle'
+  | 'dungbeetle'
+  | 'caterpillar'
+  | 'mantis'
+  | 'stickinsect';
 
 /**
  * Personality knobs that the AI reads, 0 to 1. `curious` sniffs new things,
@@ -157,6 +260,18 @@ export interface BugHabits {
   showsOff?: boolean;
   /** Drifts away from crowds of four or more (Skeet). */
   crowdShy?: boolean;
+  /** Startled, he lets off a green stink cloud, then fans it away, embarrassed (Whiff). */
+  stinkCloud?: boolean;
+  /** Lifts heavy things over his head and frees bugs stuck in gum (Moose). */
+  strong?: boolean;
+  /** Rolls round things along, walking backward (Barty). */
+  rollsBalls?: boolean;
+  /** Nibbles leaves full of holes; after five leafy meals, a cocoon at night and a butterfly at dawn (Munch). */
+  metamorphosis?: boolean;
+  /** Strikes slow poses and karate-chops things floating down past her (Prim). */
+  chops?: boolean;
+  /** Freezes whenever the hand is near, and only moves when nobody is looking (Twig). */
+  shy?: boolean;
 }
 
 /**
@@ -218,10 +333,32 @@ export interface BugDef {
   rain: 'likes' | 'dislikes' | 'neutral';
   /** Its body glows in the dark and lights things up (Flick's tail). */
   glows?: boolean;
+  /**
+   * A collider other than the usual circle (Twig is a long stick). `radius`
+   * stays the bug's rough half height for the AI.
+   */
+  collider?: { width: number; height: number };
+  /** The secret that finds it, for hidden bugs. */
+  foundBy?: string;
   voice: VoiceProfile;
 }
 
-export type ItemShape = { type: 'circle'; radius: number } | { type: 'box'; width: number; height: number };
+/**
+ * A box may be built from `parts` (a curved track, a funnel): each part is a
+ * box at an offset and angle from the center. `width` and `height` are then
+ * the bounds, which everything but the physics uses.
+ */
+export type ItemShape =
+  | { type: 'circle'; radius: number }
+  | { type: 'box'; width: number; height: number; parts?: readonly BoxPart[] };
+
+export interface BoxPart {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  angle: number;
+}
 
 export type MaterialId =
   | 'mat_wood'
@@ -274,7 +411,50 @@ export type ItemArt =
   | 'gum_blob'
   | 'magnet'
   | 'flashlight'
-  | 'moon_pebble';
+  | 'moon_pebble'
+  // M7: the flowerbed.
+  | 'pollen_puff'
+  | 'seed'
+  | 'lavender'
+  | 'honey_drop'
+  | 'bluebell'
+  | 'petal'
+  // Under the porch.
+  | 'lattice'
+  | 'paperclip'
+  | 'rubber_band'
+  | 'popsicle_stick'
+  | 'spool'
+  | 'button'
+  | 'matchbox'
+  | 'straw'
+  | 'toothpick'
+  | 'foil_ball'
+  | 'tissue'
+  | 'paper_scrap'
+  | 'eggshell'
+  | 'battery'
+  | 'tin_can'
+  | 'cheese_puff'
+  | 'cookie_crumb'
+  | 'coin'
+  // The compost lab.
+  | 'apple_core'
+  | 'dung_ball'
+  | 'jar'
+  | 'mushroom_cap'
+  | 'ice_cube'
+  | 'coffee_bean'
+  | 'onion_ring'
+  | 'fizz_candy'
+  | 'compost_goo'
+  // The treehouse.
+  | 'track_straight'
+  | 'track_curve'
+  | 'funnel'
+  | 'domino'
+  | 'spinning_top'
+  | 'yo_yo';
 
 /**
  * What a bug can do with an advert (game design doc, section 5). Items offer
@@ -282,7 +462,17 @@ export type ItemArt =
  * spots in the world offer splash and perform.
  */
 export type AdvertAction =
-  'eat' | 'bounce' | 'inspect' | 'sleep' | 'splash' | 'carry' | 'perform' | 'shelter';
+  | 'eat'
+  | 'bounce'
+  | 'inspect'
+  | 'sleep'
+  | 'splash'
+  | 'carry'
+  | 'perform'
+  | 'shelter'
+  | 'lift'
+  | 'roll'
+  | 'dance';
 
 export const ADVERT_ACTIONS: readonly AdvertAction[] = [
   'eat',
@@ -293,6 +483,9 @@ export const ADVERT_ACTIONS: readonly AdvertAction[] = [
   'carry',
   'perform',
   'shelter',
+  'lift',
+  'roll',
+  'dance',
 ];
 
 /** What an object offers a bug (game design doc, section 5). */
@@ -336,6 +529,12 @@ export interface ItemDef {
   catchable?: boolean;
   /** A light: a click switches it on and off (`tag_glowing`) instead of making it hop. */
   lamp?: boolean;
+  /** Too big for the pocket (the lattice panel). */
+  unpocketable?: boolean;
+  /** Heavy to drag: the hand pulls it this much as hard as usual, 0 to 1 (the lattice panel). */
+  drag?: number;
+  /** A marble track piece: it snaps onto the pegboard. */
+  track?: boolean;
 }
 
 export interface RecipeDef {

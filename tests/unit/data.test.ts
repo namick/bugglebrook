@@ -8,8 +8,20 @@ describe('content registries', () => {
     expect(validateContent(CONTENT)).toEqual([]);
   });
 
-  it('has the pond and the plaza, the starting bugs, and their props', () => {
-    expect(CONTENT.areas.all.map((a) => a.id)).toEqual(['area_puddle_pond', 'area_stump_plaza']);
+  it('has six areas, the starting bugs, and their props', () => {
+    expect(CONTENT.areas.all.map((a) => a.id)).toEqual([
+      'area_flowerbed_stage',
+      'area_puddle_pond',
+      'area_stump_plaza',
+      'area_under_porch',
+      'area_compost_lab',
+      'area_treehouse_arcade',
+    ]);
+    // Only the pond and the plaza are open at the start.
+    expect(CONTENT.areas.all.filter((a) => a.unlockedByDefault).map((a) => a.id)).toEqual([
+      'area_puddle_pond',
+      'area_stump_plaza',
+    ]);
     expect(CONTENT.bugs.all.map((b) => b.id)).toEqual([
       'bug_ladybug_dot',
       'bug_pillbug_rollo',
@@ -17,7 +29,16 @@ describe('content registries', () => {
       'bug_waterstrider_skeet',
       'bug_grasshopper_boing',
       'bug_firefly_flick',
+      'bug_stinkbug_whiff',
+      'bug_stagbeetle_moose',
+      'bug_dungbeetle_barty',
+      'bug_caterpillar_munch',
+      'bug_mantis_prim',
+      'bug_stickinsect_twig',
     ]);
+    // Every hidden bug has a secret that finds it.
+    for (const bug of CONTENT.bugs.all.filter((b) => b.hidden))
+      expect(CONTENT.secrets.has(bug.foundBy ?? ''), bug.id).toBe(true);
     // Flick is hidden until found at night by the reeds.
     expect(CONTENT.bugs.get('bug_firefly_flick').hidden).toBe(true);
     expect(CONTENT.bugs.get('bug_firefly_flick').active).toBe('night');
@@ -40,7 +61,9 @@ describe('content registries', () => {
     expect(count('item_berry_red')).toBe(3);
     for (const id of ['item_ruler_ramp', 'item_spring_coil', 'item_rubber_ball', 'item_twig', 'item_leaf'])
       expect(count(id), id).toBe(1);
-    expect(start.filter((s) => s.kind === 'bug')).toHaveLength(4);
+    // Four bugs, and Twig pretending to be the second twig.
+    expect(start.filter((s) => s.kind === 'bug' && !s.pending)).toHaveLength(4);
+    expect(start.filter((s) => s.pending).map((s) => s.defId)).toEqual(['bug_stickinsect_twig']);
   });
 
   it('gives every item a known material and only known tags', () => {
@@ -88,13 +111,17 @@ describe('content registries', () => {
     expect(() => CONTENT.items.get('nope')).toThrow(/Unknown item/);
   });
 
-  it('areas tile the world: the pond left of the plaza', () => {
-    expect(worldWidth()).toBe(70.4);
-    expect(areaAt(1).id).toBe('area_puddle_pond');
-    expect(areaAt(31.9).id).toBe('area_puddle_pond');
-    expect(areaAt(32).id).toBe('area_stump_plaza');
-    expect(areaAt(-5).id).toBe('area_puddle_pond');
-    expect(areaAt(999).id).toBe('area_stump_plaza');
+  it('areas tile the world: flowerbed, pond, plaza, porch, compost lab, treehouse', () => {
+    expect(worldWidth()).toBeCloseTo(195.2);
+    expect(areaAt(1).id).toBe('area_flowerbed_stage');
+    expect(areaAt(33).id).toBe('area_puddle_pond');
+    expect(areaAt(63.9).id).toBe('area_puddle_pond');
+    expect(areaAt(64).id).toBe('area_stump_plaza');
+    expect(areaAt(110).id).toBe('area_under_porch');
+    expect(areaAt(150).id).toBe('area_compost_lab');
+    expect(areaAt(170).id).toBe('area_treehouse_arcade');
+    expect(areaAt(-5).id).toBe('area_flowerbed_stage');
+    expect(areaAt(999).id).toBe('area_treehouse_arcade');
   });
 });
 

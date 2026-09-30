@@ -33,7 +33,7 @@ test('choosing a slot opens the world, and dragging a prop with the mouse moves 
     await clickSlot(page, 0);
 
     const all = await entities(page);
-    expect(all.filter((e) => e.kind === 'bug').length).toBe(5);
+    expect(all.filter((e) => e.kind === 'bug' && !e.bug?.pending).length).toBe(5);
     expect(all.filter((e) => e.kind === 'item').length).toBeGreaterThanOrEqual(10);
 
     // Bugs wander on their own.
@@ -87,7 +87,7 @@ test('the world autosaves, survives going to the menu, and survives a restart', 
     await clickSlot(bb.page, 2);
     const before = new Set((await entities(bb.page)).map((e) => e.id));
     await bb.page.evaluate(() =>
-      window.__bb!.send({ type: 'spawn', kind: 'item', defId: 'item_pebble', x: 9, y: 3 }),
+      window.__bb!.send({ type: 'spawn', kind: 'item', defId: 'item_pebble', x: 41, y: 3 }),
     );
     await expect.poll(async () => (await entities(bb.page)).some((e) => !before.has(e.id))).toBe(true);
     const pebble = (await entities(bb.page)).find((e) => !before.has(e.id))!;
@@ -104,7 +104,7 @@ test('the world autosaves, survives going to the menu, and survives a restart', 
     await clickSlot(bb.page, 2);
     const restored = await entities(bb.page);
     expect(restored.find((e) => e.id === pebble.id)?.defId).toBe('item_pebble');
-    expect(restored.filter((e) => e.kind === 'bug')).toHaveLength(5);
+    expect(restored.filter((e) => e.kind === 'bug' && !e.bug?.pending)).toHaveLength(5);
     expect(bb.errors).toEqual([]);
   } finally {
     await bb.close();

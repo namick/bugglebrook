@@ -51,6 +51,40 @@ describe('Camera', () => {
   });
 });
 
+describe('Camera limits (M7: locked areas)', () => {
+  it('looks up to 4 m past a barrier while held, then springs back when let go', () => {
+    const cam = new Camera(100, 19.2);
+    cam.setLimits(30, 80);
+    cam.set(40);
+    cam.holding = true;
+    cam.panBy(-30);
+    expect(cam.x).toBeCloseTo(26);
+    cam.panBy(100);
+    expect(cam.x).toBeCloseTo(80 - 19.2 + 4);
+    for (let i = 0; i < 60; i++) cam.update(1 / 60);
+    expect(cam.x).toBeCloseTo(80 - 19.2 + 4);
+    cam.holding = false;
+    for (let i = 0; i < 120; i++) cam.update(1 / 60);
+    expect(cam.x).toBeCloseTo(80 - 19.2, 2);
+    expect(cam.past).toBe(0);
+  });
+
+  it('coasts no further than the peek, and glides only within the open stretch', () => {
+    const cam = new Camera(100, 19.2);
+    cam.setLimits(30, 80);
+    cam.set(35);
+    cam.velocity = -40;
+    cam.update(1);
+    expect(cam.x).toBeGreaterThanOrEqual(26);
+    cam.glideTo(0, 0);
+    expect(cam.x).toBe(30);
+    // Once the barrier opens, the view goes on.
+    cam.setLimits(0, 100);
+    cam.glideTo(0, 0);
+    expect(cam.x).toBe(0);
+  });
+});
+
 describe('fitViewport', () => {
   it('letterboxes a wide window', () => {
     const fit = fitViewport(3000, 1080, 1920, 1080);

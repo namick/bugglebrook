@@ -5,9 +5,11 @@ import type { EnvState } from '../systems/environment';
 import type { PocketState } from '../systems/pocket';
 import type { SkyState } from '../systems/sky';
 import type { TagState } from '../systems/tags';
+import type { BarrierState } from '../systems/barriers';
+import type { PlaceState } from '../systems/places';
 
 /** Bump when the save shape changes, and add a migration in migrations.ts. */
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 export interface SavedEntity {
   id: number;
@@ -19,6 +21,12 @@ export interface SavedEntity {
   tags?: TagState;
   /** Ticks soaking, for paper that goes soggy. */
   soak?: number;
+  /** Paint colors on it. */
+  paint?: string[];
+  /** Snapped onto the pegboard. */
+  pinned?: boolean;
+  /** Bites taken out of a leaf. */
+  bites?: number;
 }
 
 /** Everything needed to rebuild the sim exactly where it was left. */
@@ -43,6 +51,15 @@ export interface WorldSave {
   sky?: SkyState;
   /** Secrets found, in order. Absent in saves before version 7. */
   secrets?: string[];
+  /** Which areas are open, and the bucket lift. Absent in saves before version 8. */
+  barriers?: BarrierState;
+  /** The M7 areas' fixtures: lights, the lamp, the heap, the claw, and so on. Absent before version 8. */
+  places?: PlaceState;
+  /**
+   * Areas whose starting things are in the world. Areas added to the game
+   * later are built when an older save loads. Absent before version 8.
+   */
+  built?: string[];
 }
 
 /** Running counts about how the world has been played. */

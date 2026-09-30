@@ -510,6 +510,8 @@ export class WorldView extends Container {
       stretch: ['yawn', 1],
       kick: ['stomp', 0.7],
       twirl: ['spin', 0.6],
+      pose: ['pose', 1.8],
+      freeze: ['none', 1.5],
     };
     return [
       ev.on('bug_chatted', (e) => {

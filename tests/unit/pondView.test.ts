@@ -11,6 +11,7 @@ import { movePose, reactionLook, reactionShowing } from '../../src/renderer/src/
 import { FROZEN_TINT, HOT_TINT, NO_LOOK, WET_TINT, tagLook } from '../../src/renderer/src/render/tagLooks';
 import { WaveSurface, swell } from '../../src/renderer/src/render/waveSurface';
 import { cursorPose } from '../../src/renderer/src/ui/cursor';
+import { POND_X } from './world';
 
 describe('tag looks: every rule shows', () => {
   it('shows nothing for plain things', () => {
@@ -134,10 +135,10 @@ describe('clicking fixtures', () => {
   const setup = () => {
     const sim = Sim.empty();
     const camera = new Camera(sim.worldWidth, VIEW_WIDTH_M);
-    camera.set(14);
+    camera.set(POND_X + 14);
     const clock = { t: 1000 };
     const input = new PointerController(sim, camera, VIEW_WIDTH_PX, () => clock.t);
-    const tap = sim.environment.fixtureAt(25.1, 7.95)!;
+    const tap = sim.environment.fixtureAt(POND_X + 25.1, 7.95)!;
     return { sim, camera, clock, input, tap };
   };
 

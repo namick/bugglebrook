@@ -144,6 +144,27 @@ const WASHED = ['tag_muddy', 'tag_smelly', 'tag_slimy', 'tag_painted', 'tag_stic
 /** Tags soap washes off. */
 const SOAPED = ['tag_sticky', 'tag_slimy', 'tag_smelly', 'tag_painted', 'tag_muddy'] as const;
 
+/** Fixtures a click does something to. */
+const CLICKABLE: ReadonlySet<FixtureDef['kind']> = new Set<FixtureDef['kind']>([
+  'hose_tap',
+  'rubber_boot',
+  'teacup',
+  'sundial',
+  'weather_vane',
+  'knothole',
+  'sunflower',
+  'can_tunnel',
+  'stage_lights',
+  'bluebell',
+  'gnome',
+  'munch_leaf',
+  'tulip',
+  'whiff_pot',
+  'porch_lamp',
+  'spider',
+  'claw_button',
+]);
+
 const pairKey = (a: EntityId, b: EntityId): string => (a < b ? `${a}:${b}` : `${b}:${a}`);
 
 /**
@@ -258,9 +279,15 @@ export class Environment {
   fixtureAt(x: number, y: number): { id: string; kind: FixtureDef['kind']; x: number; y: number } | null {
     for (const area of this.sim.content.areas.all)
       for (const f of area.fixtures ?? []) {
-        if (f.kind === 'lily_pad' || f.kind === 'puddle' || f.kind === 'reeds') continue;
+        if (!CLICKABLE.has(f.kind)) continue;
+        // Hidden bugs' hideouts stop answering once their bug is found.
+        if (f.kind === 'munch_leaf' && this.sim.cast.joined('bug_caterpillar_munch')) continue;
         const fx = area.xStart + f.x;
-        if (Math.hypot(x - fx, y - f.y) <= f.radius) return { id: f.id, kind: f.kind, x: fx, y: f.y };
+        const hit =
+          f.w !== undefined && f.h !== undefined
+            ? Math.abs(x - fx) <= f.w / 2 && Math.abs(y - f.y) <= f.h / 2
+            : Math.hypot(x - fx, y - f.y) <= f.radius;
+        if (hit) return { id: f.id, kind: f.kind, x: fx, y: f.y };
       }
     return null;
   }
@@ -282,7 +309,7 @@ export class Environment {
       if (Math.hypot(x - sun.x, y - sun.y) <= SUN_SPOT) this.sim.weather.clickSun(sun.x, sun.y);
     } else if (f.kind === 'knothole') {
       this.sim.weather.pokeKnothole(f);
-    }
+    } else this.sim.places.poke(f);
     return true;
   }
 
@@ -353,9 +380,11 @@ export class Environment {
   // --- Per step ------------------------------------------------------------
 
   private shapeOf(e: Entity): ShapeSpec {
-    return e.kind === 'bug'
-      ? { type: 'circle', radius: this.sim.content.bugs.get(e.defId).radius }
-      : this.sim.content.items.get(e.defId).shape;
+    if (e.kind === 'item') return this.sim.content.items.get(e.defId).shape;
+    const def = this.sim.content.bugs.get(e.defId);
+    return def.collider
+      ? { type: 'box', width: def.collider.width, height: def.collider.height }
+      : { type: 'circle', radius: def.radius };
   }
 
   private fractionOf(e: Entity): number {
@@ -398,14 +427,20 @@ export class Environment {
         // A parachute of long legs.
         physics.applyForce(e.id, -mass * 0.8 * s.vx, -mass * Math.min(GRAVITY * 1.4, 12 * (s.vy - 2.5)));
       }
+      if (e.bug?.form === 'butterfly' && e.bug.mode === 'st_airborne' && s.vy > 0.8) {
+        // Butterfly wings: a slow, fluttering drift down.
+        physics.applyForce(e.id, -mass * 0.4 * s.vx, -mass * Math.min(GRAVITY * 1.2, 14 * (s.vy - 0.8)));
+      }
       if (e.bug?.gliding && s.vy > 1.6) {
         // Dot gliding down from the top on open wings.
         physics.applyForce(e.id, -mass * 0.3 * s.vx, -mass * Math.min(GRAVITY * 1.3, 10 * (s.vy - 1.6)));
       }
-      if (this.state.wind !== 0 && !held && sim.hasTag(e.id, 'tag_light')) {
+      // No wind indoors (under the porch, in the treehouse), or behind a locked barrier.
+      const breezy = this.state.wind !== 0 && !held && sim.outdoors(s.x, s.y);
+      if (breezy && sim.hasTag(e.id, 'tag_light')) {
         const push = this.state.wind - s.vx;
         if (Math.sign(push) === Math.sign(this.state.wind)) physics.applyForce(e.id, mass * 14 * push, 0);
-      } else if (this.state.wind !== 0 && !held && e.bug?.mode === 'st_airborne' && frac === 0) {
+      } else if (breezy && e.bug?.mode === 'st_airborne' && frac === 0) {
         // Flying bugs drift with the wind.
         const push = this.state.wind - s.vx;
         if (Math.sign(push) === Math.sign(this.state.wind))
@@ -913,18 +948,21 @@ export class Environment {
   /** R16: at night, glowing things are a campfire: bugs close by warm up to each other. */
   private glowRule(): void {
     const sim = this.sim;
-    const lights: { x: number; y: number; id: EntityId }[] = [];
+    const lights: { x: number; y: number; id: EntityId; reach?: number }[] = [];
     for (const e of sim.entities.all()) {
       if (sim.isSleeping(e.id) || !sim.physics.isActive(e.id) || !sim.glows(e)) continue;
       const s = sim.physics.getState(e.id);
       lights.push({ x: s.x, y: s.y, id: e.id });
     }
+    // The porch lamp and the stage lights warm bugs up too, over a wider circle.
+    for (const l of sim.places.lights()) lights.push({ x: l.x, y: l.y, id: -1, reach: l.reach });
     if (lights.length === 0) return;
     for (const bug of sim.entities.ofKind('bug')) {
       const b = bug.bug;
       if (!b || sim.isSleeping(bug.id) || b.mode === 'st_sleep') continue;
       const s = sim.physics.getState(bug.id);
-      if (!lights.some((l) => l.id !== bug.id && Math.hypot(l.x - s.x, l.y - s.y) <= GLOW_RANGE)) continue;
+      if (!lights.some((l) => l.id !== bug.id && Math.hypot(l.x - s.x, l.y - s.y) <= (l.reach ?? GLOW_RANGE)))
+        continue;
       b.needs.need_social = Math.min(100, b.needs.need_social + GLOW_SOCIAL / (SIM_HZ / RULE_TICKS));
     }
   }

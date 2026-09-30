@@ -1,6 +1,17 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { PLAZA_X, clickSlot, content, entities, entity, launchApp, pressOn, scrollTo, toClient } from './app';
+import {
+  PLAZA_X,
+  POND_X,
+  clickSlot,
+  content,
+  entities,
+  entity,
+  launchApp,
+  pressOn,
+  scrollTo,
+  toClient,
+} from './app';
 
 // M3 acceptance (game design doc, section 19): properties and the pond,
 // driven with the real mouse and checked through window.__bb. Waits are
@@ -45,7 +56,7 @@ async function spawn(page: Page, kind: 'bug' | 'item', defId: string, x: number,
 async function openWater(page: Page, not: number[] = []): Promise<number> {
   const water = await page.evaluate(() => window.__bb!.water());
   const level = water.surfaces[0]!.level;
-  const things = (await entities(page)).filter((e) => Math.abs(e.y - level) < 1.3 && e.x < 23);
+  const things = (await entities(page)).filter((e) => Math.abs(e.y - level) < 1.3 && e.x < POND_X + 23);
   const blockers = [
     ...water.pads.map((p) => ({ x: p.x, r: 1.1 })),
     ...things.map((e) => ({ x: e.x, r: e.defId === 'item_leaf_raft' ? 1.1 : 0.6 })),
@@ -53,9 +64,9 @@ async function openWater(page: Page, not: number[] = []): Promise<number> {
   ];
   // Stay well inside the screen, or carrying it there would scroll the camera.
   const cam = await camera(page);
-  let best = 15;
+  let best = POND_X + 15;
   let bestGap = -Infinity;
-  for (let x = Math.max(6.5, cam + 2.5); x <= Math.min(21.8, cam + 16.5); x += 0.1) {
+  for (let x = Math.max(POND_X + 6.5, cam + 2.5); x <= Math.min(POND_X + 21.8, cam + 16.5); x += 0.1) {
     const gap = Math.min(...blockers.map((b) => Math.abs(b.x - x) - b.r));
     if (gap > bestGap) {
       bestGap = gap;
@@ -135,10 +146,10 @@ test('things dropped in the pond splash, get wet, and float or sink', async () =
   try {
     const { page } = bb;
     await clickSlot(page, 0);
-    await scrollTo(page, 0);
+    await scrollTo(page, POND_X);
     const water = (await page.evaluate(() => window.__bb!.water())).surfaces[0]!;
-    const cork = await spawn(page, 'item', 'item_cork', 3.2, 7.5);
-    const pebble = await spawn(page, 'item', 'item_pebble', 3.9, 7.5);
+    const cork = await spawn(page, 'item', 'item_cork', POND_X + 2.5, 7.5);
+    const pebble = await spawn(page, 'item', 'item_pebble', POND_X + 3.05, 7.5);
     await settle(page, cork);
     await settle(page, pebble);
     await page.evaluate(() => window.__bb!.clearLogs());
@@ -175,11 +186,11 @@ test('a hot pepper dropped in the water hisses out in steam', async () => {
   try {
     const { page } = bb;
     await clickSlot(page, 0);
-    await scrollTo(page, 0);
+    await scrollTo(page, POND_X);
     // Skeet would happily go and eat it before it gets to the water.
     await content(page, (await entities(page)).find((e) => e.defId === 'bug_waterstrider_skeet')!.id);
     const water = (await page.evaluate(() => window.__bb!.water())).surfaces[0]!;
-    const pepper = await spawn(page, 'item', 'item_pepper_hot', 3.4, 7.5);
+    const pepper = await spawn(page, 'item', 'item_pepper_hot', POND_X + 2.8, 7.5);
     await settle(page, pepper);
     expect((await entity(page, pepper))!.tags).toContain('tag_hot');
     const at = await pressOn(page, pepper);
@@ -200,7 +211,7 @@ test('clicking the hose tap turns the spray on and off', async () => {
   try {
     const { page } = bb;
     await clickSlot(page, 0);
-    await scrollTo(page, 14);
+    await scrollTo(page, POND_X + 14);
     const tap = (await page.evaluate(() => window.__bb!.fixture('fix_hose_tap')))!;
     const p = await toClient(page, tap.x, tap.y);
     await page.mouse.move(p.x, p.y);
@@ -226,9 +237,9 @@ test('a bug dropped in the pond swims to shore and shakes itself dry', async () 
   try {
     const { page } = bb;
     await clickSlot(page, 0);
-    await scrollTo(page, 0);
+    await scrollTo(page, POND_X);
     const water = (await page.evaluate(() => window.__bb!.water())).surfaces[0]!;
-    const dot = await spawn(page, 'bug', 'bug_ladybug_dot', 2.6, 7.5);
+    const dot = await spawn(page, 'bug', 'bug_ladybug_dot', POND_X + 2.6, 7.5);
     await content(page, dot);
     await settle(page, dot);
     // Carry her out over open water frame by frame, so a slow machine drops her in the same spot.
@@ -357,7 +368,8 @@ test('the pond sleeps when the camera is far across the plaza, and wakes when it
     const { page } = bb;
     await clickSlot(page, 0);
     expect(await page.evaluate(() => window.__bb!.areaAsleep('area_puddle_pond'))).toBe(false);
-    await scrollTo(page, 60);
+    // Over at the plaza's far end, by the porch's lattice: the pond is more than a screen away.
+    await scrollTo(page, PLAZA_X + 24.5);
     await expect.poll(() => page.evaluate(() => window.__bb!.areaAsleep('area_puddle_pond'))).toBe(true);
     const skeet = (await entities(page)).find((e) => e.defId === 'bug_waterstrider_skeet')!;
     expect(skeet.asleep).toBe(true);
@@ -366,8 +378,8 @@ test('the pond sleeps when the camera is far across the plaza, and wakes when it
     await page.waitForTimeout(1500);
     const later = (await entity(page, skeet.id))!;
     expect(later.asleep).toBe(true);
-    expect(later.x).toBeLessThan(32);
-    await scrollTo(page, 20);
+    expect(later.x).toBeLessThan(PLAZA_X);
+    await scrollTo(page, POND_X + 20);
     await expect.poll(() => page.evaluate(() => window.__bb!.areaAsleep('area_puddle_pond'))).toBe(false);
     expect(await page.evaluate(() => window.__bb!.areaAsleep('area_stump_plaza'))).toBe(false);
   } finally {

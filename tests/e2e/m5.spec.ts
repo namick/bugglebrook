@@ -4,6 +4,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   PLAZA_X,
+  POND_X,
   bugNamed,
   clickSlot,
   clickUi,
@@ -126,7 +127,7 @@ test('a corrupt save comes back from its backup', async () => {
     await waitForScene(bb.page, 'menu');
     expect(await bb.page.evaluate(() => window.__bb!.slotPictures())).toEqual([true, null, null]);
     await clickSlot(bb.page, 0);
-    expect((await entities(bb.page)).filter((e) => e.kind === 'bug')).toHaveLength(5);
+    expect((await entities(bb.page)).filter((e) => e.kind === 'bug' && !e.bug?.pending)).toHaveLength(5);
     expect(existsSync(join(userData, 'saves', 'slot-1.corrupt.json'))).toBe(true);
   } finally {
     await bb.close();
@@ -312,7 +313,7 @@ test('the pocket carries a thing from the pond to the plaza', async () => {
   try {
     const { page } = bb;
     await clickSlot(page, 0);
-    await scrollTo(page, 0);
+    await scrollTo(page, POND_X);
     const sponge = (await entities(page)).find((e) => e.defId === 'item_sponge')!;
     expect(await page.evaluate((x) => window.__bb!.areaAt(x), sponge.x)).toBe('area_puddle_pond');
     // Pick it up; the pocket slides up while something is held.

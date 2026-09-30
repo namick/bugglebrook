@@ -5,7 +5,7 @@ import { ITEMS } from '../../src/game/data/items';
 import { AREAS } from '../../src/game/data/areas';
 import { Terrain } from '../../src/game/world/terrain';
 import { skipVelocity, sprayArc, submergedFraction, waterEdges } from '../../src/game/systems/water';
-import { PLAZA_X, POND } from './world';
+import { PLAZA_X, POND, POND_X } from './world';
 
 type Logged = { name: keyof GameEvents; payload: unknown; tick: number };
 
@@ -19,7 +19,7 @@ const find = <K extends keyof GameEvents>(log: Logged[], name: K): GameEvents[K]
   log.filter((e) => e.name === name).map((e) => e.payload as GameEvents[K]);
 
 /** Open water between the middle and east lily pads. */
-const OPEN_X = 14.9;
+const OPEN_X = POND_X + 14.9;
 
 describe('water math', () => {
   it('measures how much of a circle or a box is under the surface', () => {
@@ -42,7 +42,7 @@ describe('water math', () => {
     expect(t.surfaceY(edges.right)).toBeCloseTo(POND.level, 3);
     expect(edges.right - edges.left).toBeGreaterThan(16);
     // No water where the ground is above the level (the reedy bank).
-    expect(waterEdges(t.points, POND.level, 25, 24, 28)).toBeNull();
+    expect(waterEdges(t.points, POND.level, POND_X + 25, POND_X + 24, POND_X + 28)).toBeNull();
   });
 
   it('skips low, fast throws and swallows steep or slow ones', () => {
@@ -78,7 +78,10 @@ const effectiveDensity = (id: string): number => {
 describe('buoyancy (M3 acceptance)', () => {
   // Cold things freeze the surface instead (rule R5, tested with the rules).
   const floaters = ITEMS.all
-    .filter((d) => effectiveDensity(d.id) < 1 && !d.tags.includes('tag_cold'))
+    // The lattice panel is taller than the pond is deep.
+    .filter(
+      (d) => effectiveDensity(d.id) < 1 && !d.tags.includes('tag_cold') && d.id !== 'item_lattice_panel',
+    )
     .map((d) => d.id);
   const sinkers = ITEMS.all.filter((d) => d.density > 1).map((d) => d.id);
 
@@ -91,7 +94,7 @@ describe('buoyancy (M3 acceptance)', () => {
 
   it.each(floaters)('%s floats and comes to rest at the surface within 5 s', (defId) => {
     // East of the last lily pad there is room for the long ruler too.
-    const { sim, id } = dropIn(defId, 5, 20.1);
+    const { sim, id } = dropIn(defId, 5, POND_X + 20.1);
     const v = sim.view(id)!;
     expect(v.submerged, 'partly under').toBeGreaterThan(0);
     expect(v.submerged, 'partly above').toBeLessThan(1);
@@ -117,7 +120,7 @@ describe('buoyancy (M3 acceptance)', () => {
   });
 
   it('the current drifts floaters slowly to the right', () => {
-    const { sim, id } = dropIn('item_cork', 4, 6.5);
+    const { sim, id } = dropIn('item_cork', 4, POND_X + 6.5);
     const x0 = sim.view(id)!.x;
     sim.run(10 * 60);
     const x1 = sim.view(id)!.x;
@@ -126,7 +129,7 @@ describe('buoyancy (M3 acceptance)', () => {
   });
 
   it('soggy paper sinks after 40 s in the water, and not before', () => {
-    const { sim, id } = dropIn('item_paper_boat', 30, 20.3);
+    const { sim, id } = dropIn('item_paper_boat', 30, POND_X + 20.3);
     expect(sim.view(id)!.submerged).toBeLessThan(0.9);
     expect(sim.view(id)!.soggy).toBeGreaterThan(0.6);
     sim.run(25 * 60);
@@ -151,7 +154,7 @@ describe('splashes', () => {
   it('a flat, fast throw skips across the water before it sinks', () => {
     const sim = Sim.empty();
     const log = record(sim);
-    const pebble = sim.spawn('item', 'item_pebble', 7, POND.level - 0.6);
+    const pebble = sim.spawn('item', 'item_pebble', POND_X + 7, POND.level - 0.6);
     sim.physics.setVelocity(pebble.id, 16, 0);
     sim.run(120);
     const skips = find(log, 'skipped');
@@ -162,7 +165,7 @@ describe('splashes', () => {
 
 describe('the hose tap and the water level', () => {
   const tap = (sim: Sim) => {
-    const f = sim.environment.fixtureAt(25.1, 7.95)!;
+    const f = sim.environment.fixtureAt(POND_X + 25.1, 7.95)!;
     expect(f.kind).toBe('hose_tap');
     return f;
   };
@@ -204,7 +207,7 @@ describe('the hose tap and the water level', () => {
     const sim = Sim.empty();
     const log = record(sim);
     const boot = sim.content.areas.get('area_puddle_pond').fixtures!.find((f) => f.kind === 'rubber_boot')!;
-    sim.send({ type: 'poke', x: boot.x, y: boot.y });
+    sim.send({ type: 'poke', x: POND_X + boot.x, y: boot.y });
     sim.step();
     expect(find(log, 'boot_bubbled')).toHaveLength(1);
   });
@@ -329,7 +332,7 @@ describe('swimming and shaking dry', () => {
 
   it('bugs never wander into the water on their own', () => {
     const sim = Sim.empty({ seed: 'banks' });
-    const dot = sim.spawn('bug', 'bug_ladybug_dot', 2, GROUND_Y - 0.6);
+    const dot = sim.spawn('bug', 'bug_ladybug_dot', POND_X + 2, GROUND_Y - 0.6);
     const b = sim.entities.get(dot.id)!.bug!;
     for (let t = 0; t < 90 * 60; t++) {
       b.needs = { need_hunger: 90, need_fun: 90, need_energy: 90, need_social: 80, need_clean: 90 };
@@ -344,13 +347,15 @@ describe('area sleep (M3 acceptance)', () => {
     const sim = Sim.create({ seed: 'sleep' });
     const log = record(sim);
     sim.run(60);
-    const pondItems = sim.views().filter((v) => v.x < 32 && v.kind === 'item');
+    const pondItems = sim.views().filter((v) => v.x >= POND_X && v.x < PLAZA_X && v.kind === 'item');
     const skeet = sim.views().find((v) => v.defId === 'bug_waterstrider_skeet')!;
-    sim.send({ type: 'focus', x0: sim.worldWidth - VIEW_WIDTH_M, x1: sim.worldWidth });
+    // The camera at the plaza's far right: the pond is a whole screen away.
+    sim.send({ type: 'focus', x0: PLAZA_X + 38.4 - VIEW_WIDTH_M, x1: PLAZA_X + 38.4 });
     sim.step();
     expect(sim.isAreaAsleep('area_puddle_pond')).toBe(true);
     expect(sim.isAreaAsleep('area_stump_plaza')).toBe(false);
-    expect(find(log, 'area_slept')).toEqual([{ areaId: 'area_puddle_pond' }]);
+    expect(find(log, 'area_slept')).toContainEqual({ areaId: 'area_puddle_pond' });
+    expect(find(log, 'area_slept')).not.toContainEqual({ areaId: 'area_under_porch' });
     const before = pondItems.map((v) => sim.view(v.id)!);
     const skeetBefore = sim.view(skeet.id)!;
     sim.run(10 * 60);
@@ -363,7 +368,8 @@ describe('area sleep (M3 acceptance)', () => {
     // along the pond, standing on the water or the bank.
     const skeetAsleep = sim.view(skeet.id)!;
     expect(skeetAsleep.asleep).toBe(true);
-    expect(skeetAsleep.x).toBeLessThan(32);
+    expect(skeetAsleep.x).toBeLessThan(PLAZA_X);
+    expect(skeetAsleep.x).toBeGreaterThan(POND_X);
     expect(skeetBefore.asleep).toBe(true);
     sim.send({ type: 'focus', x0: PLAZA_X, x1: PLAZA_X + VIEW_WIDTH_M });
     sim.step();

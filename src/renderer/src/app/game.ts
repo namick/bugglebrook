@@ -64,6 +64,8 @@ interface WorldSession {
   panned: boolean;
   /** The last slot picture, kept if a new one cannot be taken. */
   thumb: string | null;
+  /** Where the hand was last reported to the sim. */
+  handSent: { x: number; y: number } | null;
 }
 
 /** The native moves the browser merged into this one, oldest first, if it can tell us. */
@@ -374,6 +376,8 @@ export class Game {
     const intro = !save && this.introEnabled ? new Intro() : null;
     if (intro) sim.send({ type: 'stage_intro' });
     const camera = new Camera(sim.worldWidth, VIEW_WIDTH_M);
+    const open = sim.barriers.span();
+    camera.setLimits(open.x0, open.x1);
     camera.set(save ? save.view.cameraX : START_CAMERA_X);
     if (intro) {
       // Slide in from the pond side and settle with sleeping Dot in the middle.
@@ -437,6 +441,7 @@ export class Game {
       grabbedBug: false,
       panned: false,
       thumb: save?.meta.thumb ?? null,
+      handSent: null,
     };
     input.onGesture = (gesture, strength) => {
       if (gesture === 'pan' || gesture === 'scroll' || gesture === 'edge') session.panned = true;
@@ -602,8 +607,24 @@ export class Game {
     if (!s) return;
     for (let i = 0; i < n; i++) {
       s.input.frame(1 / 60);
+      this.sendHand(s);
       s.sim.step();
     }
+  }
+
+  /** Tell the sim where the hand is (Twig freezes near it, the spider watches it), when it moves a bit. */
+  private sendHand(s: WorldSession): void {
+    const w = s.input.hoverWorld;
+    const last = s.handSent;
+    if (!w) {
+      if (last === null) return;
+      s.handSent = null;
+      s.sim.send({ type: 'hand', x: null, y: null });
+      return;
+    }
+    if (last && Math.hypot(w.x - last.x, w.y - last.y) < 0.1) return;
+    s.handSent = { x: w.x, y: w.y };
+    s.sim.send({ type: 'hand', x: w.x, y: w.y });
   }
 
   /** Tell the sim what the camera shows, so faraway areas can sleep. */
@@ -669,8 +690,13 @@ export class Game {
       this.sinceAreaSave += dt;
       this.runIntro(s, dt);
     }
+    // Locked areas: the camera may look past a barrier, and springs back when let go.
+    const open = s.sim.barriers.span();
+    s.camera.setLimits(open.x0, open.x1);
+    s.camera.holding = s.input.mode === 'pan' || s.input.mode === 'hold';
     s.camera.update(dt);
     this.sendFocus(s);
+    this.sendHand(s);
     s.view.update(dt, s.camera);
     // Home shows only away from the plaza.
     const area = s.sim.areaOf(s.camera.centerX).id;

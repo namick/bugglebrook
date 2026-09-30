@@ -62,6 +62,14 @@ export type Command =
    * The first scene's nudge: the player has not grabbed a bug yet, so this
    * one walks toward the hand at world x and asks to be flung ("again!").
    */
-  | { type: 'beckon'; id: number; x: number };
+  | { type: 'beckon'; id: number; x: number }
+  /**
+   * Where the hand is over the world (null when it left the window). The
+   * renderer sends it as the pointer moves. Twig freezes when it is near,
+   * and the porch spider watches it.
+   */
+  | { type: 'hand'; x: number | null; y: number | null }
+  /** Debug and tests: open a locked area as if its barrier had been solved. */
+  | { type: 'unlock'; area: string };
 
 export type CommandType = Command['type'];

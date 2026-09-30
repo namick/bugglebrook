@@ -7,7 +7,7 @@ import type { AdvertAction, BugDef, NeedId } from '../data/types';
 import { NEED_IDS } from '../data/types';
 import type { Fidget, Liking } from '../events';
 import type { AdvertCandidate, BugContext, BugDecision, BugNotice, OtherBug } from './bugTypes';
-import { EMPTY_WORLD, SPOT_CAMERA, SPOT_SLEEP_HERE, SPOT_TOP, SPOT_WATER } from './bugTypes';
+import { EMPTY_WORLD, SPOT_CAMERA, SPOT_SLEEP_HERE, SPOT_STAGE, SPOT_TOP, SPOT_WATER } from './bugTypes';
 import {
   ARRIVE,
   DECIDE_EVERY,
@@ -54,7 +54,7 @@ export type {
   OtherBug,
   TargetInfo,
 } from './bugTypes';
-export { EMPTY_WORLD, SPOT_CAMERA, SPOT_SLEEP_HERE, SPOT_TOP, SPOT_WATER } from './bugTypes';
+export { EMPTY_WORLD, SPOT_CAMERA, SPOT_SLEEP_HERE, SPOT_STAGE, SPOT_TOP, SPOT_WATER } from './bugTypes';
 export { hopVelocity, memoryModifier, pickVariant, react, remember } from './bugMove';
 export { moodOf, urgency } from './needs';
 export { catchTurn, handPoint, leadState } from './bugSocial';
@@ -136,6 +136,14 @@ export const GAWK_RANGE = 7;
 const SPOT_ROW = -5;
 /** Beside a friend, where a snack gets carried to be eaten in company. */
 const SPOT_PICNIC = -6;
+/** A dance on the stage lasts 6 to 10 s. */
+const DANCE_TICKS: readonly [number, number] = [6 * SIM_HZ, 10 * SIM_HZ];
+/** Barty rolls a ball this far before leaving it be. */
+const ROLL_WALK: readonly [number, number] = [3, 6];
+/** The hand this near makes a shy bug (Twig) freeze. */
+export const SHY_RANGE = 2.5;
+/** Prim chops at floating things this close in front of her. */
+const CHOP_REACH = 1.4;
 /** How often a sociable bug takes its snack over to a friend. */
 const PICNIC_CHANCE = 0.3;
 
@@ -594,6 +602,9 @@ const BEDABLE: ReadonlySet<BugMode> = new Set<BugMode>([
   'st_perform',
 ]);
 
+/** Modes a shy bug freezes in when the hand comes near. */
+const FREEZABLE: ReadonlySet<BugMode> = new Set<BugMode>(['st_idle', 'st_wander', 'st_seek']);
+
 /** Modes a bug keeps its umbrella up in. */
 const UMBRELLA_MODES: ReadonlySet<BugMode> = new Set<BugMode>([
   'st_idle',
@@ -877,6 +888,18 @@ function spotAdverts(brain: BugBrain, ctx: BugContext): AdvertCandidate[] {
     if (edge && Math.abs(edge.x - state.x) < PERCEPTION)
       spot(SPOT_WATER, edge.x, 'splash', { need_clean: 80, need_fun: 12 });
   }
+  const stage = world.stage?.() ?? null;
+  if (stage && brain.needs.need_fun < 85 && brain.needs.need_energy > 30 && !ctx.overWater?.(state.x)) {
+    // The flowerpot stage: up there for a little dance.
+    const onStage = state.x > stage.x0 && state.x < stage.x1 && state.y < stage.y;
+    const x = onStage ? state.x : (stage.x0 + stage.x1) / 2 + ((tick % 7) - 3) * 0.6;
+    if (Math.abs(x - state.x) < PERCEPTION) {
+      spot(SPOT_STAGE, x, 'dance', { need_fun: 26, need_social: 10 });
+      // Somebody dancing up there already: come and join in.
+      const dancing = world.bugs().filter((o) => o.brain.mode === 'st_perform' && o.brain.action === 'dance');
+      if (dancing.length > 0) out[out.length - 1]!.bonus = 7 * Math.min(3, dancing.length);
+    }
+  }
   if (def.habits.showsOff) {
     const top = world.summit(state.x);
     const onTop = top && state.x > top.x0 && state.x < top.x1 && state.y < top.y;
@@ -904,6 +927,8 @@ function candidates(me: EntityId, brain: BugBrain, ctx: BugContext): AdvertCandi
   const { def } = ctx;
   const items = ctx.adverts().filter((c) => {
     if (c.action === 'carry') return !!def.habits.rowsPebbles;
+    if (c.action === 'lift') return !!def.habits.strong && brain.carrying === null;
+    if (c.action === 'roll') return !!def.habits.rollsBalls && brain.carrying === null;
     // Day bugs look for a bed when their energy runs under about half.
     if (c.action === 'sleep') return brain.needs.need_energy < 55;
     // Umbrellas are for rain, picked by `skyCheck`.
@@ -1012,8 +1037,9 @@ function start(brain: BugBrain, ctx: BugContext, c: AdvertCandidate, out: BugDec
 function startWander(brain: BugBrain, ctx: BugContext, away?: number): void {
   const { def, state, rng } = ctx;
   const margin = def.radius + 0.5;
-  let lo = Math.max(margin, state.x - WANDER_RANGE);
-  let hi = Math.min(ctx.worldWidth - margin, state.x + WANDER_RANGE);
+  const reach = ctx.reach ?? { x0: 0, x1: ctx.worldWidth };
+  let lo = Math.max(reach.x0 + margin, state.x - WANDER_RANGE);
+  let hi = Math.min(reach.x1 - margin, state.x + WANDER_RANGE);
   const home = ctx.home;
   if (home) {
     const hlo = home.x0 + margin;
@@ -1054,6 +1080,12 @@ function fidget(brain: BugBrain, ctx: BugContext, out: BugDecision): void {
     // Boing can't sit still.
     kind = 'stretch';
     if (ctx.support) launch(brain, out, { x: 0, y: -4.2 }, ctx.state.y);
+  } else if (def.habits.chops && rng.chance(0.5)) {
+    // Prim strikes a slow, dramatic pose.
+    kind = 'pose';
+  } else if (def.habits.shy && rng.chance(0.6)) {
+    // Twig goes very, very still. Just a stick.
+    kind = 'freeze';
   } else if (n.need_energy < 40) kind = rng.chance(0.6) ? 'yawn' : 'stretch';
   else if (n.need_clean < 60 && rng.chance(0.6)) {
     // Grooming: +20 cleanliness.
@@ -1084,6 +1116,7 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
   const me = ctx.id ?? entity.id;
   const { def, state, rng } = ctx;
   const speed = Math.hypot(state.vx, state.vy);
+  if (brain.pending) return pendingBug(brain, ctx, out);
   decayNeeds(
     brain,
     def,
@@ -1124,6 +1157,12 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
   }
   if (brain.mode === 'st_held') releaseBug(brain, def, false, state.y);
 
+  // A cocoon that got moved settles back down to sleep wherever it lands.
+  if (brain.form === 'cocoon' && brain.mode !== 'st_sleep' && ctx.support && !isAirborne(brain)) {
+    enter(brain, 'st_sleep');
+    clearIntent(brain);
+  }
+
   // Frozen solid in a block of ice: nothing moves until it thaws.
   if (ctx.frozen) return out;
 
@@ -1134,9 +1173,14 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
     brain.mode === 'st_seek' ||
     (brain.mode === 'st_airborne' && brain.selfLaunched);
   if (brain.social && !socialOk) endSocial(me, brain, ctx, false, out);
-  const umbrellaUp = !!brain.umbrella && UMBRELLA_MODES.has(brain.mode);
-  if (brain.carrying !== null && !socialOk && !umbrellaUp) brain.carrying = null;
+  // Umbrellas, things lifted overhead, and balls rolled along stay in hand through everyday modes.
+  const heldUp = (!!brain.umbrella || !!brain.overhead || !!brain.rolling) && UMBRELLA_MODES.has(brain.mode);
+  if (brain.carrying !== null && !socialOk && !heldUp) brain.carrying = null;
   if (brain.umbrella && brain.carrying === null) brain.umbrella = false;
+  if (brain.carrying === null) {
+    delete brain.overhead;
+    delete brain.rolling;
+  }
 
   // Fell in the water: swim for it (skaters stand on the surface instead).
   if (def.swim !== 'skate' && brain.mode !== 'st_swim' && (ctx.submerged ?? 0) > SWIM_DEPTH) {
@@ -1187,6 +1231,16 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
   }
 
   const n = ctx.support;
+  // Twig freezes whenever the hand is near: nobody can see a stick that does not move.
+  if (def.habits.shy && n && ctx.hand && FREEZABLE.has(brain.mode)) {
+    const d = Math.hypot(ctx.hand.x - state.x, ctx.hand.y - state.y);
+    if (d < SHY_RANGE) {
+      out.velocity = grip(n);
+      if (brain.mode !== 'st_idle') enterIdle(brain, rng, def);
+      brain.decideIn = Math.max(brain.decideIn, 30);
+      return out;
+    }
+  }
   if (brain.mode !== 'st_sleep' && skyCheck(me, brain, ctx, out)) {
     out.velocity ??= n ? grip(n) : null;
     return out;
@@ -1224,6 +1278,17 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
 
     case 'st_sleep':
       out.velocity = n ? grip(n) : null;
+      // Munch, asleep at night after five leafy meals, spins a cocoon.
+      if (def.habits.metamorphosis && (brain.leafy ?? 0) >= METAMORPHOSIS_MEALS && ctx.sky?.bedtime) {
+        brain.form = 'cocoon';
+        brain.leafy = 0;
+        out.notices.push({ type: 'changed', form: 'cocoon' });
+      }
+      // A cocoon sleeps right through, whatever bumps it, until morning.
+      if (brain.form === 'cocoon') {
+        if (!ctx.sky?.bedtime && brain.needs.need_energy >= RESTED) hatch(brain, ctx, out);
+        return out;
+      }
       if (ctx.impact > WAKE_IMPACT) out.notices.push(...wakeBug(brain, true, rng, ctx.tick));
       // Rested, it wakes on its own; but never in the middle of its night.
       else if (brain.needs.need_energy >= RESTED && !ctx.sky?.bedtime)
@@ -1280,10 +1345,22 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
       }
       const dx = brain.targetX - state.x;
       if (Math.abs(dx) < ARRIVE || --brain.timer <= 0) {
+        if (brain.overhead || brain.rolling) setDown(brain, ctx, out);
         enterIdle(brain, rng, def);
         out.velocity = n ? grip(n) : null;
         if (def.swim === 'skate' && ctx.overWater?.(state.x))
           out.notices.push({ type: 'fidgeted', fidget: 'twirl' });
+        return out;
+      }
+      if (brain.rolling && n) {
+        // Barty rolls his ball along behind him, walking backward, pushing with his back legs.
+        const dir: 1 | -1 = dx > 0 ? 1 : -1;
+        if (stepToward(brain, ctx, dx, moved, out, 0.7, false) === 'blocked') {
+          setDown(brain, ctx, out);
+          enterIdle(brain, rng, def);
+          out.velocity = grip(n);
+        }
+        brain.facing = dir === 1 ? -1 : 1;
         return out;
       }
       return walk(brain, ctx, dx, moved, out);
@@ -1327,6 +1404,96 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
     case 'st_pocketed':
       return out;
   }
+}
+
+/** Five leafy meals, and the next night Munch spins a cocoon. */
+export const METAMORPHOSIS_MEALS = 5;
+
+/** Morning: out of the cocoon comes a butterfly (or, the second time round, a caterpillar again). */
+function hatch(brain: BugBrain, ctx: BugContext, out: BugDecision): void {
+  const was = brain.form;
+  delete brain.form;
+  if (was === 'cocoon' && !brain.wasButterfly) {
+    brain.form = 'butterfly';
+    brain.wasButterfly = true;
+  } else delete brain.wasButterfly;
+  enter(brain, 'st_react', 90);
+  clearIntent(brain);
+  out.notices.push(
+    { type: 'changed', form: brain.form === 'butterfly' ? 'butterfly' : 'caterpillar' },
+    react(brain, 'join', ctx.rng, ctx.tick),
+  );
+}
+
+/** Set down what is held overhead (Moose) or rolled along (Barty), with a happy grunt. */
+function setDown(brain: BugBrain, ctx: BugContext, out: BugDecision): void {
+  const id = brain.carrying;
+  brain.carrying = null;
+  delete brain.overhead;
+  delete brain.rolling;
+  if (id === null) return;
+  addNeeds(brain.needs, { need_fun: 8 });
+  out.notices.push(react(brain, 'play', ctx.rng, ctx.tick));
+}
+
+/**
+ * Prim karate-chops something floating down past her: a feather, a petal, a
+ * leaf in the wind. Never the player's things. Returns true if she chopped.
+ */
+function chop(brain: BugBrain, ctx: BugContext, out: BugDecision): boolean {
+  const { state, rng, tick } = ctx;
+  const world = ctx.world ?? EMPTY_WORLD;
+  if (brain.used.some((u) => u.id === kindUseId(99) && tick - u.tick < 4 * SIM_HZ)) return false;
+  const floating = world
+    .loose()
+    .find(
+      (l) =>
+        !l.edible &&
+        l.speed > 0.4 &&
+        l.top < state.y &&
+        Math.abs(l.x - state.x) < CHOP_REACH &&
+        Math.abs(l.y - (state.y - ctx.def.radius)) < CHOP_REACH &&
+        world.isLight?.(l.id) !== false,
+    );
+  if (!floating) return false;
+  brain.facing = floating.x >= state.x ? 1 : -1;
+  recordUse(brain, kindUseId(99), tick);
+  addNeeds(brain.needs, { need_fun: 12 });
+  enter(brain, 'st_react', 50);
+  out.notices.push({ type: 'chopped', itemId: floating.id }, react(brain, 'chop', rng, tick));
+  out.velocity = ctx.support ? grip(ctx.support) : null;
+  return true;
+}
+
+/**
+ * A hidden bug waiting to be found (M7) keeps to itself: Moose waves his
+ * legs on his back, Barty rolls his ball to and fro, and Twig stays a twig.
+ * Its needs stay where they are until it joins.
+ */
+function pendingBug(brain: BugBrain, ctx: BugContext, out: BugDecision): BugDecision {
+  const { state, def } = ctx;
+  const n = ctx.support;
+  if (ctx.held) {
+    if (brain.mode !== 'st_held') enter(brain, 'st_held');
+    return out;
+  }
+  if (brain.mode === 'st_held' || !n) {
+    if (brain.mode === 'st_held') enter(brain, 'st_airborne');
+    if (!n) return out;
+  }
+  if (brain.pending !== 'aloof') {
+    enter(brain, brain.pending === 'stuck' ? 'st_react' : 'st_idle', 60);
+    out.velocity = grip(n);
+    return out;
+  }
+  // Barty: back and forth by his resting spot, nudging his ball along.
+  if (brain.mode !== 'st_wander' || Math.abs(brain.targetX - state.x) < 0.2) {
+    enter(brain, 'st_wander', 6 * SIM_HZ);
+    brain.targetX = brain.restX + (state.x > brain.restX ? -1.6 : 1.6);
+  }
+  brain.facing = brain.targetX > state.x ? 1 : -1;
+  out.velocity = walkVelocity(n, brain.facing * def.speed * 0.45);
+  return out;
 }
 
 function idle(me: EntityId, brain: BugBrain, ctx: BugContext, out: BugDecision): BugDecision {
@@ -1374,6 +1541,13 @@ function idle(me: EntityId, brain: BugBrain, ctx: BugContext, out: BugDecision):
       return out;
     }
   }
+  if (brain.overhead || brain.rolling) {
+    // Carrying something heavy overhead, or rolling a ball: off somewhere with it.
+    if (n && brain.timer-- <= 0) startWander(brain, ctx);
+    out.velocity = n ? grip(n) : null;
+    return out;
+  }
+  if (def.habits.chops && n && chop(brain, ctx, out)) return out;
   brain.timer--;
   if (--brain.decideIn <= 0) {
     brain.decideIn = DECIDE_EVERY;
@@ -1521,6 +1695,16 @@ function perform(brain: BugBrain, ctx: BugContext, out: BugDecision): BugDecisio
   const { def, state, rng, tick } = ctx;
   const world = ctx.world ?? EMPTY_WORLD;
   out.velocity = ctx.support ? grip(ctx.support) : null;
+  if (brain.action === 'dance') {
+    // Dancing on the stage: a new move every couple of seconds.
+    if (brain.timer % 150 === 0 && brain.timer > 0) out.notices.push(react(brain, 'dance', rng, tick));
+    if (--brain.timer > 0) return out;
+    addNeeds(brain.needs, { need_fun: 26, need_social: 10 });
+    recordUse(brain, SPOT_STAGE, tick);
+    out.notices.push({ type: 'used', action: 'dance', targetId: null });
+    enterIdle(brain, rng, def);
+    return out;
+  }
   if (--brain.timer > 0) return out;
   if (brain.targetId === SPOT_TOP) {
     const top = world.summit(state.x);
@@ -1581,7 +1765,7 @@ function seek(me: EntityId, brain: BugBrain, ctx: BugContext, moved: number, out
   // Places: the water's edge, the top of the stump, the camera, the pebble row.
   if (id < 0) {
     const dx = brain.targetX - state.x;
-    if (Math.abs(dx) < (id === SPOT_TOP ? 0.8 : 0.2) && n) {
+    if (Math.abs(dx) < (id === SPOT_TOP || id === SPOT_STAGE ? 0.8 : 0.2) && n) {
       if (id === SPOT_WATER) {
         const edge = world.waterEdge(state.x);
         const dir = edge?.dir ?? brain.facing;
@@ -1618,6 +1802,17 @@ function seek(me: EntityId, brain: BugBrain, ctx: BugContext, moved: number, out
         out.notices.push({ type: 'used', action: 'carry', targetId: null });
         enterIdle(brain, rng, def);
         out.velocity = grip(n);
+        return out;
+      }
+      if (id === SPOT_STAGE) {
+        const stage = world.stage?.() ?? null;
+        if (!stage || !(state.y < stage.y && state.x > stage.x0 && state.x < stage.x1))
+          return walk(brain, ctx, dx || brain.facing, moved, out);
+        enter(brain, 'st_perform', rng.int(DANCE_TICKS[0], DANCE_TICKS[1]));
+        brain.targetId = SPOT_STAGE;
+        brain.action = 'dance';
+        out.velocity = grip(n);
+        out.notices.push(react(brain, 'dance', rng, tick));
         return out;
       }
       if (id === SPOT_TOP || id === SPOT_CAMERA) {
@@ -1824,6 +2019,43 @@ function seek(me: EntityId, brain: BugBrain, ctx: BugContext, moved: number, out
       addNeeds(brain.needs, { need_fun: 4 });
       out.notices.push({ type: 'umbrella', itemId: id, on: true });
       enterIdle(brain, rng, def);
+      return out;
+    }
+    case 'lift': {
+      if (target.kind === 'bug') {
+        // Moose pulls a friend free of something sticky.
+        const friend = world.bug(id);
+        if (!friend) return giveUp();
+        addNeeds(brain.needs, { need_social: 20, need_fun: 6 });
+        recordUse(brain, id, tick);
+        out.notices.push({ type: 'freed', partnerId: id }, react(brain, 'play', rng, tick));
+        enter(brain, 'st_react', 50);
+        return out;
+      }
+      // Up over his head it goes.
+      if (world.isSetup(id) || brain.carrying !== null || world.bugs().some((o) => o.brain.carrying === id))
+        return giveUp();
+      brain.carrying = id;
+      brain.overhead = true;
+      recordUse(brain, id, tick);
+      addNeeds(brain.needs, { need_fun: 14 });
+      out.notices.push({ type: 'used', action: 'lift', targetId: id });
+      enter(brain, 'st_idle', 50);
+      brain.targetId = id;
+      brain.action = null;
+      return out;
+    }
+    case 'roll': {
+      // Barty gets behind a round thing and rolls it along, walking backward.
+      if (world.isSetup(id) || brain.carrying !== null || world.bugs().some((o) => o.brain.carrying === id))
+        return giveUp();
+      brain.carrying = id;
+      brain.rolling = true;
+      recordUse(brain, id, tick);
+      addNeeds(brain.needs, { need_fun: 10 });
+      const away = rng.chance(0.5) ? 1 : -1;
+      startWander(brain, ctx, state.x + away * rng.range(ROLL_WALK[0], ROLL_WALK[1]));
+      out.notices.push({ type: 'used', action: 'roll', targetId: id });
       return out;
     }
     case 'carry': {

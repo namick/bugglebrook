@@ -144,7 +144,7 @@ test('three quick clicks on the weather vane start a gust that blows light thing
     expect((await sky(page)).wind).toBe(dir * 3.6);
     // A feather let go high up drifts along with the gust as it floats down.
     const feather = await page.evaluate(() => {
-      window.__bb!.send({ type: 'spawn', kind: 'item', defId: 'item_feather', x: 45, y: 0.5 });
+      window.__bb!.send({ type: 'spawn', kind: 'item', defId: 'item_feather', x: 77, y: 0.5 });
       window.__bb!.frames(1);
       return window
         .__bb!.entities()

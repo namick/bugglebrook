@@ -327,7 +327,7 @@ describe('signature behaviors', () => {
   });
 
   it('Rollo lines up loose pebbles in a neat row where he rests', () => {
-    const { sim, ids } = stage('row', [{ def: 'bug_pillbug_rollo', x: 5, needs: { need_fun: 60 } }]);
+    const { sim, ids } = stage('row5', [{ def: 'bug_pillbug_rollo', x: 5, needs: { need_fun: 60 } }]);
     const pebbles = [2.2, 8.5, 9.6].map(
       (x) => sim.spawn('item', 'item_pebble', PLAZA_X + x, GROUND_Y - 0.21).id,
     );

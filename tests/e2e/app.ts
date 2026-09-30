@@ -92,8 +92,11 @@ export async function content(page: Page, id: number): Promise<void> {
   }, id);
 }
 
+/** Where Puddle Pond starts: the Flowerbed Stage is to its left (locked at first). */
+export const POND_X = 32;
+
 /** Where the plaza starts: Puddle Pond is to its left. */
-export const PLAZA_X = 32;
+export const PLAZA_X = 64;
 
 /** Flat stretches of the plaza (off the stump's root slopes), in world x. */
 const FLAT: readonly [number, number][] = [

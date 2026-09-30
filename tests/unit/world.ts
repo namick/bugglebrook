@@ -6,6 +6,9 @@ import { CONTENT } from '../../src/game/data';
  */
 export const PLAZA_X = CONTENT.areas.get('area_stump_plaza').xStart;
 
+/** Where Puddle Pond starts in world meters: the flowerbed is to its left. */
+export const POND_X = CONTENT.areas.get('area_puddle_pond').xStart;
+
 /** Puddle Pond's water, in world meters. */
 export const POND = (() => {
   const pond = CONTENT.areas.get('area_puddle_pond');

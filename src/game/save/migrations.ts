@@ -189,6 +189,61 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     const world = save.world as Record<string, unknown>;
     return { ...save, version: 7, world: { ...world, secrets: [] } };
   },
+  // 7 -> 8: M7 puts the Flowerbed Stage (32 m wide) left of the pond, so
+  // everything saved moves right by 32 m: bodies, bug targets and resting
+  // spots, off-screen plans, ice, welds, slime, and the camera. The world
+  // records which areas it has built (the pond and the plaza); loading adds
+  // the new areas' starting things, and they all start locked.
+  7: (save) => {
+    const FLOWERBED_WIDTH = 32;
+    const shift = (v: unknown): unknown => (typeof v === 'number' ? v + FLOWERBED_WIDTH : v);
+    const world = save.world as Record<string, unknown>;
+    const view = save.view as Record<string, unknown>;
+    const entities = (world.entities as Record<string, unknown>[]).map((e) => {
+      const body = e.body as Record<string, unknown>;
+      const moved: Record<string, unknown> = { ...e, body: { ...body, x: shift(body.x) } };
+      if (e.kind === 'bug') {
+        const bug = e.bug as Record<string, unknown>;
+        const plan = bug.plan as Record<string, unknown> | null;
+        moved.bug = {
+          ...bug,
+          targetX: shift(bug.targetX),
+          lastX: shift(bug.lastX),
+          restX: shift(bug.restX),
+          plan: plan ? { ...plan, at: shift(plan.at), x: shift(plan.x) } : null,
+        };
+      }
+      return moved;
+    });
+    const env = world.env as Record<string, unknown> | undefined;
+    const movedEnv = env
+      ? {
+          ...env,
+          ice: (env.ice as Record<string, unknown>[]).map((i) => ({
+            ...i,
+            x0: shift(i.x0),
+            x1: shift(i.x1),
+          })),
+          sticks: (env.sticks as Record<string, unknown>[]).map((k) => ({ ...k, x: shift(k.x) })),
+          slime: ((env.slime as Record<string, unknown>[] | undefined) ?? []).map((t) => ({
+            ...t,
+            x0: shift(t.x0),
+            x1: shift(t.x1),
+          })),
+        }
+      : undefined;
+    return {
+      ...save,
+      version: 8,
+      view: { ...view, cameraX: shift(view.cameraX) },
+      world: {
+        ...world,
+        entities,
+        ...(movedEnv ? { env: movedEnv } : {}),
+        built: ['area_puddle_pond', 'area_stump_plaza'],
+      },
+    };
+  },
 };
 
 export class SaveError extends Error {

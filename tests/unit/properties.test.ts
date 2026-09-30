@@ -12,7 +12,7 @@ import {
   removeTag,
   tagOn,
 } from '../../src/game/systems/tags';
-import { PLAZA_X, POND } from './world';
+import { PLAZA_X, POND, POND_X } from './world';
 
 type Logged = { name: keyof GameEvents; payload: unknown; tick: number };
 
@@ -26,7 +26,7 @@ const find = <K extends keyof GameEvents>(log: Logged[], name: K): GameEvents[K]
   log.filter((e) => e.name === name).map((e) => e.payload as GameEvents[K]);
 
 const FLAT = PLAZA_X + 7;
-const OPEN_X = 14.9;
+const OPEN_X = POND_X + 14.9;
 
 /** An empty world with items resting side by side on flat plaza ground, touching. */
 function touching(a: string, b: string): { sim: Sim; a: number; b: number; log: Logged[] } {
@@ -105,7 +105,7 @@ describe('R1: water gets things wet and washes them (M3 acceptance)', () => {
     const banana = sim.spawn('item', 'item_rotten_banana_bit', OPEN_X - 1.2, POND.level - 1);
     const gum = sim.spawn('item', 'item_gum_blob', OPEN_X, POND.level - 1);
     const cork = sim.spawn('item', 'item_cork', OPEN_X + 1.2, POND.level - 1);
-    const pepper = sim.spawn('item', 'item_pepper_hot', 20.5, POND.level - 1);
+    const pepper = sim.spawn('item', 'item_pepper_hot', POND_X + 20.5, POND.level - 1);
     sim.send({ type: 'set_tag', id: cork.id, tag: 'tag_painted', on: true });
     sim.step();
     expect(sim.hasTag(cork.id, 'tag_painted')).toBe(true);
@@ -395,7 +395,7 @@ describe('R9: sparky things zap the water', () => {
   it('bugs in electrified water get fuzzy hair', () => {
     const sim = Sim.empty({ seed: 'zap' });
     const dot = sim.spawn('bug', 'bug_ladybug_dot', OPEN_X, POND.level - 1);
-    const cork = sim.spawn('item', 'item_cork', 20.3, POND.level - 1);
+    const cork = sim.spawn('item', 'item_cork', POND_X + 20.3, POND.level - 1);
     sim.send({ type: 'set_tag', id: cork.id, tag: 'tag_sparky', on: true });
     const log = record(sim);
     sim.run(60);
@@ -535,9 +535,9 @@ describe('saves', () => {
     const sim = Sim.create({ seed: 'keep' });
     const cork = sim.entities.all().find((e) => e.defId === 'item_cork')!;
     sim.send({ type: 'set_tag', id: cork.id, tag: 'tag_painted', on: true, seconds: 100 });
-    const tap = sim.environment.fixtureAt(25.1, 7.95)!;
+    const tap = sim.environment.fixtureAt(POND_X + 25.1, 7.95)!;
     sim.send({ type: 'poke', x: tap.x, y: tap.y });
-    sim.spawn('item', 'item_mint_leaf', 20.3, POND.level - 1);
+    sim.spawn('item', 'item_mint_leaf', POND_X + 20.3, POND.level - 1);
     sim.run(120);
     const save = JSON.parse(JSON.stringify(sim.serialize()));
     const file = loadSaveFile({

@@ -1,4 +1,4 @@
-import type { AdvertAction } from '../data/types';
+import type { AdvertAction, PendingState } from '../data/types';
 import type { ReactionType } from '../events';
 import type { TagState } from '../systems/tags';
 
@@ -227,6 +227,26 @@ export interface BugBrain {
   airTop: number;
   /** Bugs that turned to look at its last crash; it may laugh along. */
   audience: number;
+  /**
+   * A hidden bug waiting to be found (M7): stuck on its back, ignoring
+   * everyone, or disguised as a twig. Absent once it has joined.
+   */
+  pending?: PendingState;
+  /** Twig's next peek (tick), and until when his eyes are open. */
+  blinkAt?: number;
+  eyesUntil?: number;
+  /** Munch's form: a caterpillar (absent), a cocoon, or a butterfly. */
+  form?: 'cocoon' | 'butterfly';
+  /** Leafy meals toward the next change of form (Munch). */
+  leafy?: number;
+  /** In the cocoon for the second time: back to a caterpillar at dawn. */
+  wasButterfly?: boolean;
+  /** A startled stink bug's last cloud (tick). */
+  puffedAt?: number;
+  /** Holding what it carries up over its head (Moose lifting something heavy). */
+  overhead?: boolean;
+  /** Rolling what it carries along behind it (Barty). */
+  rolling?: boolean;
 }
 
 export interface Entity {
@@ -239,6 +259,12 @@ export interface Entity {
   tags?: TagState;
   /** Ticks spent soaking in water without drying, for things that go soggy. */
   soak?: number;
+  /** Paint on it (M7): an item's color, or up to five patches on a bug. */
+  paint?: string[];
+  /** Snapped onto the pegboard: held in place until grabbed. */
+  pinned?: boolean;
+  /** Bites taken out of a leaf by a nibbling caterpillar. */
+  bites?: number;
 }
 
 /**

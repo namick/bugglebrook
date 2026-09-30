@@ -43,6 +43,51 @@ const BRAIN_NUMBERS = [
 ] as const;
 const isIdOrNull = (v: unknown): boolean => v === null || isNum(v);
 const REACTIONS = new Set<string>(REACTION_TYPES);
+const PENDING = new Set(['stuck', 'aloof', 'disguised']);
+const LIFT_PHASES = new Set(['down', 'up', 'top', 'back']);
+const CLAW_PHASES = new Set(['idle', 'down', 'up', 'carry', 'drop']);
+const isStrings = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string');
+
+/** Problems with the saved barriers (open areas, the bucket lift), or an empty list. */
+function barrierProblems(b: unknown): string[] {
+  if (!isObj(b)) return ['is not an object'];
+  const errors: string[] = [];
+  if (!isStrings(b.open)) errors.push('open is invalid');
+  const lift = b.lift;
+  if (!isObj(lift) || !LIFT_PHASES.has(lift.phase as string) || !isNum(lift.y) || !isNum(lift.timer))
+    errors.push('lift is invalid');
+  return errors;
+}
+
+/** Problems with the saved state of the M7 areas' fixtures, or an empty list. */
+function placeProblems(p: unknown): string[] {
+  if (!isObj(p)) return ['is not an object'];
+  const errors: string[] = [];
+  for (const k of ['stageLights', 'knockBack', 'gapNext', 'band'] as const)
+    if (!isNum(p[k])) errors.push(`${k} must be a number`);
+  if (typeof p.lampOn !== 'boolean') errors.push('lampOn must be a boolean');
+  if (!isStrings(p.muted)) errors.push('muted is invalid');
+  for (const k of ['knocks', 'falling', 'falls'] as const)
+    if (!Array.isArray(p[k]) || !(p[k] as unknown[]).every(isNum)) errors.push(`${k} is invalid`);
+  for (const k of ['heap', 'jars', 'web'] as const) if (!isNumMap(p[k])) errors.push(`${k} is invalid`);
+  const dominoes = p.dominoes;
+  if (!isObj(dominoes) || !Object.values(dominoes).every((v) => typeof v === 'boolean'))
+    errors.push('dominoes is invalid');
+  const sp = p.spider;
+  if (!isObj(sp) || !isNum(sp.x) || !isNum(sp.dir) || !isNum(sp.waved) || !Array.isArray(sp.turns))
+    errors.push('spider is invalid');
+  const c = p.claw;
+  if (
+    !isObj(c) ||
+    !CLAW_PHASES.has(c.phase as string) ||
+    !['x', 'depth', 'misses', 'stocked'].every((k) => isNum(c[k])) ||
+    !isIdOrNull(c.holding) ||
+    typeof c.used !== 'boolean'
+  )
+    errors.push('claw is invalid');
+  if (!Array.isArray(p.rng) || p.rng.length !== 4 || !p.rng.every(isNum)) errors.push('rng is invalid');
+  return errors;
+}
 
 /** Problems with a saved bug brain, or an empty list. */
 function brainProblems(bug: unknown): string[] {
@@ -65,6 +110,13 @@ function brainProblems(bug: unknown): string[] {
   if (!isIdOrNull(bug.carrying)) errors.push('carrying must be a number or null');
   if (bug.umbrella !== undefined && typeof bug.umbrella !== 'boolean')
     errors.push('umbrella must be a boolean');
+  if (bug.pending !== undefined && !PENDING.has(bug.pending as string)) errors.push('pending is invalid');
+  if (bug.form !== undefined && bug.form !== 'cocoon' && bug.form !== 'butterfly')
+    errors.push('form is invalid');
+  for (const k of ['blinkAt', 'eyesUntil', 'leafy', 'puffedAt'] as const)
+    if (bug[k] !== undefined && !isNum(bug[k])) errors.push(`${k} must be a number`);
+  for (const k of ['overhead', 'rolling', 'wasButterfly'] as const)
+    if (bug[k] !== undefined && typeof bug[k] !== 'boolean') errors.push(`${k} must be a boolean`);
   if (bug.resume !== null && !BUG_MODES_SET.has(bug.resume as string)) errors.push('resume is invalid');
   const social = bug.social;
   if (
@@ -253,6 +305,9 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
     }
     if (e.tags !== undefined && !isNumMap(e.tags)) errors.push(`${at}.tags is invalid`);
     if (e.soak !== undefined && !isNum(e.soak)) errors.push(`${at}.soak must be a number`);
+    if (e.paint !== undefined && !isStrings(e.paint)) errors.push(`${at}.paint is invalid`);
+    if (e.pinned !== undefined && typeof e.pinned !== 'boolean') errors.push(`${at}.pinned is invalid`);
+    if (e.bites !== undefined && !isNum(e.bites)) errors.push(`${at}.bites must be a number`);
     return undefined;
   });
   if (world.env !== undefined) {
@@ -276,6 +331,15 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
   const counters = world.counters;
   if (counters !== undefined && !(isObj(counters) && isNumMap(counters.fed)))
     errors.push('world.counters is invalid');
+  if (world.barriers !== undefined) {
+    const problems = barrierProblems(world.barriers);
+    if (problems.length > 0) errors.push(`world.barriers is invalid: ${problems.join(', ')}`);
+  }
+  if (world.places !== undefined) {
+    const problems = placeProblems(world.places);
+    if (problems.length > 0) errors.push(`world.places is invalid: ${problems.join(', ')}`);
+  }
+  if (world.built !== undefined && !isStrings(world.built)) errors.push('world.built is invalid');
   const meta = save.meta;
   if (
     !isObj(meta) ||

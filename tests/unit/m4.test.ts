@@ -13,7 +13,7 @@ import type { AdvertCandidate } from '../../src/game/systems/bugAi';
 import { DECAY, decayNeeds, moodOf } from '../../src/game/systems/needs';
 import { PLAUSIBLE } from '../../src/game/systems/offscreen';
 import { SETUP_SECONDS } from '../../src/game/systems/setup';
-import { PLAZA_X, POND } from './world';
+import { PLAZA_X, POND, POND_X } from './world';
 
 // M4 acceptance (game design doc, section 19) and the needs, setup rule,
 // off-screen model, and soak tests around it.
@@ -223,7 +223,8 @@ describe('the setup rule (M4 acceptance)', () => {
         for (const [p, q] of pairs) {
           const other = p === id ? q : q === id ? p : null;
           const bug = other === null ? undefined : sim.entities.get(other)?.bug;
-          if (bug && !(bug.mode === 'st_airborne' && !bug.selfLaunched))
+          // A hidden bug waiting to be found (Twig as a twig) lies still: things only roll against it.
+          if (bug && !bug.pending && !(bug.mode === 'st_airborne' && !bug.selfLaunched))
             pushes.push(`${sim.tick}: ${b.defId} by ${sim.entities.get(other!)!.defId} (${bug.mode})`);
         }
       }
@@ -283,7 +284,8 @@ describe('the setup rule (M4 acceptance)', () => {
 });
 
 describe('off-screen simulation (M4 acceptance)', () => {
-  const FAR = { type: 'focus' as const, x0: 70.4 - 19.2, x1: 70.4 };
+  // The camera at the plaza's far right, a whole screen from the pond.
+  const FAR = { type: 'focus' as const, x0: PLAZA_X + 38.4 - 19.2, x1: PLAZA_X + 38.4 };
   const NEAR = { type: 'focus' as const, x0: PLAZA_X - 19.2, x1: PLAZA_X };
 
   it('needs keep ticking in a sleeping area, every 2 s', () => {
@@ -352,7 +354,7 @@ describe('off-screen simulation (M4 acceptance)', () => {
 describe('the pond’s sunken teacup', () => {
   it('catches a pebble that sinks above it', () => {
     const sim = Sim.empty({ seed: 'cup' });
-    const cupX = 12;
+    const cupX = POND_X + 12;
     const p = sim.spawn('item', 'item_pebble', cupX + 0.1, POND.level - 1);
     sim.run(6 * 60);
     const v = sim.view(p.id)!;
@@ -476,6 +478,8 @@ describe('soak', () => {
             expect(n).toBeGreaterThanOrEqual(0);
             expect(n).toBeLessThanOrEqual(100);
           }
+          // Hidden bugs waiting to be found keep still on purpose (M7).
+          if (v.bug.pending) continue;
           const h = history.get(v.id) ?? [];
           // Sleeping through the night is what bugs do (M6): that is never "stuck".
           const def = sim.content.bugs.get(v.defId);

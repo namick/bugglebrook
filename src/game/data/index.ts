@@ -7,7 +7,7 @@ import { SECRETS } from './secrets';
 import type { Registry } from './registry';
 import { ID_PATTERN } from './registry';
 import type { AreaDef, BugDef, ItemDef, PotionDef, RecipeDef, SecretDef } from './types';
-import { NEED_IDS } from './types';
+import { NEED_IDS, PAINT_IDS } from './types';
 import { MATERIALS } from './materials';
 import { VIEW_HEIGHT_M } from '../constants';
 import { TAG_IDS } from '../systems/tags';
@@ -145,7 +145,56 @@ export function validateContent(
       if (!(f.radius > 0)) errors.push(`${where} fixture ${f.id} radius must be positive`);
       if (f.kind === 'lily_pad' && !(w && f.x > w.x0 && f.x < w.x1))
         errors.push(`${where} lily pad ${f.id} is not on water`);
+      if ((f.opens === undefined) !== (f.wall === undefined))
+        errors.push(`${where} barrier ${f.id} needs both the area it opens and a wall`);
+      if (f.opens !== undefined) {
+        ref(content.areas, f.opens, `${where} barrier ${f.id}`);
+        if (content.areas.tryGet(f.opens)?.unlockedByDefault)
+          errors.push(`${where} barrier ${f.id} opens an area that is open from the start`);
+      }
+      if (f.wall !== undefined && (f.wall < 0 || f.wall > width))
+        errors.push(`${where} barrier ${f.id} has its wall outside the area`);
+      if (f.kind === 'paint_puddle' && !(f.paint && PAINT_IDS.includes(f.paint)))
+        errors.push(`${where} paint puddle ${f.id} has no paint color`);
+      if (f.kind === 'shelf_jar') {
+        if (!f.item) errors.push(`${where} shelf jar ${f.id} holds nothing`);
+        else ref(content.items, f.item, `${where} shelf jar ${f.id}`);
+      }
+      if (f.w !== undefined && !(f.w > 0)) errors.push(`${where} fixture ${f.id} width must be positive`);
+      if (f.h !== undefined && !(f.h > 0)) errors.push(`${where} fixture ${f.id} height must be positive`);
     }
+    const solidIds = new Set<string>();
+    for (const solid of area.solids ?? []) {
+      if (solidIds.has(solid.id)) errors.push(`${where} duplicate solid id: ${solid.id}`);
+      solidIds.add(solid.id);
+      if (!solid.box === !solid.chain) errors.push(`${where} solid ${solid.id} needs a box or a chain`);
+      const xs = solid.box ? [solid.box[0], solid.box[2]] : (solid.chain ?? []).map((p) => p[0]);
+      if (xs.some((x) => x < -0.01 || x > width + 0.01))
+        errors.push(`${where} solid ${solid.id} is outside the area`);
+      if (solid.box && !(solid.box[2] > solid.box[0] && solid.box[3] > solid.box[1]))
+        errors.push(`${where} solid ${solid.id} has a non-positive size`);
+      if (solid.until !== undefined) ref(content.areas, solid.until, `${where} solid ${solid.id}`);
+    }
+    for (const s of area.start) {
+      if (s.pending) {
+        if (s.kind !== 'bug') errors.push(`${where} start ${s.defId} is pending but not a bug`);
+        else if (content.bugs.has(s.defId) && !content.bugs.get(s.defId).hidden)
+          errors.push(`${where} start ${s.defId} is pending but not a hidden bug`);
+      }
+      if (s.pin !== undefined && !(content.items.has(s.defId) && content.items.get(s.defId).track))
+        errors.push(`${where} start ${s.defId} is pinned but not a track piece`);
+      if (s.pin !== undefined && s.y === undefined)
+        errors.push(`${where} start ${s.defId} is pinned without a y`);
+      if (s.y !== undefined && !(s.y > 0 && s.y < VIEW_HEIGHT_M))
+        errors.push(`${where} start ${s.defId} y is off screen`);
+    }
+  }
+  // Every locked area has exactly one barrier that opens it.
+  for (const area of content.areas.all) {
+    if (area.unlockedByDefault) continue;
+    const barriers = content.areas.all.flatMap((a) => (a.fixtures ?? []).filter((f) => f.opens === area.id));
+    if (barriers.length !== 1)
+      errors.push(`area ${area.id} is locked and needs exactly one barrier to open it`);
   }
 
   for (const bug of content.bugs.all) {
@@ -169,6 +218,10 @@ export function validateContent(
     const v = bug.voice;
     if (!(v.low > 0 && v.high >= v.low && v.syllablesPerSecond > 0))
       errors.push(`${where} voice needs a positive pitch range and syllable rate`);
+    if (bug.hidden && !bug.foundBy) errors.push(`${where} is hidden but no secret finds it`);
+    if (bug.foundBy) ref(content.secrets, bug.foundBy, where);
+    if (bug.collider && !(bug.collider.width > 0 && bug.collider.height > 0))
+      errors.push(`${where} collider has a non-positive size`);
   }
 
   const tags: ReadonlySet<string> = new Set(TAG_IDS);
@@ -184,6 +237,10 @@ export function validateContent(
       errors.push(`item ${item.id} has a non-positive size`);
     if (item.launchSpeed !== undefined && !(item.launchSpeed > 0))
       errors.push(`item ${item.id} launchSpeed must be positive`);
+    if (item.drag !== undefined && !(item.drag > 0 && item.drag <= 1))
+      errors.push(`item ${item.id} drag must be above 0 and at most 1`);
+    if (s.type === 'box' && s.parts?.some((p) => !(p.width > 0 && p.height > 0)))
+      errors.push(`item ${item.id} has a part with a non-positive size`);
   }
 
   const recipeKeys = new Set<string>();

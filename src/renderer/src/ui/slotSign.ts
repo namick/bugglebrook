@@ -37,7 +37,10 @@ export function slotPicture(save: SaveFile): SlotPicture {
     }
   const bugs = [
     ...new Set(
-      save.world.entities.filter((e) => e.kind === 'bug' && CONTENT.bugs.has(e.defId)).map((e) => e.defId),
+      // Bugs still waiting to be found are not in the cast yet.
+      save.world.entities
+        .filter((e) => e.kind === 'bug' && CONTENT.bugs.has(e.defId) && !e.bug?.pending)
+        .map((e) => e.defId),
     ),
   ].sort();
   const fedBugs = bugs.filter((b) => (fed[b] ?? 0) > 0).length;
