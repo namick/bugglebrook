@@ -115,3 +115,13 @@ describe('validateContent', () => {
     expect(errors).toContain('bug bug_ladybug_dot need_fun weight must be 0.5 to 1.5');
   });
 });
+
+describe('M2 content checks', () => {
+  it('catches a food listed under two tastes and a mouth anchor behind the bug', () => {
+    const dot = CONTENT.bugs.get('bug_ladybug_dot');
+    const bad = { ...dot, likes: [...dot.likes, 'item_mint_leaf'], mouth: [-0.4, 0] as const };
+    const errors = validateContent({ ...CONTENT, bugs: createRegistry('bug', [bad]) });
+    expect(errors.some((e) => e.includes('two tastes'))).toBe(true);
+    expect(errors.some((e) => e.includes('mouth anchor'))).toBe(true);
+  });
+});

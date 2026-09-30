@@ -4,7 +4,8 @@ import type { Rng } from '../core/rng';
 import { DIZZY_SPEED, GRAVITY } from '../constants';
 import type { AdvertAction, BugDef, NeedId } from '../data/types';
 import { NEED_IDS } from '../data/types';
-import type { Liking } from '../events';
+import type { Liking, Mood, ReactionType } from '../events';
+import { REACTION_VARIANTS } from '../events';
 import type { BodyState, Vec } from '../physics/physics';
 
 /** Something a bug could go and do, offered by an object nearby. */
@@ -21,6 +22,7 @@ export interface AdvertCandidate {
 
 /** Where a target entity is right now. */
 export interface TargetInfo {
+  defId: string;
   x: number;
   y: number;
   /** Half its width, so a bug can stand beside it. */
@@ -62,20 +64,49 @@ export type BugNotice =
   | { type: 'dizzy'; speed: number; durationTicks: number }
   | { type: 'recovered' }
   | { type: 'chose'; action: AdvertAction; targetId: EntityId }
-  | { type: 'hopped' };
+  | { type: 'hopped' }
+  | { type: 'reacted'; reaction: ReactionType; variant: number }
+  | { type: 'burped' }
+  | { type: 'tickled'; level: number };
 
 export interface BugDecision {
   /** Velocity to set on the body, or null to leave physics alone. */
   velocity: Vec | null;
   /** The bug finished eating this item. */
   eat: { itemId: EntityId; liking: Liking } | null;
+  /** Put this item in the bug's mouth: it starts chewing. */
+  take: { itemId: EntityId; liking: Liking } | null;
+  /** Spit this item back out. */
+  spit: { itemId: EntityId } | null;
+  /** Tickled too long: wriggle out of the player's hand. */
+  wriggle: boolean;
   notices: BugNotice[];
 }
 
 // Timings in ticks (60 per second).
 const DECIDE_EVERY = Math.round(1.5 * SIM_HZ);
 const SEEK_TIMEOUT = 10 * SIM_HZ;
-const EAT_TICKS = Math.round(1.5 * SIM_HZ);
+/** Chewing time before swallowing, or before spitting out disliked food. */
+const CHEW_TICKS: Readonly<Record<Liking, number>> = { loved: 100, liked: 90, neutral: 90, disliked: 50 };
+/** How long the reaction after a meal lasts. */
+const FED_REACT_TICKS: Readonly<Record<Liking, number>> = {
+  loved: 120,
+  liked: 84,
+  neutral: 66,
+  disliked: 110,
+};
+/** Glorp spinning in his shell after a hard landing. */
+export const SHELL_TICKS = 150;
+const GRUMPY_TICKS = 8 * SIM_HZ;
+/** Hold-poke: laughs escalate every second, and at 3 s the bug wriggles free. */
+export const TICKLE_LEVEL_TICKS = SIM_HZ;
+export const TICKLE_FREE_TICKS = 3 * SIM_HZ;
+/** A shaken bug is woozy for 1 s. */
+export const WOOZY_TICKS = SIM_HZ;
+/** A full belly burps a moment after the last bite. */
+const BURP_DELAY = 70;
+/** Hunger at or above this after a meal means a burp. */
+export const FULL_BELLY = 95;
 const LANDING_TICKS = 10;
 const RECOVER_TICKS = 40;
 const REACT_TICKS = 36;
@@ -98,7 +129,7 @@ const DECAY: Readonly<Record<NeedId, number>> = { need_hunger: 0.25, need_fun: 0
 /** Energy regained per second while resting. */
 const REST_ENERGY = 0.3;
 
-const FOOD_DELTA: Readonly<Record<Liking, number>> = { loved: 60, liked: 40, neutral: 20, disliked: 5 };
+const FOOD_DELTA: Readonly<Record<Liking, number>> = { loved: 60, liked: 40, neutral: 20, disliked: 0 };
 const LIKE_MULTIPLIER: Readonly<Record<Liking, number>> = {
   loved: 2,
   liked: 1.5,
@@ -133,7 +164,81 @@ export function newBugBrain(x: number, rng: Rng): BugBrain {
     tries: 0,
     done: false,
     lastX: x,
+    mouthful: null,
+    reaction: null,
+    variants: {},
+    grumpyUntil: -1,
+    burpAt: -1,
+    tickle: 0,
+    woozyUntil: -1,
   };
+}
+
+/**
+ * Pick a variant for a reaction, never the one this bug played last time
+ * for the same reaction type.
+ */
+export function pickVariant(brain: BugBrain, type: ReactionType, rng: Rng): number {
+  const last = brain.variants[type];
+  const options: number[] = [];
+  for (let v = 0; v < REACTION_VARIANTS; v++) if (v !== last) options.push(v);
+  const variant = rng.pick(options);
+  brain.variants[type] = variant;
+  return variant;
+}
+
+/** Start a reaction: pick its variant and remember it for the renderer. */
+export function react(brain: BugBrain, type: ReactionType, rng: Rng, tick: number): BugNotice {
+  const variant = pickVariant(brain, type, rng);
+  brain.reaction = { type, variant, tick };
+  return { type: 'reacted', reaction: type, variant };
+}
+
+/** Mood from needs and recent events (game design doc, section 5). */
+export function moodOf(brain: BugBrain, tick: number): Mood {
+  const n = brain.needs;
+  if (tick < brain.grumpyUntil) return 'mood_grumpy';
+  if (n.need_energy < 20) return 'mood_sleepy';
+  if (n.need_hunger < 25) return 'mood_hungry';
+  if (n.need_fun < 25) return 'mood_bored';
+  const avg = (n.need_hunger + n.need_fun + n.need_energy) / 3;
+  return avg >= 65 ? 'mood_happy' : 'mood_content';
+}
+
+/**
+ * Put food in a bug's mouth: it starts chewing. The sim moves the item
+ * into the mouth. Used both when the bug picks food up itself and when the
+ * player drops food on its mouth.
+ */
+export function feedBug(brain: BugBrain, def: BugDef, itemId: EntityId, itemDefId: string): Liking {
+  const liking = likingOf(def, itemDefId);
+  enter(brain, 'st_eat', CHEW_TICKS[liking]);
+  brain.mouthful = itemId;
+  brain.targetId = itemId;
+  brain.action = 'eat';
+  brain.tickle = 0;
+  return liking;
+}
+
+/** Can this bug take food in its mouth right now? */
+export function canEat(brain: BugBrain): boolean {
+  return !AIRBORNE.has(brain.mode) && brain.mouthful === null;
+}
+
+/** Called by the sim when the player starts or stops tickling a held bug. */
+export function tickleBug(brain: BugBrain, on: boolean, rng: Rng, tick: number): BugNotice[] {
+  if (!on) {
+    brain.tickle = 0;
+    return [];
+  }
+  if (brain.mode !== 'st_held' || brain.tickle > 0) return [];
+  brain.tickle = 1;
+  return [react(brain, 'tickle', rng, tick), { type: 'tickled', level: 1 }];
+}
+
+/** Called by the sim when the player shakes a held bug. */
+export function shakeBug(brain: BugBrain, tick: number): void {
+  brain.woozyUntil = tick + WOOZY_TICKS;
 }
 
 export function likingOf(def: BugDef, itemDefId: string): Liking {
@@ -241,6 +346,7 @@ export function releaseBug(brain: BugBrain, def: BugDef, flung: boolean): void {
   brain.selfLaunched = false;
   brain.targetId = null;
   brain.action = null;
+  brain.tickle = 0;
   if (flung && def.likesFlinging) addNeeds(brain.needs, { need_fun: 15 });
 }
 
@@ -340,7 +446,7 @@ function startWander(brain: BugBrain, ctx: BugContext): void {
  * wants physics to do. The sim calls this for every bug in ID order.
  */
 export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
-  const out: BugDecision = { velocity: null, eat: null, notices: [] };
+  const out: BugDecision = { velocity: null, eat: null, take: null, spit: null, wriggle: false, notices: [] };
   const brain = entity.bug;
   if (!brain) return out;
   const { def, state, rng } = ctx;
@@ -348,12 +454,26 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
   decayNeeds(brain, def);
   const moved = Math.abs(state.x - brain.lastX);
   brain.lastX = state.x;
+  if (brain.burpAt >= 0 && ctx.tick >= brain.burpAt) {
+    brain.burpAt = -1;
+    out.notices.push({ type: 'burped' });
+  }
 
   if (ctx.held) {
     if (brain.mode !== 'st_held') {
       enter(brain, 'st_held');
       brain.targetId = null;
       brain.action = null;
+      brain.tickle = 0;
+      out.notices.push(react(brain, 'grab', rng, ctx.tick));
+    } else if (brain.tickle > 0) {
+      brain.tickle++;
+      if (brain.tickle >= TICKLE_FREE_TICKS) {
+        brain.tickle = 0;
+        out.wriggle = true;
+      } else if (brain.tickle % TICKLE_LEVEL_TICKS === 0) {
+        out.notices.push({ type: 'tickled', level: 1 + brain.tickle / TICKLE_LEVEL_TICKS });
+      }
     }
     return out;
   }
@@ -376,7 +496,13 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
       const settled = def.curlsWhenFlung && !brain.selfLaunched ? speed < 1.2 : ctx.impact > 0 || speed < 1;
       if (!n || !settled) return out;
       out.notices.push({ type: 'landed', speed: brain.airPeak });
-      if (!brain.selfLaunched && brain.airPeak >= DIZZY_SPEED) {
+      if (!brain.selfLaunched && brain.airPeak >= DIZZY_SPEED && def.dizzyProof) {
+        // Glorp never gets dizzy: he pulls into his shell and spins like a top.
+        enter(brain, 'st_react', SHELL_TICKS);
+        brain.targetId = null;
+        brain.action = null;
+        out.notices.push(react(brain, 'land_hard', rng, ctx.tick));
+      } else if (!brain.selfLaunched && brain.airPeak >= DIZZY_SPEED) {
         const ticks = makeDizzy(brain, brain.airPeak, ctx.tick);
         out.notices.push({ type: 'dizzy', speed: brain.airPeak, durationTicks: ticks });
       } else if (
@@ -394,6 +520,7 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
         enter(brain, 'st_landing', LANDING_TICKS);
         brain.targetId = null;
         brain.action = null;
+        if (!brain.selfLaunched) out.notices.push(react(brain, 'land', rng, ctx.tick));
       }
       brain.selfLaunched = false;
       out.velocity = n ? grip(n) : null;
@@ -460,7 +587,9 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
       if (arrived && n) {
         brain.facing = side;
         if (brain.action === 'eat') {
-          enter(brain, 'st_eat', EAT_TICKS);
+          const itemId = brain.targetId!;
+          const liking = feedBug(brain, def, itemId, target.defId);
+          out.take = { itemId, liking };
           out.velocity = grip(n);
           return out;
         }
@@ -481,22 +610,31 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
     }
 
     case 'st_eat': {
-      const target = brain.targetId === null ? null : ctx.target(brain.targetId);
-      const reach = target ? Math.abs(target.x - state.x) - def.radius - target.halfWidth : Infinity;
-      if (!target || target.held || reach > 0.6 || brain.targetId === null) {
+      out.velocity = n ? grip(n) : null;
+      const itemId = brain.mouthful;
+      const food = itemId === null ? null : ctx.target(itemId);
+      if (itemId === null || !food) {
+        brain.mouthful = null;
         enterIdle(brain, rng, def);
         return out;
       }
-      out.velocity = n ? grip(n) : null;
       if (--brain.timer > 0) return out;
-      const itemDefId = ctx.adverts().find((c) => c.id === brain.targetId)?.defId;
-      const liking = itemDefId ? likingOf(def, itemDefId) : 'neutral';
-      addNeeds(brain.needs, { need_hunger: FOOD_DELTA[liking] });
-      recordUse(brain, brain.targetId, ctx.tick);
-      out.eat = { itemId: brain.targetId, liking };
-      enter(brain, 'st_recover', RECOVER_TICKS);
+      const liking = likingOf(def, food.defId);
+      brain.mouthful = null;
+      recordUse(brain, itemId, ctx.tick);
+      if (liking === 'disliked') {
+        // Chews once, pulls a face, and spits it out. Grumpy for a bit.
+        out.spit = { itemId };
+        brain.grumpyUntil = ctx.tick + GRUMPY_TICKS;
+      } else {
+        addNeeds(brain.needs, { need_hunger: FOOD_DELTA[liking] });
+        out.eat = { itemId, liking };
+        if (brain.needs.need_hunger >= FULL_BELLY) brain.burpAt = ctx.tick + BURP_DELAY;
+      }
+      enter(brain, 'st_react', FED_REACT_TICKS[liking]);
       brain.targetId = null;
       brain.action = null;
+      out.notices.push(react(brain, `fed_${liking}`, rng, ctx.tick));
       return out;
     }
   }

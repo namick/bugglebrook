@@ -46,8 +46,80 @@ export interface GameEvents {
   };
   /** A bug finished using a toy (the spring). */
   bug_used: { id: EntityId; defId: string; targetId: EntityId; action: 'bounce' };
+  /**
+   * Food went into a bug's mouth and it started chewing. `byPlayer` is true
+   * when the player dropped or threw it there.
+   */
+  bug_fed: {
+    id: EntityId;
+    defId: string;
+    itemId: EntityId;
+    itemDefId: string;
+    liking: Liking;
+    byPlayer: boolean;
+  };
+  /** A bug spat out food it dislikes. The item stays in the world. */
+  bug_spat: {
+    id: EntityId;
+    defId: string;
+    itemId: EntityId;
+    itemDefId: string;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+  };
+  /** A big meal came back up as a burp. */
+  bug_burped: { id: EntityId; defId: string; x: number; y: number };
+  /**
+   * A bug played a reaction. `variant` picks one of the reaction's animation
+   * and voice variants; the same type never repeats a variant back to back.
+   */
+  bug_reacted: { id: EntityId; defId: string; reaction: ReactionType; variant: number };
+  /** Held still and tickled. `level` rises 1, 2, 3 as the laughs escalate. */
+  bug_tickled: { id: EntityId; defId: string; level: number };
+  /** Tickled too long: the bug wriggled out of the player's hand. */
+  bug_wriggled_free: { id: EntityId; defId: string; x: number; y: number };
+  /** The player shook whatever they are holding. */
+  item_shaken: { id: EntityId; kind: EntityKind; defId: string; x: number; y: number };
 }
 
 export type Liking = 'loved' | 'liked' | 'neutral' | 'disliked';
+
+/**
+ * Reactions to the player (game design doc, section 5). Each has at least
+ * three variants. `land_hard` is for bugs that never get dizzy (Glorp).
+ */
+export type ReactionType =
+  | 'grab'
+  | 'poke'
+  | 'fling'
+  | 'land'
+  | 'land_hard'
+  | 'tickle'
+  | 'fed_loved'
+  | 'fed_liked'
+  | 'fed_neutral'
+  | 'fed_disliked';
+
+export const REACTION_TYPES: readonly ReactionType[] = [
+  'grab',
+  'poke',
+  'fling',
+  'land',
+  'land_hard',
+  'tickle',
+  'fed_loved',
+  'fed_liked',
+  'fed_neutral',
+  'fed_disliked',
+];
+
+/** Variants per reaction type. */
+export const REACTION_VARIANTS = 3;
+
+/** Mood, derived from needs and recent events (game design doc, section 5). */
+export type Mood =
+  'mood_happy' | 'mood_content' | 'mood_bored' | 'mood_hungry' | 'mood_sleepy' | 'mood_grumpy';
 
 export type GameEventName = keyof GameEvents;

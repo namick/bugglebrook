@@ -1,6 +1,6 @@
 import type { Command } from './commands';
 import { CommandQueue } from './core/commandQueue';
-import type { BugBrain, BugMode, Entity, EntityId, EntityKind, Needs } from './core/entities';
+import type { BugMode, Entity, EntityId, EntityKind, Needs } from './core/entities';
 import { EntityStore } from './core/entities';
 import { EventBus } from './core/events';
 import { SIM_DT, SIM_HZ } from './core/loop';
@@ -9,12 +9,28 @@ import { BONK_SPEED, FLING_SPEED, GRAVITY, MAX_FLING_SPEED } from './constants';
 import type { Content } from './data';
 import { CONTENT, worldWidth } from './data';
 import type { ItemDef } from './data/types';
-import type { GameEvents } from './events';
+import { NEED_IDS } from './data/types';
+import type { GameEvents, Liking, Mood, ReactionType } from './events';
 import type { BodyState, Impact, MaterialSpec, ShapeSpec } from './physics/physics';
 import { Physics } from './physics/physics';
 import type { SavedEntity, WorldSave } from './save/schema';
 import type { AdvertCandidate, BugNotice, TargetInfo } from './systems/bugAi';
-import { newBugBrain, pokeBug, releaseBug, springLaunched, updateBug } from './systems/bugAi';
+import {
+  canEat,
+  feedBug,
+  likingOf,
+  moodOf,
+  newBugBrain,
+  pokeBug,
+  react,
+  releaseBug,
+  shakeBug,
+  springLaunched,
+  tickleBug,
+  updateBug,
+} from './systems/bugAi';
+import type { DropCandidate, DropTarget } from './systems/dropTargets';
+import { pickDropTarget } from './systems/dropTargets';
 import { Terrain } from './world/terrain';
 
 /** Bugs bounce a little; a curled-up Rollo bounces like a marble. */
@@ -24,6 +40,10 @@ const ROLLED_RESTITUTION = 0.6;
 export const RESPAWN_TICKS = 45 * SIM_HZ;
 /** Anything this far below the surface is pulled back up. */
 const BURIED_DEPTH = 0.25;
+/** A thrown thing can land in a mouth for this long after it leaves the hand. */
+const THROWN_TICKS = 90;
+/** Spat food leaves the mouth this fast, forward and up (m/s). */
+const SPIT_SPEED = { x: 4.2, y: -4.6 };
 
 /** Read-only view of one bug's mind, for the renderer and the test hook. */
 export interface BugView {
@@ -38,6 +58,15 @@ export interface BugView {
   dizzyTicks: number;
   /** Airborne by its own hop, not thrown. */
   selfLaunched: boolean;
+  mood: Mood;
+  /** Food being chewed, and how the bug feels about it. */
+  mouthful: { id: EntityId; defId: string; liking: Liking } | null;
+  /** The latest reaction and how many ticks ago it started. */
+  reaction: { type: ReactionType; variant: number; age: number } | null;
+  /** Ticks spent being tickled, or 0. */
+  tickle: number;
+  /** Woozy from being shaken. */
+  woozy: boolean;
 }
 
 /** Read-only view of one entity for the renderer and the test hook. */
@@ -46,6 +75,8 @@ export interface EntityView extends BodyState {
   kind: EntityKind;
   defId: string;
   held: boolean;
+  /** Food sitting in a bug's mouth: the ID of that bug. */
+  inMouthOf?: EntityId;
   bug?: BugView;
 }
 
@@ -87,6 +118,8 @@ export class Sim {
   /** Bugs a spring just launched: ignore their contact with it for a moment. */
   private launchGrace = new Map<EntityId, number>();
   private rolling = new Set<EntityId>();
+  /** Things the player just threw, and when: they can land in a mouth. */
+  private thrown = new Map<EntityId, number>();
 
   private constructor(seed: string, content: Content) {
     this.seed = seed;
@@ -126,6 +159,13 @@ export class Sim {
       sim.addBodyFor(entity, saved.body);
     }
     sim.entities.nextId = Math.max(save.nextId, sim.entities.nextId);
+    // Food that was mid-chew goes back in the mouth.
+    for (const bug of sim.entities.ofKind('bug')) {
+      const b = bug.bug;
+      if (!b || b.mouthful === null) continue;
+      if (b.mode === 'st_eat' && sim.entities.has(b.mouthful)) sim.physics.setActive(b.mouthful, false);
+      else b.mouthful = null;
+    }
     return sim;
   }
 
@@ -152,6 +192,7 @@ export class Sim {
     this.physics.removeBody(id);
     this.entities.remove(id);
     this.rolling.delete(id);
+    this.thrown.delete(id);
     this.events.emit('entity_removed', { id });
   }
 
@@ -182,6 +223,7 @@ export class Sim {
     for (const command of this.commands.drain()) this.apply(command);
     this.updateBugs();
     this.physics.step(SIM_DT);
+    this.placeMouthfuls();
     this.handleImpacts(this.physics.takeImpacts());
     this.rescueBuried();
     if (this.tick > 0 && this.tick % RESPAWN_TICKS === 0) this.respawn();
@@ -231,6 +273,43 @@ export class Sim {
           vy: s.vy,
           flung,
         });
+        if (entity.bug && flung) this.emitNotice(entity, react(entity.bug, 'fling', this.rng, this.tick), s);
+        if (flung) this.thrown.set(entity.id, this.tick);
+        else {
+          // A gentle drop: the first matching drop target takes it.
+          const target = this.dropTargetFor(entity.id);
+          if (target) this.feed(target.entityId, entity.id, true);
+        }
+        return;
+      }
+      case 'tickle': {
+        const held = this.physics.grabbed;
+        const entity = held === null ? undefined : this.entities.get(held);
+        if (!entity?.bug) return;
+        const s = this.physics.getState(entity.id);
+        for (const notice of tickleBug(entity.bug, command.on, this.rng, this.tick))
+          this.emitNotice(entity, notice, s);
+        return;
+      }
+      case 'shake': {
+        const held = this.physics.grabbed;
+        const entity = held === null ? undefined : this.entities.get(held);
+        if (!entity) return;
+        const s = this.physics.getState(entity.id);
+        if (entity.bug) shakeBug(entity.bug, this.tick);
+        this.events.emit('item_shaken', {
+          id: entity.id,
+          kind: entity.kind,
+          defId: entity.defId,
+          x: s.x,
+          y: s.y,
+        });
+        return;
+      }
+      case 'set_need': {
+        const brain = this.entities.get(command.id)?.bug;
+        if (brain && NEED_IDS.includes(command.need) && Number.isFinite(command.value))
+          brain.needs[command.need] = Math.min(100, Math.max(0, command.value));
         return;
       }
       case 'poke':
@@ -256,6 +335,7 @@ export class Sim {
       if (!pokeBug(entity.bug)) return;
       this.physics.setVelocity(entity.id, 0, -2.2);
       this.events.emit('bug_poked', { id: entity.id, defId: entity.defId, x: s.x, y: s.y });
+      this.emitNotice(entity, react(entity.bug, 'poke', this.rng, this.tick), s);
     } else {
       this.physics.setVelocity(entity.id, s.vx + this.rng.range(-0.6, 0.6), -3.2);
       this.events.emit('item_poked', { id: entity.id, defId: entity.defId, x: s.x, y: s.y });
@@ -274,6 +354,7 @@ export class Sim {
     const ext = halfExtents(shape, s.angle);
     const box = shape.type === 'box' ? shape : null;
     return {
+      defId: entity.defId,
       x: s.x,
       y: s.y,
       // The spring is hopped onto along its own axis, so report its true height.
@@ -296,6 +377,7 @@ export class Sim {
     for (const item of this.entities.ofKind('item')) {
       const def = this.content.items.get(item.defId);
       if (def.adverts.length === 0 || this.physics.grabbed === item.id) continue;
+      if (!this.physics.isActive(item.id)) continue; // in someone's mouth
       const s = this.physics.getState(item.id);
       for (const advert of def.adverts) {
         // A spring on its side is not bounceable.
@@ -344,7 +426,7 @@ export class Sim {
         },
       });
       if (decision.velocity) this.physics.setVelocity(entity.id, decision.velocity.x, decision.velocity.y);
-      for (const notice of decision.notices) this.emitNotice(entity, notice, state);
+      if (decision.take) this.takeInMouth(entity, decision.take.itemId, decision.take.liking, false);
       if (decision.eat) {
         const item = this.entities.get(decision.eat.itemId);
         if (item) {
@@ -360,6 +442,21 @@ export class Sim {
             y: s.y,
           });
         }
+      }
+      if (decision.spit) this.spit(entity, decision.spit.itemId);
+      for (const notice of decision.notices) this.emitNotice(entity, notice, state);
+      if (decision.wriggle && this.physics.grabbed === entity.id) {
+        this.physics.release();
+        releaseBug(entity.bug!, def, false);
+        this.physics.setVelocity(entity.id, entity.bug!.facing * 1.5, -5);
+        this.events.emit('bug_wriggled_free', { id: entity.id, defId: entity.defId, x: state.x, y: state.y });
+      }
+      // Anything that stops a bug chewing makes it drop its food.
+      const brain = entity.bug;
+      if (brain && brain.mouthful !== null && brain.mode !== 'st_eat') {
+        const itemId = brain.mouthful;
+        brain.mouthful = null;
+        if (this.entities.has(itemId)) this.physics.setActive(itemId, true);
       }
       this.syncRolling(entity);
     }
@@ -384,7 +481,120 @@ export class Sim {
       case 'hopped':
         this.events.emit('bug_hopped', { ...base, x: s.x, y: s.y });
         return;
+      case 'reacted':
+        this.events.emit('bug_reacted', { ...base, reaction: notice.reaction, variant: notice.variant });
+        return;
+      case 'burped': {
+        const m = this.mouthAnchor(entity.id);
+        this.events.emit('bug_burped', { ...base, x: m?.x ?? s.x, y: m?.y ?? s.y });
+        return;
+      }
+      case 'tickled':
+        this.events.emit('bug_tickled', { ...base, level: notice.level });
+        return;
     }
+  }
+
+  /**
+   * Where a bug's mouth is in the world right now, or null. Uses the def's
+   * mouth anchor, mirrored when the bug faces left.
+   */
+  mouthAnchor(bugId: EntityId): { x: number; y: number } | null {
+    const entity = this.entities.get(bugId);
+    if (!entity?.bug) return null;
+    const def = this.content.bugs.get(entity.defId);
+    const s = this.physics.getState(bugId);
+    return { x: s.x + def.mouth[0] * entity.bug.facing, y: s.y + def.mouth[1] };
+  }
+
+  /** Every drop target available right now, except on `exclude` itself. */
+  private dropCandidates(exclude: EntityId): DropCandidate[] {
+    const out: DropCandidate[] = [];
+    for (const bug of this.entities.ofKind('bug')) {
+      if (bug.id === exclude || !bug.bug || !canEat(bug.bug) || this.physics.grabbed === bug.id) continue;
+      const m = this.mouthAnchor(bug.id)!;
+      out.push({ kind: 'mouth', entityId: bug.id, x: m.x, y: m.y });
+    }
+    return out;
+  }
+
+  /**
+   * The drop target that would take this entity if it were let go of right
+   * now, or null. The renderer uses this to light up the mouth it would feed.
+   */
+  dropTargetFor(id: EntityId): DropTarget | null {
+    const entity = this.entities.get(id);
+    if (!entity || entity.kind !== 'item' || !this.physics.isActive(id)) return null;
+    const def = this.content.items.get(entity.defId);
+    const s = this.physics.getState(id);
+    return pickDropTarget(def.tags, s.x, s.y, this.dropCandidates(id));
+  }
+
+  /** The player fed a bug: the food goes in its mouth. */
+  private feed(bugId: EntityId, itemId: EntityId, byPlayer: boolean): void {
+    const bug = this.entities.get(bugId);
+    const item = this.entities.get(itemId);
+    if (!bug?.bug || !item || !canEat(bug.bug)) return;
+    const def = this.content.bugs.get(bug.defId);
+    // Turn to face the food.
+    const bs = this.physics.getState(bugId);
+    const is = this.physics.getState(itemId);
+    if (Math.abs(is.x - bs.x) > 0.05) bug.bug.facing = is.x > bs.x ? 1 : -1;
+    const liking = feedBug(bug.bug, def, itemId, item.defId);
+    this.takeInMouth(bug, itemId, liking, byPlayer);
+  }
+
+  private takeInMouth(bug: Entity, itemId: EntityId, liking: Liking, byPlayer: boolean): void {
+    const item = this.entities.get(itemId);
+    if (!item) return;
+    this.physics.setActive(itemId, false);
+    this.thrown.delete(itemId);
+    this.placeMouthful(bug, itemId);
+    this.events.emit('bug_fed', {
+      id: bug.id,
+      defId: bug.defId,
+      itemId,
+      itemDefId: item.defId,
+      liking,
+      byPlayer,
+    });
+  }
+
+  /** Food in a mouth sits just in front of the mouth anchor. */
+  private placeMouthful(bug: Entity, itemId: EntityId): void {
+    const m = this.mouthAnchor(bug.id);
+    if (!m || !bug.bug) return;
+    this.physics.place(itemId, m.x + bug.bug.facing * 0.06, m.y, 0);
+  }
+
+  private placeMouthfuls(): void {
+    for (const bug of this.entities.ofKind('bug')) {
+      const id = bug.bug?.mouthful;
+      if (id !== null && id !== undefined && this.entities.has(id)) this.placeMouthful(bug, id);
+    }
+  }
+
+  /** "Ptoo": disliked food flies back out of the mouth, forward and up. */
+  private spit(bug: Entity, itemId: EntityId): void {
+    const item = this.entities.get(itemId);
+    if (!item || !bug.bug) return;
+    const facing = bug.bug.facing;
+    this.placeMouthful(bug, itemId);
+    this.physics.setActive(itemId, true);
+    const vx = facing * SPIT_SPEED.x + this.rng.range(-0.6, 0.6);
+    const vy = SPIT_SPEED.y + this.rng.range(-0.8, 0.4);
+    this.physics.setVelocity(itemId, vx, vy);
+    const s = this.physics.getState(itemId);
+    this.events.emit('bug_spat', {
+      id: bug.id,
+      defId: bug.defId,
+      itemId,
+      itemDefId: item.defId,
+      x: s.x,
+      y: s.y,
+      vx,
+      vy,
+    });
   }
 
   /** Rollo curls into a rolling ball while flying, and stands back up after. */
@@ -416,6 +626,7 @@ export class Sim {
         if (!entity) continue;
         if (entity.kind === 'bug')
           this.bugImpacts.set(self, Math.max(this.bugImpacts.get(self) ?? 0, impact.speed));
+        if (entity.kind === 'item' && other !== null) this.tryCatch(self, other);
         if (impact.speed >= BONK_SPEED) bonked.set(self, Math.max(bonked.get(self) ?? 0, impact.speed));
         const def = entity.kind === 'item' ? this.content.items.get(entity.defId) : null;
         if (def?.launchSpeed && other !== null && !launched.has(other))
@@ -428,6 +639,18 @@ export class Sim {
       const s = this.physics.getState(id);
       this.events.emit('bonked', { id, kind: entity.kind, defId: entity.defId, speed, x: s.x, y: s.y });
     }
+  }
+
+  /** A thrown food that hits a bug near its mouth gets eaten: a great shot. */
+  private tryCatch(itemId: EntityId, bugId: EntityId): void {
+    const at = this.thrown.get(itemId);
+    if (at === undefined) return;
+    if (this.tick - at > THROWN_TICKS) {
+      this.thrown.delete(itemId);
+      return;
+    }
+    const target = this.dropTargetFor(itemId);
+    if (target?.kind === 'mouth' && target.entityId === bugId) this.feed(bugId, itemId, true);
   }
 
   /**
@@ -501,31 +724,59 @@ export class Sim {
   /** Snapshot of every entity for drawing and tests. */
   views(): EntityView[] {
     const grabbed = this.physics.grabbed;
-    return this.entities.all().map((e) => {
-      const view: EntityView = {
-        id: e.id,
-        kind: e.kind,
-        defId: e.defId,
-        held: grabbed === e.id,
-        ...this.physics.getState(e.id),
-      };
-      if (e.bug) view.bug = bugView(e.bug);
-      return view;
-    });
+    const owners = this.mouthOwners();
+    return this.entities.all().map((e) => this.viewOf(e, grabbed, owners));
+  }
+
+  /** Item ID to the bug chewing it. */
+  private mouthOwners(): Map<EntityId, EntityId> {
+    const owners = new Map<EntityId, EntityId>();
+    for (const bug of this.entities.ofKind('bug'))
+      if (bug.bug && bug.bug.mouthful !== null) owners.set(bug.bug.mouthful, bug.id);
+    return owners;
+  }
+
+  private viewOf(e: Entity, grabbed: EntityId | null, owners: Map<EntityId, EntityId>): EntityView {
+    const view: EntityView = {
+      id: e.id,
+      kind: e.kind,
+      defId: e.defId,
+      held: grabbed === e.id,
+      ...this.physics.getState(e.id),
+    };
+    const owner = owners.get(e.id);
+    if (owner !== undefined) view.inMouthOf = owner;
+    if (e.bug) view.bug = this.bugView(e);
+    return view;
+  }
+
+  private bugView(e: Entity): BugView {
+    const b = e.bug!;
+    const def = this.content.bugs.get(e.defId);
+    const food = b.mouthful === null ? undefined : this.entities.get(b.mouthful);
+    return {
+      mode: b.mode,
+      facing: b.facing,
+      needs: { ...b.needs },
+      action: b.action,
+      targetId: b.targetId,
+      timer: b.timer,
+      dizzyTicks: b.dizzyTicks,
+      selfLaunched: b.selfLaunched,
+      mood: moodOf(b, this.tick),
+      mouthful: food ? { id: food.id, defId: food.defId, liking: likingOf(def, food.defId) } : null,
+      reaction: b.reaction
+        ? { type: b.reaction.type, variant: b.reaction.variant, age: this.tick - b.reaction.tick }
+        : null,
+      tickle: b.tickle,
+      woozy: this.tick < b.woozyUntil,
+    };
   }
 
   view(id: EntityId): EntityView | undefined {
     const e = this.entities.get(id);
     if (!e) return undefined;
-    const view: EntityView = {
-      id: e.id,
-      kind: e.kind,
-      defId: e.defId,
-      held: this.physics.grabbed === e.id,
-      ...this.physics.getState(e.id),
-    };
-    if (e.bug) view.bug = bugView(e.bug);
-    return view;
+    return this.viewOf(e, this.physics.grabbed, this.mouthOwners());
   }
 
   /** Serialize the world. A held item is saved where it is, as if dropped. */
@@ -552,19 +803,6 @@ export class Sim {
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
-}
-
-function bugView(b: BugBrain): BugView {
-  return {
-    mode: b.mode,
-    facing: b.facing,
-    needs: { ...b.needs },
-    action: b.action,
-    targetId: b.targetId,
-    timer: b.timer,
-    dizzyTicks: b.dizzyTicks,
-    selfLaunched: b.selfLaunched,
-  };
 }
 
 /** Starting layout for a new game, from each area's start list. */

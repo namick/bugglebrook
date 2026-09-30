@@ -52,6 +52,34 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     });
     return { ...save, version: 2, world: { ...world, entities } };
   },
+  // 2 -> 3: M2 feeding and reactions. Bugs gain a mouth, reaction history,
+  // grumpiness, burps, tickles, and wooziness, all starting empty.
+  2: (save) => {
+    const world = save.world as Record<string, unknown>;
+    const entities = (world.entities as Record<string, unknown>[]).map((e) => {
+      if (e.kind !== 'bug') return e;
+      const bug = e.bug as Record<string, unknown>;
+      // M1 bugs ate food where it lay; now food goes in the mouth first.
+      const eating = bug.mode === 'st_eat';
+      return {
+        ...e,
+        bug: {
+          ...bug,
+          mode: eating ? 'st_idle' : bug.mode,
+          targetId: eating ? null : bug.targetId,
+          action: eating ? null : bug.action,
+          mouthful: null,
+          reaction: null,
+          variants: {},
+          grumpyUntil: -1,
+          burpAt: -1,
+          tickle: 0,
+          woozyUntil: -1,
+        },
+      };
+    });
+    return { ...save, version: 3, world: { ...world, entities } };
+  },
 };
 
 export class SaveError extends Error {

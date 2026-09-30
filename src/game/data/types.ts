@@ -99,6 +99,16 @@ export interface BugDef {
   dislikes: readonly string[];
   /** Enjoys being flung: gains fun from it. */
   likesFlinging: boolean;
+  /**
+   * Never gets dizzy. A hard landing sends it into its shell to spin like a
+   * top instead (Glorp).
+   */
+  dizzyProof: boolean;
+  /**
+   * Where food goes in: the mouth anchor, in meters from the body center
+   * while facing right. Drop targets and the mouth glow use it.
+   */
+  mouth: Point2;
   /** Curls into a rolling ball while airborne (Rollo). */
   curlsWhenFlung: boolean;
   voice: VoiceProfile;
@@ -111,7 +121,21 @@ export type MaterialId =
 
 /** How the renderer draws an item. */
 export type ItemArt =
-  'bottle_cap' | 'marble' | 'pebble' | 'ruler' | 'spring' | 'ball' | 'berry' | 'twig' | 'leaf';
+  | 'bottle_cap'
+  | 'marble'
+  | 'pebble'
+  | 'ruler'
+  | 'spring'
+  | 'ball'
+  | 'berry'
+  | 'twig'
+  | 'leaf'
+  | 'sugar_cube'
+  | 'mint_leaf'
+  | 'pepper'
+  | 'banana_mush'
+  | 'moss_tuft'
+  | 'jelly_bean';
 
 export type AdvertAction = 'eat' | 'bounce';
 

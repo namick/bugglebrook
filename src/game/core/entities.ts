@@ -1,3 +1,5 @@
+import type { ReactionType } from '../events';
+
 export type EntityId = number;
 export type EntityKind = 'bug' | 'item';
 
@@ -73,6 +75,20 @@ export interface BugBrain {
   done: boolean;
   /** x at the previous tick, for stuck detection. */
   lastX: number;
+  /** Food in the bug's mouth while it chews (st_eat), or null. */
+  mouthful: EntityId | null;
+  /** The latest reaction and the tick it started, for the renderer. */
+  reaction: { type: ReactionType; variant: number; tick: number } | null;
+  /** Last variant played per reaction type, so none repeats back to back. */
+  variants: Partial<Record<ReactionType, number>>;
+  /** Grumpy until this tick (after disliked food). */
+  grumpyUntil: number;
+  /** Tick of a burp that is on its way, or -1. */
+  burpAt: number;
+  /** Ticks spent being tickled while held, or 0. */
+  tickle: number;
+  /** Woozy from a shake until this tick. */
+  woozyUntil: number;
 }
 
 export interface Entity {

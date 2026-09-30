@@ -1,8 +1,11 @@
 import type { BugDef } from './types';
 import { createRegistry } from './registry';
 
-// The starting cast for M1 (game design doc, section 4). The rest of the
-// sixteen arrive in later milestones; keep these IDs stable.
+// The starting cast (game design doc, section 4). The rest of the sixteen
+// arrive in later milestones; keep these IDs stable. Likes follow the bug
+// profiles, limited to foods that exist so far. Every bug has at least one
+// loved, liked, neutral, and disliked food in the plaza, so players can
+// learn tastes from the mouth glow and the reactions.
 export const BUGS = createRegistry<BugDef>('bug', [
   {
     id: 'bug_ladybug_dot',
@@ -19,10 +22,13 @@ export const BUGS = createRegistry<BugDef>('bug', [
     home: 'area_stump_plaza',
     traits: { restless: 0.8, bouncy: 0.8 },
     needWeights: { need_hunger: 1, need_fun: 1.4, need_energy: 0.8 },
-    loves: [],
-    likes: ['item_berry_red', 'item_spring_coil'],
-    dislikes: [],
+    // Her weird favorite is the hot pepper: she breathes a flame puff.
+    loves: ['item_pepper_hot', 'item_jelly_bean'],
+    likes: ['item_berry_red', 'item_sugar_cube', 'item_spring_coil'],
+    dislikes: ['item_mint_leaf', 'item_rotten_banana_bit'],
     likesFlinging: true,
+    dizzyProof: false,
+    mouth: [0.485, 0.19],
     curlsWhenFlung: false,
     voice: {
       wave: 'square',
@@ -49,10 +55,12 @@ export const BUGS = createRegistry<BugDef>('bug', [
     home: 'area_stump_plaza',
     traits: { restless: 0.4, bouncy: 0.2 },
     needWeights: { need_hunger: 1.1, need_fun: 0.8, need_energy: 1.2 },
-    loves: [],
-    likes: ['item_leaf'],
-    dislikes: [],
+    loves: ['item_rotten_banana_bit'],
+    likes: ['item_leaf', 'item_berry_red', 'item_moss_tuft'],
+    dislikes: ['item_pepper_hot'],
     likesFlinging: false,
+    dizzyProof: false,
+    mouth: [0.56, 0.276],
     curlsWhenFlung: true,
     voice: {
       wave: 'triangle',
@@ -79,10 +87,13 @@ export const BUGS = createRegistry<BugDef>('bug', [
     home: 'area_stump_plaza',
     traits: { restless: 0.2, bouncy: 0 },
     needWeights: { need_hunger: 1.2, need_fun: 0.6, need_energy: 1 },
-    loves: [],
-    likes: ['item_leaf'],
-    dislikes: [],
+    loves: ['item_moss_tuft'],
+    likes: ['item_leaf', 'item_mint_leaf'],
+    dislikes: ['item_pepper_hot', 'item_rotten_banana_bit'],
     likesFlinging: false,
+    // "Never dizzy, just ooooh." He pulls into his shell and spins instead.
+    dizzyProof: true,
+    mouth: [0.672, 0.2],
     curlsWhenFlung: false,
     voice: {
       wave: 'sine',

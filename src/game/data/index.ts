@@ -112,7 +112,12 @@ export function validateContent(content: Content = CONTENT): string[] {
     if (bug.radius <= 0) errors.push(`${where} radius must be positive`);
     if (bug.speed <= 0) errors.push(`${where} speed must be positive`);
     ref(content.areas, bug.home, where);
-    for (const id of [...bug.loves, ...bug.likes, ...bug.dislikes]) ref(content.items, id, where);
+    const tastes = [...bug.loves, ...bug.likes, ...bug.dislikes];
+    for (const id of tastes) ref(content.items, id, where);
+    if (new Set(tastes).size !== tastes.length) errors.push(`${where} lists an item under two tastes`);
+    const [mx, my] = bug.mouth;
+    if (!(mx > 0 && Math.hypot(mx, my) <= bug.radius * 2))
+      errors.push(`${where} mouth anchor must be in front of the bug and near its body`);
     for (const need of NEED_IDS) {
       const w = bug.needWeights[need];
       if (!(w >= 0.5 && w <= 1.5)) errors.push(`${where} ${need} weight must be 0.5 to 1.5`);

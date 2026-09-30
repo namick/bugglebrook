@@ -1,4 +1,5 @@
 import { BUG_MODES } from '../core/entities';
+import { REACTION_TYPES } from '../events';
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const isObj = (v: unknown): v is Record<string, unknown> =>
@@ -18,7 +19,12 @@ const BRAIN_NUMBERS = [
   'stuck',
   'tries',
   'lastX',
+  'grumpyUntil',
+  'burpAt',
+  'tickle',
+  'woozyUntil',
 ] as const;
+const REACTIONS = new Set<string>(REACTION_TYPES);
 
 /** Problems with a saved bug brain, or an empty list. */
 function brainProblems(bug: unknown): string[] {
@@ -37,6 +43,21 @@ function brainProblems(bug: unknown): string[] {
   const used = bug.used;
   if (!Array.isArray(used) || !used.every((u) => isObj(u) && isNum(u.id) && isNum(u.tick)))
     errors.push('used is invalid');
+  if (bug.mouthful !== null && !isNum(bug.mouthful)) errors.push('mouthful must be a number or null');
+  const reaction = bug.reaction;
+  if (
+    reaction !== null &&
+    !(
+      isObj(reaction) &&
+      REACTIONS.has(reaction.type as string) &&
+      isNum(reaction.variant) &&
+      isNum(reaction.tick)
+    )
+  )
+    errors.push('reaction is invalid');
+  const variants = bug.variants;
+  if (!isObj(variants) || !Object.entries(variants).every(([k, v]) => REACTIONS.has(k) && isNum(v)))
+    errors.push('variants are invalid');
   return errors;
 }
 

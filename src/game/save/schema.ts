@@ -3,7 +3,7 @@ import type { RngState } from '../core/rng';
 import type { BodyState } from '../physics/physics';
 
 /** Bump when the save shape changes, and add a migration in migrations.ts. */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export interface SavedEntity {
   id: number;

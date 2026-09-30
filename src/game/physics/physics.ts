@@ -184,6 +184,29 @@ export class Physics {
     body.setAwake(true);
   }
 
+  /**
+   * Take a body out of the simulation (no collisions, no motion) or put it
+   * back. Food in a bug's mouth is inactive. Inactive bodies cannot be grabbed.
+   */
+  setActive(id: EntityId, active: boolean): void {
+    const body = this.requireBody(id);
+    if (!active && this.grabbedId === id) this.release();
+    body.setActive(active);
+    if (active) body.setAwake(true);
+  }
+
+  isActive(id: EntityId): boolean {
+    return this.requireBody(id).isActive();
+  }
+
+  /** Move a body to a pose and stop it. */
+  place(id: EntityId, x: number, y: number, angle: number): void {
+    const body = this.requireBody(id);
+    body.setTransform(Vec2(x, y), angle);
+    body.setLinearVelocity(Vec2(0, 0));
+    body.setAngularVelocity(0);
+  }
+
   applyImpulse(id: EntityId, ix: number, iy: number): void {
     const body = this.requireBody(id);
     body.applyLinearImpulse(Vec2(ix, iy), body.getWorldCenter(), true);

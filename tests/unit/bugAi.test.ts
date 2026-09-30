@@ -147,13 +147,22 @@ describe('updateBug', () => {
     const e = bug();
     e.bug!.needs.need_hunger = 10;
     e.bug!.decideIn = 1;
-    const target = { x: 10.6, y: 8.8, halfWidth: 0.17, halfHeight: 0.17, angle: 0, held: false };
+    const target = {
+      defId: 'item_berry_red',
+      x: 10.6,
+      y: 8.8,
+      halfWidth: 0.17,
+      halfHeight: 0.17,
+      angle: 0,
+      held: false,
+    };
     const c = ctx({ adverts: () => [berry(10.6)], target: () => target });
     const first = updateBug(e, c);
     expect(e.bug!.mode).toBe('st_seek');
     expect(first.notices).toContainEqual({ type: 'chose', action: 'eat', targetId: 50 });
     updateBug(e, c);
     expect(e.bug!.mode).toBe('st_eat');
+    expect(e.bug!.mouthful).toBe(50);
     let ate = null;
     for (let i = 0; i < 200 && !ate; i++) ate = updateBug(e, c).eat;
     expect(ate).toEqual({ itemId: 50, liking: 'liked' });
@@ -173,7 +182,15 @@ describe('updateBug', () => {
     const e = bug();
     e.bug!.needs.need_hunger = 5;
     e.bug!.decideIn = 1;
-    const target = { x: 14, y: 8.8, halfWidth: 0.17, halfHeight: 0.17, angle: 0, held: false };
+    const target = {
+      defId: 'item_berry_red',
+      x: 14,
+      y: 8.8,
+      halfWidth: 0.17,
+      halfHeight: 0.17,
+      angle: 0,
+      held: false,
+    };
     const c = ctx({ adverts: () => [berry(14)], target: () => target });
     updateBug(e, c);
     expect(e.bug!.mode).toBe('st_seek');
@@ -195,7 +212,15 @@ describe('updateBug', () => {
       needs: { need_fun: 30, need_energy: -5 },
       claimed: false,
     };
-    const target = { x: 11.2, y: 8.7, halfWidth: 0.26, halfHeight: 0.3, angle: 0, held: false };
+    const target = {
+      defId: 'item_spring_coil',
+      x: 11.2,
+      y: 8.7,
+      halfWidth: 0.26,
+      halfHeight: 0.3,
+      angle: 0,
+      held: false,
+    };
     const state = { x: 10.2, y: 8.64, angle: 0, vx: 0, vy: 0, av: 0 };
     const c = ctx({ state, adverts: () => [spring], target: () => target });
     updateBug(e, c);
@@ -237,7 +262,8 @@ describe('updateBug', () => {
     updateBug(e, ctx({ support: null, state: { x: 10, y: 7, angle: 0, vx: 6, vy: -2, av: 0 } }));
     expect(e.bug!.mode).toBe('st_airborne');
     const d = updateBug(e, ctx({ impact: 4 }));
-    expect(d.notices).toEqual([{ type: 'landed', speed: 4 }]);
+    expect(d.notices[0]).toEqual({ type: 'landed', speed: 4 });
+    expect(d.notices[1]).toMatchObject({ type: 'reacted', reaction: 'land' });
     expect(e.bug!.mode).toBe('st_landing');
   });
 
