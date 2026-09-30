@@ -2,7 +2,17 @@ import { test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { clickSlot, entities, launchApp } from '../e2e/app';
+import {
+  bugNamed,
+  clickSlot,
+  content,
+  entities,
+  entity,
+  holdNearMouth,
+  launchApp,
+  spawnItem,
+  toClient,
+} from '../e2e/app';
 
 const DIR = process.env.BB_SHOTS_DIR ?? '/tmp/bb-shots';
 
@@ -125,6 +135,174 @@ test('screenshot tour', async () => {
     await shot(page, '14-far-right');
     await page.waitForTimeout(8000);
     await shot(page, '15-far-right-later');
+  } finally {
+    await bb.close();
+  }
+});
+
+/** Close-up centered on a bug, a bit above it so bubbles show. */
+async function bugShot(page: Page, name: string, id: number, w = 2.8, h = 2.4): Promise<void> {
+  const b = (await entity(page, id))!;
+  await closeUp(page, name, b.x, b.y - 0.7, w, h);
+}
+
+/** Let go and move the hand out of the way, up into the sky. */
+async function letGo(page: Page): Promise<void> {
+  await page.mouse.up();
+  await page.mouse.move(960, 120, { steps: 3 });
+}
+
+test('feeding and reactions tour', async () => {
+  mkdirSync(DIR, { recursive: true });
+  const bb = await launchApp();
+  const { app, page } = bb;
+  try {
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1920, 1080));
+    await page.waitForTimeout(500);
+    await clickSlot(page, 1);
+    await page.waitForTimeout(800);
+    const rollo = await bugNamed(page, 'bug_pillbug_rollo');
+    const dot = await bugNamed(page, 'bug_ladybug_dot');
+    const glorp0 = await bugNamed(page, 'bug_snail_glorp');
+    for (const b of [rollo, dot, glorp0]) await content(page, b.id);
+
+    // Hover a berry: the hand curls and the berry gets a rim light.
+    const berry = await spawnItem(page, 'item_berry_red', rollo.x + 1.8);
+    const bv = (await entity(page, berry))!;
+    const bp = await toClient(page, bv.x, bv.y);
+    await page.mouse.move(bp.x, bp.y);
+    await page.waitForTimeout(300);
+    await closeUp(page, '20-hover-berry', bv.x, bv.y - 0.3, 2.4, 1.6);
+
+    // Hold it near Rollo: every mouth glows, Rollo opens wide.
+    await holdNearMouth(page, berry, rollo.id, 0.05, -0.3);
+    await shot(page, '21-holding-berry-glows');
+    await bugShot(page, '22-rollo-wants-berry', rollo.id);
+    await letGo(page);
+    await page.waitForTimeout(450);
+    await bugShot(page, '23-rollo-chews-berry', rollo.id);
+    await page.waitForTimeout(1300);
+    await bugShot(page, '24-rollo-yum', rollo.id);
+    await page.waitForTimeout(2000);
+
+    // Pepper for Rollo: yuck, ptoo, and a grumpy face.
+    await content(page, rollo.id);
+    const pepper = await spawnItem(page, 'item_pepper_hot', rollo.x + 1.8);
+    await holdNearMouth(page, pepper, rollo.id, 0.05, -0.3);
+    await bugShot(page, '25-rollo-offered-pepper', rollo.id);
+    await letGo(page);
+    await page.waitForTimeout(450);
+    await bugShot(page, '26-rollo-yuck', rollo.id);
+    await page.waitForTimeout(420);
+    await bugShot(page, '27-rollo-ptoo', rollo.id, 4, 2.8);
+    await page.waitForTimeout(500);
+    await bugShot(page, '28-rollo-hate', rollo.id);
+    await page.waitForTimeout(2000);
+
+    // Banana mush: Rollo's favorite. Heart eyes.
+    await page.evaluate(
+      (id) => window.__bb!.send({ type: 'set_need', id, need: 'need_hunger', value: 20 }),
+      rollo.id,
+    );
+    const mush = await spawnItem(page, 'item_rotten_banana_bit', rollo.x + 1.8);
+    await holdNearMouth(page, mush, rollo.id, 0.05, -0.3);
+    await letGo(page);
+    await page.waitForTimeout(700);
+    await bugShot(page, '29-rollo-loves-mush-chewing', rollo.id);
+    await page.waitForTimeout(1200);
+    await bugShot(page, '30-rollo-love', rollo.id);
+    await page.waitForTimeout(2000);
+
+    // A sleepy Rollo: hover him and he thinks of sleep.
+    await page.evaluate(
+      (id) => window.__bb!.send({ type: 'set_need', id, need: 'need_energy', value: 8 }),
+      rollo.id,
+    );
+    const r2 = (await entity(page, rollo.id))!;
+    const rp = await toClient(page, r2.x - 0.2, r2.y);
+    await page.mouse.move(rp.x, rp.y, { steps: 4 });
+    await page.waitForTimeout(1300);
+    await bugShot(page, '35-rollo-thinks-sleep', rollo.id);
+    await content(page, rollo.id);
+
+    // Tickle Dot: press and hold still.
+    const d2 = (await entity(page, dot.id))!;
+    const dp = await toClient(page, d2.x, d2.y);
+    await page.mouse.move(dp.x, dp.y);
+    await page.mouse.down();
+    await page.waitForTimeout(1900);
+    await bugShot(page, '34-dot-tickled', dot.id);
+    await page.mouse.up();
+    await page.waitForTimeout(1500);
+
+    // Carry Dot off to the quiet right side of the plaza, scrolling as we go.
+    const d3 = (await entity(page, dot.id))!;
+    const cp = await toClient(page, d3.x, d3.y);
+    await page.mouse.move(cp.x, cp.y);
+    await page.mouse.down();
+    await page.mouse.move(cp.x, cp.y - 150, { steps: 5 });
+    for (let i = 0; i < 7; i++) {
+      await page.mouse.wheel(0, 200);
+      await page.waitForTimeout(120);
+    }
+    await page.waitForTimeout(500);
+    await page.mouse.up();
+    await page.waitForTimeout(1800);
+    await content(page, dot.id);
+
+    // Dot and the hot pepper: a flame puff, then a burp.
+    await page.evaluate(
+      (id) => window.__bb!.send({ type: 'set_need', id, need: 'need_hunger', value: 90 }),
+      dot.id,
+    );
+    const pepper2 = await spawnItem(page, 'item_pepper_hot', (await entity(page, dot.id))!.x + 1.8);
+    await holdNearMouth(page, pepper2, dot.id, 0.05, -0.3);
+    await letGo(page);
+    await page.waitForTimeout(1780);
+    await bugShot(page, '31-dot-flame', dot.id, 4, 2.8);
+    await page.waitForTimeout(1050);
+    await bugShot(page, '32-dot-burp', dot.id, 4, 2.8);
+    await page.waitForTimeout(2500);
+
+    // Dot and mint: she sneezes it out.
+    await content(page, dot.id);
+    const mint = await spawnItem(page, 'item_mint_leaf', (await entity(page, dot.id))!.x + 1.8);
+    await holdNearMouth(page, mint, dot.id, 0.05, -0.3);
+    await bugShot(page, '33a-dot-offered-mint', dot.id);
+    await letGo(page);
+    await page.waitForTimeout(870);
+    await bugShot(page, '33-dot-sneeze', dot.id, 4, 2.8);
+    await page.waitForTimeout(2500);
+
+    // Back to the stump.
+    for (let i = 0; i < 4; i++) {
+      await page.mouse.wheel(0, -200);
+      await page.waitForTimeout(60);
+    }
+    await page.waitForTimeout(600);
+
+    // Glorp: slam him down; he spins in his shell instead of getting dizzy.
+    const glorp = await bugNamed(page, 'bug_snail_glorp');
+    await page.evaluate(
+      (x) => window.__bb!.send({ type: 'set_need', id: x, need: 'need_hunger', value: 90 }),
+      glorp.id,
+    );
+    const gp = await toClient(page, glorp.x, glorp.y);
+    await page.mouse.move(gp.x, gp.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 15; i++) {
+      await page.mouse.move(gp.x, gp.y - i * 40);
+      await page.waitForTimeout(16);
+    }
+    await page.waitForTimeout(250);
+    const top = { x: gp.x, y: gp.y - 600 };
+    await Promise.all(
+      [1, 2, 3, 4].map((i) => page.mouse.move(top.x, top.y + i * 60)).concat(page.mouse.up()),
+    );
+    await page.waitForTimeout(900);
+    await bugShot(page, '36-glorp-shell-spin', glorp.id);
+    await page.waitForTimeout(1200);
+    await bugShot(page, '37-glorp-after', glorp.id);
   } finally {
     await bb.close();
   }
