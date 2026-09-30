@@ -40,23 +40,17 @@ async function quitByDoor(bb: Launched): Promise<void> {
 
 /** Press a slot sign and drag it with the real mouse to a client point. */
 async function dragSign(page: Page, slot: number, to: { x: number; y: number }) {
-  await expect.poll(() => page.evaluate((s) => window.__bb!.slotButtonClient(s) !== null, slot)).toBe(true);
-  // Signs spring up from the ground when the menu opens: wait until this one stands still.
-  let from = (await page.evaluate((s) => window.__bb!.slotButtonClient(s), slot))!;
-  await expect
-    .poll(async () => {
-      const now = (await page.evaluate((s) => window.__bb!.slotButtonClient(s), slot))!;
-      const still = Math.hypot(now.x - from.x, now.y - from.y) < 1;
-      from = now;
-      return still;
-    })
-    .toBe(true);
+  // Signs spring up from the ground when the menu opens: wait until they stand still.
+  await expect.poll(() => page.evaluate(() => window.__bb!.menuSettled()), { timeout: 20_000 }).toBe(true);
+  const from = (await page.evaluate((s) => window.__bb!.slotButtonClient(s), slot))!;
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
   for (let i = 1; i <= 16; i++) {
     await page.mouse.move(from.x + ((to.x - from.x) * i) / 16, from.y + ((to.y - from.y) * i) / 16);
     await page.waitForTimeout(20);
   }
+  // The sign follows the hand on the next frames.
+  await page.waitForTimeout(300);
   return from;
 }
 
@@ -240,32 +234,30 @@ test('the pause board freezes the world, and settings persist across restarts ou
   }
 });
 
-/** Throw a bug straight down, hard, and report the biggest screen shake over the next frames. */
-async function slamAndMeasure(page: Page, id: number): Promise<number> {
+/**
+ * Slam a bug straight down onto the stump, frame by frame (so a slow
+ * renderer does exactly the same), then let the screen draw a few frames.
+ * Returns how many shakes the view asked for and the biggest shake offset drawn.
+ */
+async function slam(page: Page, id: number): Promise<{ requests: number; max: number }> {
+  const frames = (n: number): Promise<void> => page.evaluate((k) => window.__bb!.frames(k), n);
+  await page.evaluate(() => window.__bb!.setPaused(true));
+  await page.evaluate(() => window.__bb!.resetShakeStats());
   const b = (await entity(page, id))!;
-  await page.evaluate(
-    ([x, y]) => {
-      window.__bb!.send({ type: 'grab', x: x!, y: y! });
-      window.__bb!.send({ type: 'drag', x: x!, y: 2 });
-    },
-    [b.x, b.y],
-  );
-  await page.waitForTimeout(400);
+  await page.evaluate(([x, y]) => window.__bb!.send({ type: 'grab', x: x!, y: y! }), [b.x, b.y]);
+  await frames(2);
+  expect((await entity(page, id))!.held).toBe(true);
+  await page.evaluate((x) => window.__bb!.send({ type: 'drag', x, y: 0.8 }), b.x);
+  await frames(60);
   await page.evaluate(() => window.__bb!.send({ type: 'release', vx: 0, vy: 26 }));
-  return page.evaluate(
-    () =>
-      new Promise<number>((resolve) => {
-        let max = 0;
-        let frames = 0;
-        const look = (): void => {
-          const s = window.__bb!.shakeOffset();
-          max = Math.max(max, Math.abs(s.x), Math.abs(s.y));
-          if (++frames < 90) requestAnimationFrame(look);
-          else resolve(max);
-        };
-        requestAnimationFrame(look);
-      }),
-  );
+  // Step until it hits, one frame at a time so each impact gets drawn.
+  for (let i = 0; i < 30; i++) {
+    await frames(1);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  }
+  const stats = await page.evaluate(() => window.__bb!.shakeStats());
+  await page.evaluate(() => window.__bb!.setPaused(false));
+  return stats;
 }
 
 test('reduce motion turns off screen shake entirely', async () => {
@@ -274,22 +266,19 @@ test('reduce motion turns off screen shake entirely', async () => {
     const { page } = bb;
     await clickSlot(page, 0);
     // Glorp, alone on the stump, never gets dizzy: slam him as often as needed.
-    const rollo = await bugNamed(page, 'bug_snail_glorp');
-    await content(page, rollo.id);
-    const landings = async () =>
-      (await page.evaluate(() => window.__bb!.events())).filter(
-        (e) => e.name === 'bonked' && (e.payload as { speed: number }).speed >= 14,
-      ).length;
-    expect(await slamAndMeasure(page, rollo.id)).toBeGreaterThan(0);
-    expect(await landings()).toBeGreaterThan(0);
+    const glorp = await bugNamed(page, 'bug_snail_glorp');
+    await content(page, glorp.id);
+    const loud = await slam(page, glorp.id);
+    expect(loud.requests).toBeGreaterThan(0);
+    expect(loud.max).toBeGreaterThan(0);
     await clickUi(page, 'pause');
     await clickUi(page, 'toggle_reduceMotion');
     await clickUi(page, 'resume');
     await expect.poll(() => page.evaluate(() => window.__bb!.reduceMotion())).toBe(true);
-    await page.evaluate(() => window.__bb!.clearLogs());
-    await page.waitForTimeout(3000);
-    expect(await slamAndMeasure(page, rollo.id)).toBe(0);
-    expect(await landings()).toBeGreaterThan(0);
+    await page.waitForTimeout(1500);
+    const calm = await slam(page, glorp.id);
+    expect(calm.requests).toBeGreaterThan(0);
+    expect(calm.max).toBe(0);
   } finally {
     await bb.close();
   }

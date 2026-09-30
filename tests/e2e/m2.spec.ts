@@ -89,7 +89,8 @@ test('disliked food is spat out and stays in the world', async () => {
     await expect.poll(async () => (await events(page, 'bug_spat')).length, { timeout: 30_000 }).toBe(1);
     const [spat] = await events(page, 'bug_spat');
     expect(spat!.payload).toMatchObject({ id: glorp.id, itemId: pepper });
-    expect(await events(page, 'bug_ate')).toEqual([]);
+    // Other bugs may snack on their own food; the pepper is not eaten.
+    expect((await events(page, 'bug_ate')).filter((e) => e.payload.itemId === pepper)).toEqual([]);
     const after = await entity(page, pepper);
     expect(after).not.toBeNull();
     expect(after!.inMouthOf).toBeUndefined();
@@ -259,6 +260,7 @@ test('hovering a grabbable object switches the cursor to hover_grab within 1 fra
     const { page } = bb;
     // Over a menu card, the hand points.
     await expect.poll(() => page.evaluate(() => window.__bb!.scene())).toBe('menu');
+    await expect.poll(() => page.evaluate(() => window.__bb!.menuSettled())).toBe(true);
     const card = (await page.evaluate(() => window.__bb!.slotButtonClient(0)))!;
     await page.mouse.move(card.x, card.y);
     await expect.poll(async () => (await hook(page, () => window.__bb!.cursor())).pose).toBe('hover_poke');

@@ -232,8 +232,10 @@ export class SlotSign extends Container {
     if (this.sprout) this.sprout.rotation = Math.sin(this.time * 1.7 + this.slot) * 0.05;
     if (!this.dragging && !overBin && !this.press) {
       // Spring home.
-      this.x += (this.home.x - this.x) * Math.min(1, dt * 10);
-      this.y += (this.home.y - this.y) * Math.min(1, dt * 10);
+      this.x += (this.home.x - this.x) * Math.min(1, dt * 14);
+      this.y += (this.home.y - this.y) * Math.min(1, dt * 14);
+      if (Math.hypot(this.home.x - this.x, this.home.y - this.y) < 0.5)
+        this.position.set(this.home.x, this.home.y);
     }
     // Swing a little as it moves.
     const vx = dt > 0 ? (this.x - this.lastX) / dt : 0;

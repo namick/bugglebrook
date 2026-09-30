@@ -122,6 +122,8 @@ export class WorldView extends Container {
   private shakeLeft = 0;
   private shakePower = 0;
   private reduced = false;
+  /** Shakes asked for, and the biggest shake offset drawn, since `resetShakeStats` (test hook). */
+  readonly shakeStats = { requests: 0, max: 0 };
   private lastHover: Point | null = null;
   /** Bugs whose mouth glows right now, and in what color (test hook). */
   readonly glowing = new Map<EntityId, Liking>();
@@ -758,6 +760,7 @@ export class WorldView extends Container {
   }
 
   shake(px: number, seconds: number): void {
+    this.shakeStats.requests++;
     if (this.reduced) return;
     this.shakePower = Math.max(this.shakePower, Math.min(6, px));
     this.shakeLeft = Math.max(this.shakeLeft, seconds);
@@ -772,6 +775,7 @@ export class WorldView extends Container {
     // The background scrolls its own near layer; entities, shadows, and
     // particles follow it. The world container carries the screen shake.
     this.world.position.set(shake.x, shake.y);
+    this.shakeStats.max = Math.max(this.shakeStats.max, Math.abs(shake.x), Math.abs(shake.y));
     const scroll = -camera.x * PPM;
     this.entityLayer.x = this.shadows.x = this.particles.x = this.trails.x = scroll;
     this.glows.x = this.bubbles.x = scroll;

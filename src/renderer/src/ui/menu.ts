@@ -71,7 +71,10 @@ export class MenuScene extends Container {
   private readonly gearArt: Graphics;
   private readonly doorArt = new Graphics();
   private readonly sim: Sim;
-  readonly view: WorldView;
+  /** The live plaza. Built a moment after the menu opens, so the signs are ready at once. */
+  view: WorldView | null = null;
+  private reduced = false;
+  private readonly backdrop = new Graphics();
   private readonly camera: Camera;
   private readonly stepper = new FixedStepper();
   private readonly ui = new Container();
@@ -82,7 +85,7 @@ export class MenuScene extends Container {
   private closedFor = 0;
 
   constructor(
-    renderer: Renderer | null,
+    private readonly renderer: Renderer | null,
     slots: readonly SlotSummary[],
     private readonly hooks: MenuHooks,
   ) {
@@ -92,9 +95,10 @@ export class MenuScene extends Container {
     this.camera = new Camera(this.sim.worldWidth, VIEW_WIDTH_M);
     this.camera.set(MENU_CAMERA_X);
     this.sim.send({ type: 'focus', x0: this.camera.x, x1: this.camera.x + VIEW_WIDTH_M });
-    this.view = new WorldView(this.sim, null, renderer);
-    this.view.eventMode = 'none';
-    this.addChild(this.view, sunset(), this.ui);
+    // A plain sunset sky until the live plaza is drawn.
+    this.backdrop.rect(0, 0, VIEW_WIDTH_PX, VIEW_HEIGHT_PX).fill(0xf4b58a);
+    this.backdrop.rect(0, 930, VIEW_WIDTH_PX, 150).fill(0x8a6a4a);
+    this.addChild(this.backdrop, sunset(), this.ui);
 
     this.logo.position.set(VIEW_WIDTH_PX / 2, 205);
     this.logo.eventMode = 'static';
@@ -109,7 +113,7 @@ export class MenuScene extends Container {
       const sign = new SlotSign(slot.slot, slot.save ? slotPicture(slot.save) : null);
       sign.home = { x: SIGN_XS[i] ?? 960, y: SIGN_Y };
       // Signs pop up from the ground one after another.
-      sign.position.set(sign.home.x, SIGN_Y + 700 + i * 160);
+      sign.position.set(sign.home.x, SIGN_Y + 260 + i * 90);
       sign.label = `slot-${slot.slot}`;
       sign.onClick = () => {
         if (this.deleting) return;
@@ -152,6 +156,20 @@ export class MenuScene extends Container {
     this.ui.addChild(this.gear, this.door);
   }
 
+  /** Reduce motion for the live plaza (a setting). */
+  set reduceMotion(on: boolean) {
+    this.reduced = on;
+    if (this.view) this.view.reduceMotion = on;
+  }
+
+  /** Every sign is standing at its spot and nothing is being dragged (tests wait for this). */
+  get settled(): boolean {
+    return (
+      this.view !== null &&
+      this.signs.every((s) => !s.dragging && Math.hypot(s.x - s.home.x, s.y - s.home.y) < 1)
+    );
+  }
+
   /** The sign for a slot. */
   sign(slot: number): SlotSign | undefined {
     return this.signs.find((s) => s.slot === slot);
@@ -159,8 +177,18 @@ export class MenuScene extends Container {
 
   update(dt: number): void {
     this.time += dt;
-    this.stepper.advance(dt, () => this.sim.step());
-    this.view.update(dt, this.camera);
+    if (!this.view && this.time >= 0.25) {
+      this.view = new WorldView(this.sim, null, this.renderer);
+      this.view.eventMode = 'none';
+      this.view.reduceMotion = this.reduced;
+      this.view.alpha = 0;
+      this.addChildAt(this.view, 1);
+    }
+    if (this.view) {
+      this.stepper.advance(dt, () => this.sim.step());
+      this.view.alpha = Math.min(1, this.view.alpha + dt * 3);
+      this.view.update(dt, this.camera);
+    }
     this.logo.update(dt);
     this.gear.update(dt);
     this.door.update(dt);

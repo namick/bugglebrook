@@ -228,7 +228,7 @@ export class Game {
       session.input.coastScale = s.reduceMotion ? 0.5 : 1;
       session.input.edgeScroll = s.edgeScroll;
     }
-    if (this.menu) this.menu.view.reduceMotion = s.reduceMotion;
+    if (this.menu) this.menu.reduceMotion = s.reduceMotion;
     this.panel?.sync(s);
   }
 
@@ -301,7 +301,8 @@ export class Game {
     this.sfx.play('whoosh_in');
     await new Promise<void>((resolve) => {
       const tick = (): void => {
-        this.curtainAlpha = Math.min(1, this.curtainAlpha + 0.2);
+        // A 0.15 s fade however slow the frames are.
+        this.curtainAlpha = Math.min(1, this.curtainAlpha + Math.max(0.2, this.app.ticker.deltaMS / 150));
         this.curtain.alpha = this.curtainAlpha;
         if (this.curtainAlpha >= 1) {
           this.app.ticker.remove(tick);
@@ -346,7 +347,7 @@ export class Game {
       },
       sound: (name, strength) => this.menuSound(name, strength),
     });
-    this.menu.view.reduceMotion = this.settings.get().reduceMotion;
+    this.menu.reduceMotion = this.settings.get().reduceMotion;
     this.app.stage.addChild(this.menu);
     this.raiseOverlays();
     this.scene = 'menu';
@@ -447,7 +448,8 @@ export class Game {
     this.sinceSave = 0;
     this.sinceAreaSave = 0;
     this.scene = 'world';
-    if (!save) await this.saveNow();
+    // The first save runs in the background: the picture can take a moment on slow GPUs.
+    if (!save) void this.saveNow();
   }
 
   private closeWorld(): void {
