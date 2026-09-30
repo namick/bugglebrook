@@ -296,9 +296,15 @@ export class Game {
   }
 
   /** Fade to the curtain, run `swap`, then fade back in. */
-  private async transition(swap: () => Promise<void>): Promise<void> {
+  /**
+   * Cover the screen, run `swap`, then fade back in. Opening a world covers
+   * at once (building it takes a moment anyway, and the first click should
+   * reach the world fast); going to the menu fades out first.
+   */
+  private async transition(swap: () => Promise<void>, fadeOut = true): Promise<void> {
     this.switching = true;
     this.sfx.play('whoosh_in');
+    if (!fadeOut) this.curtainAlpha = this.curtain.alpha = 1;
     await new Promise<void>((resolve) => {
       const tick = (): void => {
         // A 0.15 s fade however slow the frames are.
@@ -355,7 +361,7 @@ export class Game {
 
   async openSlot(slot: number): Promise<void> {
     if (this.scene === 'world' || this.switching) return;
-    await this.transition(() => this.buildWorld(slot));
+    await this.transition(() => this.buildWorld(slot), false);
   }
 
   private async buildWorld(slot: number): Promise<void> {
@@ -621,9 +627,17 @@ export class Game {
     }
   }
 
+  /** Tests can stop the menu's clock and step it with `menuFrames`. */
+  menuFrozen = false;
+
+  /** Run the menu for `n` frames at 60 Hz right now (test hook). */
+  menuFrames(n: number): void {
+    for (let i = 0; i < n; i++) this.menu?.update(1 / 60);
+  }
+
   private frame(dt: number): void {
     this.frameCount++;
-    if (this.menu) this.menu.update(dt);
+    if (this.menu && !this.menuFrozen) this.menu.update(dt);
     if (this.panel) this.panel.update(dt);
     this.closingPanels = this.closingPanels.filter((p) => {
       if (p.destroyed) return false;

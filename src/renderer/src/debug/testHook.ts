@@ -49,6 +49,10 @@ export interface TestHook {
   /** Screen shakes asked for, and the biggest shake offset drawn since the last reset. */
   shakeStats(): { requests: number; max: number };
   resetShakeStats(): void;
+  /** Stop the menu's clock (signs, the bin's lid), or start it again. */
+  freezeMenu(on: boolean): void;
+  /** Run the menu for `n` frames at 60 Hz right now. */
+  menuFrames(n: number): void;
   /** Every menu sign has popped up and stands at its spot. */
   menuSettled(): boolean;
   /** A menu sign's state, for tests that drag it. */
@@ -202,6 +206,10 @@ export function installTestHook(game: Game): void {
       if (s) s.requests = s.max = 0;
     },
     menuSettled: () => game.menu?.settled ?? false,
+    freezeMenu: (on) => {
+      game.menuFrozen = on;
+    },
+    menuFrames: (n) => game.menuFrames(n),
     sign: (slot) => {
       const s = game.menu?.sign(slot);
       return s

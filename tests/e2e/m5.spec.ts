@@ -43,6 +43,9 @@ async function dragSign(page: Page, slot: number, to: { x: number; y: number }) 
   // Signs spring up from the ground when the menu opens: wait until they stand still.
   await expect.poll(() => page.evaluate(() => window.__bb!.menuSettled()), { timeout: 20_000 }).toBe(true);
   const from = (await page.evaluate((s) => window.__bb!.slotButtonClient(s), slot))!;
+  // Stop the menu's clock: the lid then only closes as the test steps it,
+  // however slow the machine is.
+  await page.evaluate(() => window.__bb!.freezeMenu(true));
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
   await expect.poll(() => page.evaluate((s) => window.__bb!.sign(s)?.pressed, slot)).toBe(true);
@@ -151,21 +154,29 @@ test('dragging a slot sign into the compost bin deletes it; pulling it back out 
     const bin = await uiAt(page, 'bin');
     const mouth = { x: bin.x, y: bin.y - 60 };
 
-    // Slot 3: into the bin, then back out before the lid shuts.
+    const menuFrames = (n: number): Promise<void> => page.evaluate((k) => window.__bb!.menuFrames(k), n);
+    const progress = (): Promise<number> => page.evaluate(() => window.__bb!.binProgress());
+
+    // Slot 3: into the bin, then back out before the lid shuts (1 s of its 1.5 s).
     const home = await dragSign(page, 2, mouth);
-    await expect.poll(() => page.evaluate(() => window.__bb!.binProgress())).toBeGreaterThan(0.1);
-    for (let i = 1; i <= 10; i++) {
+    await menuFrames(60);
+    expect(await progress()).toBeGreaterThan(0.5);
+    expect(await progress()).toBeLessThan(1);
+    for (let i = 1; i <= 10; i++)
       await page.mouse.move(mouth.x + ((home.x - mouth.x) * i) / 10, mouth.y + ((home.y - mouth.y) * i) / 10);
-      await page.waitForTimeout(16);
-    }
+    await menuFrames(30);
+    expect(await progress()).toBe(0);
     await page.mouse.up();
-    await expect.poll(() => page.evaluate(() => window.__bb!.binProgress())).toBe(0);
-    await page.waitForTimeout(1800);
+    await menuFrames(150);
+    expect(await page.evaluate(() => window.__bb!.sign(2)?.picture)).toBe(true);
     expect((await page.evaluate(() => window.__bb!.listSlots()))[2]!.exists).toBe(true);
 
     // Slot 1: dropped in the bin, the lid closes on it and it is gone.
+    await page.evaluate(() => window.__bb!.freezeMenu(false));
     await dragSign(page, 0, mouth);
     await page.mouse.up();
+    await menuFrames(100);
+    await page.evaluate(() => window.__bb!.freezeMenu(false));
     await expect
       .poll(async () => (await page.evaluate(() => window.__bb!.listSlots())).map((s) => s.exists), {
         timeout: 15_000,

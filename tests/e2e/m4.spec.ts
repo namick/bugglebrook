@@ -210,7 +210,15 @@ test('lonely bugs chat with pictures in speech bubbles, and like each other more
     const all = (await entities(page)).filter((e) => e.kind === 'bug');
     for (const b of all) await content(page, b.id);
     for (const b of [dot, rollo]) await setNeed(page, b.id, 'need_social', 5);
-    const aff0 = await page.evaluate(() => window.__bb!.affinity('bug_ladybug_dot', 'bug_pillbug_rollo'));
+    // Everyone's affinity with everyone before: whichever pair ends up chatting should like each other more.
+    const defs = all.map((b) => b.defId);
+    const affinities = (): Promise<Record<string, number>> =>
+      page.evaluate((ds) => {
+        const out: Record<string, number> = {};
+        for (const a of ds) for (const b of ds) if (a < b) out[`${a}|${b}`] = window.__bb!.affinity(a, b);
+        return out;
+      }, defs);
+    const aff0 = await affinities();
     let bubbles: { bugId: number; kind: string; pictos: readonly string[] }[] = [];
     for (let i = 0; i < 60; i++) {
       await step(page, 20);
@@ -226,9 +234,13 @@ test('lonely bugs chat with pictures in speech bubbles, and like each other more
     expect(lines.length).toBeGreaterThan(0);
     expect(bubbles.length).toBeGreaterThan(0);
     expect(bubbles[0]!.pictos.length).toBeGreaterThan(0);
-    await step(page, 60 * 10);
-    const aff1 = await page.evaluate(() => window.__bb!.affinity('bug_ladybug_dot', 'bug_pillbug_rollo'));
-    expect(aff1).toBeGreaterThan(aff0);
+    // Play pays out when it ends: give it time.
+    await step(page, 60 * 20);
+    const chat = lines[0]!.payload as { id: number; partnerId: number };
+    const defOf = (id: number): string => all.find((b) => b.id === id)!.defId;
+    const key = [defOf(chat.id), defOf(chat.partnerId)].sort().join('|');
+    const aff1 = await affinities();
+    expect(aff1[key]).toBeGreaterThan(aff0[key]!);
   } finally {
     await bb.close();
   }
