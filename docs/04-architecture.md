@@ -52,11 +52,12 @@ src/
     core/               rng.ts, loop.ts (FixedStepper), events.ts (EventBus),
                         commandQueue.ts, entities.ts (EntityStore)
     physics/physics.ts  The only planck import. Bodies are addressed by entity ID.
-    systems/            Per-tick behavior. bugAi.ts is the bug state machine.
+    systems/            Per-tick behavior. bugAi.ts is the bug state machine and needs.
+    world/terrain.ts    The ground surface as a height field built from area polylines.
     data/               Content registries: areas, bugs, items, recipes, potions, secrets.
                         types.ts, registry.ts, and validateContent() in index.ts.
     save/               schema.ts (SAVE_VERSION, types), migrations.ts, validate.ts
-    commands.ts         The Command union: grab, drag, release, spawn
+    commands.ts         The Command union: grab, drag, release, poke, spawn
     events.ts           GameEvents: every event name and payload
     constants.ts        Units, gravity, logical resolution
     sim.ts              The Sim class that ties it together
@@ -69,15 +70,18 @@ src/
     src/
       main.ts           Boot: Pixi app, letterboxing, Game, test hook
       app/              game.ts (scene switching, loop, autosave), saveService.ts, memorySaves.ts
-      render/           camera.ts, viewport.ts, bugPose.ts (pure), background.ts,
-                        worldView.ts, particles.ts, palette.ts, draw/bug.ts, draw/item.ts
+      render/           camera.ts, viewport.ts, bugPose.ts, bugFace.ts, juice.ts (all pure),
+                        background.ts, worldView.ts, particles.ts, palette.ts,
+                        draw/bug.ts, draw/face.ts, draw/item.ts
       input/            pointerController.ts: pointer gestures to commands and camera moves
-      audio/            synth.ts (AudioBackend, WebAudioBackend, NullAudioBackend), sfx.ts
+      audio/            synth.ts (AudioBackend, WebAudioBackend, NullAudioBackend), sfx.ts,
+                        voices.ts (gibberish bug voices)
       ui/               menu.ts (slot cards, home button), button.ts
       debug/testHook.ts window.__bb, only in test mode
 tests/
   unit/                 Vitest. Headless. Covers src/game, the pure renderer modules, and SaveStore.
   e2e/                  Playwright against the built app in out/
+  shots/                Screenshot tour for reviewing art by eye (`pnpm shots`), not a test
 scripts/make-icon.mjs   Generates build/icon.png
 build/icon.png          App icon source for electron-builder
 ```
@@ -92,8 +96,8 @@ build/icon.png          App icon source for electron-builder
 
 - The sim uses meters. The renderer multiplies by `PIXELS_PER_METER` (100).
 - Y points down in both sim and screen space, so no flipping is needed. Gravity is +20 m/s², about twice Earth's, which makes flings feel snappy at this scale.
-- The ground surface is at `GROUND_Y` = 9 m. Invisible walls sit at x = 0 and at the world's right edge.
-- The world is as wide as its areas. Areas tile left to right with no gaps, and `validateContent` checks that. The demo world is 48 m, which is 2.5 screens.
+- Each area has a `terrain` polyline of [area-local x, y] points. `Terrain.fromAreas` joins them into one height field, and physics turns it into a static planck chain. The flat ground is at `GROUND_Y` = 9 m. The plaza's stump top is at 4 m, with root flares on both sides that are never steeper than about 60 degrees, so bugs can walk over it. Invisible walls sit at x = 0 and at the world's right edge.
+- The world is as wide as its areas. Areas tile left to right with no gaps, and `validateContent` checks that. M1 has one area, Mossy Stump Plaza, 38.4 m wide (2 screens). When the pond goes in to its left, a save migration has to shift every saved x by the pond's width.
 - The logical resolution is 1920x1080, so one screen is 19.2 m wide. `fitViewport` letterboxes that into any window. The renderer resolution tracks the real device pixels, capped at 2x, so outlines stay sharp.
 
 ## The simulation
@@ -101,36 +105,48 @@ build/icon.png          App icon source for electron-builder
 `Sim` owns an `EntityStore`, a `Physics` world, an `Rng`, a `CommandQueue`, and an `EventBus<GameEvents>`. `sim.step()` advances exactly 1/60 s:
 
 1. Drain the command queue and apply each command.
-2. Run systems. Today that is bug AI, which reads body state and returns a velocity or a hop.
+2. Run bug AI. Each bug reads its body state, what it stands on, and last step's impacts, and returns a velocity plus notices that become events.
 3. Step physics with 8 velocity and 3 position iterations.
-4. Turn new contacts above 6 m/s into `bonked` events. Bugs that land above 9 m/s get dizzy.
-5. Increment `tick`.
+4. Handle new contacts. Contacts above 6 m/s become `bonked` events. Anything landing on a spring's top gets launched along the spring's axis. Impacts on bugs are kept for the next AI tick.
+5. Lift anything that ended up inside the ground back out (`sim.rescues` counts these; tests expect zero).
+6. Every 45 s, drop berries and leaves back in from the sky if the area has fewer than its `respawn` list asks for.
+7. Increment `tick`.
 
 Determinism rests on four things. The only randomness is the seeded sfc32 `Rng`. Entities iterate in ascending ID order. Time is the tick counter and never the clock. Commands only take effect at step boundaries. A test runs the same scripted commands on two sims and asserts that both serialize to identical saves.
 
 ### Entities
 
-An entity is `{ id, kind: 'bug' | 'item', defId, bug?: BugBrain }`. Physics state (position, angle, velocities) lives in the planck body, and `sim.views()` joins the two into plain `EntityView` objects for the renderer and the test hook. Component data stays plain JSON so it serializes without adapters. Add optional fields to `Entity` for new components such as hats, paint, or potion effects, and extend the save schema and validator to match.
+An entity is `{ id, kind: 'bug' | 'item', defId, bug?: BugBrain }`. A new world is built from each area's `start` list. Physics state (position, angle, velocities) lives in the planck body, and `sim.views()` joins the two into plain `EntityView` objects for the renderer and the test hook. Component data stays plain JSON so it serializes without adapters. Add optional fields to `Entity` for new components such as hats, paint, or potion effects, and extend the save schema and validator to match.
 
 ### Commands
 
-Input never touches physics directly. `PointerController` sends `grab {x, y}`, `drag {x, y}`, `release`, and `spawn`. On `grab`, the sim picks the topmost body under the point. That is the highest entity ID, and the renderer draws in ID order, so the thing you see on top is the thing you grab. A planck `MouseJoint` then pulls the body toward the pointer. On `release`, the body keeps the joint's velocity, capped at 30 m/s, and that is the whole fling.
+Input never touches physics directly. `PointerController` sends `grab {x, y}`, `drag {x, y}`, `release {vx, vy}`, `poke {x, y}`, and the tests also send `spawn`. On `grab`, the sim picks the topmost body within 0.2 m of the point. That is the highest entity ID, and the renderer draws in ID order, so the thing you see on top is the thing you grab. A planck `MouseJoint` then pulls the body toward the pointer.
+
+On `release`, the controller sends the cursor's average velocity over the last 80 ms, measured in world space and interpolated to exactly 80 ms. The body leaves at that velocity, capped at 26 m/s (2600 px/s). At 2.5 m/s or more it counts as a fling. A press and release within 200 ms and 6 px sends `poke` instead: the sim lets go of whatever the press picked up, then makes an item hop or a bug react.
 
 ### Events
 
-`GameEvents` in `src/game/events.ts` lists every event. Names are snake_case and past tense: `item_grabbed`, `item_dropped`, `bonked`, `bug_dizzy`, `entity_spawned`, `entity_removed`. Handlers run synchronously during `step()`. A throwing handler does not stop the others. Subscribers must not change sim state from a handler. If a reaction needs to change the world, it sends a command.
+`GameEvents` in `src/game/events.ts` lists every event. Names are snake_case and past tense, for example `item_grabbed`, `item_dropped`, `item_poked`, `bonked`, `spring_bounced`, `bug_landed`, `bug_dizzy`, `bug_recovered`, `bug_ate`, `bug_used`, and `entity_removed`. Handlers run synchronously during `step()`. A throwing handler does not stop the others. Subscribers must not change sim state from a handler. If a reaction needs to change the world, it sends a command.
 
 Current subscribers:
 
-- `Sfx` plays grab, drop, fling, bonk, and dizzy sounds.
-- `Particles` makes dust puffs on bonks.
-- `WorldView` triggers landing squash on bonked bugs.
+- `Sfx` plays grab, drop, whoosh, bonk, poke, spring, chomp, hop, dizzy tweets, and the respawn whistle.
+- `BugVoices` speaks a gibberish line for grabs, flings, pokes, dizzy spells, meals, and bounces.
+- `WorldView` kicks squash springs and spawns dust, stars, sparkles, crumbs, and fling trails. Very hard landings shake the screen a few pixels.
 
 The journal, secrets, and music will subscribe the same way.
 
 ### Bug AI
 
-`systems/bugAi.ts` is a small state machine with the modes `idle`, `walk`, `held`, `tumble`, and `dizzy`. An idle bug waits a random number of ticks, shorter if its `restless` trait is high, then picks a target up to 5 m away and walks there. Bouncy bugs sometimes hop. A held bug goes limp. A bug flung faster than 3.5 m/s while airborne tumbles until it lands and slows down. A hard landing makes it dizzy for 2 seconds. Bug bodies use `fixedRotation`, so bugs never end up upside down, and the renderer adds tilt and squash for looks.
+`systems/bugAi.ts` follows section 5 of the game design doc, trimmed to M1. Brain state is plain JSON on the entity. Modes use the doc's state names: `st_idle`, `st_wander`, `st_seek`, `st_use`, `st_eat`, `st_react`, `st_held`, `st_airborne`, `st_landing`, `st_dizzy`, `st_recover`.
+
+- Needs. Hunger, fun, and energy run 0 to 100 and decay every tick at the doc's rates times each bug's weight. Resting states refill energy slowly.
+- Choosing. Every 1.5 s an idle or wandering bug scores every advert within 9 m with the doc's formula (urgency, like multiplier, distance falloff, novelty, recent-use penalty, plus a random 0 to 6). It picks among the top three with weights 60/30/10 if any scores above 8. Items another bug is already heading for are skipped. Adverts live on item defs: berries and leaves offer `eat`, the spring offers `bounce`.
+- Walking. Bugs set their velocity along the ground's tangent and cancel the slope's pull, so they climb roots and stand still on slopes. Bug fixtures have low friction because friction would only fight this. A pebble or twig in the way gets a small hop instead of a shove; another bug or anything taller than 0.7 m ends the walk.
+- Eating takes 1.5 s next to the item, then the sim removes it and emits `bug_ate`. Bouncing is a ballistic hop onto the spring's top; the spring's launch pays out the fun.
+- Flying. Release, a hard knock, or a hop puts a bug in `st_airborne` (or `st_use` for a spring hop). It lands when it is supported again. If the hardest impact was 9 m/s or more and the bug did not launch itself, it goes `st_dizzy` for `clamp((v - 9) / 2.5, 0, 4) + 2` seconds, plus 1 s per repeat within 10 s, capped at 8 s. Otherwise it goes `st_landing` briefly. Rollo curls into a real rolling ball while airborne.
+
+Bug bodies use `fixedRotation`, so bugs stay upright. Tumbling, stretch, and squash are cosmetic and live in the renderer.
 
 ## Content registries
 
@@ -144,21 +160,23 @@ Each file in `src/game/data/` exports one registry built with `createRegistry(ki
 
 `tests/unit/data.test.ts` requires the list to be empty. When a new kind of reference appears, add a check there.
 
-The current content is placeholder: two areas, two bugs, four items, one recipe, one potion, and one secret. The cast and world belong to `03-game-design.md`.
+Content follows `03-game-design.md` and uses its IDs. M1 has one area (`area_stump_plaza`), three bugs (`bug_ladybug_dot`, `bug_pillbug_rollo`, `bug_snail_glorp`), and ten item kinds. The recipe, potion, and secret registries are empty until their milestones. Item and bug sizes run a bit larger than the doc's pixel sizes so they read at 1080p.
 
 ## Rendering
 
 The renderer reads the sim and never writes to it.
 
-- `WorldView` keeps one sprite per entity. Each frame it creates sprites for new entities, removes sprites for entities that are gone, and sets position and rotation from `sim.views()`.
-- `BugSprite` draws the body, belly, spots, cheek, and smile once. It redraws the legs, antennae, eyes, and dizzy stars each frame from a `BugPose`. Squash and stretch pivot on the feet.
-- `bugPose()` is a pure function from mode, velocity, time, and landing squash to scale, tilt, bob, leg phase, and eye openness. It has unit tests. Stretch keeps the volume roughly constant.
-- `Background` has four layers: sky and ground at camera speed, clouds at 30%, hills at 60%. It draws each area in its own colors.
-- All shapes share one outline color and a 6 px stroke from `palette.ts`.
+- `WorldView` keeps one sprite per entity. Each frame it creates sprites for new entities, removes sprites for entities that are gone, skips anything off screen, and draws a soft shadow under everything. Per-entity juice (a `SquashSpring`, cosmetic spin, trail timer) lives here, not in the sim.
+- `BugSprite` draws three species: a ladybug whose shell opens for flying, a pill bug that curls into a ball, and a snail that pulls into its shell. Static parts are drawn once per body form. Legs, feet, antennae (spring-simulated), eyes, mouth, wings, and dizzy stars are redrawn each frame. Nested containers stretch along the velocity, squash on the feet, and flip for facing.
+- `bugPose()` (breathing, gait, flail, blinks) and `bugFace()` (eye and mouth shapes and body form per state and needs) are pure and unit-tested. So is `juice.ts`: the squash spring (stiffness 300, damping 18) and the stretch formula from section 15.
+- Pupils follow the cursor within 3 m. `PointerController.hoverWorld` is the only input the view reads.
+- `Background` layers, back to front: sky gradient and a smiling sun, drifting clouds (0.12 parallax), hills (0.28), big grass and dandelions (0.55), then the near layer at 1.0 with back props (ant hill, sundial, mushroom ring, signpost), soil with pebbles and roots, the stump, moss, and tufts. A foreground of dark grass blades sits in front of entities at 1.22. Background art has thinner, fainter outlines than grabbable things.
+- `Particles` draws every particle into one `Graphics` per frame, with a 400-particle budget. Fling trails use a second instance behind the entities.
+- Props use the shared 6 px outline from `palette.ts`.
 
 ### Camera
 
-`Camera` is pure math and has unit tests. `x` is the world x at the left edge of the view, clamped to the world. Dragging empty space pans the camera, and it coasts after release. The mouse wheel pans too. While the player carries something within 140 px of a screen edge, the camera scrolls, which is how things move between areas.
+`Camera` is pure math and has unit tests. `x` is the world x at the left edge of the view, clamped to the world. Dragging empty space pans the camera, and it coasts after release. The mouse wheel pans too, 1.5 px per vertical wheel pixel. While the player carries something within 80 px of a screen edge, the camera scrolls at up to 9 m/s, which is how things will move between areas.
 
 ### Frame loop
 
@@ -174,7 +192,9 @@ The renderer does not interpolate between sim steps yet. At 60 Hz that does not 
 
 ## Audio
 
-`AudioBackend` has three methods: `play(tone)`, `resume()`, and `setMuted()`. `WebAudioBackend` creates one oscillator and one gain envelope per tone, then runs them through a master gain and a compressor. `NullAudioBackend` records tones instead of playing them, and unit tests use it. `Sfx` maps events to named sounds with small pitch jitter and rate-limits bonks. Generative music and bug voices will be new modules on the same backend.
+`AudioBackend` has three methods: `play(tone)`, `resume()`, and `setMuted()`. A `Tone` is an oscillator or band-passed noise with a pitch or filter glide, and optionally two vowel formant filters and vibrato. `WebAudioBackend` builds one small node graph per tone and routes it to an sfx or voice bus, then a master gain and a limiter (ratio 12, threshold -6 dB). `NullAudioBackend` records tones instead of playing them, and unit tests use it.
+
+`Sfx` maps events to named sounds with random pitch and volume jitter and rate-limits bonks. `voices.ts` builds gibberish lines from each bug's `voice` profile: 1 to 6 formant syllables whose pitch contour depends on the emotion (happy rises, sleepy falls, and so on). Lines are seeded from the bug ID and a line counter. At most three bugs talk at once. Generative music will be another module on the same backend.
 
 ## Saves
 
@@ -197,7 +217,7 @@ Setting `BUGGLEBROOK_USER_DATA=/some/dir` points userData at a throwaway directo
 
 `window.__bb` (type `TestHook` in `src/renderer/src/debug/testHook.ts`) offers:
 
-- state queries: `scene()`, `tick()`, `entities()`, `entity(id)`, `camera()`, `isPaused()`, `sfxLog()`, `listSlots()`
+- state queries: `scene()`, `tick()`, `entities()`, `entity(id)`, `camera()`, `isPaused()`, `sfxLog()`, `voiceLog()`, `events()` (recent sim events with their tick), `lastRelease()` (the fling velocity sent), `frameTimes(n)` (update plus render ms), `renderStats()`, `listSlots()`
 - coordinate helpers for driving the real mouse: `worldToClient(x, y)`, `slotButtonClient(slot)`, `homeButtonClient()`
 - control: `send(command)`, `step(n)`, `setPaused()`, `saveNow()`
 
@@ -205,7 +225,9 @@ E2E tests move the real mouse with `page.mouse`, then assert on game state throu
 
 ## Testing
 
-- `pnpm test` runs Vitest in Node. It covers the sim (RNG, stepper, event bus, entities, physics grab and fling, stacking, walls, bonks, bug AI, determinism), saves (round trip, migrations, validation, SaveStore on a temp dir), content validation, and the pure renderer modules (camera, viewport fit, bug pose, pointer controller, sfx with the null backend).
+- `pnpm test` runs Vitest in Node. It covers the sim (RNG, stepper, event bus, entities, terrain, physics grab and fling, 1000 full-speed flings with no tunneling, springs, pokes, respawn, bug AI and needs, eating, bouncing, dizzy timing, determinism), saves (round trip, migrations, validation, SaveStore on a temp dir), content validation, and the pure renderer modules (camera, viewport fit, bug pose and face, squash springs, pointer velocity and pokes, sfx and voices with the null backend).
+- `tests/e2e/m1.spec.ts` checks the M1 acceptance criteria with the real mouse: launch time and frame time, hold and fling velocity, dizzy duration, pokes, and camera moves that leave items alone.
+- `pnpm shots` builds and runs `tests/shots/`, which walks through the game and writes screenshots to `/tmp/bb-shots` (or `$BB_SHOTS_DIR`). Use it to check art changes by eye. It is not part of CI.
 - `pnpm test:e2e` builds the app, then runs Playwright against `out/`. Each test launches a fresh app with its own userData. Locally it opens real windows in your desktop session. CI runs it under `xvfb-run`. The launcher removes `ELECTRON_RUN_AS_NODE` from the environment, because some editors built on Electron set it and it turns Electron into plain Node.
 - Every feature needs tests. Put logic in pure modules and test it in Vitest. Write at least one E2E test for each player-facing flow.
 

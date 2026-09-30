@@ -12,7 +12,8 @@ Read `docs/00-decisions.md` (locked product decisions) and `docs/04-architecture
 - Save format changes need a `SAVE_VERSION` bump and a new entry in `MIGRATIONS`, plus a test. Never edit a shipped migration.
 - The renderer is sandboxed. It reaches main only through `window.bugglebrook` (`src/shared/ipc.ts`). Keep that API narrow and validate every IPC argument in main.
 - All art is drawn in code with Pixi `Graphics` using the shared outline from `render/palette.ts`. All sound is synthesized. Don't add image or audio files.
-- Put logic in pure modules (like `camera.ts`, `bugPose.ts`, `bugAi.ts`) so Vitest can test it without Pixi.
+- Put logic in pure modules (like `camera.ts`, `bugPose.ts`, `bugFace.ts`, `juice.ts`, `bugAi.ts`) so Vitest can test it without Pixi.
+- Bug states use the design doc's names (`st_idle`, `st_dizzy`, ...). Content IDs use its prefixes (`area_`, `bug_`, `item_`).
 
 ## Commands
 
@@ -23,6 +24,8 @@ pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e
 - `pnpm test` runs Vitest (`tests/unit/`).
 - `pnpm test:e2e` builds, then runs Playwright against the real Electron app (`tests/e2e/`). It needs a display. Use `xvfb-run -a pnpm test:e2e` when there is none.
 - `pnpm format` runs Prettier and ESLint with `--fix`.
+- `pnpm shots` saves a screenshot tour to `/tmp/bb-shots`. Look at the PNGs after any art change.
+- Some shells set `ELECTRON_RUN_AS_NODE=1`. The E2E launcher clears it, but unset it yourself before running Electron any other way.
 
 ## Rules
 
