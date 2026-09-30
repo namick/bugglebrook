@@ -1,6 +1,16 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { PLAZA_X, clickSlot, content, entities, entity, launchApp, pressOn, toClient } from './app';
+import {
+  PLAZA_X,
+  clickSlot,
+  content,
+  entities,
+  entity,
+  launchApp,
+  pressOn,
+  spawnItem,
+  toClient,
+} from './app';
 
 // M3 acceptance (game design doc, section 19): properties and the pond,
 // driven with the real mouse and checked through window.__bb. Waits are
@@ -233,7 +243,7 @@ test('a bug dropped in the pond swims to shore and shakes itself dry', async () 
   try {
     const { page } = bb;
     await clickSlot(page, 0);
-    await scrollTo(page, 3);
+    await scrollTo(page, 0);
     const water = (await page.evaluate(() => window.__bb!.water())).surfaces[0]!;
     const dot = await spawn(page, 'bug', 'bug_ladybug_dot', 2.6, 7.5);
     await content(page, dot);
@@ -266,12 +276,17 @@ test('gum sticks to what it lands on, and a hard yank tears it off', async () =>
   try {
     const { page } = bb;
     await clickSlot(page, 0);
+    for (const b of (await entities(page)).filter((e) => e.kind === 'bug')) await content(page, b.id);
     const cam = await camera(page);
-    const pebble = await spawn(page, 'item', 'item_pebble', cam + 4.5, 7);
-    await settle(page, pebble);
+    // A clear, flat spot on screen, so no bug wanders into the gum.
+    const pebble = await spawnItem(page, 'item_pebble', cam + 9);
     const pv = (await entity(page, pebble))!;
     const gum = await spawn(page, 'item', 'item_gum_blob', pv.x, pv.y - 1.5);
-    await expect.poll(async () => (await page.evaluate(() => window.__bb!.water())).sticks.length).toBe(1);
+    const stuck = async (): Promise<boolean> =>
+      (await page.evaluate(() => window.__bb!.water())).sticks.some(
+        (t) => (t.a === gum && t.b === pebble) || (t.a === pebble && t.b === gum),
+      );
+    await expect.poll(stuck).toBe(true);
     expect(await page.evaluate(() => window.__bb!.sfxLog())).toContain('squelch');
     // Yank the gum away fast.
     const at = await pressOn(page, gum);
@@ -279,7 +294,7 @@ test('gum sticks to what it lands on, and a hard yank tears it off', async () =>
     await page.mouse.move(at.x + 300, at.y - 300, { steps: 2 });
     await expect.poll(async () => (await events(page, 'unstuck')).length).toBeGreaterThanOrEqual(1);
     await page.mouse.up();
-    expect((await page.evaluate(() => window.__bb!.water())).sticks).toEqual([]);
+    expect(await stuck()).toBe(false);
   } finally {
     await bb.close();
   }
