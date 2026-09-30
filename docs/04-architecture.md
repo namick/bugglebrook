@@ -35,12 +35,13 @@ This is the technical plan for Bugglebrook. It covers the stack, where code live
 main process (Node)                 preload (sandboxed, CJS)          renderer (sandboxed, no Node)
 src/main/index.ts   <-- IPC -->     src/preload/index.ts   -->        window.bugglebrook
 src/main/saveStore.ts                exposes a narrow API               src/renderer/src/**
-src/main/updater.ts                                                     src/game/** (bundled in)
+src/main/settingsStore.ts                                               src/game/** (bundled in)
+src/main/updater.ts
 ```
 
 - `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`. The renderer has no `require` or `process`, and an E2E test asserts that.
-- The preload exposes exactly four keys on `window.bugglebrook`: `saves`, `testMode`, `platform`, and `onFlushRequest`. The type is `BugglebrookApi` in `src/shared/ipc.ts`.
-- Main validates every IPC argument. Slots must be integers 0 to 2. Save payloads must be strings under 5 MB that parse as JSON. Main does not understand the save format; it stores opaque text.
+- The preload exposes exactly six keys on `window.bugglebrook`: `saves`, `settings`, `quit`, `testMode`, `platform`, and `onFlushRequest`. The type is `BugglebrookApi` in `src/shared/ipc.ts`.
+- Main validates every IPC argument. Slots must be integers 0 to 2. Save payloads must be strings under 5 MB that parse as JSON. Settings must be an object and are normalized by `normalizeSettings` (`src/shared/settings.ts`) before they are stored. Main does not understand the save format; it stores opaque text.
 - The window denies popups and blocks navigation. `index.html` sets a Content Security Policy with no `unsafe-eval`. Pixi normally compiles shaders with `new Function`, so the renderer imports `pixi.js/unsafe-eval`, which swaps in a polyfill that does not need eval.
 - Main appends `enable-unsafe-swiftshader` so WebGL still works on machines without a usable GPU, such as VMs and CI under xvfb. This is acceptable because the app only loads its own bundled files.
 
@@ -60,26 +61,31 @@ src/
                         dropTargets.ts picks where a dropped thing goes.
                         tags.ts is tag state, water.ts is pure water math, and
                         environment.ts runs water, fixtures, the property rules, and
-                        Glorp's slime trail.
+                        Glorp's slime trail. pocket.ts is the pocket tray's slot logic.
     world/terrain.ts    The ground surface as a height field built from area polylines.
     data/               Content registries: areas, bugs, items, recipes, potions, secrets.
                         materials.ts is the material table, affinity.ts the bug-pair table.
                         types.ts, registry.ts, and validateContent() in index.ts.
     save/               schema.ts (SAVE_VERSION, types), migrations.ts, validate.ts
     commands.ts         The Command union: grab, drag, release, poke, tickle, shake, spawn,
-                        focus, set_need, set_tag, set_weather
+                        focus, set_need, set_tag, set_weather, pocket_put, pocket_take,
+                        stage_intro, wake, beckon
     events.ts           GameEvents: every event name and payload
     constants.ts        Units, gravity, logical resolution
     sim.ts              The Sim class that ties it together
     index.ts            Public exports for the renderer
   shared/ipc.ts         IPC channel names, BugglebrookApi, SlotInfo. Types and constants only.
-  main/                 Electron main: window, IPC handlers, SaveStore, auto-updater
+  shared/settings.ts    The Settings type, defaults, and normalizeSettings (pure, used by both sides)
+  main/                 Electron main: window, IPC handlers, SaveStore (backups, recovery),
+                        SettingsStore (settings.json), auto-updater
   preload/              contextBridge API
   renderer/
     index.html          CSP and the canvas host
     src/
       main.ts           Boot: Pixi app, letterboxing, Game, test hook
-      app/              game.ts (scene switching, loop, autosave), saveService.ts, memorySaves.ts
+      app/              game.ts (scene switching, loop, autosave, pause, pocket input),
+                        saveService.ts (loads with backup recovery), settingsService.ts,
+                        intro.ts (the first two minutes, pure), thumbnail.ts, memorySaves.ts
       render/           camera.ts, viewport.ts, bugPose.ts, bugFace.ts, juice.ts,
                         reactions.ts, thoughts.ts, tagLooks.ts, waveSurface.ts (all pure),
                         background.ts, pondArt.ts, water.ts, worldView.ts, particles.ts,
@@ -89,7 +95,10 @@ src/
                         tickles, shakes, and gesture sounds
       audio/            synth.ts (AudioBackend, WebAudioBackend, NullAudioBackend), sfx.ts,
                         voices.ts (gibberish bug voices)
-      ui/               menu.ts (slot cards, home button), button.ts, cursor.ts (the hand)
+      ui/               menu.ts (the main menu), slotSign.ts, compostBin.ts, logo.ts,
+                        settingsPanel.ts (pause and settings board), controls.ts (vine
+                        slider, toggle, plank board), pocketTray.ts, pocketLayout.ts (pure),
+                        icons.ts, button.ts (PictureButton, Bounce, markUi), cursor.ts
       debug/testHook.ts window.__bb, only in test mode
 tests/
   unit/                 Vitest. Headless. Covers src/game, the pure renderer modules, and SaveStore.
@@ -147,9 +156,19 @@ On `release`, the controller sends the cursor's average velocity over the last 8
 
 ### Drop targets
 
-When the player lets go gently, `pickDropTarget` in `systems/dropTargets.ts` checks every target within its snap radius and takes the one with the best priority, then the nearest. The rules come from section 2 of the design doc. Only priority 4 exists so far: a bug's mouth takes anything tagged `tag_edible` within 0.5 m (50 px) of the mouth anchor. Bugs that are held, flying, or already chewing offer no mouth. A thrown food that hits a bug within 1.5 s of leaving the hand also counts if it lands near the mouth. Later milestones add the pocket, containers, heads, paint, hands, and seats to `DROP_RULES`.
+When the player lets go gently, `pickDropTarget` in `systems/dropTargets.ts` checks every target within its snap radius and takes the one with the best priority, then the nearest. The rules come from section 2 of the design doc. Only priority 4 exists so far: a bug's mouth takes anything tagged `tag_edible` within 0.5 m (50 px) of the mouth anchor. Bugs that are held, flying, or already chewing offer no mouth. A thrown food that hits a bug within 1.5 s of leaving the hand also counts if it lands near the mouth. Later milestones add containers, heads, paint, hands, and seats to `DROP_RULES`. The pocket (priority 1) is handled by input, below.
 
 Each bug def has a `mouth` anchor in meters from its center, facing right. `sim.mouthAnchor(id)` mirrors it for the bug's facing, and `sim.dropTargetFor(itemId)` answers "where would this go if dropped now". The renderer uses that to light up the mouth it would feed. M3 added no drop targets.
+
+### The pocket
+
+Section 2 of the design doc. `systems/pocket.ts` is the pure slot logic: six slots of entity IDs (bottom of the stack first), stacks of up to nine identical `tag_stackable` items (only pebbles have the tag so far), and `at`, the tick each thing went in. `Sim.pocket` holds it and it is saved as `world.pocket`.
+
+- Drop rule 1 lives in input, not in `DROP_RULES`, because the pocket is in screen space. `PointerController.up` asks `pocketAt` (the tray's hit test: slot bounds plus 20 px, only while the tray is at least half open) and sends `pocket_put {slot}` instead of `release`. The sim lets go and takes the thing out of the world: body switched off, welds undone, carried things set down, bugs in `st_pocketed` with social play ended. A slot that cannot take it swaps: what was there pops out where the thing was (`pocket_swapped`).
+- Pressing on a full slot sends `pocket_take {slot, x, y}`: the top thing comes back at the cursor (kept above the ground) straight into the hand, and counts as a player touch for the setup rule.
+- Pocketed things are out of time. `sim.isSleeping(id)` is true for them, so every system that skips sleeping bodies skips them too (the AI, adverts, structures, water, drop targets); `isPocketed` tells the two apart, and area sleep and the off-screen model leave them alone. Needs do not decay. Coming out, `shiftTags` and `shiftBrain` move every timer on by the time spent inside, so a wet pebble is as wet as when it went in.
+- The setup rule: a pocketed setup is not in `setupLinked()` or the AI's `setups`, so it leaves no phantom obstacle behind, and pocketed food is never eaten or carried.
+- Views carry `pocket` (the slot) for pocketed things. `WorldView` skips them and `PocketTray` draws them: a denim strip with yellow stitching that slides up in 150 ms while the player holds something or hovers the bottom 60 px (and stays up while the hand is over it), keeps a slim tab once it holds anything, shows bugs peeking over the pocket fronts, stacks as pips, and lights the slot under a held thing (orange when it would swap).
 
 ### Tags and property rules
 
@@ -201,6 +220,8 @@ Current subscribers:
 
 M4 added `bug_inspected`, `bug_picked_up`, `bug_put_down`, `bug_socialized`, `bug_social_ended`, `bug_chatted` (a pictogram topic and the food or bug it is about), `bug_bumped`, `bug_tagged`, `bug_threw`, `bug_caught`, `bug_shared`, `bug_snatched`, `bug_comforted`, `bug_gawked`, `bug_rode`, `bug_slept`, `bug_woke`, `bug_posed`, `bug_fidgeted`, `bug_slipped`, `bug_curled`, `bug_hid`, and `stack_fell`. `Sfx` gives them boops, pats, tosses, catches, a fanfare for a pose, snores (from the renderer, only for bugs on screen), and more; `BugVoices` speaks chat lines in the emotion of their topic; `WorldView` shows bubbles and particles.
 
+M5 added `pocketed`, `unpocketed`, `pocket_swapped`, and `bug_beckoned`. `Sfx` gives the pocket a denim "fwup" and a pop, and has UI sounds (`ui_tick` pitched by a slider's value, `ui_open`, `ui_close`, `toggle_on`, `toggle_off`, `bin_shut`, `whoosh_in`).
+
 The journal, secrets, and music will subscribe the same way.
 
 ### Bug AI
@@ -230,7 +251,7 @@ The journal, secrets, and music will subscribe the same way.
 - Five needs (`systems/needs.ts`): hunger, fun, energy, social, and cleanliness, decaying at the doc's rates times each bug's weights. Energy refills at 1.5/s asleep and 0.05/s resting, and moving spends 0.08/s more; asleep, energy does not decay and hunger and fun decay slower. A nap next to a friend refills social. A dip in water resets cleanliness to 100, rain adds 2/s, the hose 5 per hit, skating keeps Skeet clean, grooming adds 20, and a stink costs 10. Mood averages all five.
 - Adverts. Items offer eat, bounce, sleep (the bottle cap, leaf, and sponge), and carry (pebbles, for Rollo). Anything a bug has not sniffed offers `inspect`, and something the player touched in the last 60 s gets a big curiosity bonus, which is how bugs come to see what the player dropped. Spots offer a nap right here (energy under 55), a splash at the water's edge, the stump top (Dot), and the camera (Dot, ignored for 90 s). Other bugs offer chat, bump, tag, catch (with a ball or berry nearby), share (a snack a hungry friend likes), comfort (a dizzy friend), snatch (a snack being carried), ride (Boing), and a nap pile (a sleeping friend). Social adverts use affinity instead of liking.
 - Choosing follows section 5: urgency times weight times delta, liking or affinity, distance falloff, novelty, a 60 s repeat penalty, memory, plus 0 to 6 at random; top three at 60/30/10 above 8. Two changes: a runner-up must score at least half the best (so a starving bug does not wander off to pose), and a kind of play done in the last 90 s scores 0.45x, so bugs mix it up. Memory keeps the last 8 moments per bug (good 1.5x, bad 0.3x, fading over 120 s). A bug that cannot reach its target remembers it as bad for a while.
-- States: `st_idle`, `st_wander`, `st_seek`, `st_use` (bouncing or sniffing), `st_social`, `st_eat`, `st_sleep`, `st_react`, `st_held`, `st_airborne`, `st_landing`, `st_dizzy`, `st_recover`, `st_swim`, `st_rolled`, `st_hide`, `st_ride`, `st_perform`, and `st_pocketed` (in saves only until the pocket arrives in M5). A hop on the way somewhere sets `resume`, and the landing goes back to that mode.
+- States: `st_idle`, `st_wander`, `st_seek`, `st_use` (bouncing or sniffing), `st_social`, `st_eat`, `st_sleep`, `st_react`, `st_held`, `st_airborne`, `st_landing`, `st_dizzy`, `st_recover`, `st_swim`, `st_rolled`, `st_hide`, `st_ride`, `st_perform`, and `st_pocketed` (in the pocket tray). A hop on the way somewhere sets `resume`, and the landing goes back to that mode.
 - Playing together (`systems/bugSocial.ts`). The bug that starts it is `lead`; it keeps the beat and the count, ends it, and pays both sides (social +15 to +30 and an affinity nudge; sharing is +0.05). Chat trades 3 to 6 pictogram lines; replies answer the last line, and some lines are gossip about a third bug. Tag swaps who is it on a touch, for 5 to 10 s. Catch throws a ball or berry in an arc to the partner's front legs; the sim catches it when it comes within 0.62 m, and a miss gets fetched. At the end the holder may eat the berry. Share carries a snack over and puts it in the friend's mouth. A cheeky bug may snatch a snack someone is carrying and run; tagged, it hands it back. Comfort pats a dizzy friend (a quarter off the spell). Boing rides on a head for 3 to 6 s and falls off if the mount is grabbed or flung. Loud things make idle bugs within 7 m gawk; the one who crashed may laugh along, and nervous Rollo with no friend near hides behind something low or curls up. Sociable bugs sometimes carry a snack over to eat beside a friend, which is when snatching happens.
 - Sleep. A tired bug naps on a bed item, next to a sleeping friend (a nap pile), or where it stands. It wakes at full energy, or early (groggy for 3 s) when poked, grabbed, or hit hard, and nods off again 20 s later if still tired. The AI never wakes a sleeper.
 - Signatures (`habits` on each `BugDef`): Dot climbs to the stump top, poses, and glides down on open wings, and walks into view to pose when ignored. Rollo curls into a rolling ball after three pokes in 1.5 s or a fall of 3 m, and lines loose pebbles up in a row by his resting spot. Glorp leaves a slime trail (`env.slime`, 30 s) that makes others slide. Boing gets about in hops of 2.2 to 4.6 m, never hops down more than 1.2 m, hops again after a fling, bounces in place when idle, and shoots out of water in one kick. Skeet hops clear of four or more bugs within 2.5 m.
@@ -280,9 +301,20 @@ The renderer reads the sim and never writes to it.
 - The static backdrop layers are baked once into 1024 px wide textures (`Background.bakeAll`), so a frame draws a few sprites instead of thousands of shapes.
 - When WebGL runs in software (SwiftShader or llvmpipe, as on CI under xvfb), `main.ts` renders at half resolution. Software GL is fill-rate bound and otherwise runs at a few frames per second.
 - Props use the shared 6 px outline from `palette.ts`.
+- Reduce motion (a setting): `WorldView.reduceMotion` makes `shakeOffset` (in `juice.ts`, pure) always return 0, cuts squash kicks to 40 percent (`SquashSpring.amount`), and halves particles (`Particles.density`; fling trails are kept). The camera's coasting friction doubles and pan coasting speed halves.
 - Water. `WaterView` (`render/water.ts`) draws the pond in two layers. The back layer, behind entities, has the deep gradient, sun shafts, caustics, pond weed, the sunken teacup and boot, tadpoles that flee splashes, frog eyes that blink, lily pads with a bloom, ice sheets, the hose tap's wheel, and a dragonfly. The front layer, over entities, is a clear tint over whatever is under the surface, a pale band, the surface line, ripples, glints, and the hose spray. The surface wobbles with a spring-column `WaveSurface` plus a gentle swell. Splashes, paddlers, Skeet, and the spray disturb it, and heights cap at 22 px so it never tears. Floating things ride the ripples (`WaterView.bob`) in the renderer only.
 - The pond's static art lives in `pondArt.ts`: the sandy basin, muddy rims, reeds, cattails, boulders, the sitting stone and mud bank, the coiled hose, and a far glimpse of the pond in the mid layer. The front grass leaves a gap so it never hides the pond. The plaza's props are drawn relative to the plaza's `xStart`.
 - Tag looks. `tagLook(tags, submerged)` in `tagLooks.ts` is the pure table. `WorldView.tagEffects` draws it: wet tints darker and drips (faster for sponges, not in water) with beads on top, hot glows and shimmers, frozen sits in an ice block, cold sparkles with frost, smelly gives off stink lines and green puffs, soapy foams, sticky shines, and fuzzy grows spiky hair. Goo blobs mark welds, and red and blue field lines show a magnet pulling. `SoapBubbles` floats bubbles that pop on anything they touch.
+
+### Menu, pause, and the first scene
+
+Section 17 of the design doc. All of it is wordless and drawn in code.
+
+- The main menu (`MenuScene`) runs its own little `Sim` of the plaza behind everything, under a multiply-blended sunset wash. The logo (`logo.ts`) is letters made of twig strokes with leaves, and snail shells for the o's; they drop in one by one and bob, and hop when clicked. Three wooden signs on posts stand for the slots (`SlotSign`). An empty slot shows a sprout in a pot with a plus leaf. A used one shows the world's picture from its last save, a gold badge with the face of the bug the player fed most (`slotPicture`, from `world.counters.fed`), a jar filled by the share of bugs fed, and a face per bug. Click a sign to play. Drag a used sign into the compost bin to delete the slot: the lid closes over 1.5 s (`binProgress`), and pulling the sign out before it shuts cancels. The gear opens the settings board; the door quits.
+- The pause button (a leaf, top left) and Escape open `SettingsPanel`: a plank board with vine sliders for music, sounds, and voices, toggles for fullscreen, reduce motion, and edge scroll, the stump sign (save and go to the menu), and the play triangle (resume). A click on the dim behind it resumes. The home button (a stump, bottom right) shows only away from the plaza and glides the camera home in 1 s.
+- Scene switches fade through a curtain.
+- The first two minutes (`app/intro.ts`, pure, driven by `Game.runIntro`). A new world sends `stage_intro` (Dot asleep on the bottle cap, peckish, a berry beside her), fades in while the camera slides from the pond side to settle on Dot (3 s), sends `wake` when the cursor comes within 3 m of her, sends `beckon` at 0:40 if no bug has been grabbed (she walks to the hand with a spring in her bubble), and drifts the camera toward the pond and back at 1:00 if the player has not panned. It is off in test mode unless a test calls `__bb.enableIntro(true)`, so older tests keep their awake Dot and still camera.
+- Settings live in `SettingsService` in the renderer and `SettingsStore` (`settings.json`) in main. Changes apply at once: bus volumes (`AudioBackend.setVolumes`; a bus at 0 plays nothing), reduce motion, and edge scroll. Slider drags apply live and are stored when the drag ends. Main applies fullscreen. Defaults follow the doc (fullscreen on); in test mode main starts windowed. The music slider is stored and sets the music bus, which M9's generative music will play through.
 
 ### Camera
 
@@ -298,6 +330,8 @@ Pixi's ticker calls `Game.frame(dt)`, with `dt` clamped to 0.1 s:
 
 On `visibilitychange` to hidden, `Game.setPaused(true)` stops stepping, resets the accumulator, and autosaves. A minimized or hidden window uses no sim CPU.
 
+Pause (the board, Escape, a hidden window, or the test hook's freeze) stops stepping and saves; `Game.paused` combines the reasons.
+
 The renderer does not interpolate between sim steps yet. At 60 Hz that does not matter. On 120 Hz and faster displays, motion will judder slightly. `FixedStepper.alpha` is available when we fix it.
 
 ## Audio
@@ -308,14 +342,17 @@ The renderer does not interpolate between sim steps yet. At 60 Hz that does not 
 
 ## Saves
 
-- There are three slots. Main stores slot N at `userData/saves/slot-N.json`. It writes to a `.tmp` file and renames it, so a crash never leaves half a save. On startup it deletes leftover `.tmp` files.
-- A `SaveFile` is `{ version, savedAt, world: WorldSave, view: { cameraX } }`. `WorldSave` holds the seed, tick, RNG state, next entity ID, and every entity with its body state and component data. A held item is saved as if it had been dropped.
-- `loadSaveFile(raw)` parses the JSON, refuses versions newer than the game, runs migrations one version at a time, then validates the structure. Any failure throws `SaveError`. The menu treats an unreadable slot as empty and does not overwrite it until the player picks that slot.
-- To change the format, bump `SAVE_VERSION` and add `MIGRATIONS[oldVersion]`. Never edit a migration that has shipped. Tests cover chained migrations and the error cases.
-- The format is at version 5. Version 5 adds the social and cleanliness needs and each bug's `carrying`, `social`, `memory`, `inspected`, sleep and poke bookkeeping, `plan` (off-screen), and a few timers; `world.social.affinity`; and `env.slime`. Starting bugs a save predates (Boing) join it on load.
+- There are three slots. Main stores slot N at `userData/saves/slot-N.json`. Writes are atomic (`writeAtomic`: a `.tmp` file, flushed with fsync, then renamed), so a crash never leaves half a save. Before each write the current save, if it parses, is copied (atomically) to `slot-N.bak.json`. That keeps one previous version, and a corrupt file never pushes out a good backup. On startup main deletes leftover `.tmp` files. Deleting a slot removes all its files.
+- If a save will not load (bad JSON, or it fails migration or validation), `SaveService.loadWithRecovery` asks main to `recover` the slot: the bad file is kept as `slot-N.corrupt.json` and the backup is put back in its place. With no backup the slot is empty. The menu's slot list recovers the same way.
+- A `SaveFile` is `{ version, savedAt, world: WorldSave, view: { cameraX }, meta: { createdAt, thumb } }`. `WorldSave` holds the seed, tick, RNG state, next entity ID, every entity with its body state and component data, the pond and weather (`env`), affinity (`social`), the pocket, and `counters` (times the player fed each bug, for the badge). A held item is saved as if it had been dropped. `meta.thumb` is a 320x180 JPEG of the camera view as a data URL. `captureThumb` renders the world view alone, without the hand or UI.
+- `loadSaveFile(raw)` parses the JSON, refuses versions newer than the game, runs migrations one version at a time, then validates the structure. Any failure throws `SaveError`.
+- To change the format, bump `SAVE_VERSION` and add `MIGRATIONS[oldVersion]`. Never edit a migration that has shipped. `tests/unit/fixtures/save-v1.json` to `save-v5.json` are real saves written by the game at each shipped version, generated from the commits that shipped them; `m5.test.ts` loads every one, plays it, and saves it again. Add a fixture for each new version. Prettier skips the fixtures so they stay byte for byte.
+- The format is at version 6. Version 6 adds `world.pocket`, `world.counters`, and the file's `meta` (its `createdAt` taken from the old `savedAt`, and no picture until the next save), and turns any bug marked `st_pocketed` (no pocket existed) into a falling one.
+- Version 5 adds the social and cleanliness needs and each bug's `carrying`, `social`, `memory`, `inspected`, sleep and poke bookkeeping, `plan` (off-screen), and a few timers; `world.social.affinity`; and `env.slime`. Starting bugs a save predates (Boing) join it on load.
 - Version 4 moves every saved x (bodies, bug targets, the camera) 32 m right for the pond, adds bug `smelledAt` and `hopAt`, and adds optional entity `tags` and `soak` and `world.env` (water rise, hose, ice, welds, pads, weather). Version 2 was M1's bug brains. Version 3 adds `mouthful`, `reaction`, `variants`, `grumpyUntil`, `burpAt`, `tickle`, and `woozyUntil` to each bug. Its migration stops a bug that was mid-meal under the old rules, because M1 bugs ate food where it lay.
-- `Sim.load` skips entities whose definitions no longer exist. Removing content never bricks a save.
-- The game autosaves every 20 seconds while in the world. It also saves when the player goes home, when the window hides, and before quitting. On quit, main sends `app:flush-request`, waits up to 2 seconds for `app:flush-done`, then closes.
+- `Sim.load` skips entities whose definitions no longer exist, and drops them from the pocket. Removing content never bricks a save.
+- The game autosaves every 30 seconds of play, when the camera moves into another area (at most every 3 s), when pause opens, when the player goes to the menu, when the window hides, and before quitting. On quit, main sends `app:flush-request`, waits up to 2 seconds for `app:flush-done`, then closes.
+- Settings are per machine, in `userData/settings.json`, never in a slot.
 
 ## Test mode and the `window.__bb` hook
 
@@ -330,8 +367,9 @@ Setting `BUGGLEBROOK_USER_DATA=/some/dir` points userData at a throwaway directo
 `window.__bb` (type `TestHook` in `src/renderer/src/debug/testHook.ts`) offers:
 
 - state queries: `affinity(a, b)`, `water()` (surfaces, hose, ice, pads, welds), `fixture(id)`, `areaAsleep(id)`, `areaAt(x)`, `soapBubbles()`, `scene()`, `tick()`, `entities()` (with `tags`, `submerged`, `soggy`, `asleep`), `entity(id)`, `camera()`, `isPaused()`, `sfxLog()`, `voiceLog()`, `events()` (recent sim events with their tick), `lastRelease()` (the fling velocity sent), `frameTimes(n)` (update plus render ms), `renderStats()`, `listSlots()`, `cursor()` (pose, and the frames of the last pose change and pointer move), `bubbles()`, `glowing()`, `mouthOf(id)`, `dropTarget(itemId)`
-- coordinate helpers for driving the real mouse: `worldToClient(x, y)`, `slotButtonClient(slot)`, `homeButtonClient()`
-- control: `send(command)`, `step(n)`, `setPaused()`, `saveNow()`, `clearLogs()`
+- M5 state: `pocket()`, `pocketOpen()`, `binProgress()`, `panelOpen()`, `settings()`, `shakeOffset()`, `reduceMotion()`, `slotPictures()`, `recoveries()`, `intro()`
+- coordinate helpers for driving the real mouse: `worldToClient(x, y)`, `slotButtonClient(slot)`, `homeButtonClient()`, `uiClient(name)` (pause, home, resume, to_menu, gear, door, bin, `toggle_*`), `sliderClient(key, value)`, `pocketSlotClient(i)`
+- control: `send(command)`, `step(n)`, `frames(n)` (n frames of input and sim at 60 Hz, right now), `setPaused()` (a freeze without the pause board), `enableIntro(on)`, `saveNow()`, `clearLogs()`
 
 E2E tests move the real mouse with `page.mouse`, then assert on game state through the hook. They never compare pixels.
 
@@ -343,7 +381,9 @@ E2E tests move the real mouse with `page.mouse`, then assert on game state throu
 - `tests/unit/feeding.test.ts` and `tests/unit/reactions.test.ts` cover the M2 sim (drop targets, eating, spitting, burps, catches, saves mid-chew, variants, moods, tickles, shakes, Glorp) and the pure renderer modules (the reaction table, faces, moves, thoughts, bubbles, the cursor, shake detection, voices by mood, and sounds by material).
 - `tests/unit/water.test.ts` and `tests/unit/properties.test.ts` cover M3's sim: buoyancy for every item, splashes, skips, the current, soggy paper, the hose, lily pads, Skeet, swimming, area sleep, each property rule, eating effects, saves, and the version 3 migration. `tests/unit/pondView.test.ts` covers the tag looks, the wave surface, swim faces, fixture clicks, and water sounds. `tests/e2e/m3.spec.ts` covers the M3 acceptance criteria with the real mouse: carrying something across the screen edge into the pond with its tags, floating and sinking, steam, the hose tap, a bug swimming out and shaking dry, gum sticking and tearing, and the pond sleeping. Pick drop spots on open water with its `openWater()`, because floaters drift and Skeet roams.
 - `tests/unit/social.test.ts` covers playing together (chat, tag, catch, share, snatch, comfort, gawk, hide, ride), sleep and nap piles, and each signature behavior. `tests/unit/m4.test.ts` covers the needs, memory and scoring, the setup rule and its acceptance tests (10 minutes with player setups, a stack of three for 10 minutes, the 20-trial sniff test), off-screen simulation, the teacup, save version 5, and a 30-minute seeded soak (no NaN, needs in range, no bug stuck in one state for 3 minutes, the stack untouched). `tests/e2e/m4.spec.ts` checks with the real mouse that a dropped berry gets sniffed and not eaten, that a stack stays standing, that needs hold while paused, that a click wakes a napper, that lonely bugs chat in bubbles, and that the pond's bugs are fine when it wakes.
-- `pnpm shots` builds and runs `tests/shots/`, which walks through the game and writes screenshots to `/tmp/bb-shots` (or `$BB_SHOTS_DIR`). The first tour covers M1. The third (files `40-` to `55-`) visits the pond: Skeet, a splash, floaters, the hose, swimmers, shaking dry, ice, tag looks on items and bugs, gum, and soap bubbles. The idle watch (files `60-` to `87-`, and `idle-log.txt`) leaves the plaza alone for five simulated minutes and follows the bugs. The second (files `20-` to `37-`) feeds Rollo and Dot, catches the yum, yuck, hate, and love faces, the flame puff, burp, sneeze, a tickle, a thought bubble, and Glorp's shell spin. Use it to check art changes by eye. It is not part of CI.
+- `tests/unit/m5.test.ts` covers the pocket (stacks, swaps, frozen bugs and timers, saves, taking things out in another area), the setup rule with pocketed things, a full save round trip, three independent slots, every shipped save version, `SaveStore` backups, an aborted write, corrupt-file recovery, settings, reduce motion, the menu and pocket layout, the compost bin, slot badges, and the first scene. `tests/e2e/m5.spec.ts` checks with the real mouse that a slot saved with its picture comes back after quitting by the door and relaunching; that a corrupt save comes back from its backup; that dragging a sign into the bin deletes it and pulling it out keeps it; that the pause board freezes the world and settings survive a restart outside the slot files; that reduce motion keeps the shake offset at 0; that the pocket carries a sponge from the pond to the plaza; and that the first scene's Dot wakes when the hand comes near.
+- Tests that need exact timing drive the sim with `__bb.setPaused(true)` and `__bb.frames(n)` instead of waiting on the clock. The M3 gum test does this, because on CI's software renderer its pebble was still rolling when the gum landed.
+- `pnpm shots` builds and runs `tests/shots/`, which walks through the game and writes screenshots to `/tmp/bb-shots` (or `$BB_SHOTS_DIR`). The first tour covers M1. The third (files `40-` to `55-`) visits the pond: Skeet, a splash, floaters, the hose, swimmers, shaking dry, ice, tag looks on items and bugs, gum, and soap bubbles. The M5 tour (files `90-` to `99g-`) covers the menu, the settings board, the first scene, pause, the pocket, a slot with its picture, and the compost bin. The idle watch (files `60-` to `87-`, and `idle-log.txt`) leaves the plaza alone for five simulated minutes and follows the bugs. The second (files `20-` to `37-`) feeds Rollo and Dot, catches the yum, yuck, hate, and love faces, the flame puff, burp, sneeze, a tickle, a thought bubble, and Glorp's shell spin. Use it to check art changes by eye. It is not part of CI.
 - The frame-time check always requires update time under 16.7 ms (mean and 95th percentile over 600 frames). It checks update plus render time only on a hardware GPU, since software GL rasterizes on the CPU.
 - `BB_ELECTRON_ARGS` passes extra Chromium switches to the E2E launcher. `BB_ELECTRON_ARGS="--use-angle=swiftshader --use-gl=angle"` approximates CI's software renderer locally, though launches with it are flaky on Wayland.
 - `pnpm test:e2e` builds the app, then runs Playwright against `out/`. Each test launches a fresh app with its own userData. Locally it opens real windows in your desktop session. CI runs it under `xvfb-run`. The launcher removes `ELECTRON_RUN_AS_NODE` from the environment, because some editors built on Electron set it and it turns Electron into plain Node.
