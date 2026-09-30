@@ -78,6 +78,13 @@ export class SlotSign extends Container {
   /** Where the sign stands when nobody moves it. */
   home = { x: 0, y: 0 };
   private tilt = 0;
+  /**
+   * How far below its spot the art still is while it pops up. Only the art
+   * moves: the sign's hit area stands at its spot from the start, so it can
+   * be clicked at once.
+   */
+  rise = 0;
+  private readonly post: Graphics;
   private lastX = 0;
   picture: SlotPicture | null = null;
   onClick: (() => void) | null = null;
@@ -93,6 +100,7 @@ export class SlotSign extends Container {
     this.eventMode = 'static';
     this.cursor = 'pointer';
     const post = new Graphics();
+    this.post = post;
     post
       .rect(-14, SIGN_H / 2 - 20, 28, 260)
       .fill(0x9a6436)
@@ -104,7 +112,7 @@ export class SlotSign extends Container {
     this.addChild(post, this.board);
     this.board.addChild(drawBoard(new Graphics(), SIGN_W, SIGN_H, 0xd49a5e), this.face);
     const hit = new Graphics().rect(-SIGN_W / 2, -SIGN_H / 2, SIGN_W, SIGN_H).fill({ color: 0, alpha: 0 });
-    this.board.addChild(hit);
+    this.addChild(hit);
     this.setPicture(picture);
 
     this.on('pointerover', () => {
@@ -144,6 +152,11 @@ export class SlotSign extends Container {
     };
     this.on('pointerup', up);
     this.on('pointerupoutside', up);
+  }
+
+  /** The pointer is down on this sign. */
+  get pressed(): boolean {
+    return this.press !== null;
   }
 
   /** Forget any press or drag in progress (the slot was deleted under the hand). */
@@ -229,11 +242,13 @@ export class SlotSign extends Container {
     this.time += dt;
     const k = this.bounce.update(dt);
     this.board.scale.set(k);
+    this.rise = this.rise < 0.5 ? 0 : this.rise * Math.exp(-12 * dt);
+    this.board.y = this.post.y = this.rise;
     if (this.sprout) this.sprout.rotation = Math.sin(this.time * 1.7 + this.slot) * 0.05;
     if (!this.dragging && !overBin && !this.press) {
       // Spring home.
-      this.x += (this.home.x - this.x) * Math.min(1, dt * 14);
-      this.y += (this.home.y - this.y) * Math.min(1, dt * 14);
+      this.x += (this.home.x - this.x) * Math.min(1, dt * 12);
+      this.y += (this.home.y - this.y) * Math.min(1, dt * 12);
       if (Math.hypot(this.home.x - this.x, this.home.y - this.y) < 0.5)
         this.position.set(this.home.x, this.home.y);
     }
@@ -243,7 +258,7 @@ export class SlotSign extends Container {
     this.tilt += (Math.max(-0.35, Math.min(0.35, vx / 3000)) - this.tilt) * Math.min(1, dt * 8);
     this.board.rotation = this.tilt + Math.sin(this.time * 1.1 + this.slot * 2) * 0.012;
     // The post stays behind while dragged.
-    this.children[0]!.visible =
+    this.post.visible =
       !this.dragging && !overBin && Math.hypot(this.x - this.home.x, this.y - this.home.y) < 40;
   }
 }

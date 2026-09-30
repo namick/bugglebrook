@@ -631,9 +631,18 @@ test('menu, pause, pocket, and first scene tour', async () => {
     await page.mouse.move(960, 1060, { steps: 6 });
     await page.waitForTimeout(600);
     await shot(page, '99b-pocket-with-things');
+    const a = (await page.evaluate(() => window.__bb!.pocketSlotClient(0)))!;
+    const b = (await page.evaluate(() => window.__bb!.pocketSlotClient(5)))!;
+    const size = page.viewportSize() ?? { width: 1920, height: 1080 };
+    const w = b.x - a.x;
     await page.screenshot({
       path: join(DIR, '99c-pocket-closeup.png'),
-      clip: { x: 520, y: 900, width: 880, height: 180 },
+      clip: {
+        x: a.x - w * 0.15,
+        y: a.y - w * 0.12,
+        width: w * 1.3,
+        height: Math.max(20, size.height - (a.y - w * 0.12)),
+      },
     });
     await page.mouse.move(960, 500, { steps: 6 });
     await page.waitForTimeout(600);

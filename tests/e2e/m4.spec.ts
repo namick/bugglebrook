@@ -254,9 +254,19 @@ test('bugs left in the sleeping pond are doing something sensible when the camer
     await expect.poll(() => page.evaluate(() => window.__bb!.areaAsleep('area_puddle_pond'))).toBe(false);
     const skeet = await bugNamed(page, 'bug_waterstrider_skeet');
     expect(skeet.held).toBe(false);
-    expect(['st_idle', 'st_wander', 'st_seek', 'st_sleep', 'st_use', 'st_airborne', 'st_react']).toContain(
-      skeet.bug!.mode,
-    );
+    // Anything a free bug does is fine (it may already be eating the food it set off for); never held or stuck mid-fling.
+    expect([
+      'st_idle',
+      'st_wander',
+      'st_seek',
+      'st_sleep',
+      'st_use',
+      'st_eat',
+      'st_social',
+      'st_landing',
+      'st_airborne',
+      'st_react',
+    ]).toContain(skeet.bug!.mode);
     expect(skeet.x).toBeLessThan(PLAZA_X);
     expect(bb.errors).toEqual([]);
   } finally {

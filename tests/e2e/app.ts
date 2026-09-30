@@ -58,8 +58,6 @@ export async function waitForScene(page: Page, scene: 'menu' | 'world'): Promise
 /** Click a menu slot card with the real mouse. Retries if a busy machine drops the first click. */
 export async function clickSlot(page: Page, slot: number): Promise<void> {
   await waitForScene(page, 'menu');
-  // The signs pop up from the ground as the menu opens.
-  await expect.poll(() => page.evaluate(() => window.__bb!.menuSettled()), { timeout: 20_000 }).toBe(true);
   for (let attempt = 0; attempt < 3; attempt++) {
     const pos = await page.evaluate((s) => window.__bb!.slotButtonClient(s), slot);
     expect(pos).not.toBeNull();

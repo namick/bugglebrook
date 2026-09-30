@@ -49,8 +49,10 @@ export interface TestHook {
   /** Screen shakes asked for, and the biggest shake offset drawn since the last reset. */
   shakeStats(): { requests: number; max: number };
   resetShakeStats(): void;
-  /** Every menu sign stands at its spot and the live plaza is drawn. */
+  /** Every menu sign has popped up and stands at its spot. */
   menuSettled(): boolean;
+  /** A menu sign's state, for tests that drag it. */
+  sign(slot: number): { x: number; y: number; pressed: boolean; dragging: boolean; picture: boolean } | null;
   /** Is reduce motion on in the world view? */
   reduceMotion(): boolean;
   /** Does each menu sign show a world picture (true), a saved world without one (false), or a sprout (null)? */
@@ -198,6 +200,12 @@ export function installTestHook(game: Game): void {
       if (s) s.requests = s.max = 0;
     },
     menuSettled: () => game.menu?.settled ?? false,
+    sign: (slot) => {
+      const s = game.menu?.sign(slot);
+      return s
+        ? { x: s.x, y: s.y, pressed: s.pressed, dragging: s.dragging, picture: s.picture !== null }
+        : null;
+    },
     slotPictures: () => game.menu?.signs.map((s) => (s.picture ? s.picture.thumb !== null : null)) ?? [],
     recoveries: () => [...game.recoveries],
     enableIntro: (on) => {

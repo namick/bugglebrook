@@ -113,7 +113,8 @@ export class MenuScene extends Container {
       const sign = new SlotSign(slot.slot, slot.save ? slotPicture(slot.save) : null);
       sign.home = { x: SIGN_XS[i] ?? 960, y: SIGN_Y };
       // Signs pop up from the ground one after another.
-      sign.position.set(sign.home.x, SIGN_Y + 260 + i * 90);
+      sign.position.set(sign.home.x, sign.home.y);
+      sign.rise = 420 + i * 120;
       sign.label = `slot-${slot.slot}`;
       sign.onClick = () => {
         if (this.deleting) return;
@@ -164,9 +165,8 @@ export class MenuScene extends Container {
 
   /** Every sign is standing at its spot and nothing is being dragged (tests wait for this). */
   get settled(): boolean {
-    return (
-      this.view !== null &&
-      this.signs.every((s) => !s.dragging && Math.hypot(s.x - s.home.x, s.y - s.home.y) < 1)
+    return this.signs.every(
+      (s) => !s.dragging && s.rise === 0 && Math.hypot(s.x - s.home.x, s.y - s.home.y) < 1,
     );
   }
 
@@ -177,7 +177,7 @@ export class MenuScene extends Container {
 
   update(dt: number): void {
     this.time += dt;
-    if (!this.view && this.time >= 0.25) {
+    if (!this.view && this.time >= 0.6) {
       this.view = new WorldView(this.sim, null, this.renderer);
       this.view.eventMode = 'none';
       this.view.reduceMotion = this.reduced;
@@ -235,7 +235,8 @@ export class MenuScene extends Container {
       sign.letGo();
       this.inBin = null;
       sign.scale.set(1);
-      sign.position.set(sign.home.x, SIGN_Y + 500);
+      sign.position.set(sign.home.x, sign.home.y);
+      sign.rise = 500;
       this.deleting = false;
       this.bin.progress = 0;
       this.hooks.sound('sparkle');
