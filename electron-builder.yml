@@ -1,0 +1,50 @@
+appId: com.namick.bugglebrook
+productName: Bugglebrook
+copyright: Copyright © 2026 namick
+directories:
+  buildResources: build
+  output: dist
+files:
+  - out/**
+  - package.json
+  - '!**/*.map'
+asarUnpack: []
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+
+publish:
+  provider: github
+  owner: namick
+  repo: bugglebrook
+  # CI only ever creates drafts. A person publishes a release by hand.
+  releaseType: draft
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+mac:
+  category: public.app-category.kids-games
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+  # Unsigned builds. Set up signing and notarization before shipping to players.
+  identity: null
+  hardenedRuntime: false
+
+linux:
+  category: Game
+  maintainer: namick <namick@users.noreply.github.com>
+  synopsis: Tiny bugs, a backyard, and lots of toys.
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
