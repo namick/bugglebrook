@@ -32,6 +32,11 @@ describe('bugFace', () => {
     );
   });
 
+  it('stays uncurled for its own little hops', () => {
+    const hop = bugFace({ ...base, art: 'pillbug', mode: 'st_airborne', selfLaunched: true });
+    expect(hop.form).toBe('normal');
+  });
+
   it('chews while eating and looks glum when hungry', () => {
     const mouths = new Set(
       [0, 0.1, 0.2, 0.3].map((time) => bugFace({ ...base, mode: 'st_eat', time }).mouth),

@@ -69,23 +69,28 @@ export class PointerController {
     private readonly now: () => number = () => performance.now(),
   ) {}
 
-  private sample(): void {
+  /** Record where the pointer is, at event time `t` (ms, performance clock). */
+  private sample(t: number): void {
     const w = this.camera.viewToWorld(this.pointer);
-    const t = this.now();
     this.samples.push({ t, x: w.x, y: w.y });
     while (this.samples.length > 2 && t - this.samples[0]!.t > 250) this.samples.shift();
   }
 
-  down(view: Point): void {
+  /**
+   * Pointer handlers take the DOM event's timestamp when there is one. Events
+   * can arrive in bursts on a slow frame, so the time they happened is what
+   * measures the fling, not the time they were handled.
+   */
+  down(view: Point, t = this.now()): void {
     this.pointer = view;
     const world = this.camera.viewToWorld(view);
     this.hoverWorld = world;
-    this.pressAt = this.now();
+    this.pressAt = t;
     this.pressView = view;
     this.pressWorld = world;
     this.travelled = 0;
     this.samples = [];
-    this.sample();
+    this.sample(t);
     const hit = this.sim.physics.bodyAt(world.x, world.y, 0.2);
     this.camera.velocity = 0;
     if (hit !== null) {
@@ -98,14 +103,14 @@ export class PointerController {
     }
   }
 
-  move(view: Point, dt = 1 / 60): void {
+  move(view: Point, dt = 1 / 60, t = this.now()): void {
     this.pointer = view;
     this.hoverWorld = this.camera.viewToWorld(view);
     this.travelled = Math.max(
       this.travelled,
       Math.hypot(view.x - this.pressView.x, view.y - this.pressView.y),
     );
-    if (this.mode === 'hold') this.sample();
+    if (this.mode === 'hold') this.sample(t);
     if (this.mode === 'pan') {
       const dxMeters = (view.x - this.panLastX) / this.camera.ppm;
       this.camera.panBy(-dxMeters);
@@ -124,14 +129,22 @@ export class PointerController {
     return averageVelocity(this.samples);
   }
 
-  up(): void {
+  /** `view` is where the release happened; moves can still be queued behind it on a slow frame. */
+  up(t = this.now(), view?: Point): void {
+    if (view) {
+      this.travelled = Math.max(
+        this.travelled,
+        Math.hypot(view.x - this.pressView.x, view.y - this.pressView.y),
+      );
+      this.pointer = view;
+    }
     if (this.mode === 'hold') {
-      const quick = this.now() - this.pressAt <= POKE_MS && this.travelled <= POKE_PX;
+      const quick = t - this.pressAt <= POKE_MS && this.travelled <= POKE_PX;
       if (quick) {
         this.sim.send({ type: 'poke', x: this.pressWorld.x, y: this.pressWorld.y });
         this.lastRelease = null;
       } else {
-        this.sample();
+        this.sample(t);
         const v = this.velocity();
         this.lastRelease = v;
         this.sim.send({ type: 'release', vx: v.x, vy: v.y });
@@ -152,7 +165,6 @@ export class PointerController {
     this.camera.edgeScroll(this.pointer.x, this.viewWidthPx, dt, 80, 9);
     const world = this.camera.viewToWorld(this.pointer);
     this.hoverWorld = world;
-    this.sample();
     this.sim.send({ type: 'drag', x: world.x, y: world.y });
   }
 }

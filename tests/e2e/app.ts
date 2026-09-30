@@ -29,7 +29,7 @@ export async function launchApp(userData?: string): Promise<Launched> {
   // Some hosts (editors built on Electron) leak this; it turns Electron into plain Node.
   delete env.ELECTRON_RUN_AS_NODE;
   const app = await electron.launch({
-    args: [root],
+    args: [...(process.env.BB_ELECTRON_ARGS?.split(' ').filter(Boolean) ?? []), root],
     env: { ...env, BUGGLEBROOK_TEST: '1', BUGGLEBROOK_USER_DATA: dir },
   });
   const page = await app.firstWindow();

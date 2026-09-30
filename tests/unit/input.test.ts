@@ -135,3 +135,20 @@ describe('PointerController', () => {
     expect(camera.x).toBeGreaterThan(1);
   });
 });
+
+describe('PointerController on a slow frame', () => {
+  it('uses the release position when moves are still queued behind it', () => {
+    const sim = Sim.empty();
+    const camera = new Camera(sim.worldWidth, VIEW_WIDTH_M);
+    const clock = { t: 1000 };
+    const input = new PointerController(sim, camera, VIEW_WIDTH_PX, () => clock.t);
+    const pebble = sim.spawn('item', 'item_pebble', 7, GROUND_Y - 0.21);
+    sim.run(5);
+    const at = camera.worldToView(sim.view(pebble.id)!);
+    input.down(at, 1000);
+    input.move({ x: at.x, y: at.y - 100 }, 1 / 60, 1200);
+    // The release arrives 40 ms later, 200 px further right, before its moves.
+    input.up(1240, { x: at.x + 200, y: at.y - 100 });
+    expect(input.lastRelease!.x).toBeGreaterThan(20);
+  });
+});

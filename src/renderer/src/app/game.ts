@@ -30,6 +30,12 @@ interface WorldSession {
   home: PictureButton;
 }
 
+/** When the DOM event happened (Pixi stamps its own events with the handling time). */
+function eventTime(e: FederatedPointerEvent): number {
+  const t = (e.nativeEvent as { timeStamp?: number }).timeStamp;
+  return typeof t === 'number' && t > 0 ? t : performance.now();
+}
+
 /**
  * Top-level game controller: switches between the menu and the world, runs
  * the fixed-step loop, wires input, audio, and autosave.
@@ -44,6 +50,10 @@ export class Game {
   readonly voices: BugVoices;
   /** Milliseconds of work (update and render) for recent frames, newest last. */
   readonly frameTimes: number[] = [];
+  /** Milliseconds spent in the update half of recent frames (input, sim, drawing setup). */
+  readonly updateTimes: number[] = [];
+  /** True when WebGL runs in software (CI, VMs). Set by main.ts. */
+  softwareRenderer = false;
   /** Recent sim events, newest last, for the test hook. */
   readonly eventLog: { name: string; tick: number; payload: unknown }[] = [];
   private frameStart = 0;
@@ -65,6 +75,10 @@ export class Game {
     app.ticker.add((ticker) => {
       this.frameStart = performance.now();
       this.frame(Math.min(0.1, ticker.deltaMS / 1000));
+      if (this.session) {
+        this.updateTimes.push(performance.now() - this.frameStart);
+        if (this.updateTimes.length > FRAME_HISTORY) this.updateTimes.shift();
+      }
     });
     // Runs after Pixi renders, so the time covers update and render.
     app.ticker.add(
@@ -88,12 +102,17 @@ export class Game {
     stage.hitArea = this.app.screen;
     stage.on('pointerdown', (e: FederatedPointerEvent) => {
       this.audio.resume();
-      this.session?.input.down({ x: e.global.x, y: e.global.y });
+      this.session?.input.down({ x: e.global.x, y: e.global.y }, eventTime(e));
     });
     stage.on('globalpointermove', (e: FederatedPointerEvent) =>
-      this.session?.input.move({ x: e.global.x, y: e.global.y }, this.app.ticker.deltaMS / 1000),
+      this.session?.input.move(
+        { x: e.global.x, y: e.global.y },
+        this.app.ticker.deltaMS / 1000,
+        eventTime(e),
+      ),
     );
-    const up = (): void => this.session?.input.up();
+    const up = (e: FederatedPointerEvent): void =>
+      this.session?.input.up(eventTime(e), { x: e.global.x, y: e.global.y });
     stage.on('pointerup', up);
     stage.on('pointerupoutside', up);
     stage.on('pointerleave', () => this.session?.input.leave());
@@ -122,7 +141,7 @@ export class Game {
     const camera = new Camera(sim.worldWidth, VIEW_WIDTH_M);
     camera.set(save ? save.view.cameraX : START_CAMERA_X);
     const input = new PointerController(sim, camera, VIEW_WIDTH_PX);
-    const view = new WorldView(sim, input);
+    const view = new WorldView(sim, input, this.app.renderer);
     const root = new Container();
     const home = homeButton(() => {
       this.sfx.play('ui_pop');
@@ -136,6 +155,7 @@ export class Game {
     this.sfx.attach(sim.events);
     this.voices.attach(sim.events);
     this.frameTimes.length = 0;
+    this.updateTimes.length = 0;
     this.eventLog.length = 0;
     sim.events.onAny((name, payload) => {
       this.eventLog.push({ name, tick: sim.tick, payload });

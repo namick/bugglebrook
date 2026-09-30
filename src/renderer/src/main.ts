@@ -9,6 +9,14 @@ import { WebAudioBackend } from './audio/synth';
 import { installTestHook } from './debug/testHook';
 import { fitViewport } from './render/viewport';
 
+function isSoftwareRenderer(app: Application): boolean {
+  const gl = (app.renderer as { gl?: WebGLRenderingContext }).gl;
+  if (!gl) return false;
+  const info = gl.getExtension('WEBGL_debug_renderer_info');
+  const name = String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
+  return /swiftshader|llvmpipe|software/i.test(name);
+}
+
 async function boot(): Promise<void> {
   const api = window.bugglebrook ?? memoryApi();
   const app = new Application();
@@ -21,6 +29,8 @@ async function boot(): Promise<void> {
     preference: 'webgl',
   });
   const canvas = app.canvas;
+  // Software WebGL (CI under xvfb, VMs) is fill-rate bound: render fewer pixels there.
+  const software = isSoftwareRenderer(app);
   canvas.id = 'game';
   document.body.appendChild(canvas);
 
@@ -28,7 +38,8 @@ async function boot(): Promise<void> {
   // window, rendering at the real pixel density so edges stay crisp.
   const resize = (): void => {
     const fit = fitViewport(window.innerWidth, window.innerHeight, VIEW_WIDTH_PX, VIEW_HEIGHT_PX);
-    app.renderer.resize(VIEW_WIDTH_PX, VIEW_HEIGHT_PX, Math.min(2, fit.scale * window.devicePixelRatio));
+    const resolution = software ? 0.5 : Math.min(2, fit.scale * window.devicePixelRatio);
+    app.renderer.resize(VIEW_WIDTH_PX, VIEW_HEIGHT_PX, resolution);
     Object.assign(canvas.style, {
       width: `${fit.width}px`,
       height: `${fit.height}px`,
@@ -40,6 +51,7 @@ async function boot(): Promise<void> {
   resize();
 
   const game = new Game(app, api, new WebAudioBackend());
+  game.softwareRenderer = software;
   if (api.testMode) installTestHook(game);
   await game.start();
 }

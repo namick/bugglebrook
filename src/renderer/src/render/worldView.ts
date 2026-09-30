@@ -1,4 +1,5 @@
 import { Container, Graphics } from 'pixi.js';
+import type { Renderer } from 'pixi.js';
 import { PIXELS_PER_METER, VIEW_WIDTH_PX } from '../../../game/constants';
 import type { EntityId } from '../../../game/core/entities';
 import type { EntityView, Sim } from '../../../game/sim';
@@ -54,9 +55,10 @@ export class WorldView extends Container {
   constructor(
     private readonly sim: Sim,
     private readonly pointer: PointerSource | null = null,
+    renderer: Renderer | null = null,
   ) {
     super();
-    this.background = new Background(sim.content.areas.all, sim.terrain, sim.worldWidth);
+    this.background = new Background(sim.content.areas.all, sim.terrain, sim.worldWidth, renderer);
     const bg = this.background;
     this.entityLayer.sortableChildren = true;
     this.world.addChild(bg.near, this.shadows, this.trails, this.entityLayer, this.particles);
@@ -216,6 +218,7 @@ export class WorldView extends Container {
       needs: bug.needs,
       time: this.time,
       likesFlinging: def.likesFlinging,
+      selfLaunched: bug.selfLaunched,
     });
     const speed = Math.hypot(view.vx, view.vy);
     const flying = bug.mode === 'st_airborne' || bug.mode === 'st_use';
@@ -239,7 +242,7 @@ export class WorldView extends Container {
     j.look.y = approach(j.look.y, target.y, 12, dt);
 
     // Tumble while flying (Rollo rolls for real; the others spin for show).
-    if (flying && face.form !== 'curled' && face.form !== 'flying') {
+    if (flying && !bug.selfLaunched && face.form !== 'curled' && face.form !== 'flying') {
       j.spin += Math.max(-9, Math.min(9, view.vx * 0.9)) * dt;
     } else {
       const wrapped = Math.atan2(Math.sin(j.spin), Math.cos(j.spin));

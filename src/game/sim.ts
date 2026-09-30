@@ -36,6 +36,8 @@ export interface BugView {
   timer: number;
   /** Full length of the current dizzy spell, in ticks. */
   dizzyTicks: number;
+  /** Airborne by its own hop, not thrown. */
+  selfLaunched: boolean;
 }
 
 /** Read-only view of one entity for the renderer and the test hook. */
@@ -561,6 +563,7 @@ function bugView(b: BugBrain): BugView {
     targetId: b.targetId,
     timer: b.timer,
     dizzyTicks: b.dizzyTicks,
+    selfLaunched: b.selfLaunched,
   };
 }
 

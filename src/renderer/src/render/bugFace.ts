@@ -23,6 +23,8 @@ export interface BugFaceInput {
   time: number;
   /** Does this bug enjoy being flung? */
   likesFlinging: boolean;
+  /** Airborne by its own hop rather than thrown. */
+  selfLaunched?: boolean;
 }
 
 /**
@@ -44,6 +46,7 @@ export function bugFace(input: BugFaceInput): BugFace {
       if (art === 'snail') return face('wide', 'o');
       return face('worried', 'o');
     case 'st_airborne':
+      if (input.selfLaunched) return face('open', 'o');
       if (art === 'pillbug') return face('squint', 'o', 'curled');
       if (art === 'snail') return face('wide', 'o', 'in_shell');
       return face('wide', 'whee', input.likesFlinging ? 'flying' : 'normal', input.likesFlinging);

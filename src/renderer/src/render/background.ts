@@ -1,4 +1,5 @@
-import { Container, FillGradient, Graphics } from 'pixi.js';
+import { Container, FillGradient, Graphics, Rectangle, Sprite } from 'pixi.js';
+import type { Renderer } from 'pixi.js';
 import { PIXELS_PER_METER, VIEW_HEIGHT_PX, VIEW_WIDTH_PX } from '../../../game/constants';
 import { Rng } from '../../../game/core/rng';
 import type { AreaDef } from '../../../game/data/types';
@@ -70,7 +71,7 @@ export class Background {
   readonly front = new Container();
   private readonly sunRays = new Graphics();
   private readonly sun = new Container();
-  private readonly cloudSprites: Graphics[] = [];
+  private readonly cloudSprites: Container[] = [];
   private readonly cloudBase: number[] = [];
   private cloudWidth = 0;
   private readonly worldPx: number;
@@ -79,6 +80,7 @@ export class Background {
     private readonly areas: readonly AreaDef[],
     private readonly terrain: Terrain,
     worldWidthM: number,
+    renderer: Renderer | null = null,
   ) {
     this.worldPx = worldWidthM * PPM;
     const area = areas[0]!;
@@ -89,6 +91,80 @@ export class Background {
     this.drawMid(rng);
     this.drawNear(rng);
     this.drawFront(rng);
+    if (renderer) this.bakeAll(renderer);
+  }
+
+  /**
+   * Render the static layers into textures once. They hold thousands of
+   * shapes; drawing them as a few sprites per frame keeps software
+   * renderers (CI, VMs) fast and costs real GPUs nothing.
+   */
+  private bakeAll(renderer: Renderer): void {
+    const fine = Math.min(2, Math.max(1, renderer.resolution));
+    const height = BOTTOM;
+    this.bakeLayer(renderer, this.sky, [this.sky.children[0]!], VIEW_WIDTH_PX, height, 1);
+    this.bakeLayer(
+      renderer,
+      this.hills,
+      [...this.hills.children],
+      this.span(PARALLAX.hills) + 200,
+      height,
+      1,
+    );
+    this.bakeLayer(renderer, this.mid, [...this.mid.children], this.span(PARALLAX.mid) + 300, height, 1);
+    this.bakeLayer(renderer, this.near, [...this.near.children], this.worldPx, height, fine);
+    this.bakeLayer(
+      renderer,
+      this.front,
+      [...this.front.children],
+      this.span(PARALLAX.front) + 200,
+      height,
+      fine,
+    );
+    this.cloudSprites.forEach((cloud, i) => {
+      const b = cloud.getLocalBounds();
+      const frame = new Rectangle(b.x - 4, b.y - 4, b.width + 8, b.height + 8);
+      const tex = renderer.generateTexture({ target: cloud, frame, resolution: 1, antialias: true });
+      const sprite = new Sprite(tex);
+      const holder = new Container();
+      sprite.position.set(frame.x, frame.y);
+      holder.addChild(sprite);
+      holder.position.copyFrom(cloud.position);
+      this.clouds.addChildAt(holder, this.clouds.getChildIndex(cloud));
+      this.clouds.removeChild(cloud);
+      cloud.destroy();
+      this.cloudSprites[i] = holder;
+    });
+  }
+
+  private bakeLayer(
+    renderer: Renderer,
+    layer: Container,
+    children: Container[],
+    width: number,
+    height: number,
+    resolution: number,
+  ): void {
+    const CHUNK = 1024;
+    const index = layer.getChildIndex(children[0]!);
+    const holder = new Container();
+    for (const c of children) holder.addChild(c);
+    const out = new Container();
+    for (let x = 0; x < width; x += CHUNK) {
+      // Overlap neighbours a little so filtering never shows a seam.
+      const w = Math.min(CHUNK + 4, width - x);
+      const tex = renderer.generateTexture({
+        target: holder,
+        frame: new Rectangle(x, 0, w, height),
+        resolution,
+        antialias: true,
+      });
+      const sprite = new Sprite(tex);
+      sprite.position.set(x, 0);
+      out.addChild(sprite);
+    }
+    holder.destroy({ children: true });
+    layer.addChildAt(out, Math.min(index, layer.children.length));
   }
 
   /** How wide a parallax layer must be to cover the whole world scroll. */

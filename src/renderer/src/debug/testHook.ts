@@ -33,6 +33,10 @@ export interface TestHook {
   lastRelease(): Point | null;
   /** Update-plus-render time (ms) of the last `n` frames in the world. */
   frameTimes(n: number): number[];
+  /** Update-only time (ms) of the last `n` frames in the world. */
+  updateTimes(n: number): number[];
+  /** True when WebGL is running in software, where render time says nothing about the game. */
+  softwareRenderer(): boolean;
   /** Live particles and entity sprites. */
   renderStats(): { particles: number; sprites: number };
   saveNow(): Promise<void>;
@@ -79,6 +83,8 @@ export function installTestHook(game: Game): void {
     events: () => game.eventLog.map((e) => ({ ...e })),
     lastRelease: () => game.session?.input.lastRelease ?? null,
     frameTimes: (n) => game.frameTimes.slice(-n),
+    updateTimes: (n) => game.updateTimes.slice(-n),
+    softwareRenderer: () => game.softwareRenderer,
     renderStats: () => ({
       particles: game.session?.view.particles.count ?? 0,
       sprites: game.session?.view.spriteCount ?? 0,
