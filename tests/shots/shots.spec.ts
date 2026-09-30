@@ -24,9 +24,15 @@ async function shot(page: Page, name: string): Promise<void> {
 async function closeUp(page: Page, name: string, x: number, y: number, w = 4, h = 2.6): Promise<void> {
   const a = await page.evaluate(([px, py]) => window.__bb!.worldToClient(px!, py!), [x - w / 2, y - h / 2]);
   const b = await page.evaluate(([px, py]) => window.__bb!.worldToClient(px!, py!), [x + w / 2, y + h / 2]);
+  // Keep the clip on screen, so a bug near the edge still gets its picture.
+  const size = page.viewportSize() ?? { width: 1920, height: 1080 };
+  const x0 = Math.max(0, Math.min(size.width - 40, a.x));
+  const y0 = Math.max(0, Math.min(size.height - 40, a.y));
+  const x1 = Math.max(x0 + 40, Math.min(size.width, b.x));
+  const y1 = Math.max(y0 + 40, Math.min(size.height, b.y));
   await page.screenshot({
     path: join(DIR, `${name}.png`),
-    clip: { x: a.x, y: a.y, width: b.x - a.x, height: b.y - a.y },
+    clip: { x: x0, y: y0, width: x1 - x0, height: y1 - y0 },
   });
 }
 
@@ -303,6 +309,164 @@ test('feeding and reactions tour', async () => {
     await bugShot(page, '36-glorp-shell-spin', glorp.id);
     await page.waitForTimeout(1200);
     await bugShot(page, '37-glorp-after', glorp.id);
+  } finally {
+    await bb.close();
+  }
+});
+
+/** Spawn something at a world point and return its ID once it exists. */
+async function spawnAt(
+  page: Page,
+  kind: 'bug' | 'item',
+  defId: string,
+  x: number,
+  y: number,
+): Promise<number> {
+  const before = new Set((await entities(page)).map((e) => e.id));
+  await page.evaluate(
+    ([k, d, px, py]) =>
+      window.__bb!.send({
+        type: 'spawn',
+        kind: k as 'bug',
+        defId: d as string,
+        x: px as number,
+        y: py as number,
+      }),
+    [kind, defId, x, y] as const,
+  );
+  await page.waitForTimeout(50);
+  return (await entities(page)).find((e) => !before.has(e.id) && e.defId === defId)!.id;
+}
+
+const setTag = (page: Page, id: number, tag: string, on = true): Promise<void> =>
+  page.evaluate(
+    ([i, t, o]) =>
+      window.__bb!.send({ type: 'set_tag', id: i as number, tag: t as string, on: o as boolean }),
+    [id, tag, on] as const,
+  );
+
+test('pond and properties tour', async () => {
+  mkdirSync(DIR, { recursive: true });
+  const bb = await launchApp();
+  const { app, page } = bb;
+  try {
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1920, 1080));
+    await page.waitForTimeout(500);
+    await clickSlot(page, 2);
+    await page.waitForTimeout(600);
+    // Scroll left to the pond.
+    await page.mouse.move(960, 300);
+    for (let i = 0; i < 20; i++) {
+      await page.mouse.wheel(0, -110);
+      await page.waitForTimeout(16);
+    }
+    await page.waitForTimeout(1500);
+    await shot(page, '40-pond');
+    const skeet = await bugNamed(page, 'bug_waterstrider_skeet');
+    await bugShot(page, '41-skeet', skeet.id, 3.6, 2.6);
+    const w = (await page.evaluate(() => window.__bb!.water())).surfaces[0]!;
+
+    // A pebble plunks in: splash.
+    await spawnAt(page, 'item', 'item_pebble', 15.6, 5);
+    await page.waitForTimeout(620);
+    await closeUp(page, '42-splash', 15.6, w.level - 0.6, 4, 2.6);
+    await page.waitForTimeout(1500);
+    await closeUp(page, '43-floaters', 11, w.level - 0.2, 6, 3);
+
+    // The hose tap, clicked with the real mouse, after scrolling right a little.
+    await page.mouse.move(960, 300);
+    for (let i = 0; i < 6; i++) {
+      await page.mouse.wheel(0, 110);
+      await page.waitForTimeout(16);
+    }
+    await page.waitForTimeout(300);
+    const tap = (await page.evaluate(() => window.__bb!.fixture('fix_hose_tap')))!;
+    const tp = await toClient(page, tap.x, tap.y);
+    await page.mouse.click(tp.x, tp.y);
+    await page.mouse.move(960, 120);
+    await page.waitForTimeout(1200);
+    await closeUp(page, '44-hose-spray', tap.x - 2, tap.y, 6, 3.4);
+    await page.mouse.click(tp.x, tp.y);
+    await page.mouse.move(960, 120);
+    for (let i = 0; i < 6; i++) {
+      await page.mouse.wheel(0, -110);
+      await page.waitForTimeout(16);
+    }
+    await page.waitForTimeout(300);
+
+    // Bugs fall in: Dot paddles, Rollo sinks, Glorp floats like a boat.
+    const dot = await spawnAt(page, 'bug', 'bug_ladybug_dot', 7.2, 6);
+    const rollo = await spawnAt(page, 'bug', 'bug_pillbug_rollo', 14.6, 6);
+    const glorp = await spawnAt(page, 'bug', 'bug_snail_glorp', 19.5, 6);
+    for (const id of [dot, rollo, glorp]) await content(page, id);
+    await page.waitForTimeout(700);
+    await bugShot(page, '45-dot-splash', dot, 3, 2.4);
+    await page.waitForTimeout(900);
+    await shot(page, '46-swimmers');
+    await bugShot(page, '47-rollo-bottom', rollo, 3, 2.4);
+    await bugShot(page, '48-glorp-boat', glorp, 3, 2.4);
+    // Wait for someone to reach the shore and shake dry.
+    await page.waitForTimeout(3500);
+    await shot(page, '49-shore');
+    for (let i = 0; i < 40; i++) {
+      const shook = (await page.evaluate(() => window.__bb!.events())).find(
+        (e) => e.name === 'bug_shook_dry',
+      );
+      if (shook) {
+        const p = shook.payload as { id: number };
+        await page.waitForTimeout(150);
+        await bugShot(page, '50-shake-dry', p.id, 3, 2.4);
+        break;
+      }
+      await page.waitForTimeout(250);
+    }
+
+    // Mint leaf into the water: an ice sheet.
+    await spawnAt(page, 'item', 'item_mint_leaf', 10.4, 7);
+    await page.waitForTimeout(1500);
+    await closeUp(page, '51-ice', 10.4, w.level - 0.5, 4, 2.4);
+
+    // Bugs with tags: a hot Dot glows, a frozen Rollo sits in ice.
+    const d2 = await spawnAt(page, 'bug', 'bug_ladybug_dot', 3.2, 7);
+    const r2 = await spawnAt(page, 'bug', 'bug_pillbug_rollo', 1.8, 7);
+    for (const id of [d2, r2]) await content(page, id);
+    await page.waitForTimeout(800);
+    await setTag(page, d2, 'tag_hot');
+    await setTag(page, r2, 'tag_frozen');
+    await page.waitForTimeout(600);
+    await closeUp(page, '53-bug-tags', 2.6, 8, 4, 2.6);
+
+    await page.mouse.move(960, 300);
+    for (let i = 0; i < 8; i++) {
+      await page.mouse.wheel(0, 110);
+      await page.waitForTimeout(16);
+    }
+    await page.waitForTimeout(300);
+    // Tag looks side by side on the bank: wet, hot, frozen, smelly, soapy, fuzzy.
+    const row: [string, string][] = [
+      ['item_sponge', 'tag_wet'],
+      ['item_pebble', 'tag_hot'],
+      ['item_cork', 'tag_frozen'],
+      ['item_leaf', 'tag_smelly'],
+      ['item_twig', 'tag_soapy'],
+    ];
+    for (let i = 0; i < row.length; i++) {
+      const id = await spawnAt(page, 'item', row[i]![0], 27.4 + i * 0.75, 7.6);
+      await setTag(page, id, row[i]![1]);
+    }
+    await page.waitForTimeout(1200);
+    await closeUp(page, '52-tag-looks', 29, 8.1, 5, 2.4);
+
+    // Gum stuck to a pebble, and soap bubbles.
+    const gum = await spawnAt(page, 'item', 'item_gum_blob', 31.2, 6.5);
+    await spawnAt(page, 'item', 'item_pebble', 31.2, 5.5);
+    await page.waitForTimeout(1200);
+    const g = (await entity(page, gum))!;
+    await closeUp(page, '54-gum', g.x, g.y - 0.3, 2.4, 1.8);
+    const soap = await spawnAt(page, 'item', 'item_soap_sliver', 18.5, 6);
+    await page.waitForTimeout(2500);
+    const sv = (await entity(page, soap))!;
+    await closeUp(page, '55-soap-bubbles', sv.x, sv.y - 1, 4, 3);
   } finally {
     await bb.close();
   }
