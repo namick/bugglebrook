@@ -9,28 +9,35 @@ import { WebAudioBackend } from './audio/synth';
 import { installTestHook } from './debug/testHook';
 import { fitViewport } from './render/viewport';
 
-function isSoftwareRenderer(app: Application): boolean {
-  const gl = (app.renderer as { gl?: WebGLRenderingContext }).gl;
+/**
+ * Does WebGL run in software here (SwiftShader or llvmpipe, as on CI under
+ * xvfb and in VMs)? Asked of a throwaway context before Pixi starts, so the
+ * real one can skip multisampling, which costs a software rasterizer dearly.
+ */
+function softwareGl(): boolean {
+  const canvas = document.createElement('canvas');
+  const gl = (canvas.getContext('webgl2') ?? canvas.getContext('webgl')) as WebGLRenderingContext | null;
   if (!gl) return false;
   const info = gl.getExtension('WEBGL_debug_renderer_info');
   const name = String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
+  gl.getExtension('WEBGL_lose_context')?.loseContext();
   return /swiftshader|llvmpipe|software/i.test(name);
 }
 
 async function boot(): Promise<void> {
   const api = window.bugglebrook ?? memoryApi();
+  // Software WebGL (CI under xvfb, VMs) is fill-rate bound: no multisampling, and fewer pixels.
+  const software = softwareGl();
   const app = new Application();
   await app.init({
     width: VIEW_WIDTH_PX,
     height: VIEW_HEIGHT_PX,
-    antialias: true,
+    antialias: !software,
     background: 0x7ec8ff,
     autoDensity: false,
     preference: 'webgl',
   });
   const canvas = app.canvas;
-  // Software WebGL (CI under xvfb, VMs) is fill-rate bound: render fewer pixels there.
-  const software = isSoftwareRenderer(app);
   canvas.id = 'game';
   document.body.appendChild(canvas);
 

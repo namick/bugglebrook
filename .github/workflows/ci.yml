@@ -14,9 +14,9 @@ permissions:
 
 jobs:
   check:
-    name: Typecheck, lint, unit and E2E tests
+    name: Typecheck, lint, and unit tests
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -28,16 +28,34 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+
+  e2e:
+    name: E2E tests (shard ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - name: Install xvfb
         run: sudo apt-get update && sudo apt-get install -y xvfb
+      - run: pnpm build
       - name: E2E tests
-        run: xvfb-run -a --server-args="-screen 0 1920x1080x24" pnpm test:e2e
+        run: xvfb-run -a --server-args="-screen 0 1920x1080x24" pnpm exec playwright test --shard=${{ matrix.shard }}/4
         env:
           ELECTRON_OZONE_PLATFORM_HINT: x11
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/
@@ -45,7 +63,7 @@ jobs:
 
   build:
     name: Build (${{ matrix.os }})
-    needs: check
+    needs: [check, e2e]
     strategy:
       fail-fast: false
       matrix:
