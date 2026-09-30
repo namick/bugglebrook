@@ -8,7 +8,7 @@ import type { EntityView } from './app';
 // M1 acceptance (game design doc, section 19), driven with the real mouse.
 // CI renders WebGL in software at a few frames per second, and the sim runs
 // at most 0.1 s per frame, so waits here are generous.
-test.setTimeout(180_000);
+test.setTimeout(300_000);
 
 type Logged = { name: string; tick: number; payload: Record<string, number | string | boolean> };
 
@@ -89,7 +89,7 @@ test('launches into the plaza within 5 s and holds 60 fps with 3 bugs and 20 ite
 
     // Let 600 frames pass in the world, then check frame times.
     await expect
-      .poll(() => page.evaluate(() => window.__bb!.frameTimes(600).length), { timeout: 150_000 })
+      .poll(() => page.evaluate(() => window.__bb!.frameTimes(600).length), { timeout: 280_000 })
       .toBe(600);
     const stats = (xs: number[]): { mean: number; p95: number } => ({
       mean: xs.reduce((a, b) => a + b, 0) / xs.length,
@@ -207,10 +207,10 @@ test('a hard landing makes a bug dizzy for the design-doc duration', async () =>
     expect(Math.abs((dizzy!.payload.durationTicks as number) / 60 - expected)).toBeLessThanOrEqual(0.1);
     expect((await entity(page, dot.id))!.bug!.mode).toBe('st_dizzy');
 
-    await expect
-      .poll(async () => (await events(page, 'bug_recovered')).length, { timeout: 90_000 })
-      .toBeGreaterThan(0);
-    const [recovered] = await events(page, 'bug_recovered');
+    const mine = async () =>
+      (await events(page, 'bug_recovered')).filter((e) => e.payload.id === dot.id && e.tick > dizzy!.tick);
+    await expect.poll(async () => (await mine()).length, { timeout: 90_000 }).toBeGreaterThan(0);
+    const [recovered] = await mine();
     expect(Math.abs((recovered!.tick - dizzy!.tick) / 60 - expected)).toBeLessThanOrEqual(0.1);
     expect(await page.evaluate(() => window.__bb!.sfxLog())).toContain('dizzy');
     expect(bb.errors).toEqual([]);

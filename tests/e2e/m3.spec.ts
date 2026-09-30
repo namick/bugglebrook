@@ -282,8 +282,19 @@ test('gum sticks to what it lands on, and a hard yank tears it off', async () =>
     await clickSlot(page, 0);
     for (const b of (await entities(page)).filter((e) => e.kind === 'bug')) await content(page, b.id);
     const cam = await camera(page);
-    // A clear, flat spot on screen, so no bug wanders into the gum.
-    const pebble = await spawnItem(page, 'item_pebble', cam + 9);
+    // A clear, flat spot on screen, as far from every bug as can be, so none wanders into the gum.
+    const bugsNow = (await entities(page)).filter((e) => e.kind === 'bug');
+    let spot = cam + 9;
+    let best = -1;
+    for (let x = cam + 2; x < cam + 17; x += 0.25) {
+      if (!((x > PLAZA_X + 1 && x < PLAZA_X + 11.8) || (x > PLAZA_X + 27 && x < PLAZA_X + 37.5))) continue;
+      const d = Math.min(...bugsNow.map((b) => Math.abs(b.x - x)));
+      if (d > best) {
+        best = d;
+        spot = x;
+      }
+    }
+    const pebble = await spawnItem(page, 'item_pebble', spot);
     const pv = (await entity(page, pebble))!;
     const gum = await spawn(page, 'item', 'item_gum_blob', pv.x, pv.y - 1.5);
     const stuck = async (): Promise<boolean> =>
