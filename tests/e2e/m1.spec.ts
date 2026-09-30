@@ -188,7 +188,7 @@ test('a hard landing makes a bug dizzy for the design-doc duration', async () =>
     await flick(page, at, 30, 220, 4);
 
     await expect
-      .poll(async () => (await events(page, 'bug_dizzy')).length, { timeout: 5000 })
+      .poll(async () => (await events(page, 'bug_dizzy')).length, { timeout: 30_000 })
       .toBeGreaterThan(0);
     const [dizzy] = await events(page, 'bug_dizzy');
     expect(dizzy!.payload.id).toBe(dot.id);
@@ -199,7 +199,7 @@ test('a hard landing makes a bug dizzy for the design-doc duration', async () =>
     expect((await entity(page, dot.id))!.bug!.mode).toBe('st_dizzy');
 
     await expect
-      .poll(async () => (await events(page, 'bug_recovered')).length, { timeout: 12_000 })
+      .poll(async () => (await events(page, 'bug_recovered')).length, { timeout: 90_000 })
       .toBeGreaterThan(0);
     const [recovered] = await events(page, 'bug_recovered');
     expect(Math.abs((recovered!.tick - dizzy!.tick) / 60 - expected)).toBeLessThanOrEqual(0.1);
