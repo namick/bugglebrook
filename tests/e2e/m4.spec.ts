@@ -179,18 +179,24 @@ test('a click wakes a napping bug, groggy', async () => {
     const glorp = await bugNamed(page, 'bug_snail_glorp');
     await content(page, glorp.id);
     await setNeed(page, glorp.id, 'need_energy', 8);
-    await expect
-      .poll(async () => {
-        await step(page, 30);
-        return (await entity(page, glorp.id))!.bug!.mode;
-      })
-      .toBe('st_sleep');
+    // Frozen and stepped from here, so a slow machine sees the same nap: step until he nods off.
+    await page.evaluate(() => window.__bb!.setPaused(true));
+    const asleep = await page.evaluate((id) => {
+      for (let i = 0; i < 60 * 60; i++) {
+        window.__bb!.step(1);
+        if (window.__bb!.entity(id)?.bug?.mode === 'st_sleep') return true;
+      }
+      return false;
+    }, glorp.id);
+    expect(asleep).toBe(true);
     await page.evaluate(() => window.__bb!.clearLogs());
     // Snoring: "Z"s drift up in real time.
     await page.waitForTimeout(600);
     const g = (await entity(page, glorp.id))!;
     const p = await toClient(page, g.x, g.y);
     await page.mouse.click(p.x, p.y);
+    await page.evaluate(() => window.__bb!.frames(3));
+    await page.evaluate(() => window.__bb!.setPaused(false));
     await expect.poll(async () => (await events(page, 'bug_woke')).length).toBeGreaterThan(0);
     const [woke] = await events(page, 'bug_woke');
     expect(woke!.payload).toMatchObject({ id: glorp.id, early: true });
