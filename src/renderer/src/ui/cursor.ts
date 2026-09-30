@@ -13,13 +13,15 @@ export interface CursorState {
   overGrabbable: boolean;
   /** Over a button or other clickable thing. */
   overButton: boolean;
+  /** Over a clickable fixture, like the hose tap. */
+  overFixture?: boolean;
 }
 
 /** Pick the hand pose. Pure. */
 export function cursorPose(s: CursorState): CursorPose {
   if (s.mode === 'hold') return s.holding ? 'grab' : 'open';
   if (s.mode === 'pan') return 'pan';
-  if (s.overButton) return 'hover_poke';
+  if (s.overButton || s.overFixture) return 'hover_poke';
   if (s.overGrabbable) return 'hover_grab';
   return 'open';
 }

@@ -121,6 +121,8 @@ export class PointerController {
   lastRelease: Point | null = null;
   /** The grabbable thing under the cursor, when not holding or panning. */
   hoverId: EntityId | null = null;
+  /** A clickable fixture under the cursor (the hose tap), when nothing grabbable is. */
+  hoverFixture: string | null = null;
   /** Sounds for gestures that are not sim events. */
   onGesture: ((gesture: Gesture, strength: number) => void) | null = null;
   /** Tickling the held bug right now. */
@@ -195,6 +197,10 @@ export class PointerController {
     const id = this.mode === 'none' && w ? this.sim.physics.bodyAt(w.x, w.y, 0.2) : null;
     if (id !== null && id !== this.hoverId) this.gesture('hover');
     this.hoverId = id;
+    const fixture =
+      this.mode === 'none' && w && id === null ? this.sim.environment.fixtureAt(w.x, w.y) : null;
+    if (fixture && fixture.id !== this.hoverFixture) this.gesture('hover');
+    this.hoverFixture = fixture?.id ?? null;
   }
 
   move(view: Point, dt = 1 / 60, t = this.now()): void {
@@ -264,7 +270,12 @@ export class PointerController {
         this.sim.send({ type: 'release', vx: v.x, vy: v.y });
       }
     }
-    if (this.mode === 'pan') this.camera.velocity = Math.max(-40, Math.min(40, this.panVelocity));
+    if (this.mode === 'pan') {
+      const click = t - this.pressAt <= POKE_MS && this.travelled <= POKE_PX;
+      // A click on empty space pokes it: fixtures like the hose tap respond.
+      if (click) this.sim.send({ type: 'poke', x: this.pressWorld.x, y: this.pressWorld.y });
+      else this.camera.velocity = Math.max(-40, Math.min(40, this.panVelocity));
+    }
     this.mode = 'none';
     this.tickling = false;
     this.edging = false;

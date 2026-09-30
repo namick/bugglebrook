@@ -18,8 +18,11 @@ import { SaveService } from './saveService';
 export type SceneName = 'boot' | 'menu' | 'world';
 
 const AUTOSAVE_SECONDS = 20;
-/** Where the camera starts in a new world: Dot, Rollo, and the stump in view. */
-export const START_CAMERA_X = 3;
+/**
+ * Where the camera starts in a new world: Dot, Rollo, and the stump in view,
+ * with the pond a short pan to the left.
+ */
+export const START_CAMERA_X = CONTENT.areas.get('area_stump_plaza').xStart + 3;
 /** How many recent frame times to keep for the performance check. */
 const FRAME_HISTORY = 900;
 
@@ -31,6 +34,8 @@ interface WorldSession {
   input: PointerController;
   root: Container;
   home: PictureButton;
+  /** The camera x last sent to the sim as its focus. */
+  focusX: number | null;
 }
 
 /** The native moves the browser merged into this one, oldest first, if it can tell us. */
@@ -129,6 +134,7 @@ export class Game {
       holding: input?.holding ?? false,
       overGrabbable: (input?.hoverId ?? null) !== null,
       overButton: this.overButton,
+      overFixture: (input?.hoverFixture ?? null) !== null,
     });
   }
 
@@ -237,6 +243,7 @@ export class Game {
     );
     this.voices.attach(sim.events, (id) => sim.view(id)?.bug?.mood);
     input.onGesture = (gesture, strength) => this.sfx.play(gesture, strength);
+    view.onSound = (name, strength) => this.sfx.play(name, strength);
     this.frameTimes.length = 0;
     this.updateTimes.length = 0;
     this.eventLog.length = 0;
@@ -244,7 +251,7 @@ export class Game {
       this.eventLog.push({ name, tick: sim.tick, payload });
       if (this.eventLog.length > 400) this.eventLog.shift();
     });
-    this.session = { slot, sim, camera, view, input, root, home };
+    this.session = { slot, sim, camera, view, input, root, home, focusX: null };
     this.stepper.reset();
     this.sinceSave = 0;
     this.scene = 'world';
@@ -288,6 +295,13 @@ export class Game {
     for (let i = 0; i < n; i++) s.sim.step();
   }
 
+  /** Tell the sim what the camera shows, so faraway areas can sleep. */
+  private sendFocus(s: WorldSession): void {
+    if (s.focusX !== null && Math.abs(s.camera.x - s.focusX) < 0.25) return;
+    s.focusX = s.camera.x;
+    s.sim.send({ type: 'focus', x0: s.camera.x, x1: s.camera.x + VIEW_WIDTH_M });
+  }
+
   private frame(dt: number): void {
     this.frameCount++;
     if (this.menu) this.menu.update(dt);
@@ -302,6 +316,7 @@ export class Game {
       if (this.sinceSave >= AUTOSAVE_SECONDS) void this.saveNow();
     }
     s.camera.update(dt);
+    this.sendFocus(s);
     s.view.update(dt, s.camera);
     s.home.update(dt);
   }

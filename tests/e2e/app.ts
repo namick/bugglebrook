@@ -55,12 +55,20 @@ export async function waitForScene(page: Page, scene: 'menu' | 'world'): Promise
   await expect.poll(() => page.evaluate(() => window.__bb!.scene())).toBe(scene);
 }
 
-/** Click a menu slot card with the real mouse. */
+/** Click a menu slot card with the real mouse. Retries if a busy machine drops the first click. */
 export async function clickSlot(page: Page, slot: number): Promise<void> {
   await waitForScene(page, 'menu');
-  const pos = await page.evaluate((s) => window.__bb!.slotButtonClient(s), slot);
-  expect(pos).not.toBeNull();
-  await page.mouse.click(pos!.x, pos!.y);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const pos = await page.evaluate((s) => window.__bb!.slotButtonClient(s), slot);
+    expect(pos).not.toBeNull();
+    await page.mouse.click(pos!.x, pos!.y);
+    try {
+      await expect.poll(() => page.evaluate(() => window.__bb!.scene()), { timeout: 6000 }).toBe('world');
+      return;
+    } catch {
+      // Not in yet: the click may have landed while the menu was still settling.
+    }
+  }
   await waitForScene(page, 'world');
 }
 
@@ -84,11 +92,14 @@ export async function content(page: Page, id: number): Promise<void> {
   }, id);
 }
 
+/** Where the plaza starts: Puddle Pond is to its left. */
+export const PLAZA_X = 32;
+
 /** Flat stretches of the plaza (off the stump's root slopes), in world x. */
 const FLAT: readonly [number, number][] = [
-  [1, 11.8],
-  [16.6, 22.4],
-  [27, 37.5],
+  [PLAZA_X + 1, PLAZA_X + 11.8],
+  [PLAZA_X + 16.6, PLAZA_X + 22.4],
+  [PLAZA_X + 27, PLAZA_X + 37.5],
 ];
 
 /** The nearest spot to x on flat ground with nothing within 0.7 m. */
@@ -133,9 +144,11 @@ export async function pressOn(page: Page, id: number): Promise<{ x: number; y: n
       at = await toClient(page, e.x, e.y);
       await page.mouse.move(at.x, at.y);
       await page.mouse.down();
-      if ((await entity(page, id))?.held) return true;
-      await page.waitForTimeout(50);
-      if ((await entity(page, id))?.held) return true;
+      // Slow frames (several apps at once, software GL) can take a while to step the sim.
+      for (let i = 0; i < 8; i++) {
+        if ((await entity(page, id))?.held) return true;
+        await page.waitForTimeout(50);
+      }
       await page.mouse.up();
       return false;
     })

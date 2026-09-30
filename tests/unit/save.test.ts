@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GROUND_Y, SAVE_VERSION, SaveError, Sim, loadSaveFile } from '../../src/game';
 import type { SaveFile } from '../../src/game';
 import type { Migration } from '../../src/game/save/migrations';
+import { PLAZA_X } from './world';
 
 /** Round every number so float noise from rebuilding bodies does not matter. */
 function rounded(value: unknown): unknown {
@@ -45,7 +46,7 @@ describe('serialization', () => {
   it('keeps entity IDs unique after load', () => {
     const sim = Sim.create();
     const restored = Sim.load(sim.serialize());
-    const fresh = restored.spawn('item', 'item_pebble', 7, GROUND_Y - 1);
+    const fresh = restored.spawn('item', 'item_pebble', PLAZA_X + 7, GROUND_Y - 1);
     expect(sim.entities.has(fresh.id)).toBe(false);
   });
 

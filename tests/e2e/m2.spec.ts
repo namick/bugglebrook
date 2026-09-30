@@ -186,8 +186,13 @@ test('every verb makes a sound', async () => {
     await clear();
     await expect
       .poll(async () => {
+        const cam = (await page.evaluate(() => window.__bb!.camera())).x;
         const bug = (await entities(page)).find(
-          (e) => e.kind === 'bug' && ['st_idle', 'st_wander', 'st_seek'].includes(e.bug!.mode),
+          (e) =>
+            e.kind === 'bug' &&
+            e.x > cam + 1 &&
+            e.x < cam + 18 &&
+            ['st_idle', 'st_wander', 'st_seek'].includes(e.bug!.mode),
         );
         if (bug) {
           const p = await toClient(page, bug.x, bug.y);

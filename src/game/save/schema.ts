@@ -1,9 +1,11 @@
 import type { BugBrain, EntityKind } from '../core/entities';
 import type { RngState } from '../core/rng';
 import type { BodyState } from '../physics/physics';
+import type { EnvState } from '../systems/environment';
+import type { TagState } from '../systems/tags';
 
 /** Bump when the save shape changes, and add a migration in migrations.ts. */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export interface SavedEntity {
   id: number;
@@ -11,6 +13,10 @@ export interface SavedEntity {
   defId: string;
   body: BodyState;
   bug?: BugBrain;
+  /** Tag changes from the defaults. */
+  tags?: TagState;
+  /** Ticks soaking, for paper that goes soggy. */
+  soak?: number;
 }
 
 /** Everything needed to rebuild the sim exactly where it was left. */
@@ -20,6 +26,8 @@ export interface WorldSave {
   rng: RngState;
   nextId: number;
   entities: SavedEntity[];
+  /** Water, the hose, ice, welds, lily pads, weather. Absent in saves before version 4. */
+  env?: EnvState;
 }
 
 /** Render-side state that should persist (camera position, etc.). */

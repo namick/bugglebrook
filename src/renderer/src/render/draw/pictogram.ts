@@ -258,6 +258,37 @@ export function drawPicto(g: Graphics, picto: Picto, x: number, y: number, s: nu
           .stroke({ width: 4, color: 0x7fc4f0, cap: 'round' });
       }
       return;
+    case 'drop': {
+      // A fat blue water drop.
+      g.moveTo(x, y - h * 0.95)
+        .bezierCurveTo(x + h * 0.25, y - h * 0.45, x + h * 0.72, y - h * 0.05, x + h * 0.72, y + h * 0.3)
+        .bezierCurveTo(x + h * 0.72, y + h * 0.75, x + h * 0.38, y + h * 0.98, x, y + h * 0.98)
+        .bezierCurveTo(x - h * 0.38, y + h * 0.98, x - h * 0.72, y + h * 0.75, x - h * 0.72, y + h * 0.3)
+        .bezierCurveTo(x - h * 0.72, y - h * 0.05, x - h * 0.25, y - h * 0.45, x, y - h * 0.95)
+        .closePath()
+        .fill(0x5cc3e6)
+        .stroke(st);
+      g.ellipse(x - h * 0.3, y + h * 0.25, h * 0.14, h * 0.24).fill({ color: 0xffffff, alpha: 0.85 });
+      return;
+    }
+    case 'stink': {
+      // Three wavy green stink lines.
+      for (let i = -1; i <= 1; i++) {
+        const bx = x + i * h * 0.55;
+        const wob = Math.sin(time * 8 + i) * h * 0.08;
+        const pts: [number, number][] = [];
+        for (let k = 0; k <= 6; k++)
+          pts.push([bx + Math.sin(k * 1.4 + time * 6 + i) * h * 0.18 + wob, y + h * 0.9 - (k / 6) * h * 1.8]);
+        for (const [w, c] of [
+          [h * 0.32, OUTLINE],
+          [h * 0.16, 0x9bd14a],
+        ] as const) {
+          pts.forEach(([px, py], k) => (k === 0 ? g.moveTo(px, py) : g.lineTo(px, py)));
+          g.stroke({ width: w, color: c, cap: 'round', join: 'round' });
+        }
+      }
+      return;
+    }
     case 'food':
       return;
   }

@@ -15,7 +15,9 @@ type Kind =
   | 'flame'
   | 'snow'
   | 'drop'
-  | 'bubble';
+  | 'bubble'
+  | 'shard'
+  | 'spark';
 
 interface Particle {
   kind: Kind;
@@ -272,6 +274,97 @@ export class Particles extends Container {
     }
   }
 
+  /**
+   * fx_splash: blue droplets thrown up in a crown, more and higher for a
+   * faster entry, plus a few white flecks.
+   */
+  splash(x: number, y: number, speed: number, size = 0.2): void {
+    const n = Math.round(Math.min(20, 8 + speed * 1.1 + size * 10));
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + (i / (n - 1) - 0.5) * 2.2 + this.rnd(-0.15, 0.15);
+      const v = this.rnd(160, 260) + speed * 26;
+      this.add({
+        kind: 'drop',
+        x: x + Math.cos(a) * 12,
+        y: y - 4,
+        vx: Math.cos(a) * v * 0.7,
+        vy: Math.sin(a) * v,
+        max: this.rnd(0.45, 0.8),
+        size: this.rnd(4, 8) + size * 6,
+        color: i % 4 === 0 ? 0xffffff : 0x5cc3e6,
+        gravity: 1400,
+      });
+    }
+  }
+
+  /** One drip falling off something wet or slimy. */
+  drip(x: number, y: number, color: number): void {
+    this.add({
+      kind: 'drop',
+      x,
+      y,
+      vx: this.rnd(-10, 10),
+      vy: this.rnd(10, 40),
+      max: this.rnd(0.35, 0.55),
+      size: this.rnd(3, 5),
+      color,
+      gravity: 1100,
+    });
+  }
+
+  /** fx_steam: soft white puffs billowing up (hot meets wet). */
+  steam(x: number, y: number, n = 9): void {
+    for (let i = 0; i < n; i++) {
+      this.add({
+        kind: 'puff',
+        x: x + this.rnd(-26, 26),
+        y: y + this.rnd(-10, 10),
+        vx: this.rnd(-40, 40),
+        vy: -this.rnd(90, 190),
+        max: this.rnd(0.8, 1.4),
+        size: this.rnd(14, 26),
+        color: 0xffffff,
+        drag: 1.5,
+      });
+    }
+  }
+
+  /** Ice shards and frost bursting out (freezing). */
+  shards(x: number, y: number, n = 10): void {
+    for (let i = 0; i < n; i++) {
+      const a = this.rnd(0, Math.PI * 2);
+      const v = this.rnd(120, 300);
+      this.add({
+        kind: 'shard',
+        x,
+        y,
+        vx: Math.cos(a) * v,
+        vy: Math.sin(a) * v - 120,
+        max: this.rnd(0.5, 0.8),
+        size: this.rnd(7, 13),
+        color: i % 3 === 0 ? 0xffffff : 0xbfe6ff,
+        gravity: 900,
+        rot: a,
+        vr: this.rnd(-8, 8),
+      });
+    }
+  }
+
+  /** Zigzag sparks crackling along a stretch of water (zapped). */
+  zap(x0: number, x1: number, y: number): void {
+    for (let x = x0; x < x1; x += this.rnd(40, 90)) {
+      this.add({
+        kind: 'spark',
+        x,
+        y: y + this.rnd(-10, 30),
+        max: this.rnd(0.2, 0.4),
+        size: this.rnd(16, 30),
+        color: this.random() < 0.5 ? 0xfff27a : 0xffffff,
+        rot: this.rnd(0, Math.PI * 2),
+      });
+    }
+  }
+
   update(dt: number): void {
     const g = this.g.clear();
     const keep: Particle[] = [];
@@ -366,6 +459,34 @@ export class Particles extends Container {
             alpha: 0.7 * fade,
           });
           break;
+        case 'shard': {
+          const c = Math.cos(p.rot);
+          const s = Math.sin(p.rot);
+          const r = p.size;
+          g.poly([
+            p.x + c * r,
+            p.y + s * r,
+            p.x - s * r * 0.35,
+            p.y + c * r * 0.35,
+            p.x + s * r * 0.35,
+            p.y - c * r * 0.35,
+          ])
+            .fill({ color: p.color, alpha: fade })
+            .stroke({ width: 1.5, color: 0x7fb8d8, alpha: fade });
+          break;
+        }
+        case 'spark': {
+          let x = p.x;
+          let y = p.y;
+          g.moveTo(x, y);
+          for (let k = 0; k < 4; k++) {
+            x += Math.cos(p.rot) * p.size * 0.3 + (k % 2 ? 6 : -6);
+            y += Math.sin(p.rot) * p.size * 0.3 + (k % 2 ? -6 : 6);
+            g.lineTo(x, y);
+          }
+          g.stroke({ width: 3.5, color: p.color, alpha: fade, cap: 'round', join: 'round' });
+          break;
+        }
         case 'bubble':
           g.circle(p.x, p.y, p.size).stroke({ width: 2, color: 0x7fb8d8, alpha: fade });
           g.circle(p.x - p.size * 0.35, p.y - p.size * 0.35, p.size * 0.3).fill({

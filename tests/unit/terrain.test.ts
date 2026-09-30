@@ -28,7 +28,7 @@ describe('Terrain', () => {
   });
 
   it('joins areas left to right in world coordinates', () => {
-    const a = AREAS.get('area_stump_plaza');
+    const a: AreaDef = { ...AREAS.get('area_stump_plaza'), xStart: 0, xEnd: 38.4 };
     const b: AreaDef = {
       ...a,
       id: 'area_b',
@@ -46,9 +46,21 @@ describe('Terrain', () => {
   });
 
   it('keeps the plaza roots climbable (no slope steeper than 62 degrees)', () => {
-    const plaza = Terrain.fromAreas([AREAS.get('area_stump_plaza')]);
-    for (let x = 0; x < 38.4; x += 0.05)
+    const area = AREAS.get('area_stump_plaza');
+    const plaza = Terrain.fromAreas([area]);
+    for (let x = area.xStart; x < area.xEnd; x += 0.05)
       expect(-plaza.normal(x).y).toBeGreaterThan(Math.cos((62 * Math.PI) / 180));
-    expect(plaza.surfaceY(19.5)).toBe(4);
+    expect(plaza.surfaceY(area.xStart + 19.5)).toBe(4);
+  });
+
+  it('keeps the pond banks walkable, so swimmers can climb out (under 55 degrees)', () => {
+    const world = Terrain.fromAreas(AREAS.all);
+    const pond = AREAS.get('area_puddle_pond');
+    for (let x = pond.xStart; x < pond.xEnd; x += 0.05)
+      expect(-world.normal(x).y).toBeGreaterThan(Math.cos((55 * Math.PI) / 180));
+    // The pond is a dip well below the banks, and the plaza meets it at ground level.
+    const w = pond.water!;
+    expect(world.surfaceY(pond.xStart + (w.x0 + w.x1) / 2)).toBeGreaterThan(w.level + 1.4);
+    expect(world.surfaceY(pond.xEnd)).toBe(9);
   });
 });

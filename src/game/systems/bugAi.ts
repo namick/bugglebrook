@@ -51,6 +51,16 @@ export interface BugContext {
   obstacle: (dir: 1 | -1) => Obstacle | null;
   /** Food the player is holding, if any: nearby bugs stop and turn to it. */
   offered?: { x: number; y: number } | null;
+  /** Fraction of the bug under water, 0 to 1. */
+  submerged?: number;
+  /** Open water (not ice or a lily pad) under world x. */
+  overWater?: (x: number) => boolean;
+  /** Where the nearest dry land is from here, for a swimming bug. */
+  shore?: number | null;
+  /** Frozen in a block of ice: it cannot move. */
+  frozen?: boolean;
+  /** Its home area's x range: wandering drifts back there. */
+  home?: { x0: number; x1: number } | null;
 }
 
 export interface Obstacle {
@@ -69,7 +79,9 @@ export type BugNotice =
   | { type: 'hopped' }
   | { type: 'reacted'; reaction: ReactionType; variant: number }
   | { type: 'burped' }
-  | { type: 'tickled'; level: number };
+  | { type: 'tickled'; level: number }
+  | { type: 'swam' }
+  | { type: 'shook_dry' };
 
 export interface BugDecision {
   /** Velocity to set on the body, or null to leave physics alone. */
@@ -121,6 +133,15 @@ const REPEAT_WINDOW = 10 * SIM_HZ;
 const RECENT_USE = 60 * SIM_HZ;
 
 const WANDER_RANGE = 6;
+/** Deeper than this in water, a bug that cannot skate starts swimming. */
+export const SWIM_DEPTH = 0.35;
+/** Shaking itself dry takes this long. */
+export const SHAKE_DRY_TICKS = 72;
+/** A bug reacts to a smell at most this often. */
+export const SMELL_EVERY = 10 * SIM_HZ;
+const STINK_REACT_TICKS = 84;
+/** Walks this far away from a stink it dislikes. */
+const STINK_FLEE = 4;
 const PERCEPTION = 9;
 const ARRIVE = 0.12;
 const TUMBLE_SPEED = 3.5;
@@ -141,7 +162,7 @@ const LIKE_MULTIPLIER: Readonly<Record<Liking, number>> = {
   disliked: 0.2,
 };
 
-const AIRBORNE: ReadonlySet<BugMode> = new Set(['st_airborne', 'st_use', 'st_held']);
+const AIRBORNE: ReadonlySet<BugMode> = new Set(['st_airborne', 'st_use', 'st_held', 'st_swim']);
 const RESTING: ReadonlySet<BugMode> = new Set(['st_idle', 'st_eat', 'st_recover', 'st_landing']);
 
 export function newBugBrain(x: number, rng: Rng): BugBrain {
@@ -175,6 +196,8 @@ export function newBugBrain(x: number, rng: Rng): BugBrain {
     burpAt: -1,
     tickle: 0,
     woozyUntil: -1,
+    smelledAt: -1,
+    hopAt: -1,
   };
 }
 
@@ -243,6 +266,48 @@ export function tickleBug(brain: BugBrain, on: boolean, rng: Rng, tick: number):
 /** Called by the sim when the player shakes a held bug. */
 export function shakeBug(brain: BugBrain, tick: number): void {
   brain.woozyUntil = tick + WOOZY_TICKS;
+}
+
+/** Modes in which a bug notices smells. */
+const SMELLING: ReadonlySet<BugMode> = new Set([
+  'st_idle',
+  'st_wander',
+  'st_seek',
+  'st_landing',
+  'st_recover',
+]);
+
+/**
+ * A smelly thing is near (rule R8). Stink lovers stop for a happy sniff;
+ * everyone else pulls a face and walks away from it. Returns the notices,
+ * or an empty list if the bug is busy or smelled something recently.
+ */
+export function smellBug(
+  brain: BugBrain,
+  def: BugDef,
+  x: number,
+  sourceX: number,
+  rng: Rng,
+  tick: number,
+  worldWidth: number,
+): BugNotice[] {
+  if (!SMELLING.has(brain.mode)) return [];
+  if (brain.smelledAt >= 0 && tick - brain.smelledAt < SMELL_EVERY) return [];
+  brain.smelledAt = tick;
+  brain.targetId = null;
+  brain.action = null;
+  if (def.likesStink) {
+    brain.facing = sourceX >= x ? 1 : -1;
+    enter(brain, 'st_react', STINK_REACT_TICKS);
+    return [react(brain, 'stink', rng, tick)];
+  }
+  // Hold your nose and walk the other way.
+  const away = sourceX >= x ? -1 : 1;
+  const margin = def.radius + 0.5;
+  enter(brain, 'st_wander', SEEK_TIMEOUT);
+  brain.targetX = Math.min(worldWidth - margin, Math.max(margin, x + away * STINK_FLEE));
+  brain.facing = away;
+  return [react(brain, 'stink', rng, tick)];
 }
 
 export function likingOf(def: BugDef, itemDefId: string): Liking {
@@ -356,7 +421,13 @@ export function releaseBug(brain: BugBrain, def: BugDef, flung: boolean): void {
 
 /** Called by the sim when a bug is poked. Returns true if it reacted. */
 export function pokeBug(brain: BugBrain): boolean {
-  if (brain.mode === 'st_dizzy' || brain.mode === 'st_airborne' || brain.mode === 'st_use') return false;
+  if (
+    brain.mode === 'st_dizzy' ||
+    brain.mode === 'st_airborne' ||
+    brain.mode === 'st_use' ||
+    brain.mode === 'st_swim'
+  )
+    return false;
   enter(brain, 'st_react', REACT_TICKS);
   brain.targetId = null;
   brain.action = null;
@@ -436,13 +507,36 @@ function choose(brain: BugBrain, ctx: BugContext, notices: BugNotice[]): boolean
   return true;
 }
 
+/**
+ * Walk somewhere nearby, drifting back toward home (game design doc,
+ * section 5). Bugs that cannot skate never pick a spot on open water.
+ */
 function startWander(brain: BugBrain, ctx: BugContext): void {
   const { def, state, rng } = ctx;
   const margin = def.radius + 0.5;
-  const lo = Math.max(margin, state.x - WANDER_RANGE);
-  const hi = Math.min(ctx.worldWidth - margin, state.x + WANDER_RANGE);
+  let lo = Math.max(margin, state.x - WANDER_RANGE);
+  let hi = Math.min(ctx.worldWidth - margin, state.x + WANDER_RANGE);
+  const home = ctx.home;
+  if (home) {
+    const hlo = home.x0 + margin;
+    const hhi = home.x1 - margin;
+    if (state.x < hlo) lo = Math.max(lo, state.x);
+    else if (state.x > hhi) hi = Math.min(hi, state.x);
+    else {
+      lo = Math.max(lo, hlo);
+      hi = Math.min(hi, hhi);
+    }
+  }
   enter(brain, 'st_wander', SEEK_TIMEOUT);
-  brain.targetX = rng.range(lo, hi);
+  let target = rng.range(lo, Math.max(lo, hi));
+  if (def.swim !== 'skate' && ctx.overWater) {
+    // Stop at the water's edge instead.
+    const step = target > state.x ? 0.2 : -0.2;
+    let x = state.x;
+    while (Math.abs(target - x) > 0.2 && !ctx.overWater(x + step * 3)) x += step;
+    target = x;
+  }
+  brain.targetX = target;
 }
 
 /**
@@ -482,6 +576,36 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
     return out;
   }
   if (brain.mode === 'st_held') releaseBug(brain, def, false);
+
+  // Frozen solid in a block of ice: nothing moves until it thaws.
+  if (ctx.frozen) return out;
+
+  // Fell in the water: swim for it (skaters stand on the surface instead).
+  if (def.swim !== 'skate' && brain.mode !== 'st_swim' && (ctx.submerged ?? 0) > SWIM_DEPTH) {
+    enter(brain, 'st_swim');
+    brain.targetId = null;
+    brain.action = null;
+    brain.selfLaunched = false;
+    brain.hopAt = -1;
+    out.notices.push({ type: 'swam' }, react(brain, 'splash', rng, ctx.tick));
+    return out;
+  }
+
+  // An involuntary hop after bouncy food (the jelly bean).
+  if (brain.hopAt >= 0 && ctx.tick >= brain.hopAt) {
+    brain.hopAt = -1;
+    if (
+      ctx.support &&
+      (brain.mode === 'st_react' || brain.mode === 'st_idle' || brain.mode === 'st_wander')
+    ) {
+      enter(brain, 'st_airborne');
+      brain.selfLaunched = true;
+      brain.airPeak = 0;
+      out.velocity = { x: brain.facing * 0.6, y: -7.5 };
+      out.notices.push({ type: 'hopped' });
+      return out;
+    }
+  }
 
   // Knocked off its feet by something.
   if (!AIRBORNE.has(brain.mode) && !ctx.support && speed > TUMBLE_SPEED) {
@@ -626,6 +750,9 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
       return walk(brain, ctx, dx, moved, out);
     }
 
+    case 'st_swim':
+      return swim(brain, ctx, moved, out);
+
     case 'st_eat': {
       out.velocity = n ? grip(n) : null;
       const itemId = brain.mouthful;
@@ -658,6 +785,48 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
   return out;
 }
 
+/**
+ * Swimming (game design doc, section 5, `st_swim`): paddle, float, or walk
+ * the bottom toward the nearest shore, then shake dry on land.
+ */
+function swim(brain: BugBrain, ctx: BugContext, moved: number, out: BugDecision): BugDecision {
+  const { def, state } = ctx;
+  const n = ctx.support;
+  const depth = ctx.submerged ?? 0;
+  if (depth < 0.06 && n) {
+    // Out of the water and on its feet: shake it all off.
+    enter(brain, 'st_react', SHAKE_DRY_TICKS);
+    out.notices.push({ type: 'shook_dry' }, react(brain, 'shake_dry', ctx.rng, ctx.tick));
+    out.velocity = grip(n);
+    return out;
+  }
+  const shore = ctx.shore ?? state.x;
+  const dir: 1 | -1 = shore >= state.x ? 1 : -1;
+  brain.facing = dir;
+  brain.stuck = moved < 0.004 ? brain.stuck + 1 : 0;
+  if (brain.stuck > STUCK_TICKS && (n || def.swim !== 'sink')) {
+    // Bumping a lily pad or a steep bank: kick up and over.
+    brain.stuck = 0;
+    out.velocity = { x: dir * 2.2, y: -6 };
+    out.notices.push({ type: 'hopped' });
+    return out;
+  }
+  if (def.swim === 'sink') {
+    // Holding his breath, walking along the bottom.
+    out.velocity = n ? walkVelocity(n, dir * def.speed * 0.7) : { x: dir * def.speed * 0.3, y: state.vy };
+    return out;
+  }
+  if (n && depth < 0.5) {
+    // Touching the bank: climb out.
+    out.velocity = walkVelocity(n, dir * Math.max(1, def.speed));
+    return out;
+  }
+  // Paddle: little surges in rhythm.
+  const stroke = 0.6 + 0.4 * Math.max(0, Math.sin(ctx.tick * 0.25));
+  out.velocity = { x: dir * Math.max(0.6, def.speed * 0.55) * stroke, y: state.vy };
+  return out;
+}
+
 function offeredNear(ctx: BugContext): boolean {
   const o = ctx.offered;
   return !!o && !!ctx.support && Math.hypot(o.x - ctx.state.x, o.y - ctx.state.y) < OFFER_RANGE;
@@ -668,6 +837,21 @@ function walk(brain: BugBrain, ctx: BugContext, dx: number, moved: number, out: 
   const n = ctx.support;
   brain.facing = dx > 0 ? 1 : -1;
   if (!n) return out;
+  if (def.swim !== 'skate' && ctx.overWater?.(ctx.state.x + brain.facing * (def.radius + 0.25))) {
+    // Water ahead. Stranded on a lily pad or ice with water all round? Jump in and swim.
+    const behind = ctx.overWater(ctx.state.x - brain.facing * (def.radius + 0.25));
+    if (behind && rng.chance(0.02)) {
+      out.velocity = { x: brain.facing * 2, y: -4 };
+      enter(brain, 'st_airborne');
+      brain.selfLaunched = true;
+      brain.airPeak = 0;
+      out.notices.push({ type: 'hopped' });
+      return out;
+    }
+    enterIdle(brain, rng, def);
+    out.velocity = grip(n);
+    return out;
+  }
   const ob = ctx.obstacle(brain.facing);
   const bottom = ctx.state.y + def.radius;
   if (ob && (ob.isBug || bottom - ob.top > STEP_HEIGHT)) {

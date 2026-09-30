@@ -82,13 +82,88 @@ export interface GameEvents {
   bug_wriggled_free: { id: EntityId; defId: string; x: number; y: number };
   /** The player shook whatever they are holding. */
   item_shaken: { id: EntityId; kind: EntityKind; defId: string; x: number; y: number };
+
+  // --- Properties and water (M3) ---------------------------------------
+  /** A tag came on. `cause` names the rule or effect, for sounds and particles. */
+  tag_gained: { id: EntityId; tag: string; cause: TagCause; x: number; y: number };
+  /** A tag went off: washed, dried, melted, or worn off. */
+  tag_lost: { id: EntityId; tag: string; cause: TagCause; x: number; y: number };
+  /** Something hit the water. `speed` is how fast it went in; `size` its half height. */
+  splashed: {
+    id: EntityId;
+    kind: EntityKind;
+    defId: string;
+    x: number;
+    y: number;
+    speed: number;
+    size: number;
+  };
+  /** Climbed or floated out of the water. */
+  left_water: { id: EntityId; kind: EntityKind; x: number; y: number };
+  /** A low, fast throw bounced off the water. `count` is the skip number in this throw. */
+  skipped: { id: EntityId; x: number; y: number; count: number };
+  /** Hot met wet: "tsss" and a big steam puff (R2), or hot went into water (R1). */
+  steamed: { id: EntityId; otherId: EntityId | null; x: number; y: number };
+  /** Wet met cold and froze (R3). */
+  froze: { id: EntityId; x: number; y: number };
+  /** Frozen met hot, or the ice wore off: back to wet (R4). */
+  thawed: { id: EntityId; x: number; y: number };
+  /** A cold thing touched the water and froze a patch of it (R5). */
+  ice_formed: { x0: number; x1: number; y: number };
+  ice_melted: { x0: number; x1: number; y: number };
+  /** Sticky contact welded two things together (R6). */
+  stuck: { a: EntityId; b: EntityId; x: number; y: number };
+  /** A weld pulled apart, or soap loosened it. */
+  unstuck: { a: EntityId; b: EntityId; x: number; y: number };
+  /** Soap and water blew bubbles (R7), or a wet wand was waved. */
+  bubbles_blown: { id: EntityId; x: number; y: number; count: number };
+  /** A bug caught a whiff of something smelly (R8). `liked` if it enjoys stink. */
+  bug_smelled: { id: EntityId; defId: string; sourceId: EntityId; liked: boolean };
+  /** Sparky met water: the pond fizzes for a moment (R9). */
+  water_zapped: { x: number; y: number };
+  /** A magnet pulled something onto itself with a clink (R10). */
+  magnet_snapped: { id: EntityId; magnetId: EntityId; x: number; y: number };
+  /** A bug fell in the water and started swimming. */
+  bug_swam: { id: EntityId; defId: string; x: number; y: number };
+  /** Back on land, a bug shook itself dry. */
+  bug_shook_dry: { id: EntityId; defId: string; x: number; y: number };
+  /** A shaken sponge squeezed its water (or soap) out onto what is below (R18). */
+  wrung_out: { id: EntityId; tag: string; x: number; y: number };
+  /** The hose tap was clicked on or off. */
+  hose_toggled: { on: boolean; x: number; y: number };
+  /** The sunken boot was clicked: a burst of bubbles. */
+  boot_bubbled: { x: number; y: number };
+  /** An area went to sleep (no physics) or woke up, as the camera moved. */
+  area_slept: { areaId: string };
+  area_woke: { areaId: string };
 }
+
+/** What changed a tag, so listeners can pick the right effect. */
+export type TagCause =
+  | 'water'
+  | 'rain'
+  | 'hose'
+  | 'steam'
+  | 'freeze'
+  | 'thaw'
+  | 'contact'
+  | 'soap'
+  | 'stink'
+  | 'zap'
+  | 'food'
+  | 'shake'
+  | 'wring'
+  | 'wore_off'
+  | 'returned'
+  | 'debug';
 
 export type Liking = 'loved' | 'liked' | 'neutral' | 'disliked';
 
 /**
  * Reactions to the player (game design doc, section 5). Each has at least
  * three variants. `land_hard` is for bugs that never get dizzy (Glorp).
+ * `splash` plays on falling in water, `shake_dry` on climbing out, and
+ * `stink` on smelling something (a happy sniff for stink lovers).
  */
 export type ReactionType =
   | 'grab'
@@ -100,7 +175,10 @@ export type ReactionType =
   | 'fed_loved'
   | 'fed_liked'
   | 'fed_neutral'
-  | 'fed_disliked';
+  | 'fed_disliked'
+  | 'splash'
+  | 'shake_dry'
+  | 'stink';
 
 export const REACTION_TYPES: readonly ReactionType[] = [
   'grab',
@@ -113,6 +191,9 @@ export const REACTION_TYPES: readonly ReactionType[] = [
   'fed_liked',
   'fed_neutral',
   'fed_disliked',
+  'splash',
+  'shake_dry',
+  'stink',
 ];
 
 /** Variants per reaction type. */

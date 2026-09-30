@@ -9,6 +9,7 @@ import {
   dizzySeconds,
 } from '../../src/game';
 import type { GameEvents } from '../../src/game';
+import { PLAZA_X } from './world';
 
 type Logged = { name: keyof GameEvents; payload: unknown; tick: number };
 
@@ -22,7 +23,9 @@ const find = <K extends keyof GameEvents>(log: Logged[], name: K): GameEvents[K]
   log.filter((e) => e.name === name).map((e) => e.payload as GameEvents[K]);
 
 /** Flat ground well away from the stump. */
-const FLAT_X = 7;
+const FLAT_X = PLAZA_X + 7;
+/** The middle of the stump's flat top. */
+const STUMP_X = PLAZA_X + 19.5;
 
 describe('Sim physics', () => {
   it('drops a spawned item onto the ground and lets it settle', () => {
@@ -37,9 +40,9 @@ describe('Sim physics', () => {
   it('builds the stump from the area terrain, with a flat top to stack on', () => {
     const sim = Sim.empty();
     expect(sim.surfaceY(FLAT_X)).toBe(GROUND_Y);
-    expect(sim.surfaceY(19.5)).toBe(4);
-    const cap = sim.spawn('item', 'item_bottle_cap', 19.5, 1);
-    const pebble = sim.spawn('item', 'item_pebble', 19.5, 0);
+    expect(sim.surfaceY(STUMP_X)).toBe(4);
+    const cap = sim.spawn('item', 'item_bottle_cap', STUMP_X, 1);
+    const pebble = sim.spawn('item', 'item_pebble', STUMP_X, 0);
     sim.run(240);
     expect(sim.view(cap.id)!.y).toBeCloseTo(4 - 0.085, 1);
     expect(sim.view(pebble.id)!.y).toBeLessThan(sim.view(cap.id)!.y - 0.2);
@@ -96,8 +99,8 @@ describe('Sim physics', () => {
     const sim = Sim.empty();
     sim.spawn('item', 'item_pebble', FLAT_X, GROUND_Y - 0.21);
     const log = record(sim);
-    sim.send({ type: 'grab', x: 20, y: 2 });
-    sim.send({ type: 'grab', x: 19.5, y: 6 }); // inside the stump
+    sim.send({ type: 'grab', x: PLAZA_X + 20, y: 2 });
+    sim.send({ type: 'grab', x: STUMP_X, y: 6 }); // inside the stump
     sim.step();
     expect(sim.physics.grabbed).toBeNull();
     expect(find(log, 'item_grabbed')).toHaveLength(0);
@@ -194,8 +197,7 @@ describe('Sim physics', () => {
     const log = record(sim);
     sim.run(RESPAWN_TICKS + 1);
     const back = find(log, 'item_respawned');
-    expect(back.length).toBeGreaterThanOrEqual(1);
-    expect(back[0]!.defId).toBe('item_berry_red');
+    expect(back.some((b) => b.defId === 'item_berry_red')).toBe(true);
   });
 });
 
@@ -227,41 +229,41 @@ describe('bugs', () => {
 
   it('climb the stump roots to reach its top', () => {
     const sim = Sim.empty({ seed: 'climb' });
-    const bug = spawnBug(sim, 'bug_ladybug_dot', 9);
+    const bug = spawnBug(sim, 'bug_ladybug_dot', PLAZA_X + 9);
     const brain = sim.entities.get(bug.id)!.bug!;
     for (let i = 0; i < 60 * 15; i++) {
       // Keep it walking toward the middle of the stump.
       if (brain.mode === 'st_idle' || brain.mode === 'st_wander') {
         brain.mode = 'st_wander';
         brain.timer = 999;
-        brain.targetX = 19.5;
+        brain.targetX = STUMP_X;
         brain.decideIn = 999;
       }
       sim.step();
     }
     const v = sim.view(bug.id)!;
-    expect(v.x).toBeCloseTo(19.5, 0);
+    expect(v.x).toBeCloseTo(STUMP_X, 0);
     expect(v.y).toBeCloseTo(4 - 0.5, 1);
   });
 
   it('hop over a pebble in the way instead of bulldozing it', () => {
     const sim = Sim.empty({ seed: 'step' });
-    const pebble = sim.spawn('item', 'item_pebble', 8, GROUND_Y - 0.21);
-    const bug = spawnBug(sim, 'bug_pillbug_rollo', 6);
+    const pebble = sim.spawn('item', 'item_pebble', PLAZA_X + 8, GROUND_Y - 0.21);
+    const bug = spawnBug(sim, 'bug_pillbug_rollo', PLAZA_X + 6);
     const brain = sim.entities.get(bug.id)!.bug!;
     const log = record(sim);
     for (let i = 0; i < 60 * 8; i++) {
       if (brain.mode === 'st_idle' || brain.mode === 'st_wander') {
         brain.mode = 'st_wander';
         brain.timer = 999;
-        brain.targetX = 10;
+        brain.targetX = PLAZA_X + 10;
         brain.decideIn = 999;
       }
       sim.step();
     }
     expect(find(log, 'bug_hopped').length).toBeGreaterThan(0);
-    expect(sim.view(bug.id)!.x).toBeGreaterThan(9);
-    expect(Math.abs(sim.view(pebble.id)!.x - 8)).toBeLessThan(0.8);
+    expect(sim.view(bug.id)!.x).toBeGreaterThan(PLAZA_X + 9);
+    expect(Math.abs(sim.view(pebble.id)!.x - (PLAZA_X + 8))).toBeLessThan(0.8);
   });
 
   it('go limp when held (st_held), fly when flung (st_airborne), and land on their feet', () => {
@@ -352,8 +354,8 @@ describe('bugs', () => {
     for (const seed of ['a', 'b', 'c', 'd', 'e']) {
       for (const defId of ['bug_ladybug_dot', 'bug_pillbug_rollo', 'bug_snail_glorp']) {
         const sim = Sim.empty({ seed });
-        const bug = sim.spawn('bug', defId, 5, GROUND_Y - 0.6);
-        const berry = sim.spawn('item', 'item_berry_red', 8.5, GROUND_Y - 0.18);
+        const bug = sim.spawn('bug', defId, PLAZA_X + 5, GROUND_Y - 0.6);
+        const berry = sim.spawn('item', 'item_berry_red', PLAZA_X + 8.5, GROUND_Y - 0.18);
         sim.entities.get(bug.id)!.bug!.needs.need_hunger = 10;
         const log = record(sim);
         let ateAt = -1;
@@ -372,9 +374,9 @@ describe('bugs', () => {
 
   it('two bugs never go for the same berry', () => {
     const sim = Sim.empty({ seed: 'share' });
-    const a = sim.spawn('bug', 'bug_ladybug_dot', 5, GROUND_Y - 0.6);
-    const b = sim.spawn('bug', 'bug_pillbug_rollo', 10, GROUND_Y - 0.6);
-    sim.spawn('item', 'item_berry_red', 7.5, GROUND_Y - 0.18);
+    const a = sim.spawn('bug', 'bug_ladybug_dot', PLAZA_X + 5, GROUND_Y - 0.6);
+    const b = sim.spawn('bug', 'bug_pillbug_rollo', PLAZA_X + 10, GROUND_Y - 0.6);
+    sim.spawn('item', 'item_berry_red', PLAZA_X + 7.5, GROUND_Y - 0.18);
     for (const id of [a.id, b.id]) sim.entities.get(id)!.bug!.needs.need_hunger = 5;
     for (let t = 0; t < 60 * 10; t++) {
       sim.step();
@@ -388,8 +390,8 @@ describe('bugs', () => {
 
   it('bounce on the spring for fun when bored, and never get dizzy from it', () => {
     const sim = Sim.empty({ seed: 'boing' });
-    const spring = sim.spawn('item', 'item_spring_coil', 9, GROUND_Y - 0.31);
-    const bug = sim.spawn('bug', 'bug_ladybug_dot', 6, GROUND_Y - 0.6);
+    const spring = sim.spawn('item', 'item_spring_coil', PLAZA_X + 9, GROUND_Y - 0.31);
+    const bug = sim.spawn('bug', 'bug_ladybug_dot', PLAZA_X + 6, GROUND_Y - 0.6);
     const brain = sim.entities.get(bug.id)!.bug!;
     brain.needs.need_fun = 5;
     brain.needs.need_hunger = 100;
@@ -425,11 +427,11 @@ describe('bugs', () => {
 describe('determinism', () => {
   const script = (sim: Sim): void => {
     for (let t = 0; t < 900; t++) {
-      if (t === 100) sim.send({ type: 'grab', x: 7, y: GROUND_Y - 0.1 });
-      if (t > 100 && t < 130) sim.send({ type: 'drag', x: 7 + (t - 100) * 0.1, y: 5 });
+      if (t === 100) sim.send({ type: 'grab', x: PLAZA_X + 7, y: GROUND_Y - 0.1 });
+      if (t > 100 && t < 130) sim.send({ type: 'drag', x: PLAZA_X + 7 + (t - 100) * 0.1, y: 5 });
       if (t === 130) sim.send({ type: 'release', vx: 6, vy: -4 });
-      if (t === 200) sim.send({ type: 'spawn', kind: 'item', defId: 'item_pebble', x: 12, y: 2 });
-      if (t === 300) sim.send({ type: 'poke', x: 7, y: GROUND_Y - 0.3 });
+      if (t === 200) sim.send({ type: 'spawn', kind: 'item', defId: 'item_pebble', x: PLAZA_X + 12, y: 2 });
+      if (t === 300) sim.send({ type: 'poke', x: PLAZA_X + 7, y: GROUND_Y - 0.3 });
       sim.step();
     }
   };

@@ -17,6 +17,8 @@ export interface StartEntity {
   x: number;
   /** Height of the object's bottom above the terrain surface, in meters. Default 0. */
   lift?: number;
+  /** Start floating on the area's water instead of on the ground. */
+  onWater?: boolean;
 }
 
 export interface AreaDef {
@@ -48,6 +50,39 @@ export interface AreaDef {
   dirt: Color;
   dirtDark: Color;
   unlockedByDefault: boolean;
+  /** A pond: a water volume in a dip of the terrain. */
+  water?: WaterDef;
+  /** Things built into the area that are not entities: taps, lily pads, the boot. */
+  fixtures?: readonly FixtureDef[];
+}
+
+/**
+ * Water in an area (game design doc, section 3, `fix_pond_water`). The
+ * surface is flat at `level`; its left and right edges are where the
+ * terrain rises above it, searched between `x0` and `x1`.
+ */
+export interface WaterDef {
+  /** Area-local x range that holds the basin, in meters. */
+  x0: number;
+  x1: number;
+  /** World y of the resting surface. */
+  level: number;
+  /** How far the hose can raise the level, in meters. */
+  maxRise: number;
+  /** Surface current in m/s (positive drifts floaters right). */
+  current: number;
+}
+
+export type FixtureKind = 'hose_tap' | 'lily_pad' | 'rubber_boot';
+
+/** A fixed part of an area. Positions are area-local x and world y, in meters. */
+export interface FixtureDef {
+  id: string;
+  kind: FixtureKind;
+  x: number;
+  y: number;
+  /** Click radius in meters, for clickable fixtures. */
+  radius: number;
 }
 
 export type NeedId = 'need_hunger' | 'need_fun' | 'need_energy';
@@ -68,7 +103,14 @@ export interface VoiceProfile {
   formantShift: number;
 }
 
-export type BugArt = 'ladybug' | 'pillbug' | 'snail';
+export type BugArt = 'ladybug' | 'pillbug' | 'snail' | 'strider';
+
+/**
+ * How a bug copes with water (game design doc, section 5, `st_swim`):
+ * paddles at the surface, floats like a boat, sinks and walks the bottom,
+ * or skates on top.
+ */
+export type SwimStyle = 'paddle' | 'boat' | 'sink' | 'skate';
 
 export interface BugDef {
   id: string;
@@ -111,13 +153,38 @@ export interface BugDef {
   mouth: Point2;
   /** Curls into a rolling ball while airborne (Rollo). */
   curlsWhenFlung: boolean;
+  /** Spreads out like a parachute and floats down when flung (Skeet). */
+  glidesWhenFlung: boolean;
+  swim: SwimStyle;
+  /** Sniffs stink clouds happily instead of holding its nose. */
+  likesStink: boolean;
   voice: VoiceProfile;
 }
 
 export type ItemShape = { type: 'circle'; radius: number } | { type: 'box'; width: number; height: number };
 
 export type MaterialId =
-  'mat_wood' | 'mat_stone' | 'mat_metal' | 'mat_rubber' | 'mat_glass' | 'mat_leaf' | 'mat_food';
+  | 'mat_wood'
+  | 'mat_stone'
+  | 'mat_metal'
+  | 'mat_rubber'
+  | 'mat_glass'
+  | 'mat_leaf'
+  | 'mat_cloth'
+  | 'mat_paper'
+  | 'mat_plastic'
+  | 'mat_food'
+  | 'mat_jelly'
+  | 'mat_shell';
+
+/** Default physics and tags per material (game design doc, section 6). */
+export interface MaterialDef {
+  /** Water is 1. */
+  density: number;
+  restitution: number;
+  friction: number;
+  tags: readonly string[];
+}
 
 /** How the renderer draws an item. */
 export type ItemArt =
@@ -135,7 +202,17 @@ export type ItemArt =
   | 'pepper'
   | 'banana_mush'
   | 'moss_tuft'
-  | 'jelly_bean';
+  | 'jelly_bean'
+  | 'blueberry'
+  | 'cork'
+  | 'leaf_raft'
+  | 'paper_boat'
+  | 'sponge'
+  | 'soap'
+  | 'bubble_wand'
+  | 'feather'
+  | 'gum_blob'
+  | 'magnet';
 
 export type AdvertAction = 'eat' | 'bounce';
 
@@ -165,6 +242,17 @@ export interface ItemDef {
   adverts: readonly Advert[];
   /** Springs launch whatever lands on their top at this speed (m/s). */
   launchSpeed?: number;
+  /**
+   * Water it pushes aside per unit of its own volume. Rafts and boats are
+   * hollow, so they float far higher than their material alone. Default 1.
+   */
+  hull?: number;
+  /** Seconds soaking in water before it gets soggy and sinks (paper). */
+  soggyAfter?: number;
+  /** A magnet: pulls `tag_magnetic` things within 2.5 m this hard (m/s² at 1 m). */
+  magnet?: number;
+  /** Waved through the air while wet or soapy, it blows a trail of bubbles. */
+  blowsBubbles?: boolean;
 }
 
 export interface RecipeDef {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GROUND_Y, Sim, loadSaveFile } from '../../src/game';
+import { GROUND_Y, SAVE_VERSION, Sim, loadSaveFile } from '../../src/game';
 import type { GameEvents } from '../../src/game';
 import { Rng } from '../../src/game/core/rng';
 import { REACTION_TYPES } from '../../src/game/events';
@@ -15,6 +15,7 @@ import {
 } from '../../src/game/systems/bugAi';
 import { DROP_RULES, pickDropTarget } from '../../src/game/systems/dropTargets';
 import { validateContent } from '../../src/game/data';
+import { PLAZA_X } from './world';
 
 type Logged = { name: keyof GameEvents; payload: unknown; tick: number };
 
@@ -31,7 +32,7 @@ const find = <K extends keyof GameEvents>(log: Logged[], name: K): GameEvents[K]
  * An empty world with one calm bug on flat ground, facing right, that will
  * not wander off during the test.
  */
-function world(defId = 'bug_pillbug_rollo', x = 7): { sim: Sim; bug: number } {
+function world(defId = 'bug_pillbug_rollo', x = PLAZA_X + 7): { sim: Sim; bug: number } {
   const sim = Sim.empty({ seed: 'feed' });
   const r = BUGS.get(defId).radius;
   const bug = sim.spawn('bug', defId, x, GROUND_Y - r - 0.01);
@@ -52,7 +53,7 @@ function calm(sim: Sim, id: number): void {
 
 /** Spawn a food, pick it up, and hold it at an offset from the bug's mouth, then let go gently. */
 function dropNearMouth(sim: Sim, bug: number, food: string, dx: number, dy: number): number {
-  const item = sim.spawn('item', food, 3, GROUND_Y - 0.4);
+  const item = sim.spawn('item', food, PLAZA_X + 3, GROUND_Y - 0.4);
   sim.run(40);
   const s = sim.view(item.id)!;
   sim.send({ type: 'grab', x: s.x, y: s.y });
@@ -207,7 +208,7 @@ describe('feeding', () => {
     b.decideIn = 1;
     b.timer = 10;
     const log = record(sim);
-    sim.spawn('item', 'item_berry_red', 8.6, GROUND_Y - 0.2);
+    sim.spawn('item', 'item_berry_red', PLAZA_X + 8.6, GROUND_Y - 0.2);
     sim.run(20 * 60);
     expect(find(log, 'bug_fed')[0]).toMatchObject({ id: bug, byPlayer: false });
     expect(find(log, 'bug_ate')).toHaveLength(1);
@@ -217,7 +218,7 @@ describe('feeding', () => {
     const { sim, bug } = world();
     const berry = dropNearMouth(sim, bug, 'item_berry_red', 0, -0.3);
     expect(sim.dropTargetFor(berry)).toBeNull(); // it is the mouthful
-    const other = sim.spawn('item', 'item_berry_red', 3, GROUND_Y - 0.2);
+    const other = sim.spawn('item', 'item_berry_red', PLAZA_X + 3, GROUND_Y - 0.2);
     sim.run(10);
     const m = sim.mouthAnchor(bug)!;
     sim.physics.place(other.id, m.x, m.y - 0.2, 0);
@@ -343,8 +344,8 @@ describe('tickles and shakes', () => {
     sim.send({ type: 'shake' });
     sim.step();
     expect(find(log, 'item_shaken')).toEqual([]);
-    const p = sim.spawn('item', 'item_pebble', 7, GROUND_Y - 0.21);
-    sim.send({ type: 'grab', x: 7, y: GROUND_Y - 0.21 });
+    const p = sim.spawn('item', 'item_pebble', PLAZA_X + 7, GROUND_Y - 0.21);
+    sim.send({ type: 'grab', x: PLAZA_X + 7, y: GROUND_Y - 0.21 });
     sim.send({ type: 'shake' });
     sim.step();
     expect(find(log, 'item_shaken')).toMatchObject([{ id: p.id, kind: 'item' }]);
@@ -452,7 +453,8 @@ describe('save version 3', () => {
       },
     };
     const save = loadSaveFile(JSON.stringify(v2));
-    expect(save.version).toBe(3);
+    // Later migrations run too.
+    expect(save.version).toBe(SAVE_VERSION);
     const b = save.world.entities[0]!.bug!;
     expect(b).toMatchObject({ mode: 'st_idle', targetId: null, mouthful: null, reaction: null, burpAt: -1 });
     expect(b.variants).toEqual({});

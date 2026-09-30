@@ -23,6 +23,8 @@ const BRAIN_NUMBERS = [
   'burpAt',
   'tickle',
   'woozyUntil',
+  'smelledAt',
+  'hopAt',
 ] as const;
 const REACTIONS = new Set<string>(REACTION_TYPES);
 
@@ -58,6 +60,42 @@ function brainProblems(bug: unknown): string[] {
   const variants = bug.variants;
   if (!isObj(variants) || !Object.entries(variants).every(([k, v]) => REACTIONS.has(k) && isNum(v)))
     errors.push('variants are invalid');
+  return errors;
+}
+
+const isNumMap = (v: unknown): boolean => isObj(v) && Object.values(v).every(isNum);
+
+/** Problems with the saved pond and weather state, or an empty list. */
+function envProblems(env: unknown): string[] {
+  if (!isObj(env)) return ['is not an object'];
+  const errors: string[] = [];
+  if (!isNumMap(env.rise)) errors.push('rise is invalid');
+  if (typeof env.hoseOn !== 'boolean' || typeof env.rain !== 'boolean') errors.push('flags are invalid');
+  for (const k of ['nextIce', 'zappedUntil', 'wind', 'rainSince'] as const)
+    if (!isNum(env[k])) errors.push(`${k} must be a number`);
+  const ice = env.ice;
+  if (
+    !Array.isArray(ice) ||
+    !ice.every(
+      (i) =>
+        isObj(i) &&
+        isNum(i.id) &&
+        typeof i.areaId === 'string' &&
+        isNum(i.x0) &&
+        isNum(i.x1) &&
+        isNum(i.until),
+    )
+  )
+    errors.push('ice is invalid');
+  const sticks = env.sticks;
+  if (
+    !Array.isArray(sticks) ||
+    !sticks.every((t) => isObj(t) && isNum(t.a) && isNum(t.b) && isNum(t.x) && isNum(t.y) && isNum(t.since))
+  )
+    errors.push('sticks are invalid');
+  const pads = env.pads;
+  if (!isObj(pads) || !Object.values(pads).every((p) => isObj(p) && isNum(p.dy) && isNum(p.vy)))
+    errors.push('pads are invalid');
   return errors;
 }
 
@@ -103,7 +141,13 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
       const problems = brainProblems(e.bug);
       if (problems.length > 0) errors.push(`${at}.bug is invalid: ${problems.join(', ')}`);
     }
+    if (e.tags !== undefined && !isNumMap(e.tags)) errors.push(`${at}.tags is invalid`);
+    if (e.soak !== undefined && !isNum(e.soak)) errors.push(`${at}.soak must be a number`);
     return undefined;
   });
+  if (world.env !== undefined) {
+    const problems = envProblems(world.env);
+    if (problems.length > 0) errors.push(`world.env is invalid: ${problems.join(', ')}`);
+  }
   return errors;
 }

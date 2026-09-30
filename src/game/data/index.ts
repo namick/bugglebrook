@@ -8,10 +8,12 @@ import type { Registry } from './registry';
 import { ID_PATTERN } from './registry';
 import type { AreaDef, BugDef, ItemDef, PotionDef, RecipeDef, SecretDef } from './types';
 import { NEED_IDS } from './types';
+import { MATERIALS } from './materials';
 import { VIEW_HEIGHT_M } from '../constants';
+import { TAG_IDS } from '../systems/tags';
 
 export * from './types';
-export { AREAS, BUGS, ITEMS, POTIONS, RECIPES, SECRETS };
+export { AREAS, BUGS, ITEMS, MATERIALS, POTIONS, RECIPES, SECRETS };
 
 export interface Content {
   areas: Registry<AreaDef>;
@@ -105,6 +107,26 @@ export function validateContent(content: Content = CONTENT): string[] {
       ref(content.items, r.item, `${where} respawn`);
       if (!(r.count > 0)) errors.push(`${where} respawn count must be positive`);
     }
+    const w = area.water;
+    if (w) {
+      if (!(w.x0 >= 0 && w.x1 <= width && w.x1 > w.x0))
+        errors.push(`${where} water must lie inside the area`);
+      if (!(w.maxRise >= 0)) errors.push(`${where} water maxRise must not be negative`);
+    }
+    for (const s of area.start)
+      if (s.onWater && !(w && s.x > w.x0 && s.x < w.x1))
+        errors.push(`${where} start ${s.defId} is not on water`);
+    const fixtureIds = new Set<string>();
+    for (const f of area.fixtures ?? []) {
+      if (!f.id.startsWith('fix_') || !ID_PATTERN.test(f.id))
+        errors.push(`${where} fixture id is invalid: "${f.id}"`);
+      if (fixtureIds.has(f.id)) errors.push(`${where} duplicate fixture id: ${f.id}`);
+      fixtureIds.add(f.id);
+      if (f.x < 0 || f.x > width) errors.push(`${where} fixture ${f.id} is outside the area`);
+      if (!(f.radius > 0)) errors.push(`${where} fixture ${f.id} radius must be positive`);
+      if (f.kind === 'lily_pad' && !(w && f.x > w.x0 && f.x < w.x1))
+        errors.push(`${where} lily pad ${f.id} is not on water`);
+    }
   }
 
   for (const bug of content.bugs.all) {
@@ -127,8 +149,14 @@ export function validateContent(content: Content = CONTENT): string[] {
       errors.push(`${where} voice needs a positive pitch range and syllable rate`);
   }
 
+  const tags: ReadonlySet<string> = new Set(TAG_IDS);
   for (const item of content.items.all) {
     if (item.density <= 0) errors.push(`item ${item.id} density must be positive`);
+    if (!MATERIALS[item.material]) errors.push(`item ${item.id} has an unknown material "${item.material}"`);
+    for (const t of item.tags) if (!tags.has(t)) errors.push(`item ${item.id} has an unknown tag "${t}"`);
+    if (item.hull !== undefined && !(item.hull >= 1)) errors.push(`item ${item.id} hull must be at least 1`);
+    if (item.magnet !== undefined && !(item.magnet > 0))
+      errors.push(`item ${item.id} magnet must be positive`);
     const s = item.shape;
     if (s.type === 'circle' ? s.radius <= 0 : s.width <= 0 || s.height <= 0)
       errors.push(`item ${item.id} has a non-positive size`);

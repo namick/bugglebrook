@@ -6,6 +6,7 @@ import type { AreaDef } from '../../../game/data/types';
 import type { Terrain } from '../../../game/world/terrain';
 import type { Camera } from './camera';
 import { OUTLINE, darken, lighten, mix, stroke } from './palette';
+import { drawPondBackProps, drawPondBank, drawPondMid, pondFrontGap } from './pondArt';
 
 const PPM = PIXELS_PER_METER;
 const BOTTOM = VIEW_HEIGHT_PX + 40;
@@ -75,6 +76,9 @@ export class Background {
   private readonly cloudBase: number[] = [];
   private cloudWidth = 0;
   private readonly worldPx: number;
+  /** Where the plaza starts, in world pixels: its props are drawn relative to it. */
+  private readonly plazaX: number;
+  private readonly plaza: AreaDef;
 
   constructor(
     private readonly areas: readonly AreaDef[],
@@ -84,6 +88,8 @@ export class Background {
   ) {
     this.worldPx = worldWidthM * PPM;
     const area = areas[0]!;
+    this.plaza = areas.find((a) => a.id === 'area_stump_plaza') ?? area;
+    this.plazaX = this.plaza.xStart * PPM;
     const rng = new Rng(`background-${area.id}`);
     this.drawSky(area);
     this.drawClouds(rng);
@@ -361,19 +367,29 @@ export class Background {
       }
     }
     this.mid.addChild(g);
+    const pond = this.areas.find((a) => a.water);
+    if (pond) this.mid.addChild(drawPondMid(pond, PARALLAX.mid, rng));
   }
 
   /** The terrain surface as flat pixel pairs, with the stump flattened out. */
   private groundLine(flattenStump: boolean): number[] {
     const pts: number[] = [];
-    for (const [x, y] of this.terrain.points) pts.push(x * PPM, (flattenStump ? Math.max(y, 8.9) : y) * PPM);
+    const s0 = this.plaza.xStart + 11;
+    const s1 = this.plaza.xStart + 28;
+    for (const [x, y] of this.terrain.points)
+      pts.push(x * PPM, (flattenStump && x > s0 && x < s1 ? Math.max(y, 8.9) : y) * PPM);
     return pts;
   }
 
   private drawNear(rng: Rng): void {
     const area = this.areas[0]!;
-    const back = new Graphics();
-    this.drawBackProps(back, rng);
+    const back = new Container();
+    const plazaBack = new Graphics();
+    plazaBack.x = this.plazaX;
+    this.drawBackProps(plazaBack, rng);
+    back.addChild(plazaBack);
+    for (const pond of this.areas.filter((a) => a.water))
+      back.addChild(drawPondBackProps(pond, this.terrain, rng));
     // Push the props back a little: softer and hazier than anything grabbable.
     back.tint = 0xe2ecdf;
     back.alpha = 0.92;
@@ -431,7 +447,7 @@ export class Background {
     // Scallops.
     const scallop: number[] = [];
     for (let x = this.worldPx; x >= 0; x -= 28) {
-      const y = this.terrain.surfaceY(Math.min(x / PPM, 38.39)) * PPM;
+      const y = this.terrain.surfaceY(Math.min(x / PPM, this.worldPx / PPM - 0.01)) * PPM;
       const flat = Math.max(y, 890);
       scallop.push(x, flat + 30 + (Math.round(x / 28) % 2 === 0 ? 10 : 0));
     }
@@ -450,12 +466,19 @@ export class Background {
     for (let i = 2; i < surface.length; i += 2) moss.lineTo(surface[i]!, surface[i + 1]!);
     moss.stroke(stroke(6));
     this.near.addChild(moss);
+    for (const pond of this.areas.filter((a) => a.water))
+      this.near.addChild(drawPondBank(pond, this.terrain, rng));
 
     // Grass tufts and tiny flowers along the ground, behind the bugs.
     const tufts = new Graphics();
+    const ponds = this.areas.filter((a) => a.water);
+    const inPond = (x: number): boolean =>
+      ponds.some((p) => x > (p.xStart + p.water!.x0 - 0.4) * PPM && x < (p.xStart + p.water!.x1 + 0.4) * PPM);
     for (let x = 10; x < this.worldPx; x += rng.range(34, 110)) {
       const y = this.terrain.surfaceY(x / PPM) * PPM;
-      if (y < 880) continue; // not on the stump
+      if (inPond(x)) continue; // reeds grow there instead
+      const s = x - this.plazaX;
+      if (s > 1100 && s < 2800 && y < 880) continue; // not on the stump
       const n = rng.int(2, 4);
       for (let k = 0; k < n; k++)
         blade(
@@ -608,8 +631,9 @@ export class Background {
   private drawStump(area: AreaDef): Graphics {
     void area;
     const g = new Graphics();
-    const pts = this.terrain.points.filter(([x, y]) => y < 8.99 || (x > 11 && x < 28));
-    const stumpPts = pts.filter(([x]) => x >= 11.8 && x <= 27.2);
+    const ox = this.plaza.xStart;
+    const pts = this.terrain.points.filter(([x, y]) => (y < 8.99 && x > ox) || (x > ox + 11 && x < ox + 28));
+    const stumpPts = pts.filter(([x]) => x >= ox + 11.8 && x <= ox + 27.2);
     if (stumpPts.length < 3) return g;
     const bark = 0xa8744f;
     const barkDark = 0x7a4e32;
@@ -633,8 +657,8 @@ export class Background {
 
     // Bark grooves that follow the flare of the roots.
     const top = 4 * PPM;
-    const left = 16.1 * PPM;
-    const right = 22.9 * PPM;
+    const left = (ox + 16.1) * PPM;
+    const right = (ox + 22.9) * PPM;
     for (let i = 0; i < 9; i++) {
       const t = (i + 0.5) / 9;
       const x = left + (right - left) * t;
@@ -661,7 +685,7 @@ export class Background {
       }
     }
     // A knothole, dark and mysterious.
-    const kx = 19.9 * PPM;
+    const kx = (ox + 19.9) * PPM;
     const ky = 6.9 * PPM;
     g.ellipse(kx, ky, 64, 84).fill(darken(bark, 0.25)).stroke(soft(4, 0.7));
     g.ellipse(kx + 4, ky + 6, 42, 60).fill(0x2b1d2e);
@@ -705,7 +729,10 @@ export class Background {
   private drawFront(rng: Rng): void {
     const g = new Graphics();
     const width = this.span(PARALLAX.front) + 200;
+    const gaps = this.areas.filter((a) => a.water).map((a) => pondFrontGap(a, PARALLAX.front));
     for (let x = rng.range(0, 200); x < width; x += rng.range(260, 620)) {
+      // Keep the view into the pond clear.
+      if (gaps.some(([a, b]) => x > a && x < b)) continue;
       const n = rng.int(3, 6);
       for (let k = 0; k < n; k++) {
         const h = rng.range(90, 190);

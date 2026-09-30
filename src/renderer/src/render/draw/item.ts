@@ -1,7 +1,7 @@
 import { Container, Graphics } from 'pixi.js';
 import { PIXELS_PER_METER } from '../../../../game/constants';
 import type { ItemDef } from '../../../../game/data/types';
-import { OUTLINE, darken, lighten, stroke } from '../palette';
+import { OUTLINE, darken, lighten, mix, stroke } from '../palette';
 import { hash01 } from '../bugPose';
 
 /**
@@ -19,8 +19,11 @@ export class ItemSprite extends Container {
   private readonly g = new Graphics();
   /** A white rim light behind the art, shown on hover. */
   private readonly rim = new Graphics();
-  /** Stink lines and a fly for smelly food. */
-  private readonly fx: Graphics | null = null;
+  /** Stink lines and a fly, while the thing is smelly. */
+  private readonly fx = new Graphics();
+  private stink = false;
+  /** How soggy a paper thing is, 0 to 1, as last drawn. */
+  private soggy = 0;
   private readonly coil: Graphics | null = null;
   private time = Math.random() * 10;
   /** Spring compression, 0 to 1, set when something bounces off it. */
@@ -38,6 +41,7 @@ export class ItemSprite extends Container {
     this.stretchC.addChild(this.spin);
     this.spin.addChild(this.art);
     this.art.addChild(this.rim, this.g);
+    this.addChild(this.fx);
     this.rim.visible = false;
     const ppm = PIXELS_PER_METER;
     const s = def.shape;
@@ -84,14 +88,42 @@ export class ItemSprite extends Container {
         break;
       case 'banana_mush':
         this.bananaMush(w / 2, seed);
-        this.fx = new Graphics();
-        this.addChild(this.fx);
         break;
       case 'moss_tuft':
         this.mossTuft(w / 2, seed);
         break;
       case 'jelly_bean':
         this.jellyBean(w, h);
+        break;
+      case 'blueberry':
+        this.blueberry(w / 2);
+        break;
+      case 'cork':
+        this.cork(w, h, seed);
+        break;
+      case 'leaf_raft':
+        this.leafRaft(w, h);
+        break;
+      case 'paper_boat':
+        this.paperBoat(w, h, 0);
+        break;
+      case 'sponge':
+        this.sponge(w, h, seed);
+        break;
+      case 'soap':
+        this.soap(w, h);
+        break;
+      case 'bubble_wand':
+        this.bubbleWand(w, h);
+        break;
+      case 'feather':
+        this.feather(w, h);
+        break;
+      case 'gum_blob':
+        this.gumBlob(w / 2, seed);
+        break;
+      case 'magnet':
+        this.magnet(w, h);
         break;
     }
     this.outline(this.rim, w, h);
@@ -128,7 +160,35 @@ export class ItemSprite extends Container {
         this.pepperPath(g, w, h);
         return;
       case 'jelly_bean':
+      case 'soap':
         g.roundRect(-w / 2, -h / 2, w, h, h / 2);
+        return;
+      case 'blueberry':
+      case 'gum_blob':
+        g.circle(0, 0, r * 1.05);
+        return;
+      case 'leaf_raft':
+        g.moveTo(-w / 2, -h * 1.2)
+          .quadraticCurveTo(-w * 0.45, h * 0.9, 0, h * 0.8)
+          .quadraticCurveTo(w * 0.45, h * 0.9, w / 2, -h * 1.2)
+          .closePath();
+        return;
+      case 'paper_boat':
+        g.poly([-w / 2, -h * 0.05, w / 2, -h * 0.05, w * 0.34, h / 2, -w * 0.34, h / 2])
+          .moveTo(-w * 0.2, -h * 0.05)
+          .lineTo(w * 0.02, -h * 1.05)
+          .lineTo(w * 0.22, -h * 0.05);
+        return;
+      case 'bubble_wand':
+        g.circle(w / 2 - h * 1.1, 0, h * 1.1)
+          .moveTo(-w / 2, 0)
+          .lineTo(w / 2 - h * 2.2, 0);
+        return;
+      case 'magnet':
+        g.moveTo(-w / 2, h / 2)
+          .lineTo(-w / 2, -h * 0.05)
+          .arc(0, -h * 0.05, w / 2, Math.PI, 0)
+          .lineTo(w / 2, h / 2);
         return;
       default:
         g.roundRect(-w / 2, -h / 2, w, h, Math.min(8, h / 2));
@@ -495,9 +555,248 @@ export class ItemSprite extends Container {
       .stroke({ width: 4, color: OUTLINE, cap: 'round' });
   }
 
+  private blueberry(r: number): void {
+    const { g, def } = this;
+    g.circle(0, 0, r).fill(def.color).stroke(stroke(4.5));
+    // A dusty bloom and a five-point crown on top.
+    g.circle(-r * 0.2, -r * 0.1, r * 0.72).fill({ color: lighten(def.color, 0.25), alpha: 0.35 });
+    g.star(0, -r * 0.62, 5, r * 0.36, r * 0.16)
+      .fill(def.accent)
+      .stroke(stroke(3));
+    g.circle(-r * 0.42, -r * 0.3, r * 0.17).fill({ color: 0xffffff, alpha: 0.75 });
+  }
+
+  private cork(w: number, h: number, seed: number): void {
+    const { g, def } = this;
+    // A cork lying on its side: a slightly tapered barrel with a round end.
+    g.poly([-w / 2, -h / 2 + 2, w / 2 - 6, -h / 2, w / 2 - 6, h / 2, -w / 2, h / 2 - 2])
+      .fill(def.color)
+      .stroke(stroke(4.5));
+    g.ellipse(w / 2 - 6, 0, 7, h / 2)
+      .fill(def.accent)
+      .stroke(stroke(4));
+    for (let i = 0; i < 9; i++) {
+      const x = (hash01(seed, i) - 0.55) * w * 0.8;
+      const y = (hash01(seed, i + 11) - 0.5) * h * 0.7;
+      g.circle(x, y, 1.8 + hash01(seed, i + 3) * 1.6).fill({ color: darken(def.color, 0.35), alpha: 0.8 });
+    }
+    g.moveTo(-w * 0.38, -h * 0.28)
+      .lineTo(w * 0.2, -h * 0.3)
+      .stroke({ width: 3, color: lighten(def.color, 0.45), alpha: 0.8, cap: 'round' });
+  }
+
+  private leafRaft(w: number, h: number): void {
+    const { g, def } = this;
+    // A big leaf with its edges curled up into a shallow boat.
+    const lip = h * 1.2;
+    g.moveTo(-w / 2, -lip)
+      .quadraticCurveTo(-w * 0.45, h * 0.9, 0, h * 0.8)
+      .quadraticCurveTo(w * 0.45, h * 0.9, w / 2, -lip)
+      .quadraticCurveTo(w * 0.2, -h * 0.1, 0, -h * 0.15)
+      .quadraticCurveTo(-w * 0.2, -h * 0.1, -w / 2, -lip)
+      .closePath()
+      .fill(def.color)
+      .stroke(stroke(5));
+    // The inside of the leaf, lighter, with a midrib and veins.
+    g.moveTo(-w * 0.44, -lip * 0.75)
+      .quadraticCurveTo(0, -h * 0.4, w * 0.44, -lip * 0.75)
+      .quadraticCurveTo(0, h * 0.1, -w * 0.44, -lip * 0.75)
+      .fill(lighten(def.color, 0.25));
+    g.moveTo(-w * 0.44, -lip * 0.72)
+      .quadraticCurveTo(0, -h * 0.08, w * 0.44, -lip * 0.72)
+      .stroke({ width: 4, color: def.accent, cap: 'round' });
+    for (let i = 1; i < 6; i++) {
+      const x = -w / 2 + (i / 6) * w;
+      g.moveTo(x, -h * 0.2)
+        .lineTo(x + w * 0.05, h * 0.45)
+        .stroke({ width: 2.5, color: def.accent, alpha: 0.8, cap: 'round' });
+    }
+    // A stem curling up at the back.
+    g.moveTo(-w / 2 + 4, -lip)
+      .quadraticCurveTo(-w / 2 - 14, -lip - 20, -w / 2 - 4, -lip - 34)
+      .stroke({ width: 6, color: OUTLINE, cap: 'round' });
+    g.moveTo(-w / 2 + 4, -lip)
+      .quadraticCurveTo(-w / 2 - 14, -lip - 20, -w / 2 - 4, -lip - 34)
+      .stroke({ width: 3, color: def.accent, cap: 'round' });
+  }
+
+  /** A folded paper boat; `soggy` (0 to 1) sags the sail and greys the paper. */
+  private paperBoat(w: number, h: number, soggy: number): void {
+    const { def } = this;
+    const g = this.g.clear();
+    const paper = mix(def.color, 0x9fb4c4, soggy * 0.6);
+    const shade = darken(paper, 0.12);
+    const sag = soggy * h * 0.35;
+    // The hull: a trapezoid with a folded rim.
+    g.poly([-w / 2, -h * 0.05, w / 2, -h * 0.05, w * 0.34, h / 2, -w * 0.34, h / 2])
+      .fill(paper)
+      .stroke(stroke(4.5));
+    g.poly([-w / 2, -h * 0.05, w / 2, -h * 0.05, w * 0.42, h * 0.16, -w * 0.42, h * 0.16]).fill(shade);
+    // The sail: a tall triangle that droops when soggy.
+    g.poly([-w * 0.22, -h * 0.05, w * 0.02 + sag * 0.8, -h * 1.05 + sag, w * 0.24, -h * 0.05])
+      .fill(paper)
+      .stroke(stroke(4.5));
+    g.moveTo(w * 0.02 + sag * 0.8, -h * 1.05 + sag)
+      .lineTo(0, -h * 0.05)
+      .stroke({ width: 2.5, color: shade, cap: 'round' });
+    // A blue stripe printed on the paper.
+    g.moveTo(-w * 0.36, h * 0.3)
+      .lineTo(w * 0.36, h * 0.3)
+      .stroke({ width: 4, color: def.accent, alpha: 1 - soggy * 0.5, cap: 'round' });
+    if (soggy > 0.3)
+      for (let i = 0; i < 3; i++)
+        g.circle(-w * 0.2 + i * w * 0.2, h * 0.05 + (i % 2) * 6, 5 + soggy * 5).fill({
+          color: 0x8aa0b3,
+          alpha: 0.35 * soggy,
+        });
+  }
+
+  /** Show how soggy a paper boat is (0 to 1). */
+  setSoggy(k: number): void {
+    if (this.def.art !== 'paper_boat' || Math.abs(k - this.soggy) < 0.05) return;
+    this.soggy = k;
+    const s = this.def.shape;
+    if (s.type === 'box') this.paperBoat(s.width * PIXELS_PER_METER, s.height * PIXELS_PER_METER, k);
+  }
+
+  private sponge(w: number, h: number, seed: number): void {
+    const { g, def } = this;
+    // A kitchen sponge: yellow foam with a green scrubber on top.
+    g.roundRect(-w / 2, -h / 2, w, h, 8)
+      .fill(def.color)
+      .stroke(stroke(4.5));
+    g.roundRect(-w / 2, -h / 2, w, h * 0.3, 6)
+      .fill(def.accent)
+      .stroke(stroke(4));
+    for (let i = 0; i < 11; i++) {
+      const x = (hash01(seed, i) - 0.5) * w * 0.8;
+      const y = h * 0.02 + hash01(seed, i + 20) * h * 0.38;
+      g.ellipse(x, y, 3 + hash01(seed, i + 5) * 3, 2 + hash01(seed, i + 7) * 2).fill({
+        color: darken(def.color, 0.28),
+        alpha: 0.85,
+      });
+    }
+    g.moveTo(-w * 0.36, -h * 0.34)
+      .lineTo(w * 0.2, -h * 0.34)
+      .stroke({ width: 2.5, color: lighten(def.accent, 0.4), cap: 'round' });
+  }
+
+  private soap(w: number, h: number): void {
+    const { g, def } = this;
+    g.roundRect(-w / 2, -h / 2, w, h, h / 2)
+      .fill(def.color)
+      .stroke(stroke(4.5));
+    g.roundRect(-w * 0.36, -h * 0.34, w * 0.5, h * 0.22, h * 0.11).fill({ color: 0xffffff, alpha: 0.75 });
+    // A little bubble stuck to it.
+    g.circle(w * 0.3, -h * 0.55, h * 0.24)
+      .fill({ color: 0xffffff, alpha: 0.35 })
+      .stroke({ width: 2.5, color: 0x9fd8f0 });
+    g.circle(w * 0.26, -h * 0.62, h * 0.07).fill(0xffffff);
+  }
+
+  private bubbleWand(w: number, h: number): void {
+    const { g, def } = this;
+    const rr = h * 1.1;
+    const cx = w / 2 - rr;
+    // The handle, then the ring.
+    g.roundRect(-w / 2, -h * 0.22, w - rr * 2 + 4, h * 0.44, h * 0.22)
+      .fill(def.color)
+      .stroke(stroke(4));
+    g.circle(cx, 0, rr).stroke({ width: 13, color: OUTLINE });
+    g.circle(cx, 0, rr).stroke({ width: 7, color: def.accent });
+    g.circle(cx, 0, rr - 7).fill({ color: 0xe8f8ff, alpha: 0.35 });
+    g.moveTo(cx + Math.cos(Math.PI * 1.1) * (rr - 10), Math.sin(Math.PI * 1.1) * (rr - 10))
+      .arc(cx, 0, rr - 10, Math.PI * 1.1, Math.PI * 1.5)
+      .stroke({ width: 3, color: 0xffffff, alpha: 0.8 });
+    g.moveTo(-w / 2 + 8, -h * 0.08)
+      .lineTo(-w * 0.1, -h * 0.08)
+      .stroke({ width: 2.5, color: 0xffffff, alpha: 0.7, cap: 'round' });
+  }
+
+  private feather(w: number, h: number): void {
+    const { g, def } = this;
+    const hw = w / 2;
+    // A soft vane on a curved quill, tipped with blue.
+    g.moveTo(-hw, 0)
+      .bezierCurveTo(-hw * 0.4, -h * 2.2, hw * 0.6, -h * 1.9, hw, -h * 0.3)
+      .bezierCurveTo(hw * 0.6, h * 1.3, -hw * 0.4, h * 1.4, -hw * 0.7, h * 0.2)
+      .closePath()
+      .fill(def.color)
+      .stroke(stroke(4));
+    g.moveTo(hw * 0.35, -h * 1.1)
+      .bezierCurveTo(hw * 0.7, -h * 0.9, hw * 0.9, -h * 0.5, hw, -h * 0.3)
+      .bezierCurveTo(hw * 0.75, h * 0.4, hw * 0.5, h * 0.6, hw * 0.35, h * 0.5)
+      .fill(def.accent);
+    for (let i = 1; i < 7; i++) {
+      const x = -hw * 0.7 + (i / 7) * w * 0.9;
+      g.moveTo(x, -h * 0.1)
+        .lineTo(x + w * 0.06, -h * 0.9)
+        .stroke({ width: 1.8, color: 0xc8d6e6, cap: 'round' });
+    }
+    g.moveTo(-hw - w * 0.1, h * 0.25)
+      .quadraticCurveTo(0, -h * 0.25, hw, -h * 0.25)
+      .stroke({ width: 3.5, color: 0xd8c7a3, cap: 'round' });
+  }
+
+  private gumBlob(r: number, seed: number): void {
+    const { g, def } = this;
+    // A chewed, lumpy blob, very shiny.
+    const pts: number[] = [];
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2;
+      const k = 1 + (hash01(seed + 3, i) - 0.5) * 0.22;
+      pts.push(Math.cos(a) * r * k * 1.08, Math.sin(a) * r * k * (Math.sin(a) > 0 ? 0.82 : 1));
+    }
+    g.poly(pts).fill(def.color).stroke(stroke(4.5));
+    g.ellipse(-r * 0.3, -r * 0.38, r * 0.34, r * 0.16).fill({ color: 0xffffff, alpha: 0.85 });
+    g.circle(r * 0.3, -r * 0.15, r * 0.09).fill({ color: 0xffffff, alpha: 0.8 });
+    g.moveTo(-r * 0.1, r * 0.3)
+      .quadraticCurveTo(r * 0.2, r * 0.5, r * 0.5, r * 0.25)
+      .stroke({ width: 3, color: darken(def.color, 0.2), alpha: 0.7, cap: 'round' });
+  }
+
+  private magnet(w: number, h: number): void {
+    const { g, def } = this;
+    // A red horseshoe with silver tips, legs pointing down.
+    const R = w / 2;
+    const r = R * 0.42;
+    const cy = -h * 0.05;
+    g.moveTo(-R, h / 2)
+      .lineTo(-R, cy)
+      .arc(0, cy, R, Math.PI, 0)
+      .lineTo(R, h / 2)
+      .lineTo(r, h / 2)
+      .lineTo(r, cy)
+      .arc(0, cy, r, 0, Math.PI, true)
+      .lineTo(-r, h / 2)
+      .closePath()
+      .fill(def.color)
+      .stroke(stroke(4.5));
+    for (const sx of [-1, 1]) {
+      g.rect(sx < 0 ? -R : r, h / 2 - h * 0.3, R - r, h * 0.3)
+        .fill(def.accent)
+        .stroke(stroke(4));
+    }
+    g.moveTo(Math.cos(Math.PI * 1.15) * R * 0.72, cy + Math.sin(Math.PI * 1.15) * R * 0.72)
+      .arc(0, cy, R * 0.72, Math.PI * 1.15, Math.PI * 1.6)
+      .stroke({
+        width: 3,
+        color: 0xffffff,
+        alpha: 0.7,
+        cap: 'round',
+      });
+  }
+
+  /** Show the stink lines and fly, or hide them. */
+  setStink(on: boolean): void {
+    if (on === this.stink) return;
+    this.stink = on;
+    if (!on) this.fx.clear();
+  }
+
   /** Wavy stink lines and a fly doing loops (drawn upright, not spun). */
   private drawStink(): void {
-    const g = this.fx!.clear();
+    const g = this.fx.clear();
     const t = this.time;
     for (let i = 0; i < 2; i++) {
       const x0 = -8 + i * 16;
@@ -536,7 +835,7 @@ export class ItemSprite extends Container {
 
   update(dt: number): void {
     this.time += dt;
-    if (this.fx) this.drawStink();
+    if (this.stink) this.drawStink();
     if (!this.coil) return;
     // Damped spring back to rest, with a little overshoot for a boing.
     this.compressV += (-220 * this.compress - 10 * this.compressV) * Math.min(dt, 0.05);

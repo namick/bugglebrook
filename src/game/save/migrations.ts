@@ -80,6 +80,36 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     });
     return { ...save, version: 3, world: { ...world, entities } };
   },
+  // 3 -> 4: M3 puts Puddle Pond (32 m wide) left of the plaza, so everything
+  // saved moves right by 32 m, camera included. Bugs gain smell and hop
+  // timers. Tags and the pond's state start from their defaults.
+  3: (save) => {
+    const POND_WIDTH = 32;
+    const shift = (v: unknown): unknown => (typeof v === 'number' ? v + POND_WIDTH : v);
+    const world = save.world as Record<string, unknown>;
+    const view = save.view as Record<string, unknown>;
+    const entities = (world.entities as Record<string, unknown>[]).map((e) => {
+      const body = e.body as Record<string, unknown>;
+      const moved: Record<string, unknown> = { ...e, body: { ...body, x: shift(body.x) } };
+      if (e.kind === 'bug') {
+        const bug = e.bug as Record<string, unknown>;
+        moved.bug = {
+          ...bug,
+          targetX: shift(bug.targetX),
+          lastX: shift(bug.lastX),
+          smelledAt: -1,
+          hopAt: -1,
+        };
+      }
+      return moved;
+    });
+    return {
+      ...save,
+      version: 4,
+      view: { ...view, cameraX: shift(view.cameraX) },
+      world: { ...world, entities },
+    };
+  },
 };
 
 export class SaveError extends Error {

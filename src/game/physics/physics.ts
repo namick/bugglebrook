@@ -1,5 +1,5 @@
-import { AABB, Box, Chain, Circle, Edge, MouseJoint, Vec2, World } from 'planck';
-import type { Body, Contact } from 'planck';
+import { AABB, Box, Chain, Circle, Edge, MouseJoint, Vec2, WeldJoint, World } from 'planck';
+import type { Body, Contact, Joint } from 'planck';
 import type { EntityId } from '../core/entities';
 import type { Terrain } from '../world/terrain';
 
@@ -71,6 +71,16 @@ export class Physics {
   private grabbedId: EntityId | null = null;
   private pendingImpacts: Impact[] = [];
   private halfExtents = new Map<EntityId, Vec>();
+  /** Lily pads, ice sheets: bodies that are part of the world, keyed by name. */
+  private platforms = new Map<string, Body>();
+  private welds = new Map<number, { joint: Joint; a: EntityId; b: EntityId }>();
+  private nextWeld = 1;
+  private grabTarget: Vec | null = null;
+  private lastGrabTarget: Vec | null = null;
+  /** Steps since the hand's target last moved: moves arrive once per frame, not per step. */
+  private stillSteps = 0;
+  /** How fast the hand moved its target during the last step, m/s. */
+  handSpeed = 0;
 
   constructor(
     gravity: number,
@@ -148,6 +158,7 @@ export class Physics {
     const body = this.bodies.get(id);
     if (!body) return;
     if (this.grabbedId === id) this.release();
+    for (const [handle, w] of this.welds) if (w.a === id || w.b === id) this.unweld(handle);
     this.world.destroyBody(body);
     this.bodies.delete(id);
     this.halfExtents.delete(id);
@@ -207,6 +218,139 @@ export class Physics {
     body.setAngularVelocity(0);
   }
 
+  /** Push a body at its center of mass for the next step (N). */
+  applyForce(id: EntityId, fx: number, fy: number): void {
+    const body = this.requireBody(id);
+    body.applyForceToCenter(Vec2(fx, fy), true);
+  }
+
+  applyTorque(id: EntityId, torque: number): void {
+    this.requireBody(id).applyTorque(torque, true);
+  }
+
+  /** Change a body's friction (wet things grip less, ice hardly at all). */
+  setFriction(id: EntityId, friction: number): void {
+    const body = this.requireBody(id);
+    for (let f = body.getFixtureList(); f; f = f.getNext()) f.setFriction(friction);
+    // Contacts cache mixed friction; refresh them.
+    for (let edge = body.getContactList(); edge; edge = edge.next ?? null) edge.contact.resetFriction();
+  }
+
+  friction(id: EntityId): number {
+    return this.requireBody(id).getFixtureList()?.getFriction() ?? 0;
+  }
+
+  /**
+   * A moving part of the world (a lily pad, an ice sheet): a kinematic box
+   * that entities stand on like ground. Creates it, or moves it so it
+   * arrives at (x, y) after `dt` seconds.
+   */
+  setPlatform(
+    key: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    friction: number,
+    dt: number,
+  ): void {
+    const existing = this.platforms.get(key);
+    if (!existing) {
+      const body = this.world.createBody({ type: 'kinematic', position: Vec2(x, y) });
+      body.createFixture(new Box(width / 2, height / 2), { friction, restitution: 0.05 });
+      this.platforms.set(key, body);
+      return;
+    }
+    const p = existing.getPosition();
+    existing.setLinearVelocity(Vec2((x - p.x) / dt, (y - p.y) / dt));
+  }
+
+  removePlatform(key: string): void {
+    const body = this.platforms.get(key);
+    if (!body) return;
+    this.world.destroyBody(body);
+    this.platforms.delete(key);
+  }
+
+  hasPlatform(key: string): boolean {
+    return this.platforms.has(key);
+  }
+
+  platformPosition(key: string): Vec | null {
+    const body = this.platforms.get(key);
+    if (!body) return null;
+    const p = body.getPosition();
+    return { x: p.x, y: p.y };
+  }
+
+  /** Entities touching a platform. */
+  onPlatform(key: string): EntityId[] {
+    const body = this.platforms.get(key);
+    const out: EntityId[] = [];
+    if (!body) return out;
+    for (let edge = body.getContactList(); edge; edge = edge.next ?? null) {
+      if (!edge.contact.isTouching()) continue;
+      const id = edge.other?.getUserData() as EntityId | null | undefined;
+      if (id != null && !out.includes(id)) out.push(id);
+    }
+    return out.sort((a, b) => a - b);
+  }
+
+  /** Glue two bodies together where they are now. Returns a handle for `unweld`. */
+  weld(a: EntityId, b: EntityId, x: number, y: number): number {
+    const joint = this.world.createJoint(
+      new WeldJoint(
+        { frequencyHz: 0, dampingRatio: 0 },
+        this.requireBody(a),
+        this.requireBody(b),
+        Vec2(x, y),
+      ),
+    );
+    if (!joint) throw new Error('Could not weld');
+    const handle = this.nextWeld++;
+    this.welds.set(handle, { joint, a, b });
+    return handle;
+  }
+
+  unweld(handle: number): void {
+    const w = this.welds.get(handle);
+    if (!w) return;
+    this.world.destroyJoint(w.joint);
+    this.welds.delete(handle);
+  }
+
+  /** Pairs of entities touching right now, lower ID first, sorted. */
+  touchingPairs(): [EntityId, EntityId][] {
+    const out: [EntityId, EntityId][] = [];
+    const seen = new Set<string>();
+    for (let c = this.world.getContactList(); c; c = c.getNext()) {
+      if (!c.isTouching()) continue;
+      const a = c.getFixtureA().getBody().getUserData() as EntityId | null;
+      const b = c.getFixtureB().getBody().getUserData() as EntityId | null;
+      if (a == null || b == null || a === b) continue;
+      const pair: [EntityId, EntityId] = a < b ? [a, b] : [b, a];
+      const key = `${pair[0]}:${pair[1]}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(pair);
+    }
+    return out.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+  }
+
+  /** A point where two touching bodies meet, or the midpoint of their centers. */
+  contactPoint(a: EntityId, b: EntityId): Vec {
+    const body = this.requireBody(a);
+    for (let edge = body.getContactList(); edge; edge = edge.next ?? null) {
+      if (edge.other?.getUserData() !== b || !edge.contact.isTouching()) continue;
+      const m = edge.contact.getWorldManifold(null);
+      const p = m?.points[0];
+      if (p) return { x: p.x, y: p.y };
+    }
+    const pa = body.getPosition();
+    const pb = this.requireBody(b).getPosition();
+    return { x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2 };
+  }
+
   applyImpulse(id: EntityId, ix: number, iy: number): void {
     const body = this.requireBody(id);
     body.applyLinearImpulse(Vec2(ix, iy), body.getWorldCenter(), true);
@@ -214,6 +358,11 @@ export class Physics {
 
   mass(id: EntityId): number {
     return this.requireBody(id).getMass();
+  }
+
+  /** Rotational inertia about the center of mass. */
+  inertia(id: EntityId): number {
+    return this.requireBody(id).getInertia();
   }
 
   /**
@@ -324,12 +473,17 @@ export class Physics {
     );
     this.grabJoint = this.world.createJoint(joint);
     this.grabbedId = id;
+    this.grabTarget = { x, y };
+    this.lastGrabTarget = { x, y };
+    this.handSpeed = 0;
     body.setAwake(true);
   }
 
   moveGrab(x: number, y: number): void {
     const cx = Math.min(this.width - 0.05, Math.max(0.05, x));
-    this.grabJoint?.setTarget(Vec2(cx, Math.min(y, this.terrain.surfaceY(cx) - 0.05)));
+    const target = { x: cx, y: Math.min(y, this.terrain.surfaceY(cx) - 0.05) };
+    this.grabJoint?.setTarget(Vec2(target.x, target.y));
+    if (this.grabJoint) this.grabTarget = target;
   }
 
   /**
@@ -342,6 +496,9 @@ export class Physics {
     if (this.grabJoint) this.world.destroyJoint(this.grabJoint);
     this.grabJoint = null;
     this.grabbedId = null;
+    this.grabTarget = null;
+    this.lastGrabTarget = null;
+    this.handSpeed = 0;
     if (id !== null && this.bodies.has(id)) {
       const body = this.requireBody(id);
       if (velocity) body.setLinearVelocity(Vec2(velocity.x, velocity.y));
@@ -354,6 +511,23 @@ export class Physics {
 
   get grabbed(): EntityId | null {
     return this.grabbedId;
+  }
+
+  /** How fast the hand is pulling its target this step (m/s). Call once per step, before `step`. */
+  measureHand(dt: number): number {
+    const t = this.grabTarget;
+    const l = this.lastGrabTarget;
+    this.stillSteps++;
+    if (!t || !l) {
+      this.handSpeed = 0;
+      this.stillSteps = 0;
+    } else if (t.x !== l.x || t.y !== l.y) {
+      // Spread the move over the steps since the last one (slow frames run several steps).
+      this.handSpeed = Math.hypot(t.x - l.x, t.y - l.y) / (Math.min(this.stillSteps, 6) * dt);
+      this.stillSteps = 0;
+    }
+    this.lastGrabTarget = t ? { ...t } : null;
+    return this.handSpeed;
   }
 
   step(dt: number): void {

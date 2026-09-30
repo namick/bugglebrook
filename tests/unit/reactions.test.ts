@@ -15,8 +15,9 @@ import { FACES, movePose, reactionLook, reactionShowing } from '../../src/render
 import type { Move } from '../../src/renderer/src/render/reactions';
 import { thoughtFor } from '../../src/renderer/src/render/thoughts';
 import { cursorPose } from '../../src/renderer/src/ui/cursor';
+import { PLAZA_X } from './world';
 
-const ARTS = ['ladybug', 'pillbug', 'snail'] as const;
+const ARTS = ['ladybug', 'pillbug', 'snail', 'strider'] as const;
 
 describe('reaction table', () => {
   it('has three different variants for every reaction and every bug', () => {
@@ -293,7 +294,7 @@ describe('feeding end to end in the sim, heard', () => {
       () => 0,
     );
     sfx.attach(sim.events);
-    const bug = sim.spawn('bug', 'bug_pillbug_rollo', 7, GROUND_Y - 0.48);
+    const bug = sim.spawn('bug', 'bug_pillbug_rollo', PLAZA_X + 7, GROUND_Y - 0.48);
     sim.run(30);
     const b = sim.entities.get(bug.id)!.bug!;
     b.decideIn = 1e6;

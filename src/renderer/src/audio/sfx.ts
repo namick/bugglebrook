@@ -32,7 +32,25 @@ export type SfxName =
   | 'hover'
   | 'hop'
   | 'whistle'
-  | 'ui_pop';
+  | 'ui_pop'
+  | 'splash'
+  | 'plop'
+  | 'plip'
+  | 'tsss'
+  | 'freeze'
+  | 'thaw'
+  | 'squelch'
+  | 'pop'
+  | 'clink'
+  | 'bubble'
+  | 'stink'
+  | 'shake_dry'
+  | 'click_on'
+  | 'click_off'
+  | 'blub'
+  | 'squish'
+  | 'bzzt'
+  | 'trickle';
 
 /** What a thing is made of, for impact and grab sounds. */
 export interface MaterialLookup {
@@ -115,7 +133,39 @@ export class Sfx {
       bus.on('item_shaken', () => this.play('shake')),
       bus.on('bug_hopped', () => this.play('hop')),
       bus.on('item_respawned', () => this.play('whistle')),
+      // Water and property rules.
+      bus.on('splashed', (e) =>
+        e.speed > 1.5 || e.size > 0.25
+          ? this.play('splash', Math.min(1, 0.3 + e.speed / 10))
+          : this.play('plop', 0.6),
+      ),
+      bus.on('skipped', () => this.play('plip')),
+      bus.on('steamed', () => this.play('tsss')),
+      bus.on('froze', () => this.play('freeze')),
+      bus.on('ice_formed', () => this.play('freeze', 0.8)),
+      bus.on('thawed', () => this.play('thaw')),
+      bus.on('ice_melted', () => this.play('thaw', 0.6)),
+      bus.on('stuck', () => this.play('squelch')),
+      bus.on('unstuck', () => this.play('pop')),
+      bus.on('magnet_snapped', () => this.play('clink')),
+      bus.on('bubbles_blown', () => this.limited('bubble', 180, 0.6)),
+      bus.on('bug_smelled', () => this.play('stink')),
+      bus.on('bug_shook_dry', () => this.play('shake_dry')),
+      bus.on('hose_toggled', (e) => this.play(e.on ? 'click_on' : 'click_off')),
+      bus.on('boot_bubbled', () => this.play('blub')),
+      bus.on('wrung_out', () => this.play('squish')),
+      bus.on('water_zapped', () => this.play('bzzt')),
     ];
+  }
+
+  private lastLimited = new Map<SfxName, number>();
+
+  /** Play at most once per `ms`, for sounds that can come in floods. */
+  private limited(name: SfxName, ms: number, intensity = 1): void {
+    const t = this.now();
+    if (t - (this.lastLimited.get(name) ?? -Infinity) < ms) return;
+    this.lastLimited.set(name, t);
+    this.play(name, intensity);
   }
 
   detach(): void {
@@ -350,6 +400,152 @@ export class Sfx {
           ];
         case 'ui_pop':
           return [{ freq: 900 * j, to: 1500 * j, dur: 0.06, wave: 'sine', gain: 0.35 }];
+        case 'splash':
+          // A noise burst through a band-pass that opens, then bubble blips.
+          return [
+            {
+              freq: 500 * j,
+              to: 2600 * j,
+              dur: 0.18 + 0.15 * intensity,
+              wave: 'noise',
+              q: 0.8,
+              gain: 0.45 * intensity,
+            },
+            {
+              freq: 1400 * j,
+              to: 500 * j,
+              dur: 0.3,
+              wave: 'noise',
+              q: 1.5,
+              gain: 0.18 * intensity,
+              delay: 0.05,
+            },
+            ...[0.1, 0.17, 0.26].map((d, i) => ({
+              freq: (420 + i * 160) * j,
+              to: (820 + i * 200) * j,
+              dur: 0.05,
+              wave: 'sine' as const,
+              gain: 0.18,
+              delay: d,
+            })),
+          ];
+        case 'plop':
+          return [
+            { freq: 950 * j, to: 320 * j, dur: 0.09, wave: 'sine', gain: 0.3 * intensity },
+            { freq: 1800 * j, to: 900 * j, dur: 0.04, wave: 'noise', q: 2, gain: 0.12 * intensity },
+          ];
+        case 'plip':
+          return [{ freq: 1500 * j, to: 750 * j, dur: 0.05, wave: 'sine', gain: 0.3 }];
+        case 'tsss':
+          return [
+            { freq: 6500 * j, to: 3800 * j, dur: 0.65, wave: 'noise', q: 1.1, gain: 0.3, attack: 0.02 },
+            { freq: 2200 * j, to: 1600 * j, dur: 0.3, wave: 'noise', q: 2, gain: 0.1 },
+          ];
+        case 'freeze':
+          return [
+            ...[0, 0.05, 0.11, 0.16].map((d) => ({
+              freq: 4200 * j,
+              to: 3000 * j,
+              dur: 0.03,
+              wave: 'noise' as const,
+              q: 3,
+              gain: 0.2 * intensity,
+              delay: d,
+            })),
+            { freq: 1760 * j, dur: 0.45, wave: 'sine', gain: 0.12 * intensity, delay: 0.12 },
+            { freq: 2640 * j, dur: 0.4, wave: 'sine', gain: 0.08 * intensity, delay: 0.16 },
+          ];
+        case 'thaw':
+          return [
+            { freq: 1300 * j, to: 600 * j, dur: 0.07, wave: 'sine', gain: 0.22 * intensity },
+            { freq: 1100 * j, to: 500 * j, dur: 0.07, wave: 'sine', gain: 0.18 * intensity, delay: 0.16 },
+          ];
+        case 'squelch':
+          return [
+            { freq: 500 * j, to: 180 * j, dur: 0.14, wave: 'noise', q: 2, gain: 0.3 },
+            {
+              freq: 220 * j,
+              to: 120 * j,
+              dur: 0.15,
+              wave: 'sine',
+              gain: 0.22,
+              vibrato: { rate: 28, depth: 30 },
+            },
+          ];
+        case 'pop':
+          return [{ freq: 700 * j, to: 1500 * j, dur: 0.04, wave: 'sine', gain: 0.2 * intensity }];
+        case 'clink':
+          return [
+            { freq: 2100 * j, dur: 0.25, wave: 'sine', gain: 0.18 },
+            { freq: 2100 * 2.7 * j, dur: 0.12, wave: 'sine', gain: 0.08 },
+          ];
+        case 'bubble':
+          return [0, 0.06, 0.13].map((d, i) => ({
+            freq: (560 + i * 140) * j,
+            to: (980 + i * 120) * j,
+            dur: 0.04,
+            wave: 'sine' as const,
+            gain: 0.1 * intensity,
+            delay: d,
+          }));
+        case 'stink':
+          // A little "pfff" and a low wobble.
+          return [
+            { freq: 320 * j, to: 140 * j, dur: 0.3, wave: 'noise', q: 0.7, gain: 0.25 },
+            {
+              freq: 95 * j,
+              to: 80 * j,
+              dur: 0.25,
+              wave: 'sawtooth',
+              gain: 0.08,
+              vibrato: { rate: 18, depth: 12 },
+            },
+          ];
+        case 'shake_dry':
+          // "Brrrr": a quick run of spray flicks.
+          return Array.from({ length: 7 }, (_, i) => ({
+            freq: (2600 - i * 120) * j,
+            to: (1400 - i * 60) * j,
+            dur: 0.045,
+            wave: 'noise' as const,
+            q: 1.3,
+            gain: 0.2,
+            delay: i * 0.055,
+          }));
+        case 'click_on':
+          return [
+            { freq: 1400 * j, dur: 0.03, wave: 'square', gain: 0.12 },
+            { freq: 2100 * j, dur: 0.04, wave: 'square', gain: 0.1, delay: 0.05 },
+          ];
+        case 'click_off':
+          return [
+            { freq: 2100 * j, dur: 0.03, wave: 'square', gain: 0.1 },
+            { freq: 1200 * j, dur: 0.04, wave: 'square', gain: 0.12, delay: 0.05 },
+          ];
+        case 'blub':
+          return [0, 0.08, 0.15, 0.25, 0.31].map((d, i) => ({
+            freq: (260 + (i % 3) * 90) * j,
+            to: (520 + (i % 2) * 140) * j,
+            dur: 0.06,
+            wave: 'sine' as const,
+            gain: 0.22,
+            delay: d,
+          }));
+        case 'squish':
+          return [
+            { freq: 900 * j, to: 260 * j, dur: 0.22, wave: 'noise', q: 1.4, gain: 0.3 },
+            { freq: 1200 * j, to: 600 * j, dur: 0.06, wave: 'sine', gain: 0.15, delay: 0.2 },
+          ];
+        case 'bzzt':
+          return [
+            { freq: 110 * j, dur: 0.35, wave: 'square', gain: 0.12, vibrato: { rate: 45, depth: 30 } },
+            { freq: 5000 * j, to: 3000 * j, dur: 0.3, wave: 'noise', q: 2, gain: 0.12 },
+          ];
+        case 'trickle':
+          return [
+            { freq: 3200 * j, to: 2200 * j, dur: 0.12, wave: 'noise', q: 3, gain: 0.07 * intensity },
+            { freq: 900 * j, to: 1300 * j, dur: 0.03, wave: 'sine', gain: 0.04 * intensity, delay: 0.05 },
+          ];
       }
     })();
     for (const tone of tones) this.backend.play({ ...tone, gain: (tone.gain ?? 0.3) * v, bus: 'sfx' });

@@ -55,16 +55,100 @@ function stump(topLeft: number, topRight: number): Point2[] {
   return [...up, ...down];
 }
 
-// Mossy Stump Plaza, the hub (game design doc, section 3). One area for M1;
-// its x runs 0 to 38.4 m here. The layout is simplified from the doc so the
-// first screen shows all three bugs, a berry, and the spring. When the pond is added to the left, the save
-// migration must shift saved x positions by the pond's width.
+/** Pond rim and bottom heights, and the width of each eased bank. */
+const RIM = 8.5;
+const POND_BOTTOM = 10.4;
+const BANK = 2.6;
+
+/**
+ * The pond basin between two rims: cosine-eased banks (never steeper than
+ * about 50 degrees, so bugs can walk out) and a bottom with gentle lumps.
+ */
+function basin(left: number, right: number): Point2[] {
+  const out: Point2[] = [];
+  const depth = POND_BOTTOM - RIM;
+  const steps = 10;
+  for (let i = 0; i <= steps; i++) {
+    const u = i / steps;
+    out.push([left + u * BANK, RIM + (depth * (1 - Math.cos(Math.PI * u))) / 2]);
+  }
+  const floorEnd = right - BANK;
+  for (let x = left + BANK + 1.2; x < floorEnd - 0.6; x += 1.2)
+    out.push([x, POND_BOTTOM + 0.07 * Math.sin(x * 1.3) - 0.05 * Math.cos(x * 0.7)]);
+  for (let i = 0; i <= steps; i++) {
+    const u = i / steps;
+    out.push([floorEnd + u * BANK, RIM + (depth * (1 + Math.cos(Math.PI * u))) / 2]);
+  }
+  return out;
+}
+
+/** Where the pond sits in its area (area-local x), and its resting surface. */
+const POND = { left: 4.8, right: 23.2, level: 8.72 };
+
+// Puddle Pond and Mossy Stump Plaza (game design doc, section 3). They tile
+// the world left to right: the pond runs 0 to 32 m and the plaza 32 to
+// 70.4 m. Saves from before the pond existed are shifted right by the
+// pond's width (save version 4). The plaza layout is simplified from the
+// doc so the first screen shows its three bugs, a berry, and the spring.
 export const AREAS = createRegistry<AreaDef>('area', [
+  {
+    id: 'area_puddle_pond',
+    name: 'Puddle Pond',
+    xStart: 0,
+    xEnd: 32,
+    terrain: [
+      [0, GROUND],
+      [1.5, GROUND],
+      [2.5, 8.86],
+      [3.4, 8.64],
+      [4.2, 8.53],
+      ...basin(POND.left, POND.right),
+      [24, 8.46],
+      [26.5, 8.46],
+      [27.5, 8.5],
+      [28.6, 8.52],
+      [29.6, 8.62],
+      [30.6, 8.84],
+      [31.4, 8.97],
+      [32, GROUND],
+    ],
+    start: [
+      { kind: 'item', defId: 'item_magnet', x: 1 },
+      { kind: 'item', defId: 'item_sponge', x: 2.3 },
+      { kind: 'item', defId: 'item_feather', x: 3.4 },
+      { kind: 'item', defId: 'item_cork', x: 6.4, onWater: true },
+      { kind: 'item', defId: 'item_leaf_raft', x: 10.6, onWater: true },
+      { kind: 'bug', defId: 'bug_waterstrider_skeet', x: 15, onWater: true },
+      { kind: 'item', defId: 'item_cork', x: 19, onWater: true },
+      { kind: 'item', defId: 'item_paper_boat', x: 20.3, onWater: true },
+      { kind: 'item', defId: 'item_gum_blob', x: 24.3 },
+      { kind: 'item', defId: 'item_blueberry', x: 26.9 },
+      { kind: 'item', defId: 'item_blueberry', x: 27.4 },
+      { kind: 'item', defId: 'item_soap_sliver', x: 28.2 },
+      { kind: 'item', defId: 'item_bubble_wand', x: 29.1 },
+    ],
+    respawn: [{ item: 'item_blueberry', count: 2 }],
+    skyTop: 0x8fd6f2,
+    skyBottom: 0xe4f6ee,
+    ground: 0x7cc452,
+    groundDark: 0x4e9a3a,
+    dirt: 0x8a6a4a,
+    dirtDark: 0x5e4630,
+    unlockedByDefault: true,
+    water: { x0: POND.left, x1: POND.right, level: POND.level, maxRise: 0.18, current: 0.08 },
+    fixtures: [
+      { id: 'fix_hose_tap', kind: 'hose_tap', x: 25.1, y: 7.95, radius: 0.5 },
+      { id: 'fix_lily_pad_west', kind: 'lily_pad', x: 8.6, y: POND.level, radius: 0.65 },
+      { id: 'fix_lily_pad_middle', kind: 'lily_pad', x: 12.8, y: POND.level, radius: 0.65 },
+      { id: 'fix_lily_pad_east', kind: 'lily_pad', x: 17, y: POND.level, radius: 0.65 },
+      { id: 'fix_rubber_boot', kind: 'rubber_boot', x: 19.4, y: 9.95, radius: 0.55 },
+    ],
+  },
   {
     id: 'area_stump_plaza',
     name: 'Mossy Stump Plaza',
-    xStart: 0,
-    xEnd: 38.4,
+    xStart: 32,
+    xEnd: 70.4,
     terrain: [
       [0, GROUND],
       ...dip(2.2, 0.8, 0.14),

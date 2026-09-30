@@ -32,6 +32,8 @@ export type Picto =
   | 'note'
   | 'fire'
   | 'snow'
+  | 'drop'
+  | 'stink'
   | 'food';
 
 /** A short body move that plays with the reaction. */
@@ -47,10 +49,12 @@ export type Move =
   | 'spin'
   | 'shell_spin'
   | 'pose'
-  | 'cower';
+  | 'cower'
+  | 'shake_off';
 
 /** One-off particles at the start of a reaction. */
-export type ReactionFx = 'hearts' | 'sparkles' | 'steam' | 'sweat' | 'confetti' | null;
+export type ReactionFx =
+  'hearts' | 'sparkles' | 'steam' | 'sweat' | 'confetti' | 'splash' | 'spray' | 'stink' | null;
 
 export interface ReactionLook {
   eyes: EyeShape;
@@ -208,7 +212,7 @@ const SHELL: Triple = three(
   },
 );
 
-type Personal = 'grab' | 'poke' | 'fling' | 'land';
+type Personal = 'grab' | 'poke' | 'fling' | 'land' | 'splash' | 'shake_dry' | 'stink';
 
 const PERSONAL: Record<BugArt, Record<Personal, Triple>> = {
   // Dot: a show-off who loves being handled and thrown.
@@ -265,6 +269,59 @@ const PERSONAL: Record<BugArt, Record<Personal, Triple>> = {
         seconds: 1.4,
       },
       { eyes: 'open', mouth: 'grin', pictos: ['thumbs_up'], emotion: 'happy', move: 'spin', seconds: 1.4 },
+    ),
+    splash: three(
+      { eyes: 'wide', mouth: 'o', pictos: ['exclaim', 'drop'], emotion: 'gasp', fx: 'splash', seconds: 1.6 },
+      { eyes: 'happy', mouth: 'whee', blush: true, pictos: ['drop', 'star'], emotion: 'whee', seconds: 1.6 },
+      {
+        eyes: 'x',
+        mouth: 'wobble',
+        pictos: ['drop', 'sweat'],
+        emotion: 'scared',
+        fx: 'splash',
+        seconds: 1.6,
+      },
+    ),
+    shake_dry: three(
+      {
+        eyes: 'happy',
+        mouth: 'grin',
+        pictos: ['drop', 'star'],
+        emotion: 'giggle',
+        move: 'shake_off',
+        fx: 'spray',
+      },
+      { eyes: 'squint', mouth: 'teeth', pictos: ['drop'], emotion: 'happy', move: 'shake_off', fx: 'spray' },
+      {
+        eyes: 'happy',
+        mouth: 'whee',
+        blush: true,
+        pictos: ['star', 'star'],
+        emotion: 'whee',
+        move: 'shake_off',
+        fx: 'spray',
+      },
+    ),
+    stink: three(
+      {
+        eyes: 'x',
+        mouth: 'tongue',
+        tint: 'green',
+        pictos: ['stink', 'yuck'],
+        emotion: 'yuck',
+        move: 'shake_head',
+        fx: 'stink',
+      },
+      {
+        eyes: 'squint',
+        mouth: 'puff',
+        tint: 'green',
+        pictos: ['stink', 'cross'],
+        emotion: 'yuck',
+        move: 'cower',
+        fx: 'stink',
+      },
+      { eyes: 'angry', mouth: 'frown', pictos: ['stink'], emotion: 'grumpy', move: 'stomp', fx: 'stink' },
     ),
   },
   // Rollo: nervous and gentle.
@@ -327,6 +384,69 @@ const PERSONAL: Record<BugArt, Record<Personal, Triple>> = {
         seconds: 1.4,
       },
     ),
+    // Dunked, he sinks and holds his breath.
+    splash: three(
+      {
+        eyes: 'squint',
+        mouth: 'puff',
+        pictos: ['drop', 'exclaim'],
+        emotion: 'scared',
+        fx: 'splash',
+        seconds: 2,
+      },
+      { eyes: 'wide', mouth: 'puff', pictos: ['drop', 'sweat'], emotion: 'gasp', fx: 'splash', seconds: 2 },
+      { eyes: 'worried', mouth: 'puff', pictos: ['drop'], emotion: 'scared', move: 'shiver', seconds: 2 },
+    ),
+    shake_dry: three(
+      {
+        eyes: 'squint',
+        mouth: 'teeth',
+        pictos: ['drop', 'sweat'],
+        emotion: 'sleepy',
+        move: 'shake_off',
+        fx: 'spray',
+      },
+      {
+        eyes: 'worried',
+        mouth: 'smile',
+        blush: true,
+        pictos: ['drop', 'heart'],
+        emotion: 'happy',
+        move: 'shake_off',
+        fx: 'spray',
+      },
+      { eyes: 'squint', mouth: 'o', pictos: ['drop'], emotion: 'gasp', move: 'shake_off', fx: 'spray' },
+    ),
+    // Rotten banana is his favorite smell.
+    stink: three(
+      {
+        eyes: 'happy',
+        mouth: 'grin',
+        blush: true,
+        pictos: ['stink', 'heart'],
+        emotion: 'love',
+        move: 'nod',
+        seconds: 1.4,
+      },
+      {
+        eyes: 'heart',
+        mouth: 'lick',
+        blush: true,
+        pictos: ['stink', 'yum'],
+        emotion: 'yum',
+        move: 'wiggle',
+        seconds: 1.4,
+      },
+      {
+        eyes: 'happy',
+        mouth: 'o',
+        blush: true,
+        pictos: ['stink', 'star'],
+        emotion: 'ooh',
+        move: 'hop',
+        seconds: 1.4,
+      },
+    ),
   },
   // Glorp: slow, calm, and deadpan. Reacts to chaos with a long "ooooh".
   snail: {
@@ -350,6 +470,149 @@ const PERSONAL: Record<BugArt, Record<Personal, Triple>> = {
       { eyes: 'sleepy', mouth: 'smile', pictos: ['thumbs_up'], emotion: 'ooh', move: 'nod', seconds: 1.6 },
       { eyes: 'wide', mouth: 'o', pictos: ['question'], emotion: 'ooh', seconds: 1.6 },
     ),
+    // Dunked, he floats shell-up like a little boat.
+    splash: three(
+      {
+        eyes: 'open',
+        mouth: 'o',
+        form: 'in_shell',
+        pictos: ['drop', 'dots'],
+        emotion: 'ooh',
+        fx: 'splash',
+        seconds: 1.8,
+      },
+      { eyes: 'sleepy', mouth: 'o', form: 'in_shell', pictos: ['drop'], emotion: 'ooh', seconds: 1.8 },
+      {
+        eyes: 'wide',
+        mouth: 'o',
+        form: 'in_shell',
+        pictos: ['drop', 'question'],
+        emotion: 'ooh',
+        fx: 'splash',
+        seconds: 1.8,
+      },
+    ),
+    shake_dry: three(
+      {
+        eyes: 'sleepy',
+        mouth: 'smile',
+        pictos: ['drop', 'thumbs_up'],
+        emotion: 'ooh',
+        move: 'shake_off',
+        fx: 'spray',
+        seconds: 1.4,
+      },
+      {
+        eyes: 'open',
+        mouth: 'o',
+        pictos: ['drop', 'dots'],
+        emotion: 'ooh',
+        move: 'shake_off',
+        fx: 'spray',
+        seconds: 1.4,
+      },
+      {
+        eyes: 'sleepy',
+        mouth: 'flat',
+        pictos: ['drop'],
+        emotion: 'sleepy',
+        move: 'shake_off',
+        fx: 'spray',
+        seconds: 1.4,
+      },
+    ),
+    stink: three(
+      {
+        eyes: 'sleepy',
+        mouth: 'frown',
+        tint: 'green',
+        pictos: ['stink', 'dots'],
+        emotion: 'grumpy',
+        fx: 'stink',
+        seconds: 1.6,
+      },
+      {
+        eyes: 'x',
+        mouth: 'tongue',
+        tint: 'green',
+        pictos: ['stink'],
+        emotion: 'yuck',
+        move: 'shake_head',
+        fx: 'stink',
+        seconds: 1.6,
+      },
+      {
+        eyes: 'squint',
+        mouth: 'flat',
+        pictos: ['stink', 'question'],
+        emotion: 'ooh',
+        fx: 'stink',
+        seconds: 1.6,
+      },
+    ),
+  },
+  // Skeet: laid back and unbothered, then suddenly very impressed by stunts.
+  strider: {
+    grab: three(
+      { eyes: 'sleepy', mouth: 'flat', pictos: ['dots'], emotion: 'meh' },
+      { eyes: 'open', mouth: 'smile', pictos: ['thumbs_up'], emotion: 'happy' },
+      { eyes: 'sleepy', mouth: 'smile', pictos: ['question'], emotion: 'ooh' },
+    ),
+    poke: three(
+      { eyes: 'sleepy', mouth: 'flat', pictos: ['dots'], emotion: 'meh', move: 'nod', seconds: 0.8 },
+      {
+        eyes: 'squint',
+        mouth: 'smile',
+        pictos: ['question'],
+        emotion: 'question',
+        move: 'shrug',
+        seconds: 0.8,
+      },
+      { eyes: 'open', mouth: 'grin', pictos: ['thumbs_up'], emotion: 'happy', move: 'pose', seconds: 0.8 },
+    ),
+    // Parachuting down on his long legs.
+    fling: three(
+      { eyes: 'wide', mouth: 'whee', pictos: ['star', 'exclaim'], emotion: 'whee' },
+      { eyes: 'wide', mouth: 'o', pictos: ['exclaim'], emotion: 'ooh' },
+      { eyes: 'happy', mouth: 'grin', blush: true, pictos: ['star'], emotion: 'whee' },
+    ),
+    // Lands with a cool nod.
+    land: three(
+      { eyes: 'sleepy', mouth: 'smile', pictos: ['thumbs_up'], emotion: 'happy', move: 'nod', seconds: 1.4 },
+      { eyes: 'wide', mouth: 'grin', pictos: ['star', 'star'], emotion: 'whee', move: 'pose', seconds: 1.4 },
+      { eyes: 'sleepy', mouth: 'flat', pictos: ['dots'], emotion: 'meh', move: 'shrug', seconds: 1.4 },
+    ),
+    // He skates on water, so these only show if he ever goes under.
+    splash: three(
+      { eyes: 'wide', mouth: 'o', pictos: ['drop', 'question'], emotion: 'gasp', fx: 'splash', seconds: 1.4 },
+      { eyes: 'squint', mouth: 'flat', pictos: ['drop'], emotion: 'meh', seconds: 1.4 },
+      { eyes: 'sleepy', mouth: 'o', pictos: ['drop', 'dots'], emotion: 'ooh', fx: 'splash', seconds: 1.4 },
+    ),
+    shake_dry: three(
+      {
+        eyes: 'sleepy',
+        mouth: 'smile',
+        pictos: ['drop', 'thumbs_up'],
+        emotion: 'happy',
+        move: 'shake_off',
+        fx: 'spray',
+      },
+      { eyes: 'happy', mouth: 'grin', pictos: ['star'], emotion: 'whee', move: 'shake_off', fx: 'spray' },
+      { eyes: 'squint', mouth: 'flat', pictos: ['drop'], emotion: 'meh', move: 'shake_off', fx: 'spray' },
+    ),
+    stink: three(
+      {
+        eyes: 'squint',
+        mouth: 'flat',
+        tint: 'green',
+        pictos: ['stink', 'cross'],
+        emotion: 'meh',
+        move: 'shake_head',
+        fx: 'stink',
+      },
+      { eyes: 'x', mouth: 'tongue', tint: 'green', pictos: ['stink', 'yuck'], emotion: 'yuck', fx: 'stink' },
+      { eyes: 'angry', mouth: 'teeth', pictos: ['stink'], emotion: 'grumpy', move: 'cower', fx: 'stink' },
+    ),
   },
 };
 
@@ -360,7 +623,13 @@ export function reactionLook(art: BugArt, type: ReactionType, variant: number): 
       ? TICKLE
       : type === 'land_hard'
         ? SHELL
-        : type === 'grab' || type === 'poke' || type === 'fling' || type === 'land'
+        : type === 'grab' ||
+            type === 'poke' ||
+            type === 'fling' ||
+            type === 'land' ||
+            type === 'splash' ||
+            type === 'shake_dry' ||
+            type === 'stink'
           ? PERSONAL[art][type]
           : FED[type];
   return set[((variant % 3) + 3) % 3]!;
@@ -378,6 +647,9 @@ const SHOWS_IN: Readonly<Record<ReactionType, readonly BugMode[]>> = {
   fed_liked: ['st_react', 'st_idle'],
   fed_neutral: ['st_react', 'st_idle'],
   fed_disliked: ['st_react', 'st_idle', 'st_wander'],
+  splash: ['st_swim'],
+  shake_dry: ['st_react'],
+  stink: ['st_react', 'st_wander', 'st_idle'],
 };
 
 /** Is a reaction that started `ageSeconds` ago still showing in `mode`? */
@@ -449,5 +721,16 @@ export function movePose(move: Move, t: number, seconds: number): MovePose {
       return { ...rest, tilt: -0.14 * fade, sy: 1 + 0.05 * fade };
     case 'cower':
       return { ...rest, sy: 1 - 0.14 * fade, sx: 1 + 0.08 * fade, bob: 2 * fade };
+    case 'shake_off': {
+      // A wet dog: fast side-to-side twists that wind down, with a little crouch first.
+      const k = t < 0.15 ? t / 0.15 : fade;
+      return {
+        ...rest,
+        tilt: Math.sin(t * 38) * 0.22 * k,
+        sx: 1 + Math.abs(Math.sin(t * 38)) * 0.06 * k,
+        sy: 1 - 0.06 * k,
+        bob: 2 * k,
+      };
+    }
   }
 }

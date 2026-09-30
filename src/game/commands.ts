@@ -22,6 +22,15 @@ export type Command =
   /** The player shook whatever they are holding. */
   | { type: 'shake' }
   /** Debug and tests: set one of a bug's needs. */
-  | { type: 'set_need'; id: number; need: NeedId; value: number };
+  | { type: 'set_need'; id: number; need: NeedId; value: number }
+  /**
+   * The camera shows world x from `x0` to `x1`. Areas far from the view
+   * sleep (no physics). The renderer sends this when the camera moves.
+   */
+  | { type: 'focus'; x0: number; x1: number }
+  /** Debug and tests: turn a tag on (for `seconds`, or its usual time) or off. */
+  | { type: 'set_tag'; id: number; tag: string; on: boolean; seconds?: number }
+  /** Debug and tests until weather arrives: wind in m/s (+ blows right) and rain. */
+  | { type: 'set_weather'; wind: number; rain: boolean };
 
 export type CommandType = Command['type'];

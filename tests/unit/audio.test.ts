@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GROUND_Y, Rng, Sim } from '../../src/game';
 import { BUGS } from '../../src/game/data/bugs';
+import { PLAZA_X } from './world';
 import { Sfx } from '../../src/renderer/src/audio/sfx';
 import { NullAudioBackend } from '../../src/renderer/src/audio/synth';
 import { BugVoices, voiceLine } from '../../src/renderer/src/audio/voices';
@@ -21,7 +22,7 @@ describe('Sfx', () => {
 
   it('plays grab and drop sounds', () => {
     const { sim, backend, sfx } = setup();
-    const pebble = sim.spawn('item', 'item_pebble', 7, GROUND_Y - 0.21);
+    const pebble = sim.spawn('item', 'item_pebble', PLAZA_X + 7, GROUND_Y - 0.21);
     const v = sim.view(pebble.id)!;
     sim.send({ type: 'grab', x: v.x, y: v.y });
     sim.step();
@@ -34,8 +35,8 @@ describe('Sfx', () => {
 
   it('whooshes on a fling, boops on a poke, and boings on a spring', () => {
     const { sim, backend, sfx } = setup();
-    const pebble = sim.spawn('item', 'item_pebble', 7, GROUND_Y - 0.21);
-    sim.send({ type: 'grab', x: 7, y: GROUND_Y - 0.21 });
+    const pebble = sim.spawn('item', 'item_pebble', PLAZA_X + 7, GROUND_Y - 0.21);
+    sim.send({ type: 'grab', x: PLAZA_X + 7, y: GROUND_Y - 0.21 });
     sim.send({ type: 'release', vx: 12, vy: -8 });
     sim.step();
     expect(sfx.log).toContain('fling');
@@ -49,7 +50,7 @@ describe('Sfx', () => {
 
   it('uses a different sound for picking up a bug', () => {
     const { sim, sfx } = setup();
-    const bug = sim.spawn('bug', 'bug_ladybug_dot', 7, GROUND_Y - 0.51);
+    const bug = sim.spawn('bug', 'bug_ladybug_dot', PLAZA_X + 7, GROUND_Y - 0.51);
     const v = sim.view(bug.id)!;
     sim.send({ type: 'grab', x: v.x, y: v.y });
     sim.step();
@@ -134,8 +135,8 @@ describe('bug voices', () => {
     const clock = { t: 0 };
     const voices = new BugVoices(backend, BUGS, () => clock.t);
     voices.attach(sim.events);
-    const bug = sim.spawn('bug', 'bug_pillbug_rollo', 7, GROUND_Y - 0.47);
-    sim.send({ type: 'grab', x: 7, y: GROUND_Y - 0.35 });
+    const bug = sim.spawn('bug', 'bug_pillbug_rollo', PLAZA_X + 7, GROUND_Y - 0.47);
+    sim.send({ type: 'grab', x: PLAZA_X + 7, y: GROUND_Y - 0.35 });
     sim.step();
     expect(voices.log[0]).toEqual({ defId: 'bug_pillbug_rollo', emotion: 'scared' });
     sim.send({ type: 'release', vx: 10, vy: -5 });

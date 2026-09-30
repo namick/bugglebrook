@@ -58,6 +58,22 @@ export interface TestHook {
   dropTarget(itemId: number): number | null;
   /** Empty the sound, voice, and event logs, so a test can check one action at a time. */
   clearLogs(): void;
+  /** The ponds' surfaces, the hose, ice sheets, lily pads, and welds right now. */
+  water(): {
+    surfaces: { areaId: string; level: number; left: number; right: number }[];
+    hoseOn: boolean;
+    ice: { x0: number; x1: number }[];
+    pads: { id: string; x: number; y: number }[];
+    sticks: { a: number; b: number }[];
+  };
+  /** Where a fixture (like `fix_hose_tap`) is, in world meters. */
+  fixture(id: string): Point | null;
+  /** Is an area asleep (no physics) because the camera is far away? */
+  areaAsleep(areaId: string): boolean;
+  /** Which area a world x is in. */
+  areaAt(x: number): string;
+  /** Soap bubbles floating right now. */
+  soapBubbles(): number;
 }
 
 declare global {
@@ -119,6 +135,28 @@ export function installTestHook(game: Game): void {
       [...(game.session?.view.glowing ?? new Map<number, string>())].map(([id, liking]) => ({ id, liking })),
     mouthOf: (id) => game.session?.sim.mouthAnchor(id) ?? null,
     dropTarget: (itemId) => game.session?.sim.dropTargetFor(itemId)?.entityId ?? null,
+    water: () => {
+      const sim = game.session?.sim;
+      if (!sim) return { surfaces: [], hoseOn: false, ice: [], pads: [], sticks: [] };
+      const env = sim.environment;
+      return {
+        surfaces: env.surfaces().map((w) => ({ ...w })),
+        hoseOn: env.state.hoseOn,
+        ice: env.state.ice.map((i) => ({ x0: i.x0, x1: i.x1 })),
+        pads: env.pads(),
+        sticks: env.state.sticks.map((t) => ({ a: t.a, b: t.b })),
+      };
+    },
+    fixture: (id) => {
+      const sim = game.session?.sim;
+      if (!sim) return null;
+      for (const area of sim.content.areas.all)
+        for (const f of area.fixtures ?? []) if (f.id === id) return { x: area.xStart + f.x, y: f.y };
+      return null;
+    },
+    areaAsleep: (areaId) => game.session?.sim.isAreaAsleep(areaId) ?? false,
+    areaAt: (x) => game.session?.sim.areaOf(x).id ?? '',
+    soapBubbles: () => game.session?.view.soapBubbleCount ?? 0,
     clearLogs: () => {
       game.sfx.log.length = 0;
       game.voices.log.length = 0;

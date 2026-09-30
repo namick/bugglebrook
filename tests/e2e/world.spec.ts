@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { clickSlot, entities, entity, launchApp, waitForScene } from './app';
+import { PLAZA_X, clickSlot, entities, entity, launchApp, waitForScene } from './app';
 import type { EntityView } from './app';
 
 /** The item farthest from any bug, so a wandering bug is not grabbed instead. */
@@ -9,7 +9,7 @@ async function lonelyItem(page: Page): Promise<EntityView> {
   const bugs = all.filter((e) => e.kind === 'bug');
   const items = all.filter((e) => e.kind === 'item');
   const distance = (e: EntityView): number => Math.min(...bugs.map((b) => Math.abs(b.x - e.x)));
-  const onScreen = items.filter((e) => e.x > 4 && e.x < 15 && e.defId !== 'item_leaf');
+  const onScreen = items.filter((e) => e.x > PLAZA_X + 4 && e.x < PLAZA_X + 15 && e.defId !== 'item_leaf');
   return onScreen.sort((a, b) => distance(b) - distance(a))[0]!;
 }
 
@@ -33,7 +33,7 @@ test('choosing a slot opens the world, and dragging a prop with the mouse moves 
     await clickSlot(page, 0);
 
     const all = await entities(page);
-    expect(all.filter((e) => e.kind === 'bug').length).toBe(3);
+    expect(all.filter((e) => e.kind === 'bug').length).toBe(4);
     expect(all.filter((e) => e.kind === 'item').length).toBeGreaterThanOrEqual(10);
 
     // Bugs wander on their own.
@@ -104,7 +104,7 @@ test('the world autosaves, survives going home, and survives a restart', async (
     await clickSlot(bb.page, 2);
     const restored = await entities(bb.page);
     expect(restored.find((e) => e.id === pebble.id)?.defId).toBe('item_pebble');
-    expect(restored.filter((e) => e.kind === 'bug')).toHaveLength(3);
+    expect(restored.filter((e) => e.kind === 'bug')).toHaveLength(4);
     expect(bb.errors).toEqual([]);
   } finally {
     await bb.close();

@@ -118,6 +118,14 @@ export function bugPose(input: BugPoseInput): BugPose {
       legPhase = t * 20;
       stride = 1;
       break;
+    case 'st_swim':
+      // Paddling: legs churn, the body bobs and rocks on the water.
+      flail = true;
+      legPhase = t * 11;
+      stride = 0.8;
+      bob = Math.sin(t * 4.2) * 3;
+      tilt = Math.sin(t * 2.1) * 0.07;
+      break;
     case 'st_dizzy':
       tilt = Math.sin(t * 3.5) * 0.18;
       legPhase = t * 4;

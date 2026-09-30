@@ -1,11 +1,12 @@
 import type { ReactionType } from '../events';
+import type { TagState } from '../systems/tags';
 
 export type EntityId = number;
 export type EntityKind = 'bug' | 'item';
 
 /**
- * Bug states, named as in the game design doc (section 5). Only the M1
- * subset exists so far.
+ * Bug states, named as in the game design doc (section 5). Only the subset
+ * the milestones so far need exists.
  */
 export type BugMode =
   | 'st_idle'
@@ -18,7 +19,8 @@ export type BugMode =
   | 'st_airborne'
   | 'st_landing'
   | 'st_dizzy'
-  | 'st_recover';
+  | 'st_recover'
+  | 'st_swim';
 
 export const BUG_MODES: readonly BugMode[] = [
   'st_idle',
@@ -32,6 +34,7 @@ export const BUG_MODES: readonly BugMode[] = [
   'st_landing',
   'st_dizzy',
   'st_recover',
+  'st_swim',
 ];
 
 export interface Needs {
@@ -89,6 +92,10 @@ export interface BugBrain {
   tickle: number;
   /** Woozy from a shake until this tick. */
   woozyUntil: number;
+  /** Tick of the last stink reaction, or -1. Bugs react to a smell at most every few seconds. */
+  smelledAt: number;
+  /** Tick of an involuntary hop on its way (after bouncy food), or -1. */
+  hopAt: number;
 }
 
 export interface Entity {
@@ -97,6 +104,10 @@ export interface Entity {
   /** Content ID in the registry for this kind (bug or item). */
   defId: string;
   bug?: BugBrain;
+  /** Tag changes from the defaults (see systems/tags.ts). */
+  tags?: TagState;
+  /** Ticks spent soaking in water without drying, for things that go soggy. */
+  soak?: number;
 }
 
 /**

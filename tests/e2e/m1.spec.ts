@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { dizzySeconds } from '../../src/game/systems/bugAi';
 import { MAX_FLING_SPEED } from '../../src/game/constants';
-import { clickSlot, entities, entity, launchApp } from './app';
+import { PLAZA_X, clickSlot, entities, entity, launchApp } from './app';
 import type { EntityView } from './app';
 
 // M1 acceptance (game design doc, section 19), driven with the real mouse.
@@ -68,11 +68,12 @@ test('launches into the plaza within 5 s and holds 60 fps with 3 bugs and 20 ite
         .filter((e) => e.kind === 'bug')
         .map((e) => e.defId)
         .sort(),
-    ).toEqual(['bug_ladybug_dot', 'bug_pillbug_rollo', 'bug_snail_glorp']);
+    ).toEqual(['bug_ladybug_dot', 'bug_pillbug_rollo', 'bug_snail_glorp', 'bug_waterstrider_skeet']);
     const items = all.filter((e) => e.kind === 'item').length;
     for (let i = items; i < 20; i++) {
       await page.evaluate(
-        (k) => window.__bb!.send({ type: 'spawn', kind: 'item', defId: 'item_pebble', x: 4 + k * 0.7, y: 2 }),
+        (k) =>
+          window.__bb!.send({ type: 'spawn', kind: 'item', defId: 'item_pebble', x: 36 + k * 0.7, y: 2 }),
         i,
       );
     }
@@ -226,7 +227,7 @@ test('a quick click pokes: bugs react, items hop', async () => {
     const bugs = all.filter((e) => e.kind === 'bug');
     const gap = (e: EntityView): number => Math.min(...bugs.map((b) => Math.hypot(b.x - e.x, b.y - e.y)));
     const cap = all
-      .filter((e) => e.kind === 'item' && e.x > 4 && e.x < 21)
+      .filter((e) => e.kind === 'item' && e.x > PLAZA_X + 4 && e.x < PLAZA_X + 21)
       .sort((a, b) => gap(b) - gap(a))[0]!;
     const c = await toClient(page, cap.x, cap.y);
     await page.mouse.click(c.x, c.y);
@@ -245,7 +246,7 @@ test('scrolling and dragging the background move the camera and never move items
     await clickSlot(page, 1);
     // The toy pile, far from every bug; let it settle first.
     const pile = async (): Promise<EntityView[]> =>
-      (await entities(page)).filter((e) => e.kind === 'item' && e.x > 27 && e.y > 8);
+      (await entities(page)).filter((e) => e.kind === 'item' && e.x > PLAZA_X + 27 && e.y > 8);
     await expect.poll(async () => (await pile()).every((e) => Math.hypot(e.vx, e.vy) < 0.02)).toBe(true);
     const before = await pile();
     const cam0 = (await page.evaluate(() => window.__bb!.camera())).x;

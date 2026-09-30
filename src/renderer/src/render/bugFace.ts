@@ -70,6 +70,8 @@ export interface BugFaceInput {
   flinch?: boolean;
   /** Never dizzy: hides in its shell instead (Glorp). */
   dizzyProof?: boolean;
+  /** Frozen solid in a block of ice. */
+  frozen?: boolean;
 }
 
 /**
@@ -89,6 +91,7 @@ export function bugFace(input: BugFaceInput): BugFace {
     steam = false,
   ): BugFace => ({ eyes, mouth, form, blush, tint, steam });
 
+  if (input.frozen) return face('wide', 'o', input.art === 'snail' ? 'in_shell' : 'normal', true);
   if (mode === 'st_dizzy') return face('spiral', 'wobble');
   if (input.woozy)
     return input.dizzyProof ? face('wide', 'o', 'in_shell') : face('spiral', 'wobble', 'normal', true);
@@ -148,15 +151,24 @@ type Make = (
 
 function stateFace(input: BugFaceInput, face: Make): BugFace {
   const { art, mode, needs } = input;
+  // Skeet is cool: half-closed eyes, even when happy.
+  const cool = art === 'strider';
   switch (mode) {
+    case 'st_swim':
+      // Rollo holds his breath, Glorp floats shell-up, Dot sputters.
+      if (art === 'pillbug') return face('squint', 'puff');
+      if (art === 'snail') return face('sleepy', 'smile', 'in_shell');
+      return Math.sin(input.time * 5) > 0.3 ? face('squint', 'wobble') : face('wide', 'o');
     case 'st_held':
       if (input.likesFlinging) return face('happy', 'grin', 'normal', true);
       if (art === 'snail') return face('wide', 'o');
+      if (cool) return face('sleepy', 'flat');
       return face('worried', 'o');
     case 'st_airborne':
       if (input.selfLaunched) return face('open', 'o');
       if (art === 'pillbug') return face('squint', 'o', 'curled');
       if (art === 'snail') return face('wide', 'o', 'in_shell');
+      if (cool) return face('wide', 'whee', 'normal', true);
       return face('wide', 'whee', input.likesFlinging ? 'flying' : 'normal', input.likesFlinging);
     case 'st_use':
       return face('happy', 'whee', art === 'ladybug' ? 'flying' : 'normal', true);
@@ -185,8 +197,10 @@ function stateFace(input: BugFaceInput, face: Make): BugFace {
     case 'mood_bored':
       return face('sleepy', 'flat');
     case 'mood_happy':
+      if (cool) return face('sleepy', 'grin');
       return art === 'pillbug' ? face('worried', 'smile') : face('open', 'grin');
     case 'mood_content':
+      if (cool) return face('sleepy', 'smile');
       return art === 'pillbug' ? face('worried', 'flat') : face('open', 'smile');
     default:
       break;

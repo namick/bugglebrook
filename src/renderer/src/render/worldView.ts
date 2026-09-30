@@ -21,6 +21,11 @@ import { Particles } from './particles';
 import type { Picto, ReactionLook } from './reactions';
 import { movePose, reactionLook, reactionShowing } from './reactions';
 import { thoughtFor } from './thoughts';
+import { SoapBubbles } from './soapBubbles';
+import type { Obstacle } from './soapBubbles';
+import { tagLook } from './tagLooks';
+import type { TagLook } from './tagLooks';
+import { WaterView } from './water';
 
 const PPM = PIXELS_PER_METER;
 
@@ -58,6 +63,9 @@ interface Juice {
   chewing: number;
   /** The last food it was fed, for bubbles. */
   food: string | null;
+  /** Seconds until the next drip, stink puff, or underwater bubble. */
+  drip: number;
+  puff: number;
 }
 
 /** Where the cursor is, in world meters, or null when it is off the canvas. */
@@ -84,6 +92,18 @@ export class WorldView extends Container {
   /** Fling trails sit behind the things that leave them. */
   private readonly trails = new Particles();
   readonly bubbles = new Bubbles();
+  readonly water: WaterView;
+  /** Floating soap bubbles (rule R7 and the bubble wand). */
+  readonly soapBubbles = new SoapBubbles();
+  /** Behind entities: warm glows and fuzzy hair. */
+  private readonly behind = new Graphics();
+  /** Over entities: ice blocks, foam, gloss, goo, frost. */
+  private readonly over = new Graphics();
+  /** Sounds that come from the view itself (bubble pops, the running hose). */
+  onSound: ((name: 'pop' | 'trickle', strength: number) => void) | null = null;
+  private trickleIn = 0;
+  /** Where each weld sits on its two bodies, so the goo blob follows them. */
+  private readonly welds = new Map<string, { la: Point; lb: Point }>();
   private readonly sprites = new Map<EntityId, BugSprite | ItemSprite>();
   private readonly juice = new Map<EntityId, Juice>();
   private readonly offs: Array<() => void> = [];
@@ -102,16 +122,26 @@ export class WorldView extends Container {
     super();
     this.background = new Background(sim.content.areas.all, sim.terrain, sim.worldWidth, renderer);
     const bg = this.background;
+    this.water = new WaterView(sim, this.particles);
     this.entityLayer.sortableChildren = true;
     this.world.addChild(
       bg.near,
+      this.water.back,
+      this.behind,
       this.shadows,
       this.trails,
       this.entityLayer,
+      this.over,
+      this.water.front,
+      this.soapBubbles,
       this.glows,
       this.particles,
       this.bubbles,
     );
+    this.soapBubbles.onPop = (x, y) => {
+      this.particles.ring(x, y, 14);
+      this.onSound?.('pop', 0.5);
+    };
     this.addChild(bg.sky, bg.clouds, bg.hills, bg.mid, this.world, bg.front);
     this.listen();
   }
@@ -130,6 +160,8 @@ export class WorldView extends Container {
         hot: 0,
         chewing: -1,
         food: null,
+        drip: Math.random() * 0.3,
+        puff: Math.random(),
       };
       this.juice.set(id, j);
     }
@@ -175,7 +207,8 @@ export class WorldView extends Container {
         const j = this.juiceFor(e.id);
         if (e.kind === 'item') j.squash.land(e.speed * 0.6);
         const size = this.sizeOf(e.id);
-        this.particles.dust(px(e.x), px(e.y) + size, e.speed);
+        // No dust in or on the water (lily pads, ice).
+        if (!this.sim.environment.waterAt(e.x)) this.particles.dust(px(e.x), px(e.y) + size, e.speed);
         if (e.kind === 'bug' && e.speed >= 14) this.shake(3, 0.12);
       }),
       ev.on('bug_landed', (e) => {
@@ -271,6 +304,10 @@ export class WorldView extends Container {
         this.particles.ring(px(e.x) + dir * 12, px(e.y), 40);
         this.particles.puff(px(e.x) + dir * 18, px(e.y) - 4, 0xd4e38a, 9, dir * 120, -45, 22);
         this.particles.bubbles(px(e.x) + dir * 14, px(e.y) - 10, 5);
+        // Soap comes back up as real soap bubbles.
+        const food = this.juiceFor(e.id).food;
+        if (food && this.hasTag(food, 'tag_soapy'))
+          this.soapBubbles.blow(px(e.x) + dir * 20, px(e.y) - 10, 7);
         this.say(e.id, ['dots', 'sweat'], 1.1);
       }),
       ev.on('bug_tickled', (e) => {
@@ -296,7 +333,119 @@ export class WorldView extends Container {
         }
       }),
       ev.on('entity_removed', (e) => this.drop(e.id)),
+      ...this.listenWater(),
     );
+  }
+
+  /** Water and property events: splashes, steam, ice, goo, bubbles, stink. */
+  private listenWater(): Array<() => void> {
+    const ev = this.sim.events;
+    const px = (m: number): number => m * PPM;
+    return [
+      ev.on('splashed', (e) => {
+        const big = e.speed > 1.5 || e.kind === 'bug';
+        this.water.splash(px(e.x), e.speed, e.size);
+        if (big) this.particles.splash(px(e.x), px(e.y), e.speed, e.size);
+        else this.particles.drops(px(e.x), px(e.y), 0, -120, 0x5cc3e6, 3);
+        this.juiceFor(e.id).squash.land(Math.min(12, 3 + e.speed));
+      }),
+      ev.on('skipped', (e) => {
+        this.water.splash(px(e.x), 3, 0.08);
+        this.particles.drops(px(e.x), px(e.y), 60, -160, 0x5cc3e6, 5);
+        this.particles.ring(px(e.x), px(e.y), 18);
+      }),
+      ev.on('left_water', (e) => {
+        this.particles.drops(px(e.x), px(e.y), 0, -60, 0x5cc3e6, 4);
+      }),
+      ev.on('steamed', (e) => {
+        this.particles.steam(px(e.x), px(e.y) - 10, 10);
+        this.particles.sparkles(px(e.x), px(e.y) - 20, 3);
+        this.juiceFor(e.id).squash.kick(1.15, 0.88);
+      }),
+      ev.on('froze', (e) => {
+        this.particles.shards(px(e.x), px(e.y), 12);
+        this.particles.snow(px(e.x), px(e.y) - 20, 1);
+        this.juiceFor(e.id).squash.kick(0.9, 1.1);
+      }),
+      ev.on('thawed', (e) => {
+        this.particles.drops(px(e.x), px(e.y), 0, -80, 0x9fd8ff, 6);
+        this.particles.shards(px(e.x), px(e.y), 4);
+      }),
+      ev.on('ice_formed', (e) => {
+        for (let x = px(e.x0); x < px(e.x1); x += 40) this.particles.shards(x, px(e.y), 2);
+        this.particles.sparkles(px((e.x0 + e.x1) / 2), px(e.y) - 20, 8);
+      }),
+      ev.on('ice_melted', (e) => {
+        this.water.splash(px((e.x0 + e.x1) / 2), 2, 0.4);
+        this.particles.drops(px((e.x0 + e.x1) / 2), px(e.y), 0, -100, 0x9fd8ff, 6);
+      }),
+      ev.on('stuck', (e) => {
+        this.particles.drops(px(e.x), px(e.y), 0, -90, 0xff8fc8, 5);
+        this.particles.ring(px(e.x), px(e.y), 16);
+        this.juiceFor(e.a).squash.kick(1.2, 0.85);
+        this.juiceFor(e.b).squash.kick(1.1, 0.9);
+      }),
+      ev.on('unstuck', (e) => {
+        this.welds.delete(`${Math.min(e.a, e.b)}:${Math.max(e.a, e.b)}`);
+        this.particles.drops(px(e.x), px(e.y), 0, -140, 0xff8fc8, 6);
+        this.particles.burst(px(e.x), px(e.y), 5, 0xffd1e8);
+      }),
+      ev.on('bubbles_blown', (e) => this.soapBubbles.blow(px(e.x), px(e.y) - 10, e.count)),
+      ev.on('bug_smelled', (e) => {
+        const src = this.sim.view(e.sourceId);
+        if (src) this.particles.puff(px(src.x), px(src.y) - 20, 0xb8d86a, 5, 0, -50, 16);
+      }),
+      ev.on('water_zapped', (e) => {
+        for (const w of this.sim.environment.surfaces())
+          if (e.x >= w.left - 1 && e.x <= w.right + 1)
+            this.particles.zap(px(w.left), px(w.right), px(w.level));
+        this.shake(3, 0.15);
+      }),
+      ev.on('magnet_snapped', (e) => {
+        this.particles.burst(px(e.x), px(e.y), 6, 0xffe066);
+        this.particles.sparkles(px(e.x), px(e.y), 2);
+        this.juiceFor(e.id).squash.kick(0.85, 1.15);
+      }),
+      ev.on('bug_shook_dry', (e) => {
+        // A wet-dog shake: droplets flung out all round, then a clean sparkle.
+        const r = this.sizeOf(e.id);
+        for (let i = 0; i < 6; i++) {
+          const a = -Math.PI + (i / 5) * Math.PI;
+          this.particles.drops(
+            px(e.x),
+            px(e.y) - r * 0.4,
+            Math.cos(a) * 320,
+            Math.sin(a) * 260 - 80,
+            0x5cc3e6,
+            3,
+          );
+        }
+        this.particles.sparkles(px(e.x), px(e.y) - r, 5);
+      }),
+      ev.on('wrung_out', (e) => {
+        const color = e.tag === 'tag_soapy' ? 0xffffff : 0x5cc3e6;
+        for (let i = 0; i < 4; i++) this.particles.drops(px(e.x), px(e.y) + 10, 0, 60 + i * 60, color, 5);
+        this.juiceFor(e.id).squash.kick(0.7, 1.25);
+        if (e.tag === 'tag_soapy') this.soapBubbles.blow(px(e.x), px(e.y), 4);
+      }),
+      ev.on('hose_toggled', (e) => {
+        this.particles.ring(px(e.x), px(e.y), 30);
+        this.particles.burst(px(e.x), px(e.y), 6, e.on ? 0x9fd8ff : 0xffffff);
+      }),
+      ev.on('boot_bubbled', (e) => {
+        this.particles.bubbles(px(e.x) + 40, px(e.y) - 40, 12);
+        this.water.splash(px(e.x) + 40, 2, 0.3);
+      }),
+      ev.on('tag_lost', (e) => {
+        // Washed or soaped clean: a little sparkle says "clean!".
+        if ((e.cause === 'water' || e.cause === 'soap') && e.tag !== 'tag_hot')
+          this.particles.sparkles(px(e.x), px(e.y) - 20, 3);
+      }),
+      ev.on('tag_gained', (e) => {
+        if (e.cause === 'hose' && e.tag === 'tag_wet')
+          this.particles.drops(px(e.x), px(e.y), 0, -80, 0x5cc3e6, 3);
+      }),
+    ];
   }
 
   /** Play a reaction: its bubble and its one-off particles. The face comes from the view each frame. */
@@ -326,6 +475,15 @@ export class WorldView extends Container {
         break;
       case 'sweat':
         this.particles.drops(headX, headY, -this.facingOf(id) * 120, -160, 0x9fd8ff, 3);
+        break;
+      case 'splash':
+        this.particles.drops(headX, headY, 0, -220, 0x5cc3e6, 6);
+        break;
+      case 'spray':
+        this.particles.drops(v.x * PPM, v.y * PPM, 0, -120, 0x9fd8ff, 4);
+        break;
+      case 'stink':
+        this.particles.puff(headX, headY - 10, 0xb8d86a, 4, this.facingOf(id) * -40, -50, 12);
         break;
       default:
         break;
@@ -364,8 +522,11 @@ export class WorldView extends Container {
     const scroll = -camera.x * PPM;
     this.entityLayer.x = this.shadows.x = this.particles.x = this.trails.x = scroll;
     this.glows.x = this.bubbles.x = scroll;
+    this.water.back.x = this.water.front.x = this.behind.x = this.over.x = this.soapBubbles.x = scroll;
     this.particles.update(dt);
     this.trails.update(dt);
+    const behind = this.behind.clear();
+    const over = this.over.clear();
 
     const shadows = this.shadows.clear();
     const left = camera.x - 2;
@@ -379,6 +540,15 @@ export class WorldView extends Container {
         : 0;
     this.lastHover = hover;
     const views = this.sim.views();
+    this.water.update(dt, camera, views);
+    this.soapBubbles.update(dt, this.obstacles(views, left, right));
+    if (this.sim.environment.state.hoseOn) {
+      this.trickleIn -= dt;
+      if (this.trickleIn <= 0) {
+        this.trickleIn = 0.28 + Math.random() * 0.2;
+        this.onSound?.('trickle', 0.5);
+      }
+    }
     const offer = this.offering(views);
     this.drawGlows(offer);
     const rimPulse = 0.8 + 0.2 * Math.sin(this.time * Math.PI * 4);
@@ -391,9 +561,15 @@ export class WorldView extends Container {
       if (!onScreen) continue;
       const j = this.juiceFor(view.id);
       j.squash.update(dt);
-      sprite.position.set(view.x * PPM, view.y * PPM);
+      // Floaters ride the ripples.
+      const bob = this.water.bob(view);
+      sprite.position.set(view.x * PPM, view.y * PPM + bob.dy);
       const rim = hoverId === view.id && !view.held ? rimPulse : 0;
-      if (view.inMouthOf === undefined) this.drawShadow(shadows, view);
+      if (view.inMouthOf === undefined && view.submerged === 0 && !this.sim.environment.waterAt(view.x))
+        this.drawShadow(shadows, view);
+      const look = view.inMouthOf === undefined ? tagLook(view.tags, view.submerged) : tagLook([]);
+      sprite.tint = look.tint ?? 0xffffff;
+      this.tagEffects(view, look, j, dt, behind, over, bob.dy);
       const speed = Math.hypot(view.vx, view.vy);
       if (j.flying > 0) {
         j.flying -= dt;
@@ -414,12 +590,22 @@ export class WorldView extends Container {
           k = liking === 'disliked' ? 0.62 : Math.max(0.2, 0.62 - 0.13 * Math.floor(t * 2));
           sprite.zIndex = view.inMouthOf + 0.5;
         } else sprite.zIndex = view.id + (view.held ? 10000 : 0);
-        sprite.pose(view.angle, Math.atan2(view.vy, view.vx), stretch, j.squash.sx * k, j.squash.sy * k);
+        sprite.pose(
+          view.angle + bob.angle,
+          Math.atan2(view.vy, view.vx),
+          stretch,
+          j.squash.sx * k,
+          j.squash.sy * k,
+        );
         sprite.setRim(rim > 0, rim);
+        sprite.setStink(look.stink);
+        sprite.setSoggy(view.soggy ?? 0);
         sprite.update(dt);
       }
     }
     for (const id of [...this.sprites.keys()]) if (!seen.has(id)) this.drop(id);
+    this.drawWelds(over);
+    this.drawMagnets(over, views, left, right);
     this.bubbles.update(dt, (id) => {
       const v = this.sim.view(id);
       if (!v || !v.bug) return null;
@@ -524,7 +710,9 @@ export class WorldView extends Container {
       j.flinch = 0.4;
       j.squash.kick(0.9, 1.08);
     }
+    const frozen = view.tags.includes('tag_frozen');
     const face = bugFace({
+      frozen,
       art: def.art,
       mode: bug.mode,
       needs: bug.needs,
@@ -594,9 +782,20 @@ export class WorldView extends Container {
       stretch,
       spin: j.spin,
       stars: bug.mode === 'st_dizzy' ? (bug.dizzyTicks >= 240 ? 5 : 3) : 0,
-      move,
+      move: frozen ? undefined : move,
       rim,
+      skate: this.sim.environment.skating.has(view.id),
+      chute: def.glidesWhenFlung && bug.mode === 'st_airborne' && !bug.selfLaunched && view.vy > 0.5,
     });
+    // Rollo holding his breath on the bottom lets out the odd bubble.
+    if (bug.mode === 'st_swim' && view.submerged > 0.9) {
+      j.puff -= dt;
+      if (j.puff <= 0) {
+        j.puff = 0.5 + Math.random() * 0.6;
+        const m = this.mouthPx(view.id);
+        if (m) this.particles.bubbles(m.x, m.y - 6, 2);
+      }
+    }
     this.think(view, j, dt, rim > 0);
   }
 
@@ -617,6 +816,231 @@ export class WorldView extends Container {
     if (!thought) return;
     const food = thought.food ? this.sim.content.items.get(thought.food) : null;
     this.bubbles.show(view.id, 'thought', thought.pictos, 2.6, food);
+  }
+
+  /** Things soap bubbles pop against: every entity on screen, as a circle. */
+  private obstacles(views: readonly EntityView[], left: number, right: number): Obstacle[] {
+    const out: Obstacle[] = [];
+    for (const v of views) {
+      if (v.x < left || v.x > right || v.inMouthOf !== undefined) continue;
+      out.push({ x: v.x * PPM, y: v.y * PPM, r: this.sizeOf(v.id) * 0.9 });
+    }
+    return out;
+  }
+
+  /**
+   * Show an entity's tags (game design doc, section 6): drips, stink puffs,
+   * glows, shimmer, ice, foam, gloss, frost, and fuzzy hair.
+   */
+  private tagEffects(
+    view: EntityView,
+    look: TagLook,
+    j: Juice,
+    dt: number,
+    behind: Graphics,
+    over: Graphics,
+    dy: number,
+  ): void {
+    const x = view.x * PPM;
+    const y = view.y * PPM + dy;
+    const half = this.sizeOf(view.id);
+    const wide = this.widthOf(view.id);
+    const t = this.time + view.id;
+    if (look.drip !== null && !view.held) {
+      j.drip -= dt;
+      if (j.drip <= 0) {
+        j.drip = look.dripEvery * (0.7 + Math.random() * 0.6);
+        this.particles.drip(x + (Math.random() - 0.5) * wide, y + half * 0.8, look.drip);
+      }
+    } else if (look.drip !== null && view.held) {
+      // Held wet things drip faster, straight down from the hand.
+      j.drip -= dt * 1.5;
+      if (j.drip <= 0) {
+        j.drip = look.dripEvery;
+        this.particles.drip(x + (Math.random() - 0.5) * wide * 0.6, y + half, look.drip);
+      }
+    }
+    if (look.drip !== null && look.drip !== 0x9bd14a && !view.held) {
+      // Beads of water sitting on top, catching the light.
+      for (let k = 0; k < 3; k++) {
+        const bx = x + (k - 1) * wide * 0.45;
+        const by = y - half * 0.55 + (k % 2) * 5;
+        over
+          .circle(bx, by, 4.5)
+          .fill({ color: 0x9fdcf5, alpha: 0.9 })
+          .stroke({ width: 1.5, color: 0x2f7fb0, alpha: 0.6 });
+        over.circle(bx - 1.5, by - 1.5, 1.5).fill(0xffffff);
+      }
+    }
+    if (look.stink && view.kind === 'bug') {
+      for (let i = 0; i < 2; i++) {
+        const rise = (t * 0.6 + i * 0.5) % 1;
+        const x0 = x - 12 + i * 24;
+        const y0 = y - half - 8 - rise * 30;
+        over.moveTo(x0, y0);
+        for (let k = 1; k <= 4; k++) over.lineTo(x0 + Math.sin(k * 1.7 + t * 4) * 5, y0 - k * 6);
+        over.stroke({ width: 3.5, color: 0x9bbf4a, alpha: 1 - rise, cap: 'round', join: 'round' });
+      }
+    }
+    if (look.stink) {
+      j.puff -= dt;
+      if (j.puff <= 0) {
+        j.puff = 1.1 + Math.random() * 0.8;
+        this.particles.puff(x, y - half - 6, 0xb8d86a, 1, 0, -30, 10);
+      }
+    }
+    if (look.hot) {
+      // A warm glow behind, and heat shimmer rising above.
+      const pulse = 0.8 + 0.2 * Math.sin(t * 6);
+      const rr = Math.max(half, wide);
+      behind.circle(x, y, (rr + 22) * pulse).fill({ color: 0xff7a1f, alpha: 0.22 });
+      behind.circle(x, y, rr + 12).fill({ color: 0xffa23a, alpha: 0.35 });
+      behind.circle(x, y, rr + 5).fill({ color: 0xffd23f, alpha: 0.45 });
+      for (let i = 0; i < 3; i++) {
+        const rise = (t * 0.8 + i / 3) % 1;
+        const sx = x - wide * 0.5 + (i / 2) * wide;
+        const sy = y - half - 4 - rise * 34;
+        over.moveTo(sx, sy);
+        for (let k = 1; k <= 3; k++) over.lineTo(sx + Math.sin(k * 2 + t * 9 + i) * 4, sy - k * 7);
+        over.stroke({ width: 3, color: 0xff9a3c, alpha: 0.7 * (1 - rise), cap: 'round' });
+      }
+    }
+    if (look.ice) {
+      const w = wide + 14;
+      const h = half + 14;
+      over
+        .roundRect(x - w, y - h, w * 2, h * 2, 14)
+        .fill({ color: 0xdff4ff, alpha: 0.42 })
+        .stroke({ width: 4, color: 0x9fd0ee, alpha: 0.95 });
+      over
+        .moveTo(x - w + 10, y - h + 10)
+        .lineTo(x - w + 34, y - h + 10)
+        .stroke({ width: 4, color: 0xffffff, alpha: 0.9, cap: 'round' });
+      over
+        .moveTo(x - w + 10, y - h + 20)
+        .lineTo(x - w + 18, y - h + 20)
+        .stroke({ width: 4, color: 0xffffff, alpha: 0.9, cap: 'round' });
+      over
+        .moveTo(x + w * 0.3, y + h * 0.2)
+        .lineTo(x + w * 0.5, y + h * 0.5)
+        .lineTo(x + w * 0.7, y + h * 0.4)
+        .stroke({ width: 2, color: 0xffffff, alpha: 0.7 });
+    }
+    if (look.frost) {
+      for (let k = 0; k < 3; k++) {
+        const tw = Math.sin(t * 4 + k * 2.3);
+        if (tw < 0.3) continue;
+        const a = k * 2.1 + t * 0.3;
+        over
+          .star(x + Math.cos(a) * (wide + 8), y + Math.sin(a) * (half + 8), 4, 8 * tw, 3 * tw)
+          .fill(0xffffff);
+      }
+    }
+    if (look.foam) {
+      for (let k = 0; k < 5; k++) {
+        const fx = x + (k - 2) * wide * 0.35;
+        const fy = y - half * 0.8 - Math.abs(Math.sin(k * 1.9)) * 6;
+        over.circle(fx, fy, 5 + (k % 2) * 3 + Math.sin(t * 3 + k) * 1).fill({ color: 0xffffff, alpha: 0.95 });
+        over.circle(fx, fy, 5 + (k % 2) * 3).stroke({ width: 1.5, color: 0x9fd8f0, alpha: 0.8 });
+      }
+    }
+    if (look.gloss && view.kind === 'bug')
+      over.ellipse(x - wide * 0.3, y - half * 0.5, 8, 4).fill({ color: 0xffd1e8, alpha: 0.9 });
+    if (look.fuzz) {
+      // Static hair standing on end.
+      for (let k = 0; k < 11; k++) {
+        const a = -Math.PI + (k / 10) * Math.PI;
+        const r0 = Math.max(half, wide) * 0.8;
+        const r1 = r0 + 18 + (k % 3) * 6 + Math.sin(t * 20 + k) * 2;
+        behind
+          .moveTo(x + Math.cos(a) * r0, y + Math.sin(a) * r0)
+          .lineTo(x + Math.cos(a + 0.08) * (r0 + r1) * 0.5, y + Math.sin(a + 0.08) * (r0 + r1) * 0.5)
+          .lineTo(x + Math.cos(a) * r1, y + Math.sin(a) * r1)
+          .stroke({ width: 4, color: OUTLINE, cap: 'round', join: 'round' });
+      }
+    }
+  }
+
+  /** Pink goo where sticky things hold on to each other. */
+  private drawWelds(g: Graphics): void {
+    const live = new Set<string>();
+    for (const s of this.sim.environment.state.sticks) {
+      const a = this.sim.view(s.a);
+      const b = this.sim.view(s.b);
+      if (!a || !b) continue;
+      const key = `${Math.min(s.a, s.b)}:${Math.max(s.a, s.b)}`;
+      live.add(key);
+      let w = this.welds.get(key);
+      if (!w) {
+        // Remember where the weld sits on each body, in that body's own frame.
+        const local = (v: EntityView): Point => {
+          const dx = s.x - v.x;
+          const dy = s.y - v.y;
+          const c = Math.cos(-v.angle);
+          const sn = Math.sin(-v.angle);
+          return { x: dx * c - dy * sn, y: dx * sn + dy * c };
+        };
+        w = { la: local(a), lb: local(b) };
+        this.welds.set(key, w);
+      }
+      const world = (v: EntityView, p: Point): Point => ({
+        x: (v.x + p.x * Math.cos(v.angle) - p.y * Math.sin(v.angle)) * PPM,
+        y: (v.y + p.x * Math.sin(v.angle) + p.y * Math.cos(v.angle)) * PPM,
+      });
+      const pa = world(a, s.a === a.id ? w.la : w.lb);
+      const pb = world(b, s.b === b.id ? w.lb : w.la);
+      const len = Math.hypot(pb.x - pa.x, pb.y - pa.y);
+      g.moveTo(pa.x, pa.y)
+        .lineTo(pb.x, pb.y)
+        .stroke({ width: Math.max(4, 12 - len * 0.2) + 5, color: OUTLINE, alpha: 0.7, cap: 'round' });
+      g.moveTo(pa.x, pa.y)
+        .lineTo(pb.x, pb.y)
+        .stroke({ width: Math.max(4, 12 - len * 0.2), color: 0xff8fc8, cap: 'round' });
+      const mx = (pa.x + pb.x) / 2;
+      const my = (pa.y + pb.y) / 2;
+      g.circle(mx, my, 9).fill(0xff8fc8).stroke({ width: 3, color: OUTLINE, alpha: 0.7 });
+      g.circle(mx - 3, my - 3, 3).fill({ color: 0xffffff, alpha: 0.9 });
+    }
+    for (const key of [...this.welds.keys()]) if (!live.has(key)) this.welds.delete(key);
+  }
+
+  /** Red and blue field lines between a magnet and metal it is pulling. */
+  private drawMagnets(g: Graphics, views: readonly EntityView[], left: number, right: number): void {
+    for (const m of views) {
+      if (m.kind !== 'item' || m.x < left || m.x > right) continue;
+      if (!this.sim.content.items.get(m.defId).magnet) continue;
+      for (const o of views) {
+        if (o.id === m.id || !o.tags.includes('tag_magnetic')) continue;
+        const d = Math.hypot(o.x - m.x, o.y - m.y);
+        if (d > 2.5 || d < 0.45) continue;
+        const k = 1 - d / 2.5;
+        for (const [side, color] of [
+          [1, 0xff4f5e],
+          [-1, 0x4d9bff],
+        ] as const) {
+          const mx = ((m.x + o.x) / 2) * PPM - (o.y - m.y) * 18 * side;
+          const my = ((m.y + o.y) / 2) * PPM + (o.x - m.x) * 18 * side;
+          const dash = (this.time * 3) % 1;
+          g.moveTo(m.x * PPM, m.y * PPM)
+            .quadraticCurveTo(mx, my, o.x * PPM, o.y * PPM)
+            .stroke({
+              width: 3,
+              color,
+              alpha: 0.35 + 0.35 * k * (0.6 + 0.4 * Math.sin(dash * Math.PI * 2)),
+              cap: 'round',
+            });
+        }
+      }
+    }
+  }
+
+  /** Half width in pixels, roughly. */
+  private widthOf(id: EntityId): number {
+    const e = this.sim.entities.get(id);
+    if (!e) return 20;
+    if (e.kind === 'bug') return this.sim.content.bugs.get(e.defId).radius * PPM;
+    const s = this.sim.content.items.get(e.defId).shape;
+    return (s.type === 'circle' ? s.radius : s.width / 2) * PPM;
   }
 
   /** A soft oval on the ground under each thing, smaller and fainter as it rises. */
@@ -672,5 +1096,10 @@ export class WorldView extends Container {
   override destroy(): void {
     this.offs.forEach((off) => off());
     super.destroy({ children: true });
+  }
+
+  /** Floating soap bubbles alive now (test hook). */
+  get soapBubbleCount(): number {
+    return this.soapBubbles.count;
   }
 }

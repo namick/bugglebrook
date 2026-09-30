@@ -8,13 +8,25 @@ describe('content registries', () => {
     expect(validateContent(CONTENT)).toEqual([]);
   });
 
-  it('has the M1 plaza, its three starting bugs, and its props', () => {
-    expect(CONTENT.areas.all.map((a) => a.id)).toEqual(['area_stump_plaza']);
+  it('has the pond and the plaza, the starting bugs, and their props', () => {
+    expect(CONTENT.areas.all.map((a) => a.id)).toEqual(['area_puddle_pond', 'area_stump_plaza']);
     expect(CONTENT.bugs.all.map((b) => b.id)).toEqual([
       'bug_ladybug_dot',
       'bug_pillbug_rollo',
       'bug_snail_glorp',
+      'bug_waterstrider_skeet',
     ]);
+    const pond = CONTENT.areas.get('area_puddle_pond').start.map((s) => s.defId);
+    for (const id of [
+      'item_sponge',
+      'item_cork',
+      'item_leaf_raft',
+      'item_paper_boat',
+      'item_soap_sliver',
+      'item_bubble_wand',
+      'bug_waterstrider_skeet',
+    ])
+      expect(pond, id).toContain(id);
     const start = CONTENT.areas.get('area_stump_plaza').start;
     const count = (id: string): number => start.filter((s) => s.defId === id).length;
     expect(count('item_bottle_cap')).toBe(1);
@@ -26,6 +38,44 @@ describe('content registries', () => {
     expect(start.filter((s) => s.kind === 'bug')).toHaveLength(3);
   });
 
+  it('gives every item a known material and only known tags', () => {
+    expect(validateContent(CONTENT)).toEqual([]);
+    const pebble = CONTENT.items.get('item_pebble');
+    const errors = validateContent({
+      ...CONTENT,
+      items: createRegistry('item', [
+        ...CONTENT.items.all.filter((i) => i.id !== 'item_pebble'),
+        { ...pebble, tags: ['tag_wobbly'] },
+      ]),
+    });
+    expect(errors).toContain('item item_pebble has an unknown tag "tag_wobbly"');
+  });
+
+  it('checks the pond: water inside its area, floaters on water, lily pads on water', () => {
+    const pond = CONTENT.areas.get('area_puddle_pond');
+    const plaza = CONTENT.areas.get('area_stump_plaza');
+    const errors = validateContent({
+      ...CONTENT,
+      areas: createRegistry('area', [
+        {
+          ...pond,
+          water: { ...pond.water!, x1: 99 },
+          start: [{ kind: 'item', defId: 'item_cork', x: 1, onWater: true }],
+          fixtures: [
+            { id: 'fix_lily_pad_west', kind: 'lily_pad', x: 1, y: 8.7, radius: 0.6 },
+            { id: 'bad', kind: 'hose_tap', x: 2, y: 8, radius: 0 },
+          ],
+        },
+        plaza,
+      ]),
+    });
+    expect(errors).toContain('area area_puddle_pond water must lie inside the area');
+    expect(errors).toContain('area area_puddle_pond start item_cork is not on water');
+    expect(errors).toContain('area area_puddle_pond lily pad fix_lily_pad_west is not on water');
+    expect(errors).toContain('area area_puddle_pond fixture id is invalid: "bad"');
+    expect(errors).toContain('area area_puddle_pond fixture bad radius must be positive');
+  });
+
   it('look up by ID and throw on unknown IDs', () => {
     expect(CONTENT.items.get('item_pebble').id).toBe('item_pebble');
     expect(CONTENT.items.has('nope')).toBe(false);
@@ -33,10 +83,12 @@ describe('content registries', () => {
     expect(() => CONTENT.items.get('nope')).toThrow(/Unknown item/);
   });
 
-  it('areas tile the world', () => {
-    expect(worldWidth()).toBe(38.4);
-    expect(areaAt(1).id).toBe('area_stump_plaza');
-    expect(areaAt(-5).id).toBe('area_stump_plaza');
+  it('areas tile the world: the pond left of the plaza', () => {
+    expect(worldWidth()).toBe(70.4);
+    expect(areaAt(1).id).toBe('area_puddle_pond');
+    expect(areaAt(31.9).id).toBe('area_puddle_pond');
+    expect(areaAt(32).id).toBe('area_stump_plaza');
+    expect(areaAt(-5).id).toBe('area_puddle_pond');
     expect(areaAt(999).id).toBe('area_stump_plaza');
   });
 });
@@ -72,14 +124,14 @@ describe('validateContent', () => {
   });
 
   it('reports gaps between areas', () => {
-    const [a] = CONTENT.areas.all;
+    const a = CONTENT.areas.get('area_puddle_pond');
     const b = { ...a!, id: 'area_next', xStart: a!.xEnd + 1, xEnd: a!.xEnd + 10 };
     const errors = broken({ areas: createRegistry('area', [a!, b]) });
     expect(errors.some((e) => e.includes('does not start where'))).toBe(true);
   });
 
   it('reports bad terrain, start lists, and bug preferences', () => {
-    const [a] = CONTENT.areas.all;
+    const a = CONTENT.areas.get('area_stump_plaza');
     const dot = CONTENT.bugs.get('bug_ladybug_dot');
     const errors = broken({
       areas: createRegistry('area', [
