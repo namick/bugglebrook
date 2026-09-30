@@ -226,14 +226,11 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
   if (
     !isObj(meta) ||
     typeof meta.createdAt !== 'string' ||
-    !(meta.thumb === null || (typeof meta.thumb === 'string' && THUMB.test(meta.thumb.slice(0, 32))))
+    !(meta.thumb === null || typeof meta.thumb === 'string')
   )
     errors.push('meta is invalid');
   return errors;
 }
-
-/** A thumbnail is an image data URL. */
-const THUMB = /^data:image\/(png|jpeg|webp);base64,/;
 
 /** Problems with the saved pocket tray, or an empty list. `ids` are the saved entity IDs. */
 function pocketProblems(pocket: unknown, ids: ReadonlySet<number>): string[] {

@@ -57,6 +57,8 @@ export interface TestHook {
   reduceMotion(): boolean;
   /** Does each menu sign show a world picture (true), a saved world without one (false), or a sprout (null)? */
   slotPictures(): (boolean | null)[];
+  /** Why recent slot loads failed. */
+  saveProblems(): string[];
   /** Slots whose save would not load and came back from the backup. */
   recoveries(): number[];
   /** Play the first scene in new worlds (off by default in tests). */
@@ -208,6 +210,7 @@ export function installTestHook(game: Game): void {
     },
     slotPictures: () => game.menu?.signs.map((s) => (s.picture ? s.picture.thumb !== null : null)) ?? [],
     recoveries: () => [...game.recoveries],
+    saveProblems: () => [...game.saves.problems],
     enableIntro: (on) => {
       game.introEnabled = on;
     },

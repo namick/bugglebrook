@@ -20,6 +20,9 @@ export interface Loaded {
  * and its backup, the save before the last write, takes its place.
  */
 export class SaveService {
+  /** Why recent loads failed, newest last (the test hook shows these). */
+  readonly problems: string[] = [];
+
   constructor(
     private readonly api: BugglebrookApi['saves'],
     private readonly now: () => Date = () => new Date(),
@@ -55,6 +58,8 @@ export class SaveService {
       return loadSaveFile(raw);
     } catch (err) {
       console.warn(`Save slot ${slot} ${what} is unreadable`, err);
+      this.problems.push(`slot ${slot} ${what}: ${err instanceof Error ? err.message : String(err)}`);
+      if (this.problems.length > 20) this.problems.shift();
       return null;
     }
   }

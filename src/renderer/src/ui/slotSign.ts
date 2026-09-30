@@ -41,7 +41,10 @@ export function slotPicture(save: SaveFile): SlotPicture {
     ),
   ].sort();
   const fedBugs = bugs.filter((b) => (fed[b] ?? 0) > 0).length;
-  return { thumb: save.meta.thumb, badge, bugs, fill: bugs.length ? fedBugs / bugs.length : 0 };
+  // A bad picture never costs the slot: it just shows no picture.
+  const thumb =
+    save.meta.thumb && /^data:image\/(png|jpeg|webp);base64,/.test(save.meta.thumb) ? save.meta.thumb : null;
+  return { thumb, badge, bugs, fill: bugs.length ? fedBugs / bugs.length : 0 };
 }
 
 /** A data URL as a texture, once the image has decoded. */

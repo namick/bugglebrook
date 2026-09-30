@@ -432,7 +432,9 @@ describe('save migrations from every shipped version', () => {
     };
     expect(() => loadSaveFile(ghost)).toThrow(/does not exist/);
     expect(() => loadSaveFile({ ...good, meta: { createdAt: 1, thumb: null } })).toThrow(SaveError);
-    expect(() => loadSaveFile({ ...good, meta: { createdAt: 'x', thumb: 'javascript:1' } })).toThrow(/meta/);
+    // A strange picture is not worth losing a world over: it loads, and the sign shows no picture.
+    const odd = loadSaveFile({ ...good, meta: { createdAt: 'x', thumb: 'javascript:1' } });
+    expect(slotPicture(odd).thumb).toBeNull();
     expect(
       loadSaveFile({ ...good, meta: { createdAt: 'x', thumb: 'data:image/jpeg;base64,AAAA' } }),
     ).toBeTruthy();

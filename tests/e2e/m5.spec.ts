@@ -142,6 +142,12 @@ test('dragging a slot sign into the compost bin deletes it; pulling it back out 
     await expect
       .poll(async () => (await page.evaluate(() => window.__bb!.listSlots())).map((s) => s.exists))
       .toEqual([true, false, true]);
+    const problems = await page.evaluate(() => window.__bb!.saveProblems());
+    expect(await page.evaluate(() => window.__bb!.slotPictures()), problems.join('\n')).toEqual([
+      true,
+      null,
+      true,
+    ]);
     const bin = await uiAt(page, 'bin');
     const mouth = { x: bin.x, y: bin.y - 60 };
 
