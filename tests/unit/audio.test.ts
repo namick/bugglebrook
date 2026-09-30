@@ -68,10 +68,10 @@ describe('Sfx', () => {
     const { sim, sfx, clock } = setup();
     for (let i = 0; i < 5; i++)
       sim.events.emit('bonked', { id: 1, kind: 'item', defId: 'item_pebble', speed: 10, x: 0, y: 0 });
-    expect(sfx.log.filter((n) => n === 'bonk')).toHaveLength(1);
+    expect(sfx.log.filter((n) => n === 'impact_wood')).toHaveLength(1);
     clock.t = 1000;
     sim.events.emit('bonked', { id: 1, kind: 'item', defId: 'item_pebble', speed: 10, x: 0, y: 0 });
-    expect(sfx.log.filter((n) => n === 'bonk')).toHaveLength(2);
+    expect(sfx.log.filter((n) => n === 'impact_wood')).toHaveLength(2);
   });
 
   it('stops listening after detach and stays silent when muted', () => {

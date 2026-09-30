@@ -1,13 +1,79 @@
+import type { EntityId } from '../../../game/core/entities';
 import type { Sim } from '../../../game/sim';
 import type { Camera, Point } from '../render/camera';
 
 export type PointerMode = 'none' | 'hold' | 'pan';
+
+/** Input gestures that make a sound but are not sim events. */
+export type Gesture = 'hover' | 'swish' | 'pan' | 'scroll' | 'edge';
 
 /** Fling velocity is the cursor's average over this window (game design doc, section 2). */
 export const FLING_WINDOW_MS = 80;
 /** A press and release this quick and this still is a poke. */
 export const POKE_MS = 200;
 export const POKE_PX = 6;
+/** Pressing and holding a bug this long without moving tickles it. */
+export const TICKLE_MS = 600;
+/** A shake: back and forth 3 strokes of at least 80 px within 0.8 s. */
+export const SHAKE_STROKES = 3;
+export const SHAKE_STROKE_PX = 80;
+export const SHAKE_WINDOW_MS = 800;
+/** A held thing moving faster than this (px/s) swishes. */
+const SWISH_PX_PER_S = 1400;
+
+/**
+ * Spots a shake in a stream of pointer positions (view pixels): strokes
+ * that reverse direction along x. Pure, so tests can feed it points.
+ */
+export class ShakeDetector {
+  private anchor: number | null = null;
+  /** When the current stroke started (ms). */
+  private anchorT = 0;
+  private extreme = 0;
+  private dir = 0;
+  private strokes: number[] = [];
+
+  reset(): void {
+    this.anchor = null;
+    this.dir = 0;
+    this.strokes = [];
+  }
+
+  /** Add a point at time `t` (ms). True when this point completes a shake. */
+  push(t: number, x: number): boolean {
+    if (this.anchor === null) {
+      this.anchor = x;
+      this.anchorT = t;
+      this.extreme = x;
+      return false;
+    }
+    const REVERSE = 20;
+    if (this.dir === 0) {
+      if (Math.abs(x - this.anchor) >= REVERSE) {
+        this.dir = Math.sign(x - this.anchor);
+        this.extreme = x;
+      }
+      return false;
+    }
+    if ((x - this.extreme) * this.dir > 0) this.extreme = x;
+    else if ((this.extreme - x) * this.dir >= REVERSE) {
+      // Strokes are remembered by when they started, so the whole shake fits the window.
+      if (Math.abs(this.extreme - this.anchor) >= SHAKE_STROKE_PX) this.strokes.push(this.anchorT);
+      this.anchor = this.extreme;
+      this.anchorT = t;
+      this.dir = -this.dir;
+      this.extreme = x;
+    }
+    this.strokes = this.strokes.filter((s) => t - s <= SHAKE_WINDOW_MS);
+    const current = Math.abs(this.extreme - this.anchor) >= SHAKE_STROKE_PX ? 1 : 0;
+    if (this.strokes.length + current >= SHAKE_STROKES) {
+      this.strokes = [];
+      this.anchor = this.extreme;
+      return true;
+    }
+    return false;
+  }
+}
 
 interface Sample {
   t: number;
@@ -53,6 +119,17 @@ export class PointerController {
   hoverWorld: Point | null = null;
   /** The last release velocity sent to the sim (m/s), for tests. */
   lastRelease: Point | null = null;
+  /** The grabbable thing under the cursor, when not holding or panning. */
+  hoverId: EntityId | null = null;
+  /** Sounds for gestures that are not sim events. */
+  onGesture: ((gesture: Gesture, strength: number) => void) | null = null;
+  /** Tickling the held bug right now. */
+  tickling = false;
+  private shake = new ShakeDetector();
+  private lastSwish = -Infinity;
+  private lastScroll = -Infinity;
+  private panSounded = false;
+  private edging = false;
   private pointer: Point = { x: 0, y: 0 };
   private samples: Sample[] = [];
   private pressAt = 0;
@@ -93,6 +170,10 @@ export class PointerController {
     this.sample(t);
     const hit = this.sim.physics.bodyAt(world.x, world.y, 0.2);
     this.camera.velocity = 0;
+    this.hoverId = null;
+    this.tickling = false;
+    this.shake.reset();
+    this.shake.push(t, view.x);
     if (hit !== null) {
       this.mode = 'hold';
       this.sim.send({ type: 'grab', x: world.x, y: world.y });
@@ -100,22 +181,55 @@ export class PointerController {
       this.mode = 'pan';
       this.panLastX = view.x;
       this.panVelocity = 0;
+      this.panSounded = false;
     }
   }
 
+  private gesture(g: Gesture, strength = 1): void {
+    this.onGesture?.(g, strength);
+  }
+
+  /** What is under the cursor right now (nothing while holding or panning). */
+  private updateHover(): void {
+    const w = this.hoverWorld;
+    const id = this.mode === 'none' && w ? this.sim.physics.bodyAt(w.x, w.y, 0.2) : null;
+    if (id !== null && id !== this.hoverId) this.gesture('hover');
+    this.hoverId = id;
+  }
+
   move(view: Point, dt = 1 / 60, t = this.now()): void {
+    const prev = this.pointer;
+    const prevT = this.samples[this.samples.length - 1]?.t ?? t;
     this.pointer = view;
     this.hoverWorld = this.camera.viewToWorld(view);
     this.travelled = Math.max(
       this.travelled,
       Math.hypot(view.x - this.pressView.x, view.y - this.pressView.y),
     );
-    if (this.mode === 'hold') this.sample(t);
+    this.updateHover();
+    if (this.mode === 'hold') {
+      this.sample(t);
+      if (this.tickling && this.travelled > POKE_PX) {
+        this.tickling = false;
+        this.sim.send({ type: 'tickle', on: false });
+      }
+      if (this.shake.push(t, view.x)) this.sim.send({ type: 'shake' });
+      const ms = t - prevT;
+      const speed = ms > 0 ? (Math.hypot(view.x - prev.x, view.y - prev.y) / ms) * 1000 : 0;
+      if (speed > SWISH_PX_PER_S && t - this.lastSwish > 250) {
+        this.lastSwish = t;
+        this.gesture('swish', Math.min(1, speed / 4000));
+      }
+    }
     if (this.mode === 'pan') {
       const dxMeters = (view.x - this.panLastX) / this.camera.ppm;
       this.camera.panBy(-dxMeters);
       if (dt > 0) this.panVelocity = -dxMeters / dt;
       this.panLastX = view.x;
+      if (!this.panSounded && this.travelled > POKE_PX) {
+        this.panSounded = true;
+        this.gesture('pan');
+      }
     }
   }
 
@@ -152,19 +266,50 @@ export class PointerController {
     }
     if (this.mode === 'pan') this.camera.velocity = Math.max(-40, Math.min(40, this.panVelocity));
     this.mode = 'none';
+    this.tickling = false;
+    this.edging = false;
+    this.updateHover();
   }
 
-  wheel(deltaX: number, deltaY: number): void {
+  wheel(deltaX: number, deltaY: number, t = this.now()): void {
     const delta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY * 1.5;
     this.camera.panBy(delta / this.camera.ppm);
+    if (t - this.lastScroll > 200) {
+      this.lastScroll = t;
+      this.gesture('scroll');
+    }
   }
 
   /** Call once per frame before sim steps: edge-scroll and send the drag target. */
   frame(dt: number): void {
-    if (this.mode !== 'hold') return;
-    this.camera.edgeScroll(this.pointer.x, this.viewWidthPx, dt, 80, 9);
+    if (this.mode !== 'hold') {
+      // The world moves under a still cursor too.
+      if (this.hoverWorld) this.hoverWorld = this.camera.viewToWorld(this.pointer);
+      this.updateHover();
+      return;
+    }
+    const panned = this.camera.edgeScroll(this.pointer.x, this.viewWidthPx, dt, 80, 9);
+    if (panned !== 0 && !this.edging) this.gesture('edge');
+    this.edging = panned !== 0;
     const world = this.camera.viewToWorld(this.pointer);
     this.hoverWorld = world;
     this.sim.send({ type: 'drag', x: world.x, y: world.y });
+    // Holding a bug still: tickle it.
+    const held = this.sim.physics.grabbed;
+    if (
+      !this.tickling &&
+      held !== null &&
+      this.sim.entities.get(held)?.kind === 'bug' &&
+      this.travelled <= POKE_PX &&
+      this.now() - this.pressAt >= TICKLE_MS
+    ) {
+      this.tickling = true;
+      this.sim.send({ type: 'tickle', on: true });
+    }
+  }
+
+  /** Is the player holding something right now? */
+  get holding(): boolean {
+    return this.mode === 'hold' && this.sim.physics.grabbed !== null;
   }
 }

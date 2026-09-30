@@ -17,7 +17,12 @@ export class ItemSprite extends Container {
   /** Inner layer for squash. */
   readonly art = new Container();
   private readonly g = new Graphics();
+  /** A white rim light behind the art, shown on hover. */
+  private readonly rim = new Graphics();
+  /** Stink lines and a fly for smelly food. */
+  private readonly fx: Graphics | null = null;
   private readonly coil: Graphics | null = null;
+  private time = Math.random() * 10;
   /** Spring compression, 0 to 1, set when something bounces off it. */
   compress = 0;
   private compressV = 0;
@@ -32,7 +37,8 @@ export class ItemSprite extends Container {
     this.stretchB.addChild(this.stretchC);
     this.stretchC.addChild(this.spin);
     this.spin.addChild(this.art);
-    this.art.addChild(this.g);
+    this.art.addChild(this.rim, this.g);
+    this.rim.visible = false;
     const ppm = PIXELS_PER_METER;
     const s = def.shape;
     const w = s.type === 'circle' ? s.radius * 2 * ppm : s.width * ppm;
@@ -67,7 +73,221 @@ export class ItemSprite extends Container {
       case 'leaf':
         this.leaf(w, h);
         break;
+      case 'sugar_cube':
+        this.sugarCube(w, h, seed);
+        break;
+      case 'mint_leaf':
+        this.mintLeaf(w, h);
+        break;
+      case 'pepper':
+        this.pepper(w, h);
+        break;
+      case 'banana_mush':
+        this.bananaMush(w / 2, seed);
+        this.fx = new Graphics();
+        this.addChild(this.fx);
+        break;
+      case 'moss_tuft':
+        this.mossTuft(w / 2, seed);
+        break;
+      case 'jelly_bean':
+        this.jellyBean(w, h);
+        break;
     }
+    this.outline(this.rim, w, h);
+    this.rim.stroke({ width: 16, color: 0xffffff, join: 'round', cap: 'round' });
+  }
+
+  /** Trace the item's silhouette (no fill), for the hover rim. */
+  private outline(g: Graphics, w: number, h: number): void {
+    const r = w / 2;
+    switch (this.def.art) {
+      case 'marble':
+      case 'pebble':
+      case 'ball':
+      case 'banana_mush':
+      case 'moss_tuft':
+        g.circle(0, 0, r * 1.05);
+        return;
+      case 'berry':
+        g.circle(0, r * 0.05, r)
+          .moveTo(0, -r * 0.95)
+          .lineTo(r * 0.35, -r * 1.45);
+        return;
+      case 'leaf':
+      case 'mint_leaf': {
+        const hw = w / 2;
+        const bulge = this.def.art === 'leaf' ? h * 1.8 : h * 2.1;
+        g.moveTo(-hw, 0)
+          .bezierCurveTo(-hw * 0.4, -bulge, hw * 0.5, -bulge * 0.9, hw, 0)
+          .bezierCurveTo(hw * 0.5, bulge * 0.7, -hw * 0.4, bulge * 0.8, -hw, 0)
+          .closePath();
+        return;
+      }
+      case 'pepper':
+        this.pepperPath(g, w, h);
+        return;
+      case 'jelly_bean':
+        g.roundRect(-w / 2, -h / 2, w, h, h / 2);
+        return;
+      default:
+        g.roundRect(-w / 2, -h / 2, w, h, Math.min(8, h / 2));
+    }
+  }
+
+  /** Show or hide the hover rim; `pulse` is its opacity (60 to 100 percent). */
+  setRim(on: boolean, pulse = 1): void {
+    this.rim.visible = on;
+    this.rim.alpha = pulse;
+  }
+
+  private sugarCube(w: number, h: number, seed: number): void {
+    const { g, def } = this;
+    g.roundRect(-w / 2, -h / 2, w, h, 6)
+      .fill(def.color)
+      .stroke(stroke(4.5));
+    // A shaded side and a bright top edge make it read as a cube.
+    g.roundRect(w * 0.12, -h / 2 + 4, w * 0.34, h - 8, 4).fill({ color: def.accent, alpha: 0.9 });
+    g.moveTo(-w * 0.34, -h * 0.3)
+      .lineTo(w * 0.05, -h * 0.3)
+      .stroke({ width: 3, color: 0xffffff, cap: 'round' });
+    // Sugar crystals glinting.
+    for (let i = 0; i < 5; i++) {
+      const x = (hash01(seed, i + 3) - 0.5) * w * 0.7;
+      const y = (hash01(seed, i + 9) - 0.5) * h * 0.7;
+      g.rect(x - 1.5, y - 1.5, 3, 3).fill({ color: 0xc9d6ea, alpha: 0.9 });
+    }
+  }
+
+  private mintLeaf(w: number, h: number): void {
+    const { g, def } = this;
+    const hw = w / 2;
+    const bulge = h * 2.1;
+    // A round leaf with a toothed edge.
+    const pts: number[] = [];
+    const n = 22;
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      const x = -hw + t * w;
+      const y = -Math.sin(t * Math.PI) * bulge * (0.85 + (i % 2) * 0.12);
+      pts.push(x, y);
+    }
+    for (let i = n; i >= 0; i--) {
+      const t = i / n;
+      const x = -hw + t * w;
+      const y = Math.sin(t * Math.PI) * bulge * 0.75 * (0.85 + (i % 2) * 0.12);
+      pts.push(x, y);
+    }
+    g.poly(pts).fill(def.color).stroke(stroke(4));
+    g.moveTo(-hw, 0)
+      .quadraticCurveTo(0, -h * 0.2, hw * 0.9, 0)
+      .stroke({ width: 3, color: def.accent, cap: 'round' });
+    for (let i = 1; i <= 3; i++) {
+      const x = -hw + (i / 4) * w;
+      g.moveTo(x, -h * 0.1)
+        .lineTo(x + w * 0.1, -bulge * 0.5)
+        .stroke({ width: 2, color: def.accent, cap: 'round' });
+      g.moveTo(x, 0)
+        .lineTo(x + w * 0.09, bulge * 0.4)
+        .stroke({ width: 2, color: def.accent, cap: 'round' });
+    }
+    g.ellipse(-hw * 0.35, -bulge * 0.45, w * 0.1, h * 0.35).fill({ color: 0xffffff, alpha: 0.5 });
+    g.moveTo(-hw, 0)
+      .lineTo(-hw - w * 0.12, h * 0.3)
+      .stroke({ width: 4, color: OUTLINE, cap: 'round' });
+  }
+
+  private pepperPath(g: Graphics, w: number, h: number): Graphics {
+    // A plump chili curling to a point on the right.
+    return g
+      .moveTo(-w * 0.36, -h * 0.75)
+      .bezierCurveTo(w * 0.1, -h * 0.95, w * 0.42, -h * 0.4, w * 0.52, h * 0.55)
+      .bezierCurveTo(w * 0.3, h * 0.2, w * 0.05, h * 0.85, -w * 0.36, h * 0.75)
+      .bezierCurveTo(-w * 0.52, h * 0.5, -w * 0.52, -h * 0.5, -w * 0.36, -h * 0.75)
+      .closePath();
+  }
+
+  private pepper(w: number, h: number): void {
+    const { g, def } = this;
+    this.pepperPath(g, w, h).fill(def.color).stroke(stroke(4.5));
+    g.moveTo(-w * 0.22, -h * 0.4)
+      .quadraticCurveTo(w * 0.1, -h * 0.62, w * 0.3, -h * 0.1)
+      .stroke({ width: 3.5, color: 0xffffff, alpha: 0.7, cap: 'round' });
+    // Green cap and a curly stem.
+    g.ellipse(-w * 0.4, 0, w * 0.1, h * 0.72)
+      .fill(def.accent)
+      .stroke(stroke(4));
+    g.moveTo(-w * 0.46, 0)
+      .quadraticCurveTo(-w * 0.62, -h * 0.2, -w * 0.58, -h * 0.9)
+      .stroke({ width: 5, color: OUTLINE, cap: 'round' });
+    g.moveTo(-w * 0.46, 0)
+      .quadraticCurveTo(-w * 0.62, -h * 0.2, -w * 0.58, -h * 0.9)
+      .stroke({ width: 2, color: def.accent, cap: 'round' });
+  }
+
+  private bananaMush(r: number, seed: number): void {
+    const { g, def } = this;
+    // A squished, lumpy blob with a drip.
+    const pts: number[] = [];
+    const n = 14;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const k = 1 + (hash01(seed + 7, i) - 0.5) * 0.3;
+      const flat = Math.sin(a) > 0 ? 0.75 : 1;
+      pts.push(Math.cos(a) * r * k * 1.12, Math.sin(a) * r * k * flat);
+    }
+    g.poly(pts).fill(def.color).stroke(stroke(4.5));
+    g.ellipse(-r * 0.3, -r * 0.35, r * 0.35, r * 0.16).fill({ color: lighten(def.color, 0.5), alpha: 0.9 });
+    for (const [x, y, s] of [
+      [0.3, -0.2, 0.16],
+      [-0.4, 0.2, 0.12],
+      [0.1, 0.35, 0.1],
+      [0.55, 0.25, 0.08],
+    ] as const)
+      g.ellipse(r * x, r * y, r * s * 1.3, r * s).fill({ color: def.accent, alpha: 0.85 });
+    g.moveTo(r * 0.6, r * 0.5)
+      .quadraticCurveTo(r * 0.7, r * 0.85, r * 0.62, r * 1.0)
+      .stroke({ width: 5, color: darken(def.color, 0.15), cap: 'round' });
+  }
+
+  private mossTuft(r: number, seed: number): void {
+    const { g, def } = this;
+    // A fuzzy mound of little bumps.
+    const bumps: [number, number, number][] = [];
+    for (let i = 0; i < 7; i++) {
+      const a = Math.PI + (i / 6) * Math.PI;
+      bumps.push([
+        Math.cos(a) * r * 0.62,
+        Math.sin(a) * r * 0.5 + r * 0.15,
+        r * (0.42 + hash01(seed, i) * 0.12),
+      ]);
+    }
+    for (const [x, y, br] of bumps) g.circle(x, y, br).fill(def.color).stroke(stroke(4));
+    g.ellipse(0, r * 0.35, r * 1.02, r * 0.55)
+      .fill(def.accent)
+      .stroke(stroke(4));
+    for (const [x, y, br] of bumps) g.circle(x, y, br - 3).fill(def.color);
+    for (let i = 0; i < 8; i++) {
+      const x = (hash01(seed, i + 30) - 0.5) * r * 1.4;
+      const y = (hash01(seed, i + 50) - 0.8) * r * 0.9;
+      g.circle(x, y, 2.2).fill({ color: lighten(def.color, 0.5), alpha: 0.9 });
+    }
+  }
+
+  private jellyBean(w: number, h: number): void {
+    const { g, def } = this;
+    // A kidney bean: a rounded capsule with a dent on top.
+    g.moveTo(-w * 0.35, -h / 2)
+      .quadraticCurveTo(0, -h * 0.2, w * 0.35, -h / 2)
+      .quadraticCurveTo(w * 0.52, -h * 0.45, w * 0.5, 0)
+      .quadraticCurveTo(w * 0.48, h * 0.52, 0, h * 0.52)
+      .quadraticCurveTo(-w * 0.48, h * 0.52, -w * 0.5, 0)
+      .quadraticCurveTo(-w * 0.52, -h * 0.45, -w * 0.35, -h / 2)
+      .closePath()
+      .fill(def.color)
+      .stroke(stroke(4));
+    g.ellipse(-w * 0.18, -h * 0.12, w * 0.16, h * 0.12).fill({ color: def.accent, alpha: 0.75 });
+    g.circle(w * 0.2, h * 0.1, h * 0.07).fill({ color: def.accent, alpha: 0.5 });
   }
 
   private bottleCap(w: number, h: number): void {
@@ -275,6 +495,26 @@ export class ItemSprite extends Container {
       .stroke({ width: 4, color: OUTLINE, cap: 'round' });
   }
 
+  /** Wavy stink lines and a fly doing loops (drawn upright, not spun). */
+  private drawStink(): void {
+    const g = this.fx!.clear();
+    const t = this.time;
+    for (let i = 0; i < 2; i++) {
+      const x0 = -8 + i * 16;
+      const rise = (t * 0.6 + i * 0.5) % 1;
+      const y0 = -22 - rise * 26;
+      g.moveTo(x0, y0);
+      for (let k = 1; k <= 4; k++) g.lineTo(x0 + Math.sin(k * 1.7 + t * 4) * 4, y0 - k * 5);
+      g.stroke({ width: 3, color: 0x9bbf4a, alpha: 1 - rise, cap: 'round', join: 'round' });
+    }
+    const fx = Math.cos(t * 3.1) * 26;
+    const fy = -34 + Math.sin(t * 6.2) * 9;
+    const flap = Math.abs(Math.sin(t * 40));
+    g.ellipse(fx - 3, fy - 4, 4, 2 + flap * 2).fill({ color: 0xffffff, alpha: 0.8 });
+    g.ellipse(fx + 3, fy - 4, 4, 2 + flap * 2).fill({ color: 0xffffff, alpha: 0.8 });
+    g.circle(fx, fy, 3.2).fill(OUTLINE);
+  }
+
   /** Squish a spring (0 to 1); it springs back on its own in `update`. */
   squish(amount: number): void {
     this.compress = Math.max(this.compress, amount);
@@ -295,6 +535,8 @@ export class ItemSprite extends Container {
   private drawnCompress = 0;
 
   update(dt: number): void {
+    this.time += dt;
+    if (this.fx) this.drawStink();
     if (!this.coil) return;
     // Damped spring back to rest, with a little overshoot for a boing.
     this.compressV += (-220 * this.compress - 10 * this.compressV) * Math.min(dt, 0.05);

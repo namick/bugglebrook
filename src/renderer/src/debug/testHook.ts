@@ -4,6 +4,8 @@ import type { Command, EntityView } from '../../../game';
 import type { SlotInfo } from '../../../shared/ipc';
 import type { Game, SceneName } from '../app/game';
 import type { Point } from '../render/camera';
+import type { BubbleInfo } from '../render/bubbles';
+import type { CursorPose } from '../ui/cursor';
 
 /**
  * Test-only API on window.__bb. Installed only when the app is launched with
@@ -41,6 +43,21 @@ export interface TestHook {
   renderStats(): { particles: number; sprites: number };
   saveNow(): Promise<void>;
   listSlots(): Promise<SlotInfo[]>;
+  /**
+   * The drawn hand: its pose, the frame the pose last changed on, and the
+   * frame of the last pointer move, to check hover feedback takes at most a frame.
+   */
+  cursor(): { pose: CursorPose; visible: boolean; poseFrame: number; moveFrame: number };
+  /** Speech and thought bubbles showing now. */
+  bubbles(): BubbleInfo[];
+  /** Mouths glowing while food is held, and in which liking color. */
+  glowing(): { id: number; liking: string }[];
+  /** A bug's mouth anchor in world meters. */
+  mouthOf(id: number): Point | null;
+  /** The bug whose mouth would take this item if let go now. */
+  dropTarget(itemId: number): number | null;
+  /** Empty the sound, voice, and event logs, so a test can check one action at a time. */
+  clearLogs(): void;
 }
 
 declare global {
@@ -91,5 +108,21 @@ export function installTestHook(game: Game): void {
     }),
     saveNow: () => game.saveNow(),
     listSlots: () => game.api.saves.list(),
+    cursor: () => ({
+      pose: game.cursor.pose,
+      visible: game.cursor.visible,
+      poseFrame: game.cursorPoseFrame,
+      moveFrame: game.pointerMoveFrame,
+    }),
+    bubbles: () => game.session?.view.bubbleList() ?? [],
+    glowing: () =>
+      [...(game.session?.view.glowing ?? new Map<number, string>())].map(([id, liking]) => ({ id, liking })),
+    mouthOf: (id) => game.session?.sim.mouthAnchor(id) ?? null,
+    dropTarget: (itemId) => game.session?.sim.dropTargetFor(itemId)?.entityId ?? null,
+    clearLogs: () => {
+      game.sfx.log.length = 0;
+      game.voices.log.length = 0;
+      game.eventLog.length = 0;
+    },
   };
 }

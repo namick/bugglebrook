@@ -7,6 +7,7 @@ import { bugFace } from '../bugFace';
 import type { BugPose } from '../bugPose';
 import { bugPose } from '../bugPose';
 import { CHEEK, OUTLINE, STAR, darken, lighten, stroke } from '../palette';
+import type { MovePose } from '../reactions';
 import type { Look } from './face';
 import { drawEye, drawMouth, spiral } from './face';
 
@@ -34,7 +35,13 @@ export interface BugFrame {
   spin: number;
   /** Dizzy stars to orbit the head. */
   stars: number;
+  /** A reaction's body move (hops, spins, shrugs). */
+  move?: MovePose;
+  /** Hover rim light opacity, or 0 for none. */
+  rim?: number;
 }
+
+const TINTS = { green: { color: 0x8fd14f, alpha: 0.6 }, red: { color: 0xff3b2f, alpha: 0.45 } } as const;
 
 interface Hip {
   x: number;
@@ -73,6 +80,7 @@ export class BugSprite extends Container {
   private readonly spinLayer = new Container();
   private readonly squash = new Container();
   private readonly rig = new Container();
+  private readonly rim = new Graphics();
   private readonly legsBack = new Graphics();
   private readonly wings = new Graphics();
   private readonly body = new Graphics();
@@ -96,6 +104,7 @@ export class BugSprite extends Container {
     this.spinLayer.addChild(this.squash);
     this.squash.addChild(this.rig);
     this.rig.addChild(
+      this.rim,
       this.legsBack,
       this.wings,
       this.body,
@@ -132,6 +141,47 @@ export class BugSprite extends Container {
         else this.drawSnail();
         break;
     }
+    this.drawRim(form);
+  }
+
+  /** A white silhouette stroke behind the body: the hover rim light. */
+  private drawRim(form: BugFace['form']): void {
+    const { r } = this;
+    const g = this.rim.clear();
+    const white = { width: 16, color: 0xffffff, join: 'round' as const, cap: 'round' as const };
+    if (form === 'curled') return;
+    if (this.def.art === 'snail') {
+      if (form === 'in_shell') {
+        g.circle(0, 0, r * 0.98).stroke(white);
+        return;
+      }
+      g.circle(-r * 0.35, -r * 0.08, r * 0.86).stroke(white);
+      g.moveTo(-r * 1.6, r * 0.93)
+        .lineTo(r * 0.9, r * 1.0)
+        .bezierCurveTo(r * 1.35, r * 1.0, r * 1.5, r * 0.6, r * 1.46, r * 0.12)
+        .bezierCurveTo(r * 1.43, -r * 0.42, r * 0.98, -r * 0.62, r * 0.66, -r * 0.42)
+        .stroke(white);
+      return;
+    }
+    if (this.def.art === 'ladybug') {
+      g.poly(this.dome(-r * 0.15, r * 0.34, r * 1.02, r * 1.14)).stroke(white);
+      g.circle(r * 0.8, r * 0.12, r * 0.55).stroke(white);
+      g.ellipse(-r * 0.1, r * 0.42, r * 0.95, r * 0.34).stroke(white);
+      return;
+    }
+    g.poly(this.dome(-r * 0.05, r * 0.52, r * 1.28, r * 1.08)).stroke(white);
+    g.circle(r * 1.14, r * 0.36, r * 0.5).stroke(white);
+    g.ellipse(-r * 0.05, r * 0.6, r * 1.2, r * 0.2).stroke(white);
+  }
+
+  /** Wash the face green (grossed out) or red (hot), over the head. */
+  private drawTint(g: Graphics, tint: BugFace['tint']): void {
+    if (!tint || this.form === 'curled' || this.form === 'in_shell') return;
+    const { r } = this;
+    const t = TINTS[tint];
+    if (this.def.art === 'ladybug') g.circle(r * 0.8, r * 0.12, r * 0.52).fill(t);
+    else if (this.def.art === 'pillbug') g.circle(r * 1.14, r * 0.36, r * 0.47).fill(t);
+    else g.ellipse(r * 1.08, r * 0.2, r * 0.36, r * 0.42).fill(t);
   }
 
   /** Points along the top of an ellipse, from angle PI to 2 PI. */
@@ -228,7 +278,7 @@ export class BugSprite extends Container {
     }
     b.poly(this.dome(cx, cy, rx, ry)).stroke(stroke());
     // A round, pale face poking out in front of the first plate.
-    b.circle(r * 1.12, r * 0.4, r * 0.42)
+    b.circle(r * 1.14, r * 0.36, r * 0.5)
       .fill(lighten(def.body, 0.35))
       .stroke(stroke());
     // Shine along the back.
@@ -451,6 +501,7 @@ export class BugSprite extends Container {
     const look = { x: frame.look.x * frame.facing, y: frame.look.y };
     const open = frame.pose.eyeOpen;
     if (this.form === 'curled') return;
+    this.drawTint(g, f.tint);
     if (this.form === 'in_shell') {
       drawEye(
         g,
@@ -487,10 +538,10 @@ export class BugSprite extends Container {
       return;
     }
     if (def.art === 'pillbug') {
-      drawEye(g, r * 1.0, r * 0.3, r * 0.17, f.eyes, look, open, lighten(def.body, 0.35), frame.time, 3.5);
-      drawEye(g, r * 1.28, r * 0.3, r * 0.2, f.eyes, look, open, lighten(def.body, 0.35), frame.time, 4);
-      g.circle(r * 1.38, r * 0.55, r * 0.08).fill({ color: CHEEK, alpha: f.blush ? 0.9 : 0.6 });
-      drawMouth(g, r * 1.22, r * 0.6, r * 0.24, f.mouth, frame.time, OUTLINE, 3.5);
+      drawEye(g, r * 0.98, r * 0.24, r * 0.19, f.eyes, look, open, lighten(def.body, 0.35), frame.time, 3.5);
+      drawEye(g, r * 1.3, r * 0.24, r * 0.22, f.eyes, look, open, lighten(def.body, 0.35), frame.time, 4);
+      g.circle(r * 1.44, r * 0.5, r * 0.09).fill({ color: CHEEK, alpha: f.blush ? 0.9 : 0.6 });
+      drawMouth(g, r * 1.2, r * 0.6, r * 0.34, f.mouth, frame.time, OUTLINE, 3.5);
       return;
     }
     // Snail: eyes at the ends of the stalks, mouth on the head.
@@ -535,8 +586,20 @@ export class BugSprite extends Container {
 
   private drawStars(frame: BugFrame): void {
     const g = this.fx.clear();
-    if (frame.stars <= 0) return;
     const { r } = this;
+    if (frame.face.steam) {
+      // Two puffs of steam rising off an annoyed head.
+      for (let i = 0; i < 2; i++) {
+        const u = (frame.time * 0.9 + i * 0.5) % 1;
+        const x = frame.facing * r * (0.5 + i * 0.5) + Math.sin(u * 8 + i) * 4;
+        const y = -r * 1.1 - u * r * 0.9;
+        const pr = r * (0.12 + u * 0.14);
+        g.circle(x, y, pr)
+          .fill({ color: 0xffffff, alpha: 0.9 * (1 - u) })
+          .stroke({ width: 2.5, color: OUTLINE, alpha: 0.35 * (1 - u) });
+      }
+    }
+    if (frame.stars <= 0) return;
     const cy = -r * 1.35;
     for (let i = 0; i < frame.stars; i++) {
       const a = frame.time * 4.2 + (i * Math.PI * 2) / frame.stars;
@@ -570,10 +633,14 @@ export class BugSprite extends Container {
     this.ball.rotation = frame.angle;
     this.ball.scale.set(frame.squashX, frame.squashY);
 
-    this.squash.scale.set(pose.sx * frame.squashX, pose.sy * frame.squashY);
-    this.squash.rotation = pose.tilt;
-    this.rig.position.set(0, -r + pose.bob);
-    this.rig.scale.x = frame.facing;
+    const move = frame.move ?? { bob: 0, tilt: 0, sx: 1, sy: 1, flip: 1 };
+    this.squash.scale.set(pose.sx * frame.squashX * move.sx, pose.sy * frame.squashY * move.sy);
+    this.squash.rotation = pose.tilt + move.tilt * frame.facing;
+    this.rig.position.set(0, -r + pose.bob + move.bob);
+    this.rig.scale.x =
+      frame.facing * (Math.abs(move.flip) < 0.08 ? Math.sign(move.flip || 1) * 0.08 : move.flip);
+    this.rim.visible = (frame.rim ?? 0) > 0;
+    this.rim.alpha = frame.rim ?? 0;
 
     this.drawLegs(pose);
     this.drawWings(frame);

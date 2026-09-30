@@ -399,6 +399,12 @@ export class Sim {
 
   private updateBugs(): void {
     const held = this.physics.grabbed;
+    const heldEntity = held === null ? undefined : this.entities.get(held);
+    let offered: { x: number; y: number } | null = null;
+    if (heldEntity?.kind === 'item' && this.content.items.get(heldEntity.defId).tags.includes('tag_edible')) {
+      const s = this.physics.getState(heldEntity.id);
+      offered = { x: s.x, y: s.y };
+    }
     for (const entity of this.entities.ofKind('bug')) {
       const def = this.content.bugs.get(entity.defId);
       const state = this.physics.getState(entity.id);
@@ -415,6 +421,7 @@ export class Sim {
         impact: inGrace ? 0 : (this.bugImpacts.get(entity.id) ?? 0),
         worldWidth: this.worldWidth,
         rng: this.rng,
+        offered,
         adverts: () => (adverts ??= this.advertsFor(entity.id)),
         target: (id) => this.targetInfo(id),
         obstacle: (dir) => {

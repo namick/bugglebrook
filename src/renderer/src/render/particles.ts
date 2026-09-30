@@ -1,7 +1,21 @@
 import { Container, Graphics } from 'pixi.js';
+import { heartPath } from './draw/face';
 import { OUTLINE, STAR, lighten } from './palette';
 
-type Kind = 'dust' | 'trail' | 'crumb' | 'sparkle' | 'ring' | 'line' | 'star';
+type Kind =
+  | 'dust'
+  | 'trail'
+  | 'crumb'
+  | 'sparkle'
+  | 'ring'
+  | 'line'
+  | 'star'
+  | 'heart'
+  | 'puff'
+  | 'flame'
+  | 'snow'
+  | 'drop'
+  | 'bubble';
 
 interface Particle {
   kind: Kind;
@@ -148,6 +162,116 @@ export class Particles extends Container {
     }
   }
 
+  /** Little hearts floating up (loved food). */
+  hearts(x: number, y: number, n = 5): void {
+    for (let i = 0; i < n; i++) {
+      this.add({
+        kind: 'heart',
+        x: x + this.rnd(-30, 30),
+        y: y - this.rnd(0, 10),
+        vx: this.rnd(-50, 50),
+        vy: -this.rnd(70, 140),
+        max: this.rnd(0.9, 1.3),
+        size: this.rnd(14, 22),
+        color: this.random() < 0.3 ? 0xff8fab : 0xff4f7b,
+        drag: 1.2,
+        rot: this.rnd(-0.3, 0.3),
+      });
+    }
+  }
+
+  /**
+   * Soft cloud puffs, drifting along (dx, dy) px/s. Burps, gags, steam.
+   * `outline` draws a faint edge so pale clouds read against the sky.
+   */
+  puff(x: number, y: number, color: number, n = 5, dx = 0, dy = -60, size = 16): void {
+    for (let i = 0; i < n; i++) {
+      this.add({
+        kind: 'puff',
+        x: x + this.rnd(-12, 12),
+        y: y + this.rnd(-8, 8),
+        vx: dx * this.rnd(0.6, 1.2) + this.rnd(-25, 25),
+        vy: dy * this.rnd(0.6, 1.2) + this.rnd(-15, 15),
+        max: this.rnd(0.7, 1.1),
+        size: size * this.rnd(0.7, 1.3),
+        color,
+        drag: 2,
+      });
+    }
+  }
+
+  /** fx_fire_puff: orange and yellow teardrops blasting out the way `dir` points. */
+  flame(x: number, y: number, dir: 1 | -1): void {
+    for (let i = 0; i < 16; i++) {
+      const speed = this.rnd(260, 520);
+      const a = this.rnd(-0.35, 0.3);
+      this.add({
+        kind: 'flame',
+        x,
+        y,
+        vx: Math.cos(a) * speed * dir,
+        vy: Math.sin(a) * speed - 40,
+        max: this.rnd(0.35, 0.6),
+        size: this.rnd(12, 22),
+        color: [0xff5a1f, 0xff9a1f, 0xffd23f][i % 3]!,
+        drag: 3,
+        rot: dir > 0 ? a : Math.PI - a,
+      });
+    }
+  }
+
+  /** fx_snowflake: a cold breath of little flakes. */
+  snow(x: number, y: number, dir: 1 | -1): void {
+    for (let i = 0; i < 9; i++) {
+      this.add({
+        kind: 'snow',
+        x,
+        y,
+        vx: dir * this.rnd(60, 200),
+        vy: this.rnd(-70, 20),
+        max: this.rnd(0.8, 1.2),
+        size: this.rnd(7, 12),
+        color: 0xffffff,
+        drag: 2,
+        vr: this.rnd(-3, 3),
+      });
+    }
+  }
+
+  /** Droplets flung along (vx, vy): spit spray, sweat. */
+  drops(x: number, y: number, vx: number, vy: number, color: number, n = 6): void {
+    for (let i = 0; i < n; i++) {
+      this.add({
+        kind: 'drop',
+        x,
+        y,
+        vx: vx * this.rnd(0.5, 1.1) + this.rnd(-60, 60),
+        vy: vy * this.rnd(0.5, 1.1) + this.rnd(-60, 30),
+        max: this.rnd(0.4, 0.7),
+        size: this.rnd(4, 8),
+        color,
+        gravity: 1200,
+      });
+    }
+  }
+
+  /** fx_bubbles: clear circles with a highlight, drifting up. */
+  bubbles(x: number, y: number, n = 4): void {
+    for (let i = 0; i < n; i++) {
+      this.add({
+        kind: 'bubble',
+        x: x + this.rnd(-14, 14),
+        y,
+        vx: this.rnd(-30, 30),
+        vy: -this.rnd(60, 130),
+        max: this.rnd(0.8, 1.3),
+        size: this.rnd(5, 10),
+        color: 0xffffff,
+        drag: 1,
+      });
+    }
+  }
+
   update(dt: number): void {
     const g = this.g.clear();
     const keep: Particle[] = [];
@@ -200,6 +324,54 @@ export class Particles extends Container {
           g.star(p.x, p.y, 5, p.size, p.size * 0.48, p.rot)
             .fill({ color: p.color, alpha: fade })
             .stroke({ width: 3, color: OUTLINE, alpha: fade });
+          break;
+        case 'heart': {
+          const s = p.size * (t < 0.15 ? t / 0.15 : 1) * (1 + 0.1 * Math.sin(p.life * 16));
+          heartPath(g, p.x + Math.sin(p.life * 6 + p.rot * 10) * 6, p.y, s)
+            .fill({ color: p.color, alpha: fade })
+            .stroke({ width: 2.5, color: OUTLINE, alpha: 0.8 * fade });
+          break;
+        }
+        case 'puff': {
+          const r = p.size * (0.6 + t * 1.1);
+          g.circle(p.x, p.y, r).fill({ color: p.color, alpha: 0.8 * fade });
+          g.circle(p.x, p.y, r).stroke({ width: 2.5, color: OUTLINE, alpha: 0.18 * fade });
+          break;
+        }
+        case 'flame': {
+          const r = p.size * (1 - t * 0.5);
+          const c = Math.cos(p.rot);
+          const s = Math.sin(p.rot);
+          // A teardrop pointing back where it came from.
+          g.moveTo(p.x - c * r * 1.8, p.y - s * r * 1.8)
+            .quadraticCurveTo(p.x - s * r, p.y + c * r, p.x + c * r * 0.6, p.y + s * r * 0.6)
+            .quadraticCurveTo(p.x + s * r, p.y - c * r, p.x - c * r * 1.8, p.y - s * r * 1.8)
+            .fill({ color: p.color, alpha: 0.95 * fade });
+          break;
+        }
+        case 'snow': {
+          for (let k = 0; k < 3; k++) {
+            const a = p.rot + (k * Math.PI) / 3;
+            g.moveTo(p.x - Math.cos(a) * p.size, p.y - Math.sin(a) * p.size)
+              .lineTo(p.x + Math.cos(a) * p.size, p.y + Math.sin(a) * p.size)
+              .stroke({ width: 2.5, color: p.color, alpha: fade, cap: 'round' });
+          }
+          g.circle(p.x, p.y, 2).fill({ color: 0x9fd8ff, alpha: fade });
+          break;
+        }
+        case 'drop':
+          g.circle(p.x, p.y, p.size).fill({ color: p.color, alpha: fade });
+          g.circle(p.x - p.size * 0.3, p.y - p.size * 0.3, p.size * 0.35).fill({
+            color: 0xffffff,
+            alpha: 0.7 * fade,
+          });
+          break;
+        case 'bubble':
+          g.circle(p.x, p.y, p.size).stroke({ width: 2, color: 0x7fb8d8, alpha: fade });
+          g.circle(p.x - p.size * 0.35, p.y - p.size * 0.35, p.size * 0.3).fill({
+            color: 0xffffff,
+            alpha: fade,
+          });
           break;
       }
     }

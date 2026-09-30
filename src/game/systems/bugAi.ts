@@ -49,6 +49,8 @@ export interface BugContext {
   target: (id: EntityId) => TargetInfo | null;
   /** What is pressing against the bug on that side, if anything. */
   obstacle: (dir: 1 | -1) => Obstacle | null;
+  /** Food the player is holding, if any: nearby bugs stop and turn to it. */
+  offered?: { x: number; y: number } | null;
 }
 
 export interface Obstacle {
@@ -123,6 +125,8 @@ const PERCEPTION = 9;
 const ARRIVE = 0.12;
 const TUMBLE_SPEED = 3.5;
 const SCORE_FLOOR = 8;
+/** Food held within this range (m) gets a bug's attention. */
+export const OFFER_RANGE = 2.5;
 
 /** Base need decay per second (game design doc, section 5). */
 const DECAY: Readonly<Record<NeedId, number>> = { need_hunger: 0.25, need_fun: 0.3, need_energy: 0.1 };
@@ -530,6 +534,7 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
     case 'st_landing':
     case 'st_recover':
     case 'st_react':
+      if (offeredNear(ctx)) brain.facing = ctx.offered!.x >= state.x ? 1 : -1;
       if (--brain.timer <= 0) enterIdle(brain, rng, def);
       out.velocity = n ? grip(n) : null;
       return out;
@@ -548,6 +553,13 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
     }
 
     case 'st_idle':
+      if (offeredNear(ctx)) {
+        // Food on offer: turn to it and wait, instead of wandering off.
+        brain.facing = ctx.offered!.x >= state.x ? 1 : -1;
+        brain.timer = Math.max(brain.timer, 30);
+        out.velocity = n ? grip(n) : null;
+        return out;
+      }
       brain.timer--;
       if (--brain.decideIn <= 0) {
         brain.decideIn = DECIDE_EVERY;
@@ -558,6 +570,11 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
       return out;
 
     case 'st_wander': {
+      if (offeredNear(ctx)) {
+        enterIdle(brain, rng, def);
+        out.velocity = n ? grip(n) : null;
+        return out;
+      }
       if (--brain.decideIn <= 0) {
         brain.decideIn = DECIDE_EVERY;
         if (n && choose(brain, ctx, out.notices)) return out;
@@ -639,6 +656,11 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
     }
   }
   return out;
+}
+
+function offeredNear(ctx: BugContext): boolean {
+  const o = ctx.offered;
+  return !!o && !!ctx.support && Math.hypot(o.x - ctx.state.x, o.y - ctx.state.y) < OFFER_RANGE;
 }
 
 function walk(brain: BugBrain, ctx: BugContext, dx: number, moved: number, out: BugDecision): BugDecision {

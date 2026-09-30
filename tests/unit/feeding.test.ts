@@ -119,7 +119,8 @@ describe('feeding', () => {
     const spat = find(log, 'bug_spat');
     expect(spat).toHaveLength(1);
     expect(spat[0]).toMatchObject({ id: bug, itemId: pepper, itemDefId: 'item_pepper_hot' });
-    expect(spat[0]!.vx).toBeGreaterThan(0); // forward, the way it faces
+    const facing = sim.view(bug)!.bug!.facing;
+    expect(Math.sign(spat[0]!.vx)).toBe(facing); // forward, the way it faces
     expect(spat[0]!.vy).toBeLessThan(0);
     expect(find(log, 'bug_ate')).toEqual([]);
     expect(sim.entities.has(pepper)).toBe(true);
@@ -128,7 +129,7 @@ describe('feeding', () => {
     expect(sim.view(bug)!.bug!.needs.need_hunger).toBeLessThanOrEqual(hunger);
     expect(find(log, 'bug_reacted').some((r) => r.reaction === 'fed_disliked')).toBe(true);
     sim.run(40);
-    expect(sim.view(pepper)!.x).toBeGreaterThan(sim.view(bug)!.x + 0.8);
+    expect((sim.view(pepper)!.x - sim.view(bug)!.x) * facing).toBeGreaterThan(0.8);
     // Grumpiness wears off after 8 s.
     sim.run(8 * 60);
     expect(sim.view(bug)!.bug!.mood).not.toBe('mood_grumpy');
@@ -456,5 +457,45 @@ describe('save version 3', () => {
     expect(b).toMatchObject({ mode: 'st_idle', targetId: null, mouthful: null, reaction: null, burpAt: -1 });
     expect(b.variants).toEqual({});
     Sim.load(save.world).run(60);
+  });
+});
+
+describe('offering food', () => {
+  it('an idle bug turns to face food the player holds nearby, and waits for it', () => {
+    const { sim, bug } = world('bug_pillbug_rollo');
+    const b = sim.entities.get(bug)!.bug!;
+    b.timer = 5; // about to wander off
+    const x = sim.view(bug)!.x;
+    const berry = sim.spawn('item', 'item_berry_red', x - 1.5, GROUND_Y - 0.2);
+    sim.run(20);
+    sim.send({ type: 'grab', x: x - 1.5, y: sim.view(berry.id)!.y });
+    for (let i = 0; i < 120; i++) {
+      sim.send({ type: 'drag', x: x - 1.2, y: GROUND_Y - 1.2 });
+      sim.step();
+    }
+    expect(sim.view(bug)!.bug!.facing).toBe(-1);
+    expect(sim.view(bug)!.bug!.mode).toBe('st_idle');
+    // Once the food is gone, it gets on with its day.
+    sim.send({ type: 'release', vx: 20, vy: -5 });
+    sim.run(20);
+    expect(sim.dropTargetFor(berry.id)).toBeNull();
+  });
+});
+
+describe('offering food mid-reaction', () => {
+  it('a bug still reacting turns to face offered food too', () => {
+    const { sim, bug } = world('bug_ladybug_dot');
+    const x = sim.view(bug)!.x;
+    const berry = sim.spawn('item', 'item_berry_red', x - 1.5, GROUND_Y - 0.2);
+    sim.run(20);
+    sim.send({ type: 'poke', x, y: sim.view(bug)!.y });
+    sim.step();
+    expect(sim.view(bug)!.bug!.mode).toBe('st_react');
+    sim.send({ type: 'grab', x: x - 1.5, y: sim.view(berry.id)!.y });
+    for (let i = 0; i < 10; i++) {
+      sim.send({ type: 'drag', x: x - 1.2, y: GROUND_Y - 1.2 });
+      sim.step();
+    }
+    expect(sim.view(bug)!.bug!.facing).toBe(-1);
   });
 });

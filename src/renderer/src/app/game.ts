@@ -4,11 +4,14 @@ import { CONTENT, FixedStepper, Sim, VIEW_WIDTH_M, VIEW_WIDTH_PX } from '../../.
 import type { BugglebrookApi } from '../../../shared/ipc';
 import type { AudioBackend } from '../audio/synth';
 import { Sfx } from '../audio/sfx';
+import type { Material } from '../audio/sfx';
 import { BugVoices } from '../audio/voices';
 import { PointerController } from '../input/pointerController';
 import { Camera } from '../render/camera';
 import { WorldView } from '../render/worldView';
-import type { PictureButton } from '../ui/button';
+import { PictureButton } from '../ui/button';
+import type { CursorPose } from '../ui/cursor';
+import { HandCursor, cursorPose } from '../ui/cursor';
 import { MenuScene, homeButton } from '../ui/menu';
 import { SaveService } from './saveService';
 
@@ -56,6 +59,15 @@ export class Game {
   softwareRenderer = false;
   /** Recent sim events, newest last, for the test hook. */
   readonly eventLog: { name: string; tick: number; payload: unknown }[] = [];
+  readonly cursor = new HandCursor();
+  /** Where the pointer is in logical pixels, or null when it left the window. */
+  private pointer: { x: number; y: number } | null = null;
+  private overButton = false;
+  /** Frames drawn so far, for the cursor's one-frame check. */
+  frameCount = 0;
+  /** The frame the hand's pose last changed on, and the frame of the last pointer move. */
+  cursorPoseFrame = 0;
+  pointerMoveFrame = 0;
   private frameStart = 0;
   private readonly stepper = new FixedStepper();
   private sinceSave = 0;
@@ -70,6 +82,7 @@ export class Game {
     this.sfx = new Sfx(audio);
     this.voices = new BugVoices(audio, CONTENT.bugs);
     this.wireInput();
+    this.wireCursor();
     api.onFlushRequest(() => this.saveNow());
     document.addEventListener('visibilitychange', () => this.setPaused(document.hidden));
     app.ticker.add((ticker) => {
@@ -92,6 +105,35 @@ export class Game {
     );
   }
 
+  /** Hide the system cursor and draw the hand on top of everything instead. */
+  private wireCursor(): void {
+    const styles = this.app.renderer.events.cursorStyles;
+    styles.default = 'none';
+    styles.pointer = 'none';
+    this.app.canvas.style.cursor = 'none';
+    this.cursor.visible = false;
+    this.app.stage.addChild(this.cursor);
+  }
+
+  /** The hand pose for the current pointer state. */
+  cursorPoseNow(): CursorPose {
+    const input = this.session?.input;
+    return cursorPose({
+      mode: input?.mode ?? 'none',
+      holding: input?.holding ?? false,
+      overGrabbable: (input?.hoverId ?? null) !== null,
+      overButton: this.overButton,
+    });
+  }
+
+  /** Update the hand right away, so hover feedback never waits for the next frame. */
+  private refreshCursor(): void {
+    const pose = this.cursorPoseNow();
+    if (pose === this.cursor.pose) return;
+    this.cursor.setPose(pose);
+    this.cursorPoseFrame = this.frameCount;
+  }
+
   async start(): Promise<void> {
     await this.showMenu();
   }
@@ -103,19 +145,36 @@ export class Game {
     stage.on('pointerdown', (e: FederatedPointerEvent) => {
       this.audio.resume();
       this.session?.input.down({ x: e.global.x, y: e.global.y }, eventTime(e));
+      this.refreshCursor();
     });
-    stage.on('globalpointermove', (e: FederatedPointerEvent) =>
+    stage.on('globalpointermove', (e: FederatedPointerEvent) => {
+      this.pointer = { x: e.global.x, y: e.global.y };
+      this.pointerMoveFrame = this.frameCount;
+      this.cursor.visible = true;
+      let t: unknown = e.target;
+      this.overButton = false;
+      while (t) {
+        if (t instanceof PictureButton) this.overButton = true;
+        t = (t as { parent?: unknown }).parent;
+      }
       this.session?.input.move(
         { x: e.global.x, y: e.global.y },
         this.app.ticker.deltaMS / 1000,
         eventTime(e),
-      ),
-    );
-    const up = (e: FederatedPointerEvent): void =>
+      );
+      this.refreshCursor();
+    });
+    const up = (e: FederatedPointerEvent): void => {
       this.session?.input.up(eventTime(e), { x: e.global.x, y: e.global.y });
+      this.refreshCursor();
+    };
     stage.on('pointerup', up);
     stage.on('pointerupoutside', up);
-    stage.on('pointerleave', () => this.session?.input.leave());
+    stage.on('pointerleave', () => {
+      this.session?.input.leave();
+      this.pointer = null;
+      this.cursor.visible = false;
+    });
     stage.on('wheel', (e: FederatedWheelEvent) => this.session?.input.wheel(e.deltaX, e.deltaY));
   }
 
@@ -131,6 +190,7 @@ export class Game {
       void this.openSlot(slot);
     });
     this.app.stage.addChild(this.menu);
+    this.app.stage.addChild(this.cursor); // keep the hand on top
     this.scene = 'menu';
   }
 
@@ -152,8 +212,16 @@ export class Game {
     this.menu?.destroy({ children: true });
     this.menu = null;
     this.app.stage.addChild(root);
-    this.sfx.attach(sim.events);
-    this.voices.attach(sim.events);
+    this.app.stage.addChild(this.cursor);
+    const materialOf = (kind: 'bug' | 'item', defId: string): Material =>
+      kind === 'bug' || !sim.content.items.has(defId)
+        ? 'bug'
+        : (sim.content.items.get(defId).material.slice(4) as Material);
+    this.sfx.attach(sim.events, materialOf, (defId) =>
+      sim.content.items.has(defId) ? sim.content.items.get(defId).tags : [],
+    );
+    this.voices.attach(sim.events, (id) => sim.view(id)?.bug?.mood);
+    input.onGesture = (gesture, strength) => this.sfx.play(gesture, strength);
     this.frameTimes.length = 0;
     this.updateTimes.length = 0;
     this.eventLog.length = 0;
@@ -206,7 +274,10 @@ export class Game {
   }
 
   private frame(dt: number): void {
+    this.frameCount++;
     if (this.menu) this.menu.update(dt);
+    this.refreshCursor();
+    if (this.pointer) this.cursor.update(dt, this.pointer.x, this.pointer.y);
     const s = this.session;
     if (!s) return;
     if (!this.paused) {

@@ -68,3 +68,98 @@ export const entities = (page: Page): Promise<EntityView[]> => page.evaluate(() 
 
 export const entity = (page: Page, id: number): Promise<EntityView | null> =>
   page.evaluate((i) => window.__bb!.entity(i), id);
+
+export const toClient = (page: Page, x: number, y: number): Promise<{ x: number; y: number }> =>
+  page.evaluate(([px, py]) => window.__bb!.worldToClient(px!, py!), [x, y]);
+
+export async function bugNamed(page: Page, defId: string): Promise<EntityView> {
+  return (await entities(page)).find((e) => e.defId === defId)!;
+}
+
+/** Fill a bug's needs so it does not go off to eat or play while a test stages something. */
+export async function content(page: Page, id: number): Promise<void> {
+  await page.evaluate((bug) => {
+    for (const need of ['need_hunger', 'need_fun', 'need_energy'] as const)
+      window.__bb!.send({ type: 'set_need', id: bug, need, value: 100 });
+  }, id);
+}
+
+/** Flat stretches of the plaza (off the stump's root slopes), in world x. */
+const FLAT: readonly [number, number][] = [
+  [1, 11.8],
+  [16.6, 22.4],
+  [27, 37.5],
+];
+
+/** The nearest spot to x on flat ground with nothing within 0.7 m. */
+async function clearSpot(page: Page, x: number): Promise<number> {
+  const all = await entities(page);
+  for (let d = 0; d < 6; d += 0.1)
+    for (const c of [x + d, x - d]) {
+      if (!FLAT.some(([a, b]) => c >= a && c <= b)) continue;
+      if (all.every((e) => Math.abs(e.x - c) > 0.7 || e.y < 6)) return c;
+    }
+  return x;
+}
+
+/** Drop a new item from the sky near world x (on a clear flat spot) and wait for it to settle. */
+export async function spawnItem(page: Page, defId: string, near: number): Promise<number> {
+  const x = await clearSpot(page, near);
+  const before = new Set((await entities(page)).map((e) => e.id));
+  await page.evaluate(
+    ([d, px]) => window.__bb!.send({ type: 'spawn', kind: 'item', defId: d!, x: px!, y: 6 }),
+    [defId, x] as const,
+  );
+  let id = -1;
+  await expect
+    .poll(async () => {
+      const found = (await entities(page)).find((e) => !before.has(e.id) && e.defId === defId);
+      id = found?.id ?? -1;
+      return found !== undefined && Math.abs(found.vy) < 0.3 && Math.hypot(found.vx, found.vy) < 1;
+    })
+    .toBe(true);
+  return id;
+}
+
+/**
+ * Press on an entity with the real mouse until the sim says it is held
+ * (it may still be rolling). Returns where the mouse is.
+ */
+export async function pressOn(page: Page, id: number): Promise<{ x: number; y: number }> {
+  let at = { x: 0, y: 0 };
+  await expect
+    .poll(async () => {
+      const e = (await entity(page, id))!;
+      at = await toClient(page, e.x, e.y);
+      await page.mouse.move(at.x, at.y);
+      await page.mouse.down();
+      if ((await entity(page, id))?.held) return true;
+      await page.waitForTimeout(50);
+      if ((await entity(page, id))?.held) return true;
+      await page.mouse.up();
+      return false;
+    })
+    .toBe(true);
+  return at;
+}
+
+/**
+ * Pick an item up with the real mouse and hold it at an offset from a
+ * bug's mouth anchor (in meters), following the bug if it moves. Leaves the
+ * mouse button down.
+ */
+export async function holdNearMouth(page: Page, itemId: number, bugId: number, dx: number, dy: number) {
+  let at = await pressOn(page, itemId);
+  for (let round = 0; round < 12; round++) {
+    const m = (await page.evaluate((b) => window.__bb!.mouthOf(b), bugId))!;
+    const to = await toClient(page, m.x + dx, m.y + dy);
+    for (let i = 1; i <= 4; i++) {
+      await page.mouse.move(at.x + ((to.x - at.x) * i) / 4, at.y + ((to.y - at.y) * i) / 4);
+      await page.waitForTimeout(16);
+    }
+    at = to;
+    await page.waitForTimeout(40);
+  }
+  // Let the item settle under the hand before letting go gently.
+  await page.waitForTimeout(250);
+}

@@ -10,6 +10,18 @@ export interface Look {
 
 const MOUTH_INSIDE = 0x7a2336;
 const TONGUE = 0xff7a93;
+const HEART = 0xff4f7b;
+const TOOTH = 0xffffff;
+
+/** A heart shape centered at (x, y), about `s` across. */
+export function heartPath(g: Graphics, x: number, y: number, s: number): Graphics {
+  const h = s / 2;
+  return g
+    .moveTo(x, y + h * 0.9)
+    .bezierCurveTo(x - h * 1.25, y + h * 0.05, x - h * 0.9, y - h * 1.05, x, y - h * 0.4)
+    .bezierCurveTo(x + h * 0.9, y - h * 1.05, x + h * 1.25, y + h * 0.05, x, y + h * 0.9)
+    .closePath();
+}
 
 /** A spiral from the center outward, for dizzy eyes and snail shells. */
 export function spiral(
@@ -50,7 +62,7 @@ export function drawEye(
   line = 4,
 ): void {
   const w = Math.max(2, line);
-  if (open < 0.35 && shape !== 'spiral') {
+  if (open < 0.35 && shape !== 'spiral' && shape !== 'heart' && shape !== 'x') {
     // Closed: a lash curve.
     g.moveTo(x - r * 0.85, y)
       .quadraticCurveTo(x, y + r * 0.55, x + r * 0.85, y)
@@ -74,6 +86,26 @@ export function drawEye(
       spiral(g, x, y, r * 0.78, 2.2, time * 9).stroke(stroke(Math.max(2, w * 0.75)));
       return;
     }
+    case 'heart': {
+      // Love: the eye becomes a beating heart.
+      const beat = 1 + 0.12 * Math.max(0, Math.sin(time * 14));
+      heartPath(g, x, y, r * 2.3 * beat)
+        .fill(HEART)
+        .stroke(stroke(w));
+      g.circle(x - r * 0.4, y - r * 0.35, r * 0.22).fill({ color: 0xffffff, alpha: 0.85 });
+      return;
+    }
+    case 'x':
+      // Squeezed shut in disgust: > <
+      g.moveTo(x - r * 0.75, y - r * 0.6)
+        .lineTo(x + r * 0.35, y)
+        .lineTo(x - r * 0.75, y + r * 0.6)
+        .stroke(stroke(w * 1.2));
+      g.moveTo(x + r * 0.75, y - r * 0.6)
+        .lineTo(x - r * 0.35, y)
+        .lineTo(x + r * 0.75, y + r * 0.6)
+        .stroke(stroke(w * 1.2));
+      return;
     default:
       break;
   }
@@ -96,6 +128,13 @@ export function drawEye(
       .lineTo(x + er, y)
       .stroke(stroke(w));
     g.ellipse(x, y, er, ry).stroke(stroke(w));
+  }
+  if (shape === 'angry') {
+    // A heavy brow slanting down toward the middle of the face (drawn for the
+    // bug facing right, so the inner end is on the right).
+    g.moveTo(x - er * 1.1, y - er * 1.35)
+      .lineTo(x + er * 1.05, y - er * 0.55)
+      .stroke(stroke(Math.max(4, w * 1.6)));
   }
   if (shape === 'worried') {
     // Brow slanting up toward the middle of the face.
@@ -167,6 +206,64 @@ export function drawMouth(
     case 'frown':
       g.moveTo(x - s * 0.4, y + s * 0.25)
         .quadraticCurveTo(x, y - s * 0.15, x + s * 0.4, y + s * 0.25)
+        .stroke(st);
+      return;
+    case 'aah': {
+      // Wide open and waiting to be fed, tongue ready.
+      const k = 1 + 0.08 * Math.sin(time * 10);
+      g.ellipse(x, y + s * 0.2, s * 0.34 * k, s * 0.42 * k)
+        .fill(MOUTH_INSIDE)
+        .stroke(st);
+      g.ellipse(x, y + s * 0.42, s * 0.22, s * 0.14).fill(TONGUE);
+      return;
+    }
+    case 'lick':
+      // Yum: a smile with the tongue licking one corner.
+      g.moveTo(x - s * 0.5, y - s * 0.05)
+        .quadraticCurveTo(x, y + s * 0.5, x + s * 0.5, y - s * 0.05)
+        .stroke(st);
+      g.ellipse(x + s * 0.34, y + s * 0.12 + Math.sin(time * 9) * s * 0.03, s * 0.15, s * 0.19)
+        .fill(TONGUE)
+        .stroke(stroke(Math.max(2, line * 0.7), lineColor));
+      return;
+    case 'tongue':
+      // Bleh: a wavy mouth with the tongue hanging out.
+      g.ellipse(x + s * 0.05, y + s * 0.32, s * 0.17, s * 0.26)
+        .fill(TONGUE)
+        .stroke(stroke(Math.max(2, line * 0.8), lineColor));
+      g.moveTo(x + s * 0.05, y + s * 0.2)
+        .lineTo(x + s * 0.05, y + s * 0.42)
+        .stroke(stroke(Math.max(1.5, line * 0.5), 0xd9546e));
+      g.moveTo(x - s * 0.45, y + s * 0.05);
+      for (let i = 1; i <= 6; i++) {
+        const t = i / 6;
+        g.lineTo(x - s * 0.45 + s * 0.9 * t, y + s * 0.05 + (i % 2 === 0 ? 0 : -s * 0.1));
+      }
+      g.stroke(st);
+      return;
+    case 'teeth': {
+      // Gritted teeth: a wide grimace with a line between the rows.
+      const w = s * 0.55;
+      const h = s * 0.34;
+      const thin = stroke(Math.max(2, line * 0.7), lineColor);
+      g.roundRect(x - w, y - h * 0.4, w * 2, h * 1.3, h * 0.45)
+        .fill(TOOTH)
+        .stroke(thin);
+      g.moveTo(x - w, y + h * 0.25)
+        .lineTo(x + w, y + h * 0.25)
+        .stroke(thin);
+      for (const k of [-0.33, 0.33])
+        g.moveTo(x + w * k, y - h * 0.4)
+          .lineTo(x + w * k, y + h * 0.9)
+          .stroke(thin);
+      return;
+    }
+    case 'puff':
+      // Cheeks puffed, lips pressed: holding something awful in.
+      g.circle(x - s * 0.34, y + s * 0.12, s * 0.2).fill({ color: 0xb8e986, alpha: 0.9 });
+      g.circle(x + s * 0.34, y + s * 0.12, s * 0.2).fill({ color: 0xb8e986, alpha: 0.9 });
+      g.moveTo(x - s * 0.12, y + s * 0.12)
+        .quadraticCurveTo(x, y + s * 0.02, x + s * 0.12, y + s * 0.12)
         .stroke(st);
       return;
   }
