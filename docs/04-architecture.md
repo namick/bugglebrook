@@ -52,12 +52,13 @@ src/
     core/               rng.ts, loop.ts (FixedStepper), events.ts (EventBus),
                         commandQueue.ts, entities.ts (EntityStore)
     physics/physics.ts  The only planck import. Bodies are addressed by entity ID.
-    systems/            Per-tick behavior. bugAi.ts is the bug state machine and needs.
+    systems/            Per-tick behavior. bugAi.ts is the bug state machine, needs, moods,
+                        and reactions. dropTargets.ts picks where a dropped thing goes.
     world/terrain.ts    The ground surface as a height field built from area polylines.
     data/               Content registries: areas, bugs, items, recipes, potions, secrets.
                         types.ts, registry.ts, and validateContent() in index.ts.
     save/               schema.ts (SAVE_VERSION, types), migrations.ts, validate.ts
-    commands.ts         The Command union: grab, drag, release, poke, spawn
+    commands.ts         The Command union: grab, drag, release, poke, tickle, shake, spawn, set_need
     events.ts           GameEvents: every event name and payload
     constants.ts        Units, gravity, logical resolution
     sim.ts              The Sim class that ties it together
@@ -70,13 +71,15 @@ src/
     src/
       main.ts           Boot: Pixi app, letterboxing, Game, test hook
       app/              game.ts (scene switching, loop, autosave), saveService.ts, memorySaves.ts
-      render/           camera.ts, viewport.ts, bugPose.ts, bugFace.ts, juice.ts (all pure),
-                        background.ts, worldView.ts, particles.ts, palette.ts,
-                        draw/bug.ts, draw/face.ts, draw/item.ts
-      input/            pointerController.ts: pointer gestures to commands and camera moves
+      render/           camera.ts, viewport.ts, bugPose.ts, bugFace.ts, juice.ts,
+                        reactions.ts, thoughts.ts (all pure), background.ts, worldView.ts,
+                        particles.ts, bubbles.ts, palette.ts,
+                        draw/bug.ts, draw/face.ts, draw/item.ts, draw/pictogram.ts
+      input/            pointerController.ts: pointer gestures to commands, camera moves,
+                        tickles, shakes, and gesture sounds
       audio/            synth.ts (AudioBackend, WebAudioBackend, NullAudioBackend), sfx.ts,
                         voices.ts (gibberish bug voices)
-      ui/               menu.ts (slot cards, home button), button.ts
+      ui/               menu.ts (slot cards, home button), button.ts, cursor.ts (the hand)
       debug/testHook.ts window.__bb, only in test mode
 tests/
   unit/                 Vitest. Headless. Covers src/game, the pure renderer modules, and SaveStore.
@@ -122,17 +125,25 @@ An entity is `{ id, kind: 'bug' | 'item', defId, bug?: BugBrain }`. A new world 
 
 Input never touches physics directly. `PointerController` sends `grab {x, y}`, `drag {x, y}`, `release {vx, vy}`, `poke {x, y}`, and the tests also send `spawn`. On `grab`, the sim picks the topmost body within 0.2 m of the point. That is the highest entity ID, and the renderer draws in ID order, so the thing you see on top is the thing you grab. A planck `MouseJoint` then pulls the body toward the pointer.
 
+Holding a bug still for 600 ms (within 6 px of the press) sends `tickle {on: true}`, and moving the hand sends `tickle {on: false}`. Three back-and-forth strokes of 80 px or more within 0.8 s send `shake` (`ShakeDetector` is pure and tested). `set_need` is for tests and debugging.
+
 On `release`, the controller sends the cursor's average velocity over the last 80 ms, measured in world space and interpolated to exactly 80 ms. The body leaves at that velocity, capped at 26 m/s (2600 px/s). At 2.5 m/s or more it counts as a fling. Pointer samples use each DOM event's own timestamp and the release event's position, because on a slow frame events arrive in a burst after they happened. A press and release within 200 ms and 6 px sends `poke` instead: the sim lets go of whatever the press picked up, then makes an item hop or a bug react.
+
+### Drop targets
+
+When the player lets go gently, `pickDropTarget` in `systems/dropTargets.ts` checks every target within its snap radius and takes the one with the best priority, then the nearest. The rules come from section 2 of the design doc. Only priority 4 exists so far: a bug's mouth takes anything tagged `tag_edible` within 0.5 m (50 px) of the mouth anchor. Bugs that are held, flying, or already chewing offer no mouth. A thrown food that hits a bug within 1.5 s of leaving the hand also counts if it lands near the mouth. Later milestones add the pocket, containers, heads, paint, hands, and seats to `DROP_RULES`.
+
+Each bug def has a `mouth` anchor in meters from its center, facing right. `sim.mouthAnchor(id)` mirrors it for the bug's facing, and `sim.dropTargetFor(itemId)` answers "where would this go if dropped now". The renderer uses that to light up the mouth it would feed.
 
 ### Events
 
-`GameEvents` in `src/game/events.ts` lists every event. Names are snake_case and past tense, for example `item_grabbed`, `item_dropped`, `item_poked`, `bonked`, `spring_bounced`, `bug_landed`, `bug_dizzy`, `bug_recovered`, `bug_ate`, `bug_used`, and `entity_removed`. Handlers run synchronously during `step()`. A throwing handler does not stop the others. Subscribers must not change sim state from a handler. If a reaction needs to change the world, it sends a command.
+`GameEvents` in `src/game/events.ts` lists every event. Names are snake_case and past tense, for example `item_grabbed`, `item_dropped`, `item_poked`, `item_shaken`, `bonked`, `spring_bounced`, `bug_landed`, `bug_dizzy`, `bug_recovered`, `bug_fed`, `bug_ate`, `bug_spat`, `bug_burped`, `bug_reacted`, `bug_tickled`, `bug_wriggled_free`, `bug_used`, and `entity_removed`. Handlers run synchronously during `step()`. A throwing handler does not stop the others. Subscribers must not change sim state from a handler. If a reaction needs to change the world, it sends a command.
 
 Current subscribers:
 
-- `Sfx` plays grab, drop, whoosh, bonk, poke, spring, chomp, hop, dizzy tweets, and the respawn whistle.
-- `BugVoices` speaks a gibberish line for grabs, flings, pokes, dizzy spells, meals, and bounces.
-- `WorldView` kicks squash springs and spawns dust, stars, sparkles, crumbs, and fling trails. Very hard landings shake the screen a few pixels.
+- `Sfx` plays grabs and impacts tuned to each material (wood, metal, rubber, stone, glass, leaf, food, bug), whooshes, pokes, springs, the three chomps of a bite, the gulp of a swallow, a gag, "ptoo", sneezes, burps, flame and chill puffs, a chime for loved food, tickles, rattles, hops, dizzy tweets, and the respawn whistle.
+- `BugVoices` speaks the voice of each `bug_reacted` (from the reaction table), plus giggles for tickles, gasps for disliked food, and lines for dizzy spells, recoveries, bounces, and choices.
+- `WorldView` kicks squash springs, shows speech bubbles, and spawns dust, stars, sparkles, crumbs, hearts, flame puffs, snowflakes, spit droplets, burp clouds, bubbles, and fling trails. Very hard landings shake the screen a few pixels.
 
 The journal, secrets, and music will subscribe the same way.
 
@@ -145,6 +156,13 @@ The journal, secrets, and music will subscribe the same way.
 - Walking. Bugs set their velocity along the ground's tangent and cancel the slope's pull, so they climb roots and stand still on slopes. Bug fixtures have low friction because friction would only fight this. A pebble or twig in the way gets a small hop instead of a shove; another bug or anything taller than 0.7 m ends the walk.
 - Eating takes 1.5 s next to the item, then the sim removes it and emits `bug_ate`. Bouncing is a ballistic hop onto the spring's top; the spring's launch pays out the fun.
 - Flying. Release, a hard knock, or a hop puts a bug in `st_airborne` (or `st_use` for a spring hop). It lands when it is supported again. If the hardest impact was 9 m/s or more and the bug did not launch itself, it goes `st_dizzy` for `clamp((v - 9) / 2.5, 0, 4) + 2` seconds, plus 1 s per repeat within 10 s, capped at 8 s. Otherwise it goes `st_landing` briefly. Rollo curls into a real rolling ball while airborne.
+
+- Eating. A bug that reaches food it chose, or gets food dropped on its mouth, calls `feedBug`: the item's body goes inactive and sits at the mouth anchor (`bug.mouthful`), and the bug chews in `st_eat`. Loved food takes 100 ticks, liked and neutral 90. Then the sim removes it, emits `bug_ate`, and the bug plays a `fed_*` reaction in `st_react`. Hunger fills by 60, 40, or 20. If hunger ends at 95 or more, a `bug_burped` follows 70 ticks later. Disliked food gets one 50-tick chew, then the sim spits it forward and up (`bug_spat`), the item stays in the world, and the bug is `mood_grumpy` for 8 s. Anything that ends `st_eat` early (a grab, a poke, a knock) drops the food where it is. Saves keep a mouthful, and loading puts it back in the mouth.
+- Food on offer. While the player holds food within 2.5 m, bugs that are idle, wandering, or reacting stop and turn to face it. That keeps them feedable instead of walking off or facing away.
+- Reactions. `react(brain, type, rng, tick)` picks one of three variants for grab, poke, fling, land, land_hard, tickle, and fed_loved, fed_liked, fed_neutral, fed_disliked. It never repeats the variant this bug last played for that type. `brain.variants` remembers the last one, and `brain.reaction` holds the current one for the renderer. The sim decides which variant; the renderer's table decides what it looks and sounds like.
+- Moods. `moodOf` follows section 5: grumpy (for 8 s after disliked food), then sleepy, hungry, bored, happy, and content. The renderer uses mood for idle faces and for voice pitch and pace.
+- Tickles and shakes. A tickled bug laughs a level harder each second (`bug_tickled` levels 1 to 3) and wriggles free of the hand at 3 s. A shaken bug is woozy for 1 s.
+- Glorp is `dizzyProof`. A hard landing sends him into his shell for a `land_hard` reaction (2.5 s in `st_react`, spinning like a top) instead of `st_dizzy`.
 
 Bug bodies use `fixedRotation`, so bugs stay upright. Tumbling, stretch, and squash are cosmetic and live in the renderer.
 
@@ -160,7 +178,7 @@ Each file in `src/game/data/` exports one registry built with `createRegistry(ki
 
 `tests/unit/data.test.ts` requires the list to be empty. When a new kind of reference appears, add a check there.
 
-Content follows `03-game-design.md` and uses its IDs. M1 has one area (`area_stump_plaza`), three bugs (`bug_ladybug_dot`, `bug_pillbug_rollo`, `bug_snail_glorp`), and ten item kinds. The recipe, potion, and secret registries are empty until their milestones. Item and bug sizes run a bit larger than the doc's pixel sizes so they read at 1080p.
+Content follows `03-game-design.md` and uses its IDs. There is one area (`area_stump_plaza`), three bugs (`bug_ladybug_dot`, `bug_pillbug_rollo`, `bug_snail_glorp`), and sixteen item kinds. M2 added six foods to the plaza: sugar cube, mint leaf, hot pepper flake, banana mush, moss tuft, and jelly bean. Some of them live in other areas in the design doc; they sit in the plaza until those areas exist. Each bug's `loves`, `likes`, and `dislikes` follow its profile, limited to foods that exist, and every bug has a loved, liked, neutral, and disliked food in the plaza (a unit test checks this). `validateContent` also rejects an item listed under two tastes and a mouth anchor behind the bug or far from its body. The recipe, potion, and secret registries are empty until their milestones. Item and bug sizes run a bit larger than the doc's pixel sizes so they read at 1080p.
 
 ## Rendering
 
@@ -169,7 +187,13 @@ The renderer reads the sim and never writes to it.
 - `WorldView` keeps one sprite per entity. Each frame it creates sprites for new entities, removes sprites for entities that are gone, skips anything off screen, and draws a soft shadow under everything. Per-entity juice (a `SquashSpring`, cosmetic spin, trail timer) lives here, not in the sim.
 - `BugSprite` draws three species: a ladybug whose shell opens for flying, a pill bug that curls into a ball, and a snail that pulls into its shell. Static parts are drawn once per body form. Legs, feet, antennae (spring-simulated), eyes, mouth, wings, and dizzy stars are redrawn each frame. Nested containers stretch along the velocity, squash on the feet, and flip for facing.
 - `bugPose()` (breathing, gait, flail, blinks) and `bugFace()` (eye and mouth shapes and body form per state and needs) are pure and unit-tested. So is `juice.ts`: the squash spring (stiffness 300, damping 18) and the stretch formula from section 15.
-- Pupils follow the cursor within 3 m. `PointerController.hoverWorld` is the only input the view reads.
+- Pupils follow the cursor within 3 m, or food on offer. `PointerController.hoverWorld` and `hoverId` are the only input the view reads.
+- Reactions. `render/reactions.ts` is the table of how each reaction variant looks and sounds per bug: eyes, mouth, blush, face tint, body form, one or two pictograms, a voice emotion, a body move, and one-off particles. Love (heart eyes), yum (a lick), yuck (green, squeezed shut, tongue out), and hate (angry brows, gritted teeth, steam) are kept distinct on purpose, and a test checks it. `reactionShowing` limits each reaction to its own modes, and `movePose` turns a move (hop, spin, shrug, stomp, shell spin, and so on) into pose offsets. All of it is pure and tested.
+- `bugFace` picks, in order: dizzy, woozy, tickled, the current reaction, chewing (by taste), a flinch, food on offer, the state face, then mood.
+- Bubbles. `Bubbles` shows one speech or thought bubble per bug, with pictograms drawn by `draw/pictogram.ts` or a mini item for `food`. Bubbles pop in with an overshoot, bob, stack when they would overlap, and shrink away. `thoughts.ts` picks a thought for a need under 25 (energy under 20): a favorite food, a liked toy, or "Zzz". Thoughts show every 9 s and after hovering a bug for 1 s.
+- Mouth glows. While the player holds food, `WorldView` draws a pulsing glow at every free mouth: green for loved or liked, yellow for neutral, grey for disliked. The mouth it would land in gets a bigger glow and a white ring.
+- Hover rim. The hovered grabbable gets a white rim behind its outline, pulsing between 60 and 100 percent at 2 Hz. Items and bugs trace their silhouette into a `rim` Graphics once per body form.
+- The cursor. `ui/cursor.ts` draws a peach glove with the five poses from section 2 (`open`, `hover_grab`, `hover_poke`, `grab`, `pan`). The system cursor is hidden (`cursor: none` and Pixi's cursor styles). `cursorPose` is pure. `Game` updates the pose inside the pointer handler, so hover feedback lands in the same frame, and the hand scales to 1.1 over about 120 ms. The fist is drawn small and translucent above the grab point, so the held thing's face stays readable.
 - `Background` layers, back to front: sky gradient and a smiling sun, drifting clouds (0.12 parallax), hills (0.28), big grass and dandelions (0.55), then the near layer at 1.0 with back props (ant hill, sundial, mushroom ring, signpost), soil with pebbles and roots, the stump, moss, and tufts. A foreground of dark grass blades sits in front of entities at 1.22. Background art has thinner, fainter outlines than grabbable things.
 - `Particles` draws every particle into one `Graphics` per frame, with a 400-particle budget. Fling trails use a second instance behind the entities.
 - The static backdrop layers are baked once into 1024 px wide textures (`Background.bakeAll`), so a frame draws a few sprites instead of thousands of shapes.
@@ -196,7 +220,7 @@ The renderer does not interpolate between sim steps yet. At 60 Hz that does not 
 
 `AudioBackend` has three methods: `play(tone)`, `resume()`, and `setMuted()`. A `Tone` is an oscillator or band-passed noise with a pitch or filter glide, and optionally two vowel formant filters and vibrato. `WebAudioBackend` builds one small node graph per tone and routes it to an sfx or voice bus, then a master gain and a limiter (ratio 12, threshold -6 dB). `NullAudioBackend` records tones instead of playing them, and unit tests use it.
 
-`Sfx` maps events to named sounds with random pitch and volume jitter and rate-limits bonks. `voices.ts` builds gibberish lines from each bug's `voice` profile: 1 to 6 formant syllables whose pitch contour depends on the emotion (happy rises, sleepy falls, and so on). Lines are seeded from the bug ID and a line counter. At most three bugs talk at once. Generative music will be another module on the same backend.
+`Sfx` maps events to named sounds with random pitch and volume jitter and rate-limits impacts. `Game` hands it a material lookup and item tags when a world opens. Input gestures that are not sim events (hover, fast drags, pans, scrolls, edge scrolls) come from `PointerController.onGesture`. `voices.ts` builds gibberish lines from each bug's `voice` profile: 1 to 6 formant syllables whose pitch contour depends on the emotion (happy rises, sleepy falls, yuck sours downward, love swoops up, giggles bounce between two notes). `moodVoice` then shifts pitch, pace, and glide by mood: grumpy is lower and slower, happy higher and quicker. Lines are seeded from the bug ID and a line counter. At most three bugs talk at once. Generative music will be another module on the same backend.
 
 ## Saves
 
@@ -204,6 +228,7 @@ The renderer does not interpolate between sim steps yet. At 60 Hz that does not 
 - A `SaveFile` is `{ version, savedAt, world: WorldSave, view: { cameraX } }`. `WorldSave` holds the seed, tick, RNG state, next entity ID, and every entity with its body state and component data. A held item is saved as if it had been dropped.
 - `loadSaveFile(raw)` parses the JSON, refuses versions newer than the game, runs migrations one version at a time, then validates the structure. Any failure throws `SaveError`. The menu treats an unreadable slot as empty and does not overwrite it until the player picks that slot.
 - To change the format, bump `SAVE_VERSION` and add `MIGRATIONS[oldVersion]`. Never edit a migration that has shipped. Tests cover chained migrations and the error cases.
+- The format is at version 3. Version 2 was M1's bug brains. Version 3 adds `mouthful`, `reaction`, `variants`, `grumpyUntil`, `burpAt`, `tickle`, and `woozyUntil` to each bug. Its migration stops a bug that was mid-meal under the old rules, because M1 bugs ate food where it lay.
 - `Sim.load` skips entities whose definitions no longer exist. Removing content never bricks a save.
 - The game autosaves every 20 seconds while in the world. It also saves when the player goes home, when the window hides, and before quitting. On quit, main sends `app:flush-request`, waits up to 2 seconds for `app:flush-done`, then closes.
 
@@ -219,9 +244,9 @@ Setting `BUGGLEBROOK_USER_DATA=/some/dir` points userData at a throwaway directo
 
 `window.__bb` (type `TestHook` in `src/renderer/src/debug/testHook.ts`) offers:
 
-- state queries: `scene()`, `tick()`, `entities()`, `entity(id)`, `camera()`, `isPaused()`, `sfxLog()`, `voiceLog()`, `events()` (recent sim events with their tick), `lastRelease()` (the fling velocity sent), `frameTimes(n)` (update plus render ms), `renderStats()`, `listSlots()`
+- state queries: `scene()`, `tick()`, `entities()`, `entity(id)`, `camera()`, `isPaused()`, `sfxLog()`, `voiceLog()`, `events()` (recent sim events with their tick), `lastRelease()` (the fling velocity sent), `frameTimes(n)` (update plus render ms), `renderStats()`, `listSlots()`, `cursor()` (pose, and the frames of the last pose change and pointer move), `bubbles()`, `glowing()`, `mouthOf(id)`, `dropTarget(itemId)`
 - coordinate helpers for driving the real mouse: `worldToClient(x, y)`, `slotButtonClient(slot)`, `homeButtonClient()`
-- control: `send(command)`, `step(n)`, `setPaused()`, `saveNow()`
+- control: `send(command)`, `step(n)`, `setPaused()`, `saveNow()`, `clearLogs()`
 
 E2E tests move the real mouse with `page.mouse`, then assert on game state through the hook. They never compare pixels.
 
@@ -229,7 +254,9 @@ E2E tests move the real mouse with `page.mouse`, then assert on game state throu
 
 - `pnpm test` runs Vitest in Node. It covers the sim (RNG, stepper, event bus, entities, terrain, physics grab and fling, 1000 full-speed flings with no tunneling, springs, pokes, respawn, bug AI and needs, eating, bouncing, dizzy timing, determinism), saves (round trip, migrations, validation, SaveStore on a temp dir), content validation, and the pure renderer modules (camera, viewport fit, bug pose and face, squash springs, pointer velocity and pokes, sfx and voices with the null backend).
 - `tests/e2e/m1.spec.ts` checks the M1 acceptance criteria with the real mouse: launch time and frame time, hold and fling velocity, dizzy duration, pokes, and camera moves that leave items alone.
-- `pnpm shots` builds and runs `tests/shots/`, which walks through the game and writes screenshots to `/tmp/bb-shots` (or `$BB_SHOTS_DIR`). Use it to check art changes by eye. It is not part of CI.
+- `tests/e2e/m2.spec.ts` checks M2: a berry dropped within 50 px of a mouth is eaten and one dropped farther away falls; disliked food is spat out and stays; three pokes never repeat a variant back to back; every verb makes a sound; hovering switches the hand to `hover_grab` within a frame; tickling ends in a wriggle; Glorp never gets dizzy. `tests/e2e/app.ts` has helpers for staging these: `content()` fills a bug's needs so it stays put, `spawnItem()` drops an item on a clear flat spot, and `holdNearMouth()` holds an item at an offset from a mouth.
+- `tests/unit/feeding.test.ts` and `tests/unit/reactions.test.ts` cover the M2 sim (drop targets, eating, spitting, burps, catches, saves mid-chew, variants, moods, tickles, shakes, Glorp) and the pure renderer modules (the reaction table, faces, moves, thoughts, bubbles, the cursor, shake detection, voices by mood, and sounds by material).
+- `pnpm shots` builds and runs `tests/shots/`, which walks through the game and writes screenshots to `/tmp/bb-shots` (or `$BB_SHOTS_DIR`). The first tour covers M1. The second (files `20-` to `37-`) feeds Rollo and Dot, catches the yum, yuck, hate, and love faces, the flame puff, burp, sneeze, a tickle, a thought bubble, and Glorp's shell spin. Use it to check art changes by eye. It is not part of CI.
 - The frame-time check always requires update time under 16.7 ms (mean and 95th percentile over 600 frames). It checks update plus render time only on a hardware GPU, since software GL rasterizes on the CPU.
 - `BB_ELECTRON_ARGS` passes extra Chromium switches to the E2E launcher. `BB_ELECTRON_ARGS="--use-angle=swiftshader --use-gl=angle"` approximates CI's software renderer locally, though launches with it are flaky on Wayland.
 - `pnpm test:e2e` builds the app, then runs Playwright against `out/`. Each test launches a fresh app with its own userData. Locally it opens real windows in your desktop session. CI runs it under `xvfb-run`. The launcher removes `ELECTRON_RUN_AS_NODE` from the environment, because some editors built on Electron set it and it turns Electron into plain Node.
