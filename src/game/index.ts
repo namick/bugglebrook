@@ -13,5 +13,7 @@ export { Terrain } from './world/terrain';
 export { CONTENT, areaAt, worldWidth, validateContent } from './data';
 export type { AreaDef, BugDef, ItemDef, NeedId, VoiceProfile } from './data';
 export { SAVE_VERSION } from './save/schema';
-export type { SaveFile, ViewSave, WorldSave } from './save/schema';
+export type { SaveFile, SaveMeta, ViewSave, WorldCounters, WorldSave } from './save/schema';
+export { POCKET_SLOTS, STACK_MAX } from './systems/pocket';
+export type { PocketState } from './systems/pocket';
 export { loadSaveFile, SaveError } from './save/migrations';

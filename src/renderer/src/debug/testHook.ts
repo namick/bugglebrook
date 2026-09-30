@@ -2,10 +2,16 @@ import type { Container } from 'pixi.js';
 import { VIEW_WIDTH_PX } from '../../../game/constants';
 import type { Command, EntityView } from '../../../game';
 import type { SlotInfo } from '../../../shared/ipc';
+import type { Settings } from '../../../shared/settings';
 import type { Game, SceneName } from '../app/game';
 import type { Point } from '../render/camera';
 import type { BubbleInfo } from '../render/bubbles';
 import type { CursorPose } from '../ui/cursor';
+import type { ToggleKey, VolumeKey } from '../ui/settingsPanel';
+
+/** Named UI controls the tests can find: buttons, sliders' tracks, toggles, the bin. */
+export type UiName =
+  'pause' | 'home' | 'resume' | 'to_menu' | 'gear' | 'door' | 'bin' | `toggle_${ToggleKey}`;
 
 /**
  * Test-only API on window.__bb. Installed only when the app is launched with
@@ -19,11 +25,41 @@ export interface TestHook {
   camera(): { x: number };
   /** Client (CSS pixel) position of a world point, for page.mouse. */
   worldToClient(x: number, y: number): Point;
-  /** Client position of the centre of a menu slot button. */
+  /** Client position of the centre of a menu slot sign. */
   slotButtonClient(slot: number): Point | null;
   homeButtonClient(): Point | null;
+  /** Client position of a named UI control, or null if it is not showing. */
+  uiClient(name: UiName): Point | null;
+  /** Client position of a settings slider at `value` (0 to 100), or null if the board is closed. */
+  sliderClient(key: VolumeKey, value: number): Point | null;
+  /** Client position of the centre of pocket slot `i`, as the tray sits now. */
+  pocketSlotClient(i: number): Point | null;
+  /** The pocket's slots: entity IDs, bottom of the stack first. */
+  pocket(): number[][];
+  /** How far up the pocket tray is, 0 to 1. */
+  pocketOpen(): number;
+  /** The menu's compost bin: how far its lid has closed on a sign (0 to 1). */
+  binProgress(): number;
+  /** Is the settings board open (over the world or the menu)? */
+  panelOpen(): boolean;
+  /** The settings as the game has them now. */
+  settings(): Settings;
+  /** How far the screen shake moves the world this frame, in pixels. */
+  shakeOffset(): Point;
+  /** Is reduce motion on in the world view? */
+  reduceMotion(): boolean;
+  /** Does each menu sign show a world picture (true), a saved world without one (false), or a sprout (null)? */
+  slotPictures(): (boolean | null)[];
+  /** Slots whose save would not load and came back from the backup. */
+  recoveries(): number[];
+  /** Play the first scene in new worlds (off by default in tests). */
+  enableIntro(on: boolean): void;
+  /** The first scene's clock and fade, or null when it is not running. */
+  intro(): { t: number; cover: number } | null;
   send(command: Command): void;
   step(n: number): void;
+  /** Run `n` frames of input and sim at 60 Hz right now, whatever the screen's speed. */
+  frames(n: number): void;
   setPaused(paused: boolean): void;
   isPaused(): boolean;
   sfxLog(): string[];
@@ -90,10 +126,34 @@ export function installTestHook(game: Game): void {
     const k = rect.width / VIEW_WIDTH_PX;
     return { x: rect.left + p.x * k, y: rect.top + p.y * k };
   };
-  const centerOf = (c: Container | undefined): Point | null => {
-    if (!c) return null;
+  const centerOf = (c: Container | undefined | null): Point | null => {
+    if (!c || c.destroyed || !c.visible || !c.parent) return null;
     const g = c.getGlobalPosition();
     return logicalToClient({ x: g.x, y: g.y });
+  };
+  const uiControl = (name: UiName): Container | null => {
+    const s = game.session;
+    const panel = game.panel;
+    switch (name) {
+      case 'pause':
+        return s?.pause ?? null;
+      case 'home':
+        return s?.home ?? null;
+      case 'resume':
+        return panel?.buttons.get('resume') ?? null;
+      case 'to_menu':
+        return panel?.buttons.get('menu') ?? null;
+      case 'gear':
+        return game.menu?.gear ?? null;
+      case 'door':
+        return game.menu?.door ?? null;
+      case 'bin':
+        return game.menu?.bin ?? null;
+      default: {
+        const key = name.slice('toggle_'.length) as ToggleKey;
+        return panel?.toggles.get(key) ?? null;
+      }
+    }
   };
 
   window.__bb = {
@@ -107,10 +167,38 @@ export function installTestHook(game: Game): void {
       if (!cam) throw new Error('No world open');
       return logicalToClient(cam.worldToView({ x, y }));
     },
-    slotButtonClient: (slot) => centerOf(game.menu?.buttons[slot]),
+    slotButtonClient: (slot) => centerOf(game.menu?.sign(slot)),
     homeButtonClient: () => centerOf(game.session?.home),
+    uiClient: (name) => centerOf(uiControl(name)),
+    sliderClient: (key, value) => {
+      const slider = game.panel?.sliders.get(key);
+      if (!slider) return null;
+      const g = slider.toGlobal({ x: slider.xFor(value), y: 0 });
+      return logicalToClient({ x: g.x, y: g.y });
+    },
+    pocketSlotClient: (i) => {
+      const tray = game.session?.pocket;
+      return tray ? logicalToClient(tray.slotCenter(i)) : null;
+    },
+    pocket: () => game.session?.sim.pocket.slots.map((s) => [...s]) ?? [],
+    pocketOpen: () => game.session?.pocket.open ?? 0,
+    binProgress: () => game.menu?.bin.progress ?? 0,
+    panelOpen: () => game.panel !== null,
+    settings: () => game.settings.get(),
+    shakeOffset: () => game.session?.view.shakeOffset ?? { x: 0, y: 0 },
+    reduceMotion: () => game.session?.view.reduceMotion ?? false,
+    slotPictures: () => game.menu?.signs.map((s) => (s.picture ? s.picture.thumb !== null : null)) ?? [],
+    recoveries: () => [...game.recoveries],
+    enableIntro: (on) => {
+      game.introEnabled = on;
+    },
+    intro: () => {
+      const i = game.session?.intro;
+      return i ? { t: i.t, cover: i.cover } : null;
+    },
     send: (command) => game.session?.sim.send(command),
     step: (n) => game.stepSim(n),
+    frames: (n) => game.stepFrames(n),
     setPaused: (p) => game.setPaused(p),
     isPaused: () => game.paused,
     sfxLog: () => [...game.sfx.log],

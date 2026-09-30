@@ -127,6 +127,12 @@ export class PointerController {
   onGesture: ((gesture: Gesture, strength: number) => void) | null = null;
   /** Tickling the held bug right now. */
   tickling = false;
+  /** The pocket slot under a view point, if the tray is open there (set by the game). */
+  pocketAt: ((view: Point) => number | null) | null = null;
+  /** Edge-scroll while carrying (a setting). */
+  edgeScroll = true;
+  /** Share of the pan speed the camera coasts with after a drag (less with reduce motion). */
+  coastScale = 1;
   private shake = new ShakeDetector();
   private lastSwish = -Infinity;
   private lastScroll = -Infinity;
@@ -172,6 +178,7 @@ export class PointerController {
     this.sample(t);
     const hit = this.sim.physics.bodyAt(world.x, world.y, 0.2);
     this.camera.velocity = 0;
+    this.camera.stopGlide();
     this.hoverId = null;
     this.tickling = false;
     this.shake.reset();
@@ -185,6 +192,31 @@ export class PointerController {
       this.panVelocity = 0;
       this.panSounded = false;
     }
+  }
+
+  /**
+   * Press on a pocket slot: its top thing comes out into the hand at the
+   * cursor, and the press carries on as a hold.
+   */
+  takeFromPocket(slot: number, view: Point, t = this.now()): void {
+    this.pointer = view;
+    const world = this.camera.viewToWorld(view);
+    this.hoverWorld = world;
+    this.pressAt = t;
+    this.pressView = view;
+    this.pressWorld = world;
+    // Never a poke: it came out of the pocket.
+    this.travelled = POKE_PX + 1;
+    this.samples = [];
+    this.sample(t);
+    this.camera.velocity = 0;
+    this.camera.stopGlide();
+    this.hoverId = null;
+    this.tickling = false;
+    this.shake.reset();
+    this.shake.push(t, view.x);
+    this.mode = 'hold';
+    this.sim.send({ type: 'pocket_take', slot, x: world.x, y: world.y });
   }
 
   private gesture(g: Gesture, strength = 1): void {
@@ -265,16 +297,23 @@ export class PointerController {
         this.lastRelease = null;
       } else {
         this.sample(t);
-        const v = this.velocity();
-        this.lastRelease = v;
-        this.sim.send({ type: 'release', vx: v.x, vy: v.y });
+        const slot = this.pocketAt?.(this.pointer) ?? null;
+        if (slot !== null) {
+          // Let go over the pocket: it goes in (drop rule 1).
+          this.lastRelease = null;
+          this.sim.send({ type: 'pocket_put', slot });
+        } else {
+          const v = this.velocity();
+          this.lastRelease = v;
+          this.sim.send({ type: 'release', vx: v.x, vy: v.y });
+        }
       }
     }
     if (this.mode === 'pan') {
       const click = t - this.pressAt <= POKE_MS && this.travelled <= POKE_PX;
       // A click on empty space pokes it: fixtures like the hose tap respond.
       if (click) this.sim.send({ type: 'poke', x: this.pressWorld.x, y: this.pressWorld.y });
-      else this.camera.velocity = Math.max(-40, Math.min(40, this.panVelocity));
+      else this.camera.velocity = Math.max(-40, Math.min(40, this.panVelocity)) * this.coastScale;
     }
     this.mode = 'none';
     this.tickling = false;
@@ -284,6 +323,7 @@ export class PointerController {
 
   wheel(deltaX: number, deltaY: number, t = this.now()): void {
     const delta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY * 1.5;
+    this.camera.stopGlide();
     this.camera.panBy(delta / this.camera.ppm);
     if (t - this.lastScroll > 200) {
       this.lastScroll = t;
@@ -299,7 +339,7 @@ export class PointerController {
       this.updateHover();
       return;
     }
-    const panned = this.camera.edgeScroll(this.pointer.x, this.viewWidthPx, dt, 80, 9);
+    const panned = this.edgeScroll ? this.camera.edgeScroll(this.pointer.x, this.viewWidthPx, dt, 80, 9) : 0;
     if (panned !== 0 && !this.edging) this.gesture('edge');
     this.edging = panned !== 0;
     const world = this.camera.viewToWorld(this.pointer);

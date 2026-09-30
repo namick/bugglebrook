@@ -36,7 +36,7 @@ export class OffScreen {
     const sim = this.sim;
     if (sim.tick % COARSE_TICKS !== 0) return;
     for (const bug of sim.entities.ofKind('bug')) {
-      if (!sim.isSleeping(bug.id) || !bug.bug) continue;
+      if (!sim.isSleeping(bug.id) || sim.isPocketed(bug.id) || !bug.bug) continue;
       this.coarse(bug, bug.bug);
     }
   }

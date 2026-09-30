@@ -982,11 +982,17 @@ export class BugSprite extends Container {
 }
 
 /** A frame for a bug shown outside the world (menus): happy, facing right. */
-export function standaloneFrame(mode: BugMode, time: number, dt: number, phase: number): BugFrame {
+export function standaloneFrame(
+  mode: BugMode,
+  time: number,
+  dt: number,
+  phase: number,
+  art: BugDef['art'] = 'ladybug',
+): BugFrame {
   const needs = { need_hunger: 90, need_fun: 90, need_energy: 90, need_social: 80, need_clean: 90 };
   return {
     pose: bugPose({ mode, vx: mode === 'st_wander' ? 1 : 0, vy: 0, time, phase, walkSpeed: 1 }),
-    face: { ...bugFace({ art: 'ladybug', mode, needs, time, likesFlinging: true }), form: 'normal' },
+    face: { ...bugFace({ art, mode, needs, time, likesFlinging: true }), form: 'normal' },
     facing: 1,
     time,
     dt,

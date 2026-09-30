@@ -222,6 +222,7 @@ export class BugVoices {
         this.say(e.id, e.defId, emotion, urgent);
       }),
       bus.on('bug_tickled', (e) => this.say(e.id, e.defId, 'giggle', true)),
+      bus.on('bug_beckoned', (e) => this.say(e.id, e.defId, 'happy', true)),
       bus.on('bug_wriggled_free', (e) => this.say(e.id, e.defId, 'giggle', true)),
       bus.on('bug_dizzy', (e) => this.say(e.id, e.defId, 'dizzy', true)),
       bus.on('item_shaken', (e) => {

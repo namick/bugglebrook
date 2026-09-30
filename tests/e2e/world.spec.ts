@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { PLAZA_X, clickSlot, entities, entity, launchApp, waitForScene } from './app';
+import { PLAZA_X, clickSlot, clickUi, entities, entity, launchApp, waitForScene } from './app';
 import type { EntityView } from './app';
 
 /** The item farthest from any bug, so a wandering bug is not grabbed instead. */
@@ -80,7 +80,7 @@ test('dragging empty space pans the camera', async () => {
   }
 });
 
-test('the world autosaves, survives going home, and survives a restart', async () => {
+test('the world autosaves, survives going to the menu, and survives a restart', async () => {
   let bb = await launchApp();
   const userData = bb.userData;
   try {
@@ -92,9 +92,9 @@ test('the world autosaves, survives going home, and survives a restart', async (
     await expect.poll(async () => (await entities(bb.page)).some((e) => !before.has(e.id))).toBe(true);
     const pebble = (await entities(bb.page)).find((e) => !before.has(e.id))!;
 
-    // Home button saves and returns to the menu.
-    const home = await bb.page.evaluate(() => window.__bb!.homeButtonClient());
-    await bb.page.mouse.click(home!.x, home!.y);
+    // The pause board's stump sign saves and returns to the menu.
+    await clickUi(bb.page, 'pause');
+    await clickUi(bb.page, 'to_menu');
     await waitForScene(bb.page, 'menu');
     const slots = await bb.page.evaluate(() => window.__bb!.listSlots());
     expect(slots.map((s) => s.exists)).toEqual([false, false, true]);

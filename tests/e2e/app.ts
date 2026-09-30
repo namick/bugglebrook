@@ -176,3 +176,39 @@ export async function holdNearMouth(page: Page, itemId: number, bugId: number, d
   // Let the item settle under the hand before letting go gently.
   await page.waitForTimeout(250);
 }
+
+const camera = async (page: Page): Promise<number> => (await page.evaluate(() => window.__bb!.camera())).x;
+
+/** Scroll the camera with the real mouse wheel until its left edge is near `x`. */
+export async function scrollTo(page: Page, x: number): Promise<void> {
+  await page.mouse.move(960, 200);
+  for (let i = 0; i < 80; i++) {
+    const d = x - (await camera(page));
+    if (Math.abs(d) < 0.3) return;
+    await page.mouse.wheel(0, Math.max(-600, Math.min(600, (d * 100) / 1.5)));
+    await page.waitForTimeout(30);
+  }
+}
+
+export type UiName = Parameters<TestHook['uiClient']>[0];
+
+/** Where a named UI control is once it has stopped moving (boards drop in with a bounce). */
+export async function uiAt(page: Page, name: UiName): Promise<{ x: number; y: number }> {
+  let last: { x: number; y: number } | null = null;
+  let at: { x: number; y: number } | null = null;
+  await expect
+    .poll(async () => {
+      last = at;
+      at = await page.evaluate((n) => window.__bb!.uiClient(n), name);
+      return at !== null && last !== null && Math.hypot(at.x - last.x, at.y - last.y) < 1.5;
+    })
+    .toBe(true);
+  return at!;
+}
+
+/** Click a named UI control (pause, resume, a toggle, the gear...) with the real mouse. */
+export async function clickUi(page: Page, name: UiName): Promise<void> {
+  const p = await uiAt(page, name);
+  await page.mouse.move(p.x, p.y, { steps: 3 });
+  await page.mouse.click(p.x, p.y);
+}

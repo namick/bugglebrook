@@ -17,6 +17,7 @@ function makeSave(sim: Sim, cameraX = 3): SaveFile {
     savedAt: '2026-01-01T00:00:00.000Z',
     world: sim.serialize(),
     view: { cameraX },
+    meta: { createdAt: '2026-01-01T00:00:00.000Z', thumb: null },
   };
 }
 

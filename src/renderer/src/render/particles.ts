@@ -46,6 +46,8 @@ export const PARTICLE_BUDGET = 400;
 export class Particles extends Container {
   private readonly g = new Graphics();
   private particles: Particle[] = [];
+  /** Share of particles to keep: 1, or 0.5 with reduce motion on. Trails are always drawn. */
+  density = 1;
 
   constructor(private readonly random: () => number = Math.random) {
     super();
@@ -53,6 +55,7 @@ export class Particles extends Container {
   }
 
   private add(p: Partial<Particle> & Pick<Particle, 'kind' | 'x' | 'y' | 'max' | 'size' | 'color'>): void {
+    if (this.density < 1 && p.kind !== 'trail' && this.random() >= this.density) return;
     this.particles.push({ vx: 0, vy: 0, life: 0, rot: 0, vr: 0, gravity: 0, drag: 0, ...p });
     if (this.particles.length > PARTICLE_BUDGET)
       this.particles.splice(0, this.particles.length - PARTICLE_BUDGET);

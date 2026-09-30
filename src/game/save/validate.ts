@@ -1,6 +1,7 @@
 import { BUG_MODES, SOCIAL_KINDS } from '../core/entities';
 import { ADVERT_ACTIONS } from '../data/types';
 import { REACTION_TYPES } from '../events';
+import { POCKET_SLOTS, STACK_MAX } from '../systems/pocket';
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const isObj = (v: unknown): v is Record<string, unknown> =>
@@ -214,5 +215,43 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
   const social = world.social;
   if (social !== undefined && !(isObj(social) && isNumMap(social.affinity)))
     errors.push('world.social is invalid');
+  if (world.pocket !== undefined) {
+    const problems = pocketProblems(world.pocket, ids);
+    if (problems.length > 0) errors.push(`world.pocket is invalid: ${problems.join(', ')}`);
+  }
+  const counters = world.counters;
+  if (counters !== undefined && !(isObj(counters) && isNumMap(counters.fed)))
+    errors.push('world.counters is invalid');
+  const meta = save.meta;
+  if (
+    !isObj(meta) ||
+    typeof meta.createdAt !== 'string' ||
+    !(meta.thumb === null || (typeof meta.thumb === 'string' && THUMB.test(meta.thumb.slice(0, 32))))
+  )
+    errors.push('meta is invalid');
+  return errors;
+}
+
+/** A thumbnail is an image data URL. */
+const THUMB = /^data:image\/(png|jpeg|webp);base64,/;
+
+/** Problems with the saved pocket tray, or an empty list. `ids` are the saved entity IDs. */
+function pocketProblems(pocket: unknown, ids: ReadonlySet<number>): string[] {
+  if (!isObj(pocket)) return ['is not an object'];
+  const errors: string[] = [];
+  const slots = pocket.slots;
+  if (!Array.isArray(slots) || slots.length !== POCKET_SLOTS) return ['must have six slots'];
+  const seen = new Set<number>();
+  slots.forEach((slot: unknown, i: number) => {
+    if (!Array.isArray(slot) || slot.length > STACK_MAX || !slot.every(isNum))
+      return errors.push(`slot ${i} is invalid`);
+    for (const id of slot as number[]) {
+      if (seen.has(id)) errors.push(`entity ${id} is in two slots`);
+      else if (!ids.has(id)) errors.push(`entity ${id} does not exist`);
+      seen.add(id);
+    }
+    return undefined;
+  });
+  if (!isNumMap(pocket.at)) errors.push('at is invalid');
   return errors;
 }

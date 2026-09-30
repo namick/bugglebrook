@@ -190,6 +190,14 @@ export interface GameEvents {
   bug_hid: { id: EntityId; defId: string; coverId: EntityId | null; on: boolean };
   /** A stack the player built came crashing down. */
   stack_fell: { x: number; y: number; count: number };
+  /** The player tucked something into pocket slot `slot`. `x`, `y` is where it left the world. */
+  pocketed: { id: EntityId; kind: EntityKind; defId: string; slot: number; x: number; y: number };
+  /** The player pulled something out of pocket slot `slot`, into the hand at `x`, `y`. */
+  unpocketed: { id: EntityId; kind: EntityKind; defId: string; slot: number; x: number; y: number };
+  /** Dropped on a slot that could not take it, this came back out at the hand. */
+  pocket_swapped: { id: EntityId; defId: string; slot: number; x: number; y: number };
+  /** In the first scene, a bug came over to ask to be flung ("again!"). */
+  bug_beckoned: { id: EntityId; defId: string; x: number; y: number };
 }
 
 /** What a chat line is about. The renderer draws it as a pictogram. */

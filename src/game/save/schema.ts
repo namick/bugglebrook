@@ -2,10 +2,11 @@ import type { BugBrain, EntityKind } from '../core/entities';
 import type { RngState } from '../core/rng';
 import type { BodyState } from '../physics/physics';
 import type { EnvState } from '../systems/environment';
+import type { PocketState } from '../systems/pocket';
 import type { TagState } from '../systems/tags';
 
 /** Bump when the save shape changes, and add a migration in migrations.ts. */
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 export interface SavedEntity {
   id: number;
@@ -30,6 +31,24 @@ export interface WorldSave {
   env?: EnvState;
   /** How play has changed bug-pair affinity. Absent in saves before version 5. */
   social?: { affinity: Record<string, number> };
+  /** The pocket tray's six slots. Absent in saves before version 6. */
+  pocket?: PocketState;
+  /** Counts kept for the menu's slot badge. Absent in saves before version 6. */
+  counters?: WorldCounters;
+}
+
+/** Running counts about how the world has been played. */
+export interface WorldCounters {
+  /** Times the player fed each bug, by bug def ID. The most-fed bug is the slot's badge. */
+  fed: Record<string, number>;
+}
+
+/** What the menu shows for a slot. The sim never reads this. */
+export interface SaveMeta {
+  /** When the slot was first saved (ISO time, from the caller). */
+  createdAt: string;
+  /** A 320x180 picture of the camera view at the last save, as an image data URL, or null. */
+  thumb: string | null;
 }
 
 /** Render-side state that should persist (camera position, etc.). */
@@ -43,4 +62,5 @@ export interface SaveFile {
   savedAt: string;
   world: WorldSave;
   view: ViewSave;
+  meta: SaveMeta;
 }

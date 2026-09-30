@@ -62,7 +62,16 @@ export type SfxName =
   | 'pick'
   | 'sniff'
   | 'crash'
-  | 'curl';
+  | 'curl'
+  | 'pocket_in'
+  | 'pocket_out'
+  | 'ui_tick'
+  | 'ui_open'
+  | 'ui_close'
+  | 'toggle_on'
+  | 'toggle_off'
+  | 'bin_shut'
+  | 'whoosh_in';
 
 /**
  * The impact sound for a material. Soft materials (cloth, paper) thud like
@@ -206,6 +215,10 @@ export class Sfx {
       bus.on('bug_inspected', () => this.play('sniff')),
       bus.on('bug_curled', (e) => (e.on ? this.play('curl') : undefined)),
       bus.on('stack_fell', () => this.play('crash')),
+      bus.on('pocketed', () => this.play('pocket_in')),
+      bus.on('unpocketed', () => this.play('pocket_out')),
+      bus.on('pocket_swapped', () => this.play('pocket_out', 0.7)),
+      bus.on('bug_beckoned', () => this.play('boop')),
     ];
   }
 
@@ -656,6 +669,47 @@ export class Sfx {
           ];
         case 'pick':
           return [{ freq: 700 * j, to: 1000 * j, dur: 0.05, wave: 'triangle', gain: 0.18 * intensity }];
+        case 'pocket_in':
+          // A denim "fwup" and a button click: tucked away.
+          return [
+            { freq: 1800 * j, to: 500 * j, dur: 0.14, wave: 'noise', q: 1.2, gain: 0.3 },
+            { freq: 660 * j, to: 330 * j, dur: 0.12, wave: 'triangle', gain: 0.22, delay: 0.04 },
+            { freq: 1400 * j, dur: 0.03, wave: 'square', gain: 0.08, delay: 0.14 },
+          ];
+        case 'pocket_out':
+          return [
+            { freq: 500 * j, to: 1900 * j, dur: 0.12, wave: 'noise', q: 1.2, gain: 0.26 * intensity },
+            { freq: 360 * j, to: 820 * j, dur: 0.12, wave: 'triangle', gain: 0.22 * intensity },
+          ];
+        case 'ui_tick':
+          // Pitched by the slider's value (intensity 0 to 1), so you hear the level.
+          return [{ freq: 500 + 700 * intensity, dur: 0.04, wave: 'sine', gain: 0.1 + 0.25 * intensity }];
+        case 'ui_open':
+          return [
+            { freq: 300 * j, to: 700 * j, dur: 0.16, wave: 'triangle', gain: 0.22 },
+            { freq: 900 * j, to: 1200 * j, dur: 0.1, wave: 'sine', gain: 0.15, delay: 0.12 },
+          ];
+        case 'ui_close':
+          return [{ freq: 800 * j, to: 300 * j, dur: 0.16, wave: 'triangle', gain: 0.2 }];
+        case 'toggle_on':
+          return [
+            { freq: 700 * j, dur: 0.05, wave: 'square', gain: 0.1 },
+            { freq: 1050 * j, dur: 0.07, wave: 'sine', gain: 0.22, delay: 0.05 },
+          ];
+        case 'toggle_off':
+          return [
+            { freq: 1050 * j, dur: 0.05, wave: 'square', gain: 0.1 },
+            { freq: 620 * j, dur: 0.07, wave: 'sine', gain: 0.2, delay: 0.05 },
+          ];
+        case 'bin_shut':
+          // Clunk, then a squelchy settle.
+          return [
+            { freq: 180 * j, to: 60 * j, dur: 0.2, wave: 'triangle', gain: 0.45 },
+            { freq: 900 * j, to: 200 * j, dur: 0.1, wave: 'noise', q: 2, gain: 0.3 },
+            { freq: 400 * j, to: 160 * j, dur: 0.25, wave: 'noise', q: 4, gain: 0.2, delay: 0.12 },
+          ];
+        case 'whoosh_in':
+          return [{ freq: 300, to: 1600, dur: 0.5, wave: 'noise', q: 0.8, gain: 0.16, attack: 0.3 }];
         case 'sniff':
           return [0, 0.12].map((delay) => ({
             freq: 3200 * j,

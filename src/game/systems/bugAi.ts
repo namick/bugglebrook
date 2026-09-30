@@ -1,4 +1,4 @@
-import type { BugBrain, Entity, EntityId, SocialKind } from '../core/entities';
+import type { BugBrain, BugMode, Entity, EntityId, SocialKind } from '../core/entities';
 import { SOCIAL_KINDS } from '../core/entities';
 import { SIM_HZ } from '../core/loop';
 import type { Rng } from '../core/rng';
@@ -422,6 +422,67 @@ function enterSleep(brain: BugBrain, def: BugDef, x: number): BugNotice[] {
   // A new resting spot, unless the pebble row is close by.
   if (def.habits.rowsPebbles && Math.abs(x - brain.restX) > 6) brain.restX = x;
   return [{ type: 'slept' }];
+}
+
+/** Fall asleep right now, wherever it is (the first scene's napping Dot). */
+export function napBug(brain: BugBrain, def: BugDef, x: number): BugNotice[] {
+  return enterSleep(brain, def, x);
+}
+
+/**
+ * Push every tick a brain remembers `ticks` later. Bugs in the pocket are
+ * out of time: grumpiness, memories, and naps carry on where they left off.
+ */
+export function shiftBrain(brain: BugBrain, ticks: number): void {
+  if (ticks <= 0) return;
+  const later = (t: number): number => (t >= 0 ? t + ticks : t);
+  brain.lastHardLanding = later(brain.lastHardLanding);
+  brain.grumpyUntil = later(brain.grumpyUntil);
+  brain.burpAt = later(brain.burpAt);
+  brain.woozyUntil = later(brain.woozyUntil);
+  brain.smelledAt = later(brain.smelledAt);
+  brain.hopAt = later(brain.hopAt);
+  brain.groggyUntil = later(brain.groggyUntil);
+  brain.napAt = later(brain.napAt);
+  brain.fidgetAt = later(brain.fidgetAt);
+  brain.slippedAt = later(brain.slippedAt);
+  brain.touchedAt = later(brain.touchedAt);
+  brain.used = brain.used.map((u) => ({ ...u, tick: u.tick + ticks }));
+  brain.memory = brain.memory.map((m) => ({ ...m, tick: m.tick + ticks }));
+  brain.pokes = brain.pokes.map((t) => t + ticks);
+  if (brain.reaction) brain.reaction = { ...brain.reaction, tick: brain.reaction.tick + ticks };
+}
+
+/** Into the pocket: out of the world, nothing to do, needs frozen. */
+export function pocketBug(brain: BugBrain): void {
+  enter(brain, 'st_pocketed');
+  clearIntent(brain);
+  brain.social = null;
+  brain.carrying = null;
+  brain.mouthful = null;
+  brain.tickle = 0;
+  brain.gliding = false;
+  brain.resume = null;
+  brain.plan = null;
+}
+
+/** Modes a bug can drop to come and ask to be flung. */
+const BECKON_FROM = new Set<BugMode>(['st_idle', 'st_wander', 'st_react', 'st_landing', 'st_recover']);
+
+/**
+ * The first scene's nudge (game design doc, section 17): walk over toward
+ * the hand at `handX`, stopping a body length short, and ask to be flung.
+ * Returns false if the bug is busy (asleep, eating, flying, held).
+ */
+export function beckonBug(brain: BugBrain, def: BugDef, x: number, handX: number): boolean {
+  if (!BECKON_FROM.has(brain.mode)) return false;
+  clearIntent(brain);
+  const dir = handX >= x ? 1 : -1;
+  enter(brain, 'st_wander', 6 * SIM_HZ);
+  brain.targetX = Math.abs(handX - x) < 1 ? x : handX - dir * (def.radius + 0.6);
+  brain.facing = dir;
+  brain.decideIn = 8 * SIM_HZ;
+  return true;
 }
 
 /**

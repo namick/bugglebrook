@@ -1,9 +1,17 @@
+import type { Settings } from './settings';
+
 /** IPC channel names. The preload and main process import these. */
 export const IPC = {
   savesList: 'saves:list',
   savesRead: 'saves:read',
   savesWrite: 'saves:write',
   savesRemove: 'saves:remove',
+  savesReadBackup: 'saves:read-backup',
+  savesRecover: 'saves:recover',
+  settingsGet: 'settings:get',
+  settingsSet: 'settings:set',
+  /** renderer -> main: the quit door on the menu. */
+  quit: 'app:quit',
   /** main -> renderer: save now, the app is closing. */
   flushRequest: 'app:flush-request',
   /** renderer -> main: flush finished. */
@@ -31,7 +39,19 @@ export interface BugglebrookApi {
     read(slot: number): Promise<string | null>;
     write(slot: number, data: string): Promise<void>;
     remove(slot: number): Promise<void>;
+    /** The save as it was before the last write, or null. */
+    readBackup(slot: number): Promise<string | null>;
+    /** Set an unloadable save aside and put its backup back. Returns the backup, or null. */
+    recover(slot: number): Promise<string | null>;
   };
+  /** Per-machine settings (volumes, fullscreen, reduce motion, edge scroll). */
+  readonly settings: {
+    get(): Promise<Settings>;
+    /** Store a change and apply what main controls (fullscreen). Returns the stored settings. */
+    set(settings: Partial<Settings>): Promise<Settings>;
+  };
+  /** Close the app (saving first, like any close). */
+  quit(): void;
   /** Register the handler main calls before quitting so the game can save. */
   onFlushRequest(handler: () => Promise<void>): void;
 }

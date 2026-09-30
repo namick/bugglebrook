@@ -172,3 +172,15 @@ export function expireTags(
   }
   return { lost, returned };
 }
+
+/**
+ * Push every running timer `ticks` later. Things in the pocket are out of
+ * time, so a wet pebble is just as wet when it comes back out.
+ */
+export function shiftTags(state: TagState, ticks: number): void {
+  if (ticks <= 0) return;
+  for (const [tag, v] of Object.entries(state)) {
+    if (v > 0) state[tag] = v + ticks;
+    else if (v < PERMANENT) state[tag] = v - ticks;
+  }
+}

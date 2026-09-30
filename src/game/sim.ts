@@ -15,9 +15,9 @@ import { baseAffinity, pairKey } from './data/affinity';
 import type { GameEvents, Liking, Mood, ReactionType, TagCause } from './events';
 import type { BodyState, Impact, MaterialSpec, ShapeSpec } from './physics/physics';
 import { Physics } from './physics/physics';
-import type { SavedEntity, WorldSave } from './save/schema';
+import type { SavedEntity, WorldCounters, WorldSave } from './save/schema';
 import { Environment } from './systems/environment';
-import { TAG_IDS, addTag, effectiveTags, expireTags, removeTag, tagOn } from './systems/tags';
+import { TAG_IDS, addTag, effectiveTags, expireTags, removeTag, shiftTags, tagOn } from './systems/tags';
 import type { AdvertCandidate, BugNotice, BugWorld, LooseItem, OtherBug, TargetInfo } from './systems/bugAi';
 import {
   GAWK_RANGE,
@@ -31,17 +31,24 @@ import {
   likingOf,
   moodOf,
   newBugBrain,
+  beckonBug,
+  napBug,
+  pocketBug,
   pokedBug,
   react,
   releaseBug,
+  shiftBrain,
   shakeBug,
   smellBug,
   springLaunched,
   tickleBug,
   updateBug,
+  wakeBug,
 } from './systems/bugAi';
 import { CATCH_WINDUP } from './systems/bugSocial';
 import { SetupRule } from './systems/setup';
+import type { Pocketable, PocketState } from './systems/pocket';
+import { emptyPocket, fits, isPocketSlot, pocketPut, pocketTake, tidyPocket } from './systems/pocket';
 import { OffScreen } from './systems/offscreen';
 import type { DropCandidate, DropTarget } from './systems/dropTargets';
 import { pickDropTarget } from './systems/dropTargets';
@@ -119,6 +126,8 @@ export interface EntityView extends BodyState {
   soggy?: number;
   /** Asleep with its area: frozen in place until the camera comes back. */
   asleep?: boolean;
+  /** In the pocket tray: which slot. Not in the world while this is set. */
+  pocket?: number;
 }
 
 export interface SimOptions {
@@ -180,6 +189,12 @@ export class Sim {
   private loud: { x: number; y: number; victim: EntityId | null }[] = [];
   /** What bugs can ask about the world this step, built once per step. */
   private worldCache: BugWorld | null = null;
+  /** The pocket tray's slots. Saved. */
+  pocket: PocketState = emptyPocket();
+  /** Everything in the pocket, for quick checks. Rebuilt from `pocket`. */
+  private readonly pocketed = new Set<EntityId>();
+  /** Running counts kept for the menu: how often the player fed each bug. Saved. */
+  counters: WorldCounters = { fed: {} };
 
   private constructor(seed: string, content: Content) {
     this.seed = seed;
@@ -261,6 +276,18 @@ export class Sim {
         } else b.carrying = null;
       }
     }
+    sim.counters = save.counters ? clone(save.counters) : { fed: {} };
+    // The pocket's things stay out of the world. A bug marked pocketed that
+    // no slot holds (a save from before the pocket) drops back in.
+    sim.pocket = tidyPocket(save.pocket ? clone(save.pocket) : emptyPocket(), (id) => sim.entities.has(id));
+    for (const id of sim.pocket.slots.flat()) {
+      sim.pocketed.add(id);
+      sim.physics.setActive(id, false);
+      const b = sim.entities.get(id)!.bug;
+      if (b && b.mode !== 'st_pocketed') pocketBug(b);
+    }
+    for (const bug of sim.entities.ofKind('bug'))
+      if (bug.bug?.mode === 'st_pocketed' && !sim.pocketed.has(bug.id)) bug.bug.mode = 'st_airborne';
     sim.environment.restore(save.env ? clone(save.env) : sim.environment.state);
     sim.affinity = save.social ? clone(save.social.affinity) : {};
     sim.addMissingBugs();
@@ -312,6 +339,7 @@ export class Sim {
     }
     this.environment.forget(id);
     this.sleeping.delete(id);
+    if (this.pocketed.delete(id)) this.pocket = tidyPocket(this.pocket, (e) => e !== id);
     this.physics.removeBody(id);
     this.entities.remove(id);
     this.rolling.delete(id);
@@ -477,6 +505,169 @@ export class Sim {
         env.rain = !!command.rain;
         return;
       }
+      case 'pocket_put': {
+        const held = this.physics.grabbed;
+        const entity = held === null ? undefined : this.entities.get(held);
+        if (entity && isPocketSlot(command.slot)) this.putInPocket(entity, command.slot);
+        return;
+      }
+      case 'pocket_take':
+        if (isPocketSlot(command.slot) && Number.isFinite(command.x) && Number.isFinite(command.y))
+          this.takeFromPocket(command.slot, command.x, command.y);
+        return;
+      case 'stage_intro':
+        this.stageIntro();
+        return;
+      case 'wake': {
+        const bug = this.entities.get(command.id);
+        if (!bug?.bug || this.isSleeping(bug.id) || bug.bug.mode !== 'st_sleep') return;
+        const s = this.physics.getState(bug.id);
+        for (const n of wakeBug(bug.bug, false, this.rng, this.tick)) this.emitNotice(bug, n, s);
+        // Wide awake and curious: watch the hand for a while before wandering off.
+        bug.bug.decideIn = Math.max(bug.bug.decideIn, 8 * SIM_HZ);
+        return;
+      }
+      case 'beckon': {
+        const bug = this.entities.get(command.id);
+        if (!bug?.bug || this.isSleeping(bug.id) || !Number.isFinite(command.x)) return;
+        const s = this.physics.getState(bug.id);
+        const def = this.content.bugs.get(bug.defId);
+        const x = Math.max(1, Math.min(this.worldWidth - 1, command.x));
+        if (!beckonBug(bug.bug, def, s.x, x)) return;
+        this.events.emit('bug_beckoned', { id: bug.id, defId: bug.defId, x: s.x, y: s.y });
+        return;
+      }
+    }
+  }
+
+  // --- The pocket tray -------------------------------------------------------
+
+  private pocketable(e: Entity): Pocketable {
+    return {
+      id: e.id,
+      defId: e.defId,
+      stackable: e.kind === 'item' && this.content.items.get(e.defId).tags.includes('tag_stackable'),
+    };
+  }
+
+  /** What each pocket slot holds, bottom of the stack first. */
+  pocketSlots(): { ids: EntityId[]; defId: string | null; kind: EntityKind | null }[] {
+    return this.pocket.slots.map((ids) => {
+      const top = ids.length > 0 ? this.entities.get(ids[ids.length - 1]!) : undefined;
+      return { ids: [...ids], defId: top?.defId ?? null, kind: top?.kind ?? null };
+    });
+  }
+
+  /** Could the thing in the hand go in this slot without a swap? */
+  pocketFits(slot: number, id: EntityId): boolean {
+    const e = this.entities.get(id);
+    if (!e || !isPocketSlot(slot)) return false;
+    const contents = this.pocket.slots[slot]!.map((i) => this.pocketable(this.entities.get(i)!));
+    return fits(contents, this.pocketable(e));
+  }
+
+  /**
+   * Tuck the held thing into a pocket slot: it leaves the world. A slot that
+   * cannot take it swaps, and what was there pops out where the thing was.
+   */
+  private putInPocket(entity: Entity, slot: number): void {
+    const id = entity.id;
+    const s = this.physics.getState(id);
+    this.physics.release();
+    const contents = this.pocket.slots[slot]!.map((i) => this.pocketable(this.entities.get(i)!));
+    const out = pocketPut(this.pocket, slot, this.pocketable(entity), contents, this.tick);
+    this.environment.unstickAll(id);
+    this.thrown.delete(id);
+    if (entity.bug) {
+      this.putDown(id);
+      if (this.rolling.delete(id)) this.physics.setRolling(id, false, BUG_RESTITUTION);
+      pocketBug(entity.bug);
+    }
+    this.physics.setVelocity(id, 0, 0);
+    this.physics.setActive(id, false);
+    this.pocketed.add(id);
+    this.worldCache = null;
+    this.linkedCache = null;
+    this.events.emit('pocketed', { id, kind: entity.kind, defId: entity.defId, slot, x: s.x, y: s.y });
+    out.forEach(({ id: other, ticks }, i) => {
+      const e = this.entities.get(other);
+      if (!e) return;
+      const x = s.x + (i - (out.length - 1) / 2) * 0.35;
+      const y = Math.min(s.y, this.surfaceY(x) - this.halfHeightOf(e) - 0.05) - 0.2;
+      this.leavePocket(e, x, y, ticks);
+      this.physics.setVelocity(other, this.rng.range(-1.2, 1.2), -4.5);
+      if (e.bug) releaseBug(e.bug, this.content.bugs.get(e.defId), false, y);
+      this.events.emit('pocket_swapped', { id: other, defId: e.defId, slot, x, y });
+    });
+  }
+
+  /** Pull the top thing out of a slot into the hand at (x, y), kept above the ground. */
+  private takeFromPocket(slot: number, x: number, y: number): void {
+    if (this.physics.grabbed !== null) return;
+    const taken = pocketTake(this.pocket, slot, this.tick);
+    const entity = taken ? this.entities.get(taken.id) : undefined;
+    if (!taken || !entity) return;
+    const half = this.halfHeightOf(entity);
+    const px = Math.max(half + 0.1, Math.min(this.worldWidth - half - 0.1, x));
+    const py = Math.min(y, this.surfaceY(px) - half - 0.04);
+    this.leavePocket(entity, px, py, taken.ticks);
+    // Into the hand, as if just grabbed.
+    if (entity.bug) entity.bug.mode = 'st_idle';
+    this.physics.grab(entity.id, px, py);
+    this.setup.touch(entity.id);
+    this.worldCache = null;
+    this.linkedCache = null;
+    this.events.emit('unpocketed', {
+      id: entity.id,
+      kind: entity.kind,
+      defId: entity.defId,
+      slot,
+      x: px,
+      y: py,
+    });
+    this.events.emit('item_grabbed', { id: entity.id, kind: entity.kind, defId: entity.defId, x: px, y: py });
+  }
+
+  /** Back into the world at (x, y), with its timers moved on past the time it spent in the pocket. */
+  private leavePocket(entity: Entity, x: number, y: number, ticks: number): void {
+    this.pocketed.delete(entity.id);
+    this.physics.place(entity.id, x, y, 0);
+    this.physics.setActive(entity.id, true);
+    if (entity.tags) shiftTags(entity.tags, ticks);
+    if (entity.bug) {
+      shiftBrain(entity.bug, ticks);
+      entity.bug.lastX = x;
+      entity.bug.touchedAt = this.tick;
+    }
+  }
+
+  private halfHeightOf(e: Entity): number {
+    return e.kind === 'bug'
+      ? this.content.bugs.get(e.defId).radius
+      : halfExtents(this.content.items.get(e.defId).shape, 0).h;
+  }
+
+  /**
+   * The first scene of a new world (game design doc, section 17): Dot
+   * asleep on the bottle cap with a red berry beside her, a little peckish,
+   * so hovering her shows a berry thought.
+   */
+  private stageIntro(): void {
+    const dot = this.entities.ofKind('bug').find((b) => b.defId === 'bug_ladybug_dot');
+    if (!dot?.bug) return;
+    const s = this.physics.getState(dot.id);
+    const def = this.content.bugs.get(dot.defId);
+    dot.bug.needs.need_hunger = 22;
+    dot.bug.needs.need_energy = 72;
+    for (const n of napBug(dot.bug, def, s.x)) this.emitNotice(dot, n, s);
+    const berry = this.entities
+      .ofKind('item')
+      .filter((e) => e.defId === 'item_berry_red')
+      .map((e) => ({ e, d: Math.abs(this.physics.getState(e.id).x - s.x) }))
+      .sort((a, b) => a.d - b.d)[0];
+    if (!berry || berry.d > 2) {
+      const x = s.x + 1.1;
+      this.spawn('item', 'item_berry_red', x, this.surfaceY(x) - 0.4);
     }
   }
 
@@ -562,7 +753,7 @@ export class Sim {
     const selfX = selfEntity ? this.physics.getState(self).x : 0;
     const skater = !!selfEntity && this.content.bugs.get(selfEntity.defId).swim === 'skate';
     for (const item of this.entities.ofKind('item')) {
-      if (this.physics.grabbed === item.id || this.sleeping.has(item.id)) continue;
+      if (this.physics.grabbed === item.id || this.isSleeping(item.id)) continue;
       if (!this.physics.isActive(item.id)) continue; // in someone's mouth or legs
       const s = this.physics.getState(item.id);
       if (Math.abs(s.x - selfX) > PERCEPTION * 3) continue;
@@ -608,7 +799,7 @@ export class Sim {
     if (linked.size === 0) return;
     for (const bug of this.entities.ofKind('bug')) {
       const b = bug.bug;
-      if (!b || this.sleeping.has(bug.id) || this.byPlayer(bug)) continue;
+      if (!b || this.isSleeping(bug.id) || this.byPlayer(bug)) continue;
       const s = this.physics.getState(bug.id);
       let vx = s.vx;
       let vy = s.vy;
@@ -694,7 +885,8 @@ export class Sim {
   setupLinked(): Set<EntityId> {
     if (this.linkedCache?.tick === this.tick) return this.linkedCache.ids;
     const ids = new Set<EntityId>();
-    for (const e of this.entities.ofKind('item')) if (this.setup.has(e.id)) ids.add(e.id);
+    for (const e of this.entities.ofKind('item'))
+      if (this.setup.has(e.id) && !this.pocketed.has(e.id)) ids.add(e.id);
     if (ids.size > 0) {
       const pairs = this.physics
         .touchingPairs()
@@ -713,7 +905,7 @@ export class Sim {
       // Anything about to bump into them counts too: a buffer of a few centimeters.
       const boxes = [...ids].map((id) => this.boxOf(id));
       for (const e of this.entities.ofKind('item')) {
-        if (ids.has(e.id) || this.sleeping.has(e.id) || !this.physics.isActive(e.id)) continue;
+        if (ids.has(e.id) || this.isSleeping(e.id) || !this.physics.isActive(e.id)) continue;
         const b = this.boxOf(e.id);
         if (
           boxes.some(
@@ -749,7 +941,7 @@ export class Sim {
       offered = { x: s.x, y: s.y };
     }
     for (const entity of this.entities.ofKind('bug')) {
-      if (this.sleeping.has(entity.id)) continue;
+      if (this.isSleeping(entity.id)) continue;
       const def = this.content.bugs.get(entity.defId);
       const state = this.physics.getState(entity.id);
       const graceUntil = this.launchGrace.get(entity.id);
@@ -849,7 +1041,7 @@ export class Sim {
     const physics = this.physics;
     const bugs: OtherBug[] = [];
     for (const e of this.entities.ofKind('bug')) {
-      if (this.sleeping.has(e.id) || !e.bug) continue;
+      if (this.isSleeping(e.id) || !e.bug) continue;
       const st = physics.getState(e.id);
       bugs.push({
         id: e.id,
@@ -870,7 +1062,7 @@ export class Sim {
     const loose: LooseItem[] = [];
     const owners = this.mouthOwners();
     for (const e of this.entities.ofKind('item')) {
-      if (this.sleeping.has(e.id)) continue;
+      if (this.isSleeping(e.id)) continue;
       const def = this.content.items.get(e.defId);
       const st = physics.getState(e.id);
       const ext = halfExtents(def.shape, st.angle);
@@ -928,7 +1120,7 @@ export class Sim {
       cover: (x: number, fromX: number) => {
         let best: { id: EntityId; x: number } | null = null;
         for (const e of this.entities.ofKind('item')) {
-          if (this.sleeping.has(e.id) || !physics.isActive(e.id) || physics.grabbed === e.id) continue;
+          if (this.isSleeping(e.id) || !physics.isActive(e.id) || physics.grabbed === e.id) continue;
           const def = this.content.items.get(e.defId);
           const st = physics.getState(e.id);
           const ext = halfExtents(def.shape, st.angle);
@@ -1016,7 +1208,7 @@ export class Sim {
         this.carried.set(c, bug.id);
         continue;
       }
-      if (physics.grabbed === c || !physics.isActive(c) || this.sleeping.has(c)) {
+      if (physics.grabbed === c || !physics.isActive(c) || this.isSleeping(c)) {
         b.carrying = null;
         continue;
       }
@@ -1114,7 +1306,7 @@ export class Sim {
       const b = bug.bug;
       const s = b?.social;
       if (!b || !s || s.kind !== 'soc_catch' || b.mode !== 'st_social' || b.carrying !== null) continue;
-      if (this.sleeping.has(bug.id) || this.physics.grabbed === bug.id) continue;
+      if (this.isSleeping(bug.id) || this.physics.grabbed === bug.id) continue;
       const partner = this.entities.get(s.partner);
       if (!partner?.bug) continue;
       const lead = s.role === 'lead' ? s : partner.bug.social;
@@ -1452,8 +1644,14 @@ export class Sim {
     return this.asleepAreas.has(areaId);
   }
 
+  /** Out of the world for now: asleep with its area, or tucked in the pocket. */
   isSleeping(id: EntityId): boolean {
-    return this.sleeping.has(id);
+    return this.sleeping.has(id) || this.pocketed.has(id);
+  }
+
+  /** In the pocket tray. */
+  isPocketed(id: EntityId): boolean {
+    return this.pocketed.has(id);
   }
 
   /**
@@ -1474,6 +1672,8 @@ export class Sim {
     }
     const mouthfuls = new Set(this.mouthOwners().keys());
     for (const e of this.entities.all()) {
+      // Pocketed things belong to no area; they stay switched off.
+      if (this.pocketed.has(e.id)) continue;
       const x = this.physics.getState(e.id).x;
       const asleep = this.asleepAreas.has(this.areaOf(x).id) && this.physics.grabbed !== e.id;
       if (asleep && !this.sleeping.has(e.id)) {
@@ -1506,6 +1706,7 @@ export class Sim {
     const out: DropCandidate[] = [];
     for (const bug of this.entities.ofKind('bug')) {
       if (bug.id === exclude || !bug.bug || !canEat(bug.bug) || this.physics.grabbed === bug.id) continue;
+      if (this.isSleeping(bug.id)) continue;
       const m = this.mouthAnchor(bug.id)!;
       out.push({ kind: 'mouth', entityId: bug.id, x: m.x, y: m.y });
     }
@@ -1535,6 +1736,7 @@ export class Sim {
     const is = this.physics.getState(itemId);
     if (Math.abs(is.x - bs.x) > 0.05) bug.bug.facing = is.x > bs.x ? 1 : -1;
     const liking = feedBug(bug.bug, def, itemId, item.defId);
+    if (byPlayer) this.counters.fed[bug.defId] = (this.counters.fed[bug.defId] ?? 0) + 1;
     this.takeInMouth(bug, itemId, liking, byPlayer);
   }
 
@@ -1702,7 +1904,7 @@ export class Sim {
   private rescueBuried(): void {
     for (const entity of this.entities.all()) {
       // Things in a mouth or in front legs go where their bug puts them.
-      if (this.sleeping.has(entity.id) || !this.physics.isActive(entity.id)) continue;
+      if (this.isSleeping(entity.id) || !this.physics.isActive(entity.id)) continue;
       const s = this.physics.getState(entity.id);
       const floor = this.terrain.surfaceY(s.x);
       if (s.y > floor + BURIED_DEPTH) {
@@ -1719,7 +1921,7 @@ export class Sim {
       for (const entry of area.respawn) {
         const have = this.entities
           .ofKind('item')
-          .filter((e) => e.defId === entry.item)
+          .filter((e) => e.defId === entry.item && !this.pocketed.has(e.id))
           .filter((e) => {
             const x = this.physics.getState(e.id).x;
             return x >= area.xStart && x < area.xEnd;
@@ -1766,6 +1968,7 @@ export class Sim {
     const carrier = this.carried.get(e.id);
     if (carrier !== undefined) view.carriedBy = carrier;
     if (this.sleeping.has(e.id)) view.asleep = true;
+    if (this.pocketed.has(e.id)) view.pocket = this.pocket.slots.findIndex((ids) => ids.includes(e.id));
     if (e.kind === 'item' && e.soak) {
       const after = this.content.items.get(e.defId).soggyAfter;
       if (after) view.soggy = Math.min(1, e.soak / (after * SIM_HZ));
@@ -1829,6 +2032,8 @@ export class Sim {
       entities,
       env: clone(this.environment.state),
       social: { affinity: clone(this.affinity) },
+      pocket: clone(this.pocket),
+      counters: clone(this.counters),
     };
   }
 }

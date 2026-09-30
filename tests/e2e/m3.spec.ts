@@ -8,6 +8,7 @@ import {
   entity,
   launchApp,
   pressOn,
+  scrollTo,
   spawnItem,
   toClient,
 } from './app';
@@ -23,17 +24,6 @@ const events = (page: Page, name: string): Promise<Logged[]> =>
   page.evaluate((n) => window.__bb!.events().filter((e) => e.name === n), name) as Promise<Logged[]>;
 
 const camera = async (page: Page): Promise<number> => (await page.evaluate(() => window.__bb!.camera())).x;
-
-/** Scroll the camera with the real mouse wheel until its left edge is near `x`. */
-async function scrollTo(page: Page, x: number): Promise<void> {
-  await page.mouse.move(960, 200);
-  for (let i = 0; i < 80; i++) {
-    const d = x - (await camera(page));
-    if (Math.abs(d) < 0.3) return;
-    await page.mouse.wheel(0, Math.max(-600, Math.min(600, (d * 100) / 1.5)));
-    await page.waitForTimeout(30);
-  }
-}
 
 /** Spawn something and wait until it exists. */
 async function spawn(page: Page, kind: 'bug' | 'item', defId: string, x: number, y: number): Promise<number> {

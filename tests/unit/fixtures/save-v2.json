@@ -1,0 +1,314 @@
+{
+ "version": 2,
+ "savedAt": "2026-01-02T00:00:00.000Z",
+ "world": {
+  "seed": "fixture-v2",
+  "tick": 1500,
+  "rng": [
+   3489694558,
+   2107440433,
+   3005746890,
+   667163284
+  ],
+  "nextId": 19,
+  "entities": [
+   {
+    "id": 1,
+    "kind": "item",
+    "defId": "item_pebble",
+    "body": {
+     "x": 1,
+     "y": 8.790000000000001,
+     "angle": 0,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 3,
+    "kind": "item",
+    "defId": "item_pebble",
+    "body": {
+     "x": 4.031684733005191,
+     "y": 8.791144978855975,
+     "angle": -1.8424962246917176,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 4,
+    "kind": "item",
+    "defId": "item_bottle_cap",
+    "body": {
+     "x": 7.0194872900726635,
+     "y": 8.900001957403484,
+     "angle": 5.634694970558776e-7,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 6,
+    "kind": "item",
+    "defId": "item_twig",
+    "body": {
+     "x": 9.856262373469017,
+     "y": 8.930051004397315,
+     "angle": 0.000006427530687847603,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 7,
+    "kind": "item",
+    "defId": "item_spring_coil",
+    "body": {
+     "x": 11.134047024795972,
+     "y": 8.683792673578505,
+     "angle": 0.004656203697163766,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 8,
+    "kind": "item",
+    "defId": "item_pebble",
+    "body": {
+     "x": 11.600025280543163,
+     "y": 8.793878479777927,
+     "angle": 1.7290913458479409,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 9,
+    "kind": "item",
+    "defId": "item_berry_red",
+    "body": {
+     "x": 21.4,
+     "y": 3.8200000000000003,
+     "angle": 0,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 10,
+    "kind": "item",
+    "defId": "item_marble_blue",
+    "body": {
+     "x": 27.4,
+     "y": 8.85,
+     "angle": 0,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 11,
+    "kind": "item",
+    "defId": "item_ruler_ramp",
+    "body": {
+     "x": 30.600000098471806,
+     "y": 8.90626527891338,
+     "angle": 0.00018175633244594896,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 12,
+    "kind": "item",
+    "defId": "item_pebble",
+    "body": {
+     "x": 31.300510003886377,
+     "y": 8.622560614346378,
+     "angle": 0.0025560684076366717,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 13,
+    "kind": "item",
+    "defId": "item_rubber_ball",
+    "body": {
+     "x": 33.8,
+     "y": 8.73,
+     "angle": 0,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 14,
+    "kind": "item",
+    "defId": "item_marble_red",
+    "body": {
+     "x": 34.9,
+     "y": 8.85,
+     "angle": 0,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 15,
+    "kind": "item",
+    "defId": "item_berry_red",
+    "body": {
+     "x": 37.6,
+     "y": 8.825000545614428,
+     "angle": 0,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    }
+   },
+   {
+    "id": 16,
+    "kind": "bug",
+    "defId": "bug_ladybug_dot",
+    "body": {
+     "x": 8.37682284550394,
+     "y": 8.493599865270465,
+     "angle": 0,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    },
+    "bug": {
+     "mode": "st_idle",
+     "timer": 18,
+     "targetX": 8.263093974533202,
+     "targetId": null,
+     "action": null,
+     "facing": -1,
+     "needs": {
+      "need_hunger": 99.02500000000089,
+      "need_fun": 75.49999999999403,
+      "need_energy": 79.31499999999454
+     },
+     "decideIn": 76,
+     "airPeak": 12.261520296181834,
+     "selfLaunched": false,
+     "lastHardLanding": -1,
+     "dizzyStreak": 0,
+     "dizzyTicks": 0,
+     "used": [
+      {
+       "id": 7,
+       "tick": 214
+      },
+      {
+       "id": 5,
+       "tick": 1265
+      }
+     ],
+     "stuck": 0,
+     "tries": 1,
+     "done": false,
+     "lastX": 8.37682284550394
+    }
+   },
+   {
+    "id": 17,
+    "kind": "bug",
+    "defId": "bug_pillbug_rollo",
+    "body": {
+     "x": 5.124437405116295,
+     "y": 8.535000000000004,
+     "angle": 0,
+     "vx": 0,
+     "vy": 0,
+     "av": 0
+    },
+    "bug": {
+     "mode": "st_idle",
+     "timer": 108,
+     "targetX": 5.014676806207796,
+     "targetId": null,
+     "action": null,
+     "facing": -1,
+     "needs": {
+      "need_hunger": 93.82625000000561,
+      "need_fun": 66.99999999999267,
+      "need_energy": 77.95500000000158
+     },
+     "decideIn": 70,
+     "airPeak": 1.9115947418777317,
+     "selfLaunched": false,
+     "lastHardLanding": -1,
+     "dizzyStreak": 0,
+     "dizzyTicks": 0,
+     "used": [
+      {
+       "id": 2,
+       "tick": 152
+      }
+     ],
+     "stuck": 0,
+     "tries": 1,
+     "done": false,
+     "lastX": 5.124437405116295
+    }
+   },
+   {
+    "id": 18,
+    "kind": "bug",
+    "defId": "bug_snail_glorp",
+    "body": {
+     "x": 16.27479773026227,
+     "y": 3.434425519727829,
+     "angle": 0,
+     "vx": 0.476640423887852,
+     "vy": 0,
+     "av": 0
+    },
+    "bug": {
+     "mode": "st_wander",
+     "timer": 531,
+     "targetX": 20.2710283189247,
+     "targetId": null,
+     "action": null,
+     "facing": 1,
+     "needs": {
+      "need_hunger": 75.50000000000682,
+      "need_fun": 60.49999999999983,
+      "need_energy": 78.75999999999749
+     },
+     "decideIn": 54,
+     "airPeak": 4.322888247293478,
+     "selfLaunched": false,
+     "lastHardLanding": -1,
+     "dizzyStreak": 0,
+     "dizzyTicks": 0,
+     "used": [],
+     "stuck": 0,
+     "tries": 0,
+     "done": false,
+     "lastX": 16.266853723197475
+    }
+   }
+  ]
+ },
+ "view": {
+  "cameraX": 4
+ }
+}

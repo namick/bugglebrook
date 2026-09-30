@@ -31,6 +31,26 @@ export type Command =
   /** Debug and tests: turn a tag on (for `seconds`, or its usual time) or off. */
   | { type: 'set_tag'; id: number; tag: string; on: boolean; seconds?: number }
   /** Debug and tests until weather arrives: wind in m/s (+ blows right) and rain. */
-  | { type: 'set_weather'; wind: number; rain: boolean };
+  | { type: 'set_weather'; wind: number; rain: boolean }
+  /**
+   * The player let go of what they hold over pocket slot `slot` (0 to 5):
+   * it goes in the pocket. A slot that cannot take it swaps: what was there
+   * pops out at the hand.
+   */
+  | { type: 'pocket_put'; slot: number }
+  /** The player pressed on a pocket slot: its top thing comes out into the hand at (x, y). */
+  | { type: 'pocket_take'; slot: number; x: number; y: number }
+  /**
+   * A new world's first scene (game design doc, section 17): Dot asleep on
+   * the bottle cap, a red berry beside her, a little peckish.
+   */
+  | { type: 'stage_intro' }
+  /** The cursor came close to a sleeping bug in the first scene: it wakes gently and looks up. */
+  | { type: 'wake'; id: number }
+  /**
+   * The first scene's nudge: the player has not grabbed a bug yet, so this
+   * one walks toward the hand at world x and asks to be flung ("again!").
+   */
+  | { type: 'beckon'; id: number; x: number };
 
 export type CommandType = Command['type'];

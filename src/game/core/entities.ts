@@ -7,7 +7,7 @@ export type EntityKind = 'bug' | 'item';
 
 /**
  * Bug states, named as in the game design doc (section 5). `st_pocketed`
- * exists for saves; the pocket that puts bugs in it arrives in M5.
+ * is a bug in the pocket tray: out of the world, needs frozen.
  */
 export type BugMode =
   | 'st_idle'

@@ -18,7 +18,14 @@ const api: BugglebrookApi = {
     read: (slot) => ipcRenderer.invoke(IPC.savesRead, slot),
     write: (slot, data) => ipcRenderer.invoke(IPC.savesWrite, slot, data),
     remove: (slot) => ipcRenderer.invoke(IPC.savesRemove, slot),
+    readBackup: (slot) => ipcRenderer.invoke(IPC.savesReadBackup, slot),
+    recover: (slot) => ipcRenderer.invoke(IPC.savesRecover, slot),
   },
+  settings: {
+    get: () => ipcRenderer.invoke(IPC.settingsGet),
+    set: (settings) => ipcRenderer.invoke(IPC.settingsSet, settings),
+  },
+  quit: () => ipcRenderer.send(IPC.quit),
   onFlushRequest(handler) {
     flushHandler = handler;
   },

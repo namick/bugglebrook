@@ -12,6 +12,8 @@ const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.m
 export class SquashSpring {
   sx = 1;
   sy = 1;
+  /** How much of each kick to use: 1 normally, less with reduce motion on. */
+  amount = 1;
   private vx = 0;
   private vy = 0;
 
@@ -21,8 +23,8 @@ export class SquashSpring {
   ) {}
 
   kick(sx: number, sy: number): void {
-    this.sx = sx;
-    this.sy = sy;
+    this.sx = 1 + (sx - 1) * this.amount;
+    this.sy = 1 + (sy - 1) * this.amount;
     this.vx = 0;
     this.vy = 0;
   }
@@ -66,6 +68,22 @@ export class SquashSpring {
  */
 export function stretchFor(speed: number, max = 1.3, factor = 1): number {
   return 1 + clamp((speed / 25) * factor, 0, max - 1);
+}
+
+/**
+ * Screen shake for this frame, in pixels: random within `power`, fading
+ * over the last 0.16 s. Reduce motion turns it off entirely (M5 acceptance:
+ * the offset is always 0).
+ */
+export function shakeOffset(
+  power: number,
+  left: number,
+  reduceMotion: boolean,
+  random: () => number = Math.random,
+): { x: number; y: number } {
+  if (reduceMotion || left <= 0 || power <= 0) return { x: 0, y: 0 };
+  const k = left / 0.16;
+  return { x: (random() * 2 - 1) * power * k, y: (random() * 2 - 1) * power * k };
 }
 
 /** Frame-rate independent approach of `current` toward `target`. */

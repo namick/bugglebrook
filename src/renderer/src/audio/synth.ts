@@ -22,8 +22,13 @@ export interface Tone {
   /** Pitch wobble. */
   vibrato?: { rate: number; depth: number };
   /** Which mix bus. */
-  bus?: 'sfx' | 'voice';
+  bus?: Bus;
 }
+
+export type Bus = 'sfx' | 'voice' | 'music';
+
+/** Bus levels, 0 to 1. */
+export type Volumes = Record<Bus, number>;
 
 /**
  * Where sounds go. The game talks to this interface so tests can swap in
@@ -34,18 +39,24 @@ export interface AudioBackend {
   /** Resume after the platform suspended audio. Safe to call often. */
   resume(): void;
   setMuted(muted: boolean): void;
+  /** Set each bus's level, 0 to 1 (the settings' sliders). */
+  setVolumes(volumes: Volumes): void;
 }
 
 /** Plays nothing; remembers what it was asked to play. */
 export class NullAudioBackend implements AudioBackend {
   readonly played: Tone[] = [];
   muted = false;
+  volumes: Volumes = { sfx: 0.8, voice: 0.8, music: 0.7 };
   play(tone: Tone): void {
-    if (!this.muted) this.played.push(tone);
+    if (!this.muted && this.volumes[tone.bus ?? 'sfx'] > 0) this.played.push(tone);
   }
   resume(): void {}
   setMuted(muted: boolean): void {
     this.muted = muted;
+  }
+  setVolumes(volumes: Volumes): void {
+    this.volumes = { ...volumes };
   }
 }
 
@@ -57,7 +68,8 @@ export class NullAudioBackend implements AudioBackend {
 export class WebAudioBackend implements AudioBackend {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
-  private buses: Record<'sfx' | 'voice', GainNode> | null = null;
+  private buses: Record<Bus, GainNode> | null = null;
+  private volumes: Volumes = { sfx: 0.8, voice: 0.8, music: 0.7 };
   private noise: AudioBuffer | null = null;
   private muted = false;
   private active = 0;
@@ -74,17 +86,21 @@ export class WebAudioBackend implements AudioBackend {
       master.connect(limiter);
       limiter.connect(ctx.destination);
       const sfx = ctx.createGain();
-      sfx.gain.value = 0.8;
+      sfx.gain.value = this.volumes.sfx;
       const voice = ctx.createGain();
-      voice.gain.value = 0.8;
+      voice.gain.value = this.volumes.voice;
+      // Generative music (M9) plays through this bus.
+      const music = ctx.createGain();
+      music.gain.value = this.volumes.music;
       sfx.connect(master);
       voice.connect(master);
+      music.connect(master);
       const noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
       const data = noise.getChannelData(0);
       for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
       this.ctx = ctx;
       this.master = master;
-      this.buses = { sfx, voice };
+      this.buses = { sfx, voice, music };
       this.noise = noise;
     }
     return this.ctx;
@@ -93,6 +109,8 @@ export class WebAudioBackend implements AudioBackend {
   play(tone: Tone): void {
     const ctx = this.context();
     if (!ctx || this.muted || !this.buses || !this.noise) return;
+    // A bus turned all the way down plays nothing, so it costs nothing.
+    if (this.volumes[tone.bus ?? 'sfx'] <= 0) return;
     // Voice cap: skip rather than pile up (the doc allows 32).
     if (this.active >= 32) return;
     const start = ctx.currentTime + (tone.delay ?? 0);
@@ -178,4 +196,16 @@ export class WebAudioBackend implements AudioBackend {
     this.muted = muted;
     if (this.master) this.master.gain.value = muted ? 0 : 0.5;
   }
+
+  setVolumes(volumes: Volumes): void {
+    this.volumes = { ...volumes };
+    if (!this.buses || !this.ctx) return;
+    for (const bus of ['sfx', 'voice', 'music'] as const)
+      this.buses[bus].gain.setTargetAtTime(volumes[bus], this.ctx.currentTime, 0.03);
+  }
+}
+
+/** Settings' 0 to 100 sliders as bus levels. */
+export function volumesFrom(s: { sfx: number; voices: number; music: number }): Volumes {
+  return { sfx: s.sfx / 100, voice: s.voices / 100, music: s.music / 100 };
 }

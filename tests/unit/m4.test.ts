@@ -342,6 +342,7 @@ describe('off-screen simulation (M4 acceptance)', () => {
       savedAt: 'x',
       world: sim.serialize(),
       view: { cameraX: 40 },
+      meta: { createdAt: 'x', thumb: null },
     });
     const loaded = Sim.load(loadSaveFile(text).world);
     expect(loaded.entities.ofKind('bug').map((b) => ({ ...b.bug!.needs }))).toEqual(needs);
@@ -399,7 +400,7 @@ describe('saves and content', () => {
     delete world.env.slime;
     delete world.social;
     const save = loadSaveFile({ version: 4, savedAt: 'x', world, view: { cameraX: 40 } });
-    expect(save.version).toBe(5);
+    expect(save.version).toBe(SAVE_VERSION);
     const dot = save.world.entities.find((e) => e.defId === 'bug_ladybug_dot')!.bug!;
     expect(dot.needs.need_social).toBe(70);
     expect(dot.needs.need_clean).toBe(90);

@@ -7,7 +7,18 @@ export interface SlotSummary extends SlotInfo {
   save: SaveFile | null;
 }
 
-/** Reads and writes save slots through the preload API. */
+/** How a slot load went. */
+export interface Loaded {
+  save: SaveFile | null;
+  /** The save would not load, so its backup was put back and loaded instead. */
+  recovered: boolean;
+}
+
+/**
+ * Reads and writes save slots through the preload API. A slot that will
+ * not load (corrupt, cut short, from a broken build) is set aside by main
+ * and its backup, the save before the last write, takes its place.
+ */
 export class SaveService {
   constructor(
     private readonly api: BugglebrookApi['saves'],
@@ -16,29 +27,55 @@ export class SaveService {
 
   async list(): Promise<SlotSummary[]> {
     const infos = await this.api.list();
-    return Promise.all(
-      infos.map(async (info) => ({ ...info, save: info.exists ? await this.load(info.slot) : null })),
-    );
+    const out: SlotSummary[] = [];
+    for (const info of infos) {
+      const save = info.exists ? await this.load(info.slot) : null;
+      out.push({ ...info, exists: save !== null, save });
+    }
+    return out;
   }
 
-  /** Load a slot. Returns null if it is empty or unreadable. */
+  /** Load a slot, recovering from its backup if needed. Null if it is empty or nothing is readable. */
   async load(slot: number): Promise<SaveFile | null> {
+    return (await this.loadWithRecovery(slot)).save;
+  }
+
+  async loadWithRecovery(slot: number): Promise<Loaded> {
     const raw = await this.api.read(slot);
-    if (raw === null) return null;
+    if (raw === null) return { save: null, recovered: false };
+    const main = this.parse(raw, slot, 'save');
+    if (main) return { save: main, recovered: false };
+    const backup = await this.api.recover(slot);
+    const save = backup === null ? null : this.parse(backup, slot, 'backup');
+    return { save, recovered: save !== null };
+  }
+
+  private parse(raw: string, slot: number, what: string): SaveFile | null {
     try {
       return loadSaveFile(raw);
     } catch (err) {
-      console.error(`Save slot ${slot} is unreadable`, err);
+      console.warn(`Save slot ${slot} ${what} is unreadable`, err);
       return null;
     }
   }
 
-  async save(slot: number, sim: Sim, view: ViewSave): Promise<SaveFile> {
+  /**
+   * Save a world. `createdAt` is kept from the slot's first save; `thumb`
+   * is a picture of the camera view (see `thumbnail.ts`).
+   */
+  async save(
+    slot: number,
+    sim: Sim,
+    view: ViewSave,
+    meta: { createdAt?: string; thumb?: string | null } = {},
+  ): Promise<SaveFile> {
+    const savedAt = this.now().toISOString();
     const file: SaveFile = {
       version: SAVE_VERSION,
-      savedAt: this.now().toISOString(),
+      savedAt,
       world: sim.serialize(),
       view,
+      meta: { createdAt: meta.createdAt ?? savedAt, thumb: meta.thumb ?? null },
     };
     await this.api.write(slot, JSON.stringify(file));
     return file;

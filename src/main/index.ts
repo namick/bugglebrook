@@ -1,7 +1,9 @@
 import { BrowserWindow, app, ipcMain, shell } from 'electron';
 import { join } from 'node:path';
 import { IPC } from '../shared/ipc';
+import { DEFAULT_SETTINGS } from '../shared/settings';
 import { SaveStore } from './saveStore';
+import { SettingsStore } from './settingsStore';
 import { startAutoUpdates } from './updater';
 
 const testMode = process.env.BUGGLEBROOK_TEST === '1';
@@ -16,6 +18,11 @@ if (!testMode && !app.requestSingleInstanceLock()) app.quit();
 app.commandLine.appendSwitch('enable-unsafe-swiftshader');
 
 const saves = new SaveStore(join(app.getPath('userData'), 'saves'));
+// Fullscreen by default for players; windowed under test so E2E runs stay predictable.
+const settings = new SettingsStore(join(app.getPath('userData'), 'settings.json'), {
+  ...DEFAULT_SETTINGS,
+  fullscreen: !testMode,
+});
 let mainWindow: BrowserWindow | null = null;
 
 function registerIpc(): void {
@@ -25,10 +32,21 @@ function registerIpc(): void {
     saves.write(SaveStore.assertSlot(slot), data),
   );
   ipcMain.handle(IPC.savesRemove, (_e, slot: unknown) => saves.remove(SaveStore.assertSlot(slot)));
+  ipcMain.handle(IPC.savesReadBackup, (_e, slot: unknown) => saves.readBackup(SaveStore.assertSlot(slot)));
+  ipcMain.handle(IPC.savesRecover, (_e, slot: unknown) => saves.recover(SaveStore.assertSlot(slot)));
+  ipcMain.handle(IPC.settingsGet, () => settings.get());
+  ipcMain.handle(IPC.settingsSet, async (e, raw: unknown) => {
+    const next = await settings.set(raw);
+    const win = BrowserWindow.fromWebContents(e.sender);
+    if (win && win.isFullScreen() !== next.fullscreen) win.setFullScreen(next.fullscreen);
+    return next;
+  });
+  ipcMain.on(IPC.quit, (e) => BrowserWindow.fromWebContents(e.sender)?.close());
 }
 
-function createWindow(): BrowserWindow {
+function createWindow(fullscreen: boolean): BrowserWindow {
   const win = new BrowserWindow({
+    fullscreen,
     width: 1280,
     height: 720,
     minWidth: 800,
@@ -94,12 +112,14 @@ app.on('second-instance', () => {
 app.whenReady().then(async () => {
   await saves.sweep();
   registerIpc();
-  mainWindow = createWindow();
+  const { fullscreen } = await settings.get();
+  mainWindow = createWindow(fullscreen);
   mainWindow.on('closed', () => (mainWindow = null));
   startAutoUpdates(testMode);
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow();
+    if (BrowserWindow.getAllWindows().length === 0)
+      void settings.get().then((s) => (mainWindow = createWindow(s.fullscreen)));
   });
 });
 

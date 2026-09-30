@@ -540,7 +540,13 @@ describe('saves', () => {
     sim.spawn('item', 'item_mint_leaf', 20.3, POND.level - 1);
     sim.run(120);
     const save = JSON.parse(JSON.stringify(sim.serialize()));
-    const file = loadSaveFile({ version: SAVE_VERSION, savedAt: 'now', world: save, view: { cameraX: 3 } });
+    const file = loadSaveFile({
+      version: SAVE_VERSION,
+      savedAt: 'now',
+      world: save,
+      view: { cameraX: 3 },
+      meta: { createdAt: 'now', thumb: null },
+    });
     const loaded = Sim.load(file.world);
     expect(loaded.tagsOf(cork.id)).toEqual(sim.tagsOf(cork.id));
     expect(loaded.environment.state.hoseOn).toBe(true);

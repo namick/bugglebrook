@@ -158,6 +158,30 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
       },
     };
   },
+  // 5 -> 6: M5's pocket tray and menu. The world gains an empty pocket and
+  // the fed counts behind the slot badge; the file gains menu meta (its
+  // creation time, taken from the last save, and no thumbnail until the
+  // next save). No slot holds a bug yet, so any bug marked pocketed drops
+  // back into the world.
+  5: (save) => {
+    const world = save.world as Record<string, unknown>;
+    const entities = (world.entities as Record<string, unknown>[]).map((e) => {
+      if (e.kind !== 'bug') return e;
+      const bug = e.bug as Record<string, unknown>;
+      return bug.mode === 'st_pocketed' ? { ...e, bug: { ...bug, mode: 'st_airborne' } } : e;
+    });
+    return {
+      ...save,
+      version: 6,
+      meta: { createdAt: typeof save.savedAt === 'string' ? save.savedAt : '', thumb: null },
+      world: {
+        ...world,
+        entities,
+        pocket: { slots: [[], [], [], [], [], []], at: {} },
+        counters: { fed: {} },
+      },
+    };
+  },
 };
 
 export class SaveError extends Error {

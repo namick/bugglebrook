@@ -15,7 +15,7 @@ import type { Camera, Point } from './camera';
 import { BugSprite } from './draw/bug';
 import type { Look } from './draw/face';
 import { ItemSprite } from './draw/item';
-import { SquashSpring, approach, stretchFor } from './juice';
+import { SquashSpring, approach, shakeOffset, stretchFor } from './juice';
 import { OUTLINE } from './palette';
 import { Particles } from './particles';
 import type { Move, Picto, ReactionLook } from './reactions';
@@ -77,6 +77,9 @@ interface Juice {
 }
 
 /** Where the cursor is, in world meters, or null when it is off the canvas. */
+/** Squash kicks keep this share of their size with reduce motion on. */
+const SQUASH_REDUCED = 0.4;
+
 export interface PointerSource {
   readonly hoverWorld: Point | null;
   /** The grabbable thing under the cursor, if any. */
@@ -118,6 +121,7 @@ export class WorldView extends Container {
   private time = 0;
   private shakeLeft = 0;
   private shakePower = 0;
+  private reduced = false;
   private lastHover: Point | null = null;
   /** Bugs whose mouth glows right now, and in what color (test hook). */
   readonly glowing = new Map<EntityId, Liking>();
@@ -154,6 +158,26 @@ export class WorldView extends Container {
     this.listen();
   }
 
+  /**
+   * Reduce motion (settings): no screen shake at all, gentler squash, and
+   * half the particles.
+   */
+  set reduceMotion(on: boolean) {
+    this.reduced = on;
+    this.particles.density = on ? 0.5 : 1;
+    for (const j of this.juice.values()) j.squash.amount = on ? SQUASH_REDUCED : 1;
+    if (on) this.shakeLeft = this.shakePower = 0;
+  }
+
+  get reduceMotion(): boolean {
+    return this.reduced;
+  }
+
+  /** How far the screen shake moves the world this frame, in pixels (test hook). */
+  get shakeOffset(): { x: number; y: number } {
+    return { x: this.world.position.x, y: this.world.position.y };
+  }
+
   private juiceFor(id: EntityId): Juice {
     let j = this.juice.get(id);
     if (!j) {
@@ -175,6 +199,7 @@ export class WorldView extends Container {
         snore: 0.5 + Math.random(),
         glance: 0,
       };
+      j.squash.amount = this.reduced ? SQUASH_REDUCED : 1;
       this.juice.set(id, j);
     }
     return j;
@@ -550,6 +575,23 @@ export class WorldView extends Container {
         this.particles.dust(px(e.x), px(e.y), 10);
         this.shake(3, 0.15);
       }),
+      // The first scene's "again!": a spring in the bubble and a hopeful hop.
+      ev.on('bug_beckoned', (e) => {
+        this.say(e.id, ['spring', 'up'], 3.2);
+        this.moveBug(e.id, 'hop', 0.8);
+        this.particles.sparkles(px(e.x), px(e.y) - this.sizeOf(e.id) * 2, 4);
+      }),
+      // Out of the pocket: a puff where it appears. Into it: a little swirl where it was.
+      ev.on('unpocketed', (e) => {
+        this.juiceFor(e.id).squash.kick(0.8, 1.25);
+        this.particles.ring(px(e.x), px(e.y), 30);
+        this.particles.sparkles(px(e.x), px(e.y), 3);
+      }),
+      ev.on('pocketed', (e) => this.particles.ring(px(e.x), px(e.y), 26)),
+      ev.on('pocket_swapped', (e) => {
+        this.juiceFor(e.id).squash.kick(0.8, 1.25);
+        this.particles.ring(px(e.x), px(e.y), 26);
+      }),
     ];
   }
 
@@ -716,6 +758,7 @@ export class WorldView extends Container {
   }
 
   shake(px: number, seconds: number): void {
+    if (this.reduced) return;
     this.shakePower = Math.max(this.shakePower, Math.min(6, px));
     this.shakeLeft = Math.max(this.shakeLeft, seconds);
   }
@@ -723,18 +766,12 @@ export class WorldView extends Container {
   update(dt: number, camera: Camera): void {
     this.time += dt;
     this.background.update(camera, this.time);
-    let sx = 0;
-    let sy = 0;
-    if (this.shakeLeft > 0) {
-      this.shakeLeft -= dt;
-      const k = Math.max(0, this.shakeLeft) / 0.16;
-      sx = (Math.random() * 2 - 1) * this.shakePower * k;
-      sy = (Math.random() * 2 - 1) * this.shakePower * k;
-      if (this.shakeLeft <= 0) this.shakePower = 0;
-    }
+    if (this.shakeLeft > 0) this.shakeLeft -= dt;
+    const shake = shakeOffset(this.shakePower, this.shakeLeft, this.reduced);
+    if (this.shakeLeft <= 0) this.shakePower = 0;
     // The background scrolls its own near layer; entities, shadows, and
     // particles follow it. The world container carries the screen shake.
-    this.world.position.set(sx, sy);
+    this.world.position.set(shake.x, shake.y);
     const scroll = -camera.x * PPM;
     this.entityLayer.x = this.shadows.x = this.particles.x = this.trails.x = scroll;
     this.glows.x = this.bubbles.x = scroll;
@@ -755,7 +792,8 @@ export class WorldView extends Container {
         ? Math.hypot(hover.x - this.lastHover.x, hover.y - this.lastHover.y) / dt
         : 0;
     this.lastHover = hover;
-    const views = this.sim.views();
+    // Pocketed things are drawn by the pocket tray, not the world.
+    const views = this.sim.views().filter((v) => v.pocket === undefined);
     this.water.update(dt, camera, views);
     this.soapBubbles.update(dt, this.obstacles(views, left, right));
     if (this.sim.environment.state.hoseOn) {
@@ -828,7 +866,7 @@ export class WorldView extends Container {
     this.drawMagnets(over, views, left, right);
     this.bubbles.update(dt, (id) => {
       const v = this.sim.view(id);
-      if (!v || !v.bug) return null;
+      if (!v || !v.bug || v.pocket !== undefined) return null;
       const r = this.sim.content.bugs.get(v.defId).radius * PPM;
       return { x: v.x * PPM + v.bug.facing * r * 0.4, y: v.y * PPM - r * 2.1 - 14 };
     });
