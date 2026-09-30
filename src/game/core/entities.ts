@@ -1,3 +1,4 @@
+import type { AdvertAction } from '../data/types';
 import type { ReactionType } from '../events';
 import type { TagState } from '../systems/tags';
 
@@ -5,29 +6,38 @@ export type EntityId = number;
 export type EntityKind = 'bug' | 'item';
 
 /**
- * Bug states, named as in the game design doc (section 5). Only the subset
- * the milestones so far need exists.
+ * Bug states, named as in the game design doc (section 5). `st_pocketed`
+ * exists for saves; the pocket that puts bugs in it arrives in M5.
  */
 export type BugMode =
   | 'st_idle'
   | 'st_wander'
   | 'st_seek'
   | 'st_use'
+  | 'st_social'
   | 'st_eat'
+  | 'st_sleep'
   | 'st_react'
   | 'st_held'
   | 'st_airborne'
   | 'st_landing'
   | 'st_dizzy'
   | 'st_recover'
-  | 'st_swim';
+  | 'st_swim'
+  | 'st_rolled'
+  | 'st_hide'
+  | 'st_ride'
+  | 'st_perform'
+  | 'st_pocketed';
 
 export const BUG_MODES: readonly BugMode[] = [
   'st_idle',
   'st_wander',
   'st_seek',
   'st_use',
+  'st_social',
   'st_eat',
+  'st_sleep',
   'st_react',
   'st_held',
   'st_airborne',
@@ -35,12 +45,97 @@ export const BUG_MODES: readonly BugMode[] = [
   'st_dizzy',
   'st_recover',
   'st_swim',
+  'st_rolled',
+  'st_hide',
+  'st_ride',
+  'st_perform',
+  'st_pocketed',
 ];
 
 export interface Needs {
   need_hunger: number;
   need_fun: number;
   need_energy: number;
+  need_social: number;
+  need_clean: number;
+}
+
+/**
+ * Things bugs do together (game design doc, section 5, "Bug to bug
+ * interactions"). `soc_catch` and `soc_steal` are how "playing together" and
+ * snack snatching show up with the toys and food the world has so far;
+ * `soc_ride` is Boing sitting on another bug's head.
+ */
+export type SocialKind =
+  | 'soc_chat'
+  | 'soc_bump'
+  | 'soc_tag'
+  | 'soc_share_food'
+  | 'soc_catch'
+  | 'soc_comfort'
+  | 'soc_steal'
+  | 'soc_ride';
+
+export const SOCIAL_KINDS: readonly SocialKind[] = [
+  'soc_chat',
+  'soc_bump',
+  'soc_tag',
+  'soc_share_food',
+  'soc_catch',
+  'soc_comfort',
+  'soc_steal',
+  'soc_ride',
+];
+
+/** What a bug is going to do or doing: an advert's action or a social interaction. */
+export type BugAction = AdvertAction | SocialKind;
+
+/**
+ * One side of an interaction between two bugs. Both bugs hold a copy with
+ * their own role. Before it starts, the initiator may be fetching a toy or
+ * a snack (`stage` 0) or walking over (`stage` 1).
+ */
+export interface SocialState {
+  kind: SocialKind;
+  partner: EntityId;
+  /** `lead` started it. In tag and snatching, `lead` is the one running. */
+  role: 'lead' | 'follow';
+  /** 0 fetching, 1 walking over, 2 playing. */
+  stage: number;
+  /** Exchanges, throws, or tags so far. */
+  count: number;
+  /** How many exchanges or throws to play. */
+  goal: number;
+  /** Ticks left in the current beat. */
+  beat: number;
+  /** Ticks left before the whole thing ends. */
+  left: number;
+  /** The toy or snack involved, if any. */
+  item: EntityId | null;
+  /** The last chat topic, so the reply can answer it. */
+  last: string | null;
+}
+
+/** A notable moment with a thing or a bug. Memory fades over 120 s. */
+export interface Memory {
+  id: EntityId;
+  good: boolean;
+  tick: number;
+}
+
+/**
+ * What a bug in a sleeping area is up to (game design doc, section 5,
+ * "Off-screen simulation"). Where it will be and what it will be doing when
+ * its area wakes.
+ */
+export interface CoarsePlan {
+  kind: 'rest' | 'sleep' | 'wander' | 'eat' | 'play' | 'visit' | 'home';
+  /** Where it is now, in world x (the body stays put until the area wakes). */
+  at: number;
+  /** Where it is heading. */
+  x: number;
+  /** A thing or bug it is heading for, or null. */
+  targetId: EntityId | null;
 }
 
 /** Bug AI state. Plain data so it serializes as-is. */
@@ -53,7 +148,7 @@ export interface BugBrain {
   /** Entity the bug is seeking or using, if any. */
   targetId: EntityId | null;
   /** What it will do with the target. */
-  action: 'eat' | 'bounce' | null;
+  action: BugAction | null;
   facing: 1 | -1;
   /** 0 to 100; 100 is fully satisfied. */
   needs: Needs;
@@ -96,6 +191,40 @@ export interface BugBrain {
   smelledAt: number;
   /** Tick of an involuntary hop on its way (after bouncy food), or -1. */
   hopAt: number;
+  /** Something held in the front legs (a pebble, a toy, a snack), or null. */
+  carrying: EntityId | null;
+  /** The interaction with another bug under way, if any. */
+  social: SocialState | null;
+  /** The last few notable moments, newest last. */
+  memory: Memory[];
+  /** Things it has sniffed already (inspect is once per thing). */
+  inspected: EntityId[];
+  /** Woken up and groggy until this tick. */
+  groggyUntil: number;
+  /** Woken early: nods off again at this tick if still tired, or -1. */
+  napAt: number;
+  /** Recent pokes (ticks), for curling up after three quick ones. */
+  pokes: number[];
+  /** Gliding down on open wings (Dot leaping off the stump). */
+  gliding: boolean;
+  /** Tick of the next idle fidget (a hum, a yawn, a look around). */
+  fidgetAt: number;
+  /** Tick of the last slip on a slime trail. */
+  slippedAt: number;
+  /** Where it drifts back to when resting, for pebble rows (world x). */
+  restX: number;
+  /** Off-screen plan while its area sleeps, or null. */
+  plan: CoarsePlan | null;
+  /** The mode to go back to after a hop on the way somewhere, or null. */
+  resume: BugMode | null;
+  /** A hopper (Boing) may take its next hop at this tick. */
+  hopReady: number;
+  /** Tick the player last grabbed or poked it, or -1. */
+  touchedAt: number;
+  /** Highest point (smallest y) since it last left the ground. */
+  airTop: number;
+  /** Bugs that turned to look at its last crash; it may laugh along. */
+  audience: number;
 }
 
 export interface Entity {
@@ -117,6 +246,9 @@ export interface Entity {
 export class EntityStore {
   private map = new Map<EntityId, Entity>();
   private nextIdValue = 1;
+  /** Sorted list, rebuilt only when entities come or go. */
+  private sorted: Entity[] | null = null;
+  private byKind = new Map<EntityKind, Entity[]>();
 
   get nextId(): EntityId {
     return this.nextIdValue;
@@ -129,6 +261,7 @@ export class EntityStore {
   create(kind: EntityKind, defId: string, extra: Partial<Omit<Entity, 'id'>> = {}): Entity {
     const entity: Entity = { ...extra, id: this.nextIdValue++, kind, defId };
     this.map.set(entity.id, entity);
+    this.changed();
     return entity;
   }
 
@@ -137,10 +270,17 @@ export class EntityStore {
     if (this.map.has(entity.id)) throw new Error(`Duplicate entity id ${entity.id}`);
     this.map.set(entity.id, entity);
     if (entity.id >= this.nextIdValue) this.nextIdValue = entity.id + 1;
+    this.changed();
   }
 
   remove(id: EntityId): boolean {
+    this.changed();
     return this.map.delete(id);
+  }
+
+  private changed(): void {
+    this.sorted = null;
+    this.byKind.clear();
   }
 
   get(id: EntityId): Entity | undefined {
@@ -157,10 +297,16 @@ export class EntityStore {
 
   /** All entities, ascending by ID. */
   all(): Entity[] {
-    return [...this.map.values()].sort((a, b) => a.id - b.id);
+    this.sorted ??= [...this.map.values()].sort((a, b) => a.id - b.id);
+    return [...this.sorted];
   }
 
   ofKind(kind: EntityKind): Entity[] {
-    return this.all().filter((e) => e.kind === kind);
+    let list = this.byKind.get(kind);
+    if (!list) {
+      list = this.all().filter((e) => e.kind === kind);
+      this.byKind.set(kind, list);
+    }
+    return [...list];
   }
 }

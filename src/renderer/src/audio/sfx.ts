@@ -50,7 +50,45 @@ export type SfxName =
   | 'blub'
   | 'squish'
   | 'bzzt'
-  | 'trickle';
+  | 'trickle'
+  | 'boop'
+  | 'tag'
+  | 'toss'
+  | 'catch'
+  | 'pat'
+  | 'snore'
+  | 'ta_da'
+  | 'slide'
+  | 'pick'
+  | 'sniff'
+  | 'crash'
+  | 'curl';
+
+/**
+ * The impact sound for a material. Soft materials (cloth, paper) thud like
+ * leaves; plastic bounces like rubber; jelly squishes like food; shell clacks
+ * like stone.
+ */
+export function soundMaterial(material: string): Material {
+  switch (material) {
+    case 'mat_cloth':
+    case 'mat_paper':
+      return 'leaf';
+    case 'mat_plastic':
+      return 'rubber';
+    case 'mat_jelly':
+      return 'food';
+    case 'mat_shell':
+      return 'stone';
+    default: {
+      const m = material.slice(4);
+      return (
+        (['wood', 'metal', 'rubber', 'stone', 'glass', 'leaf', 'food'] as const).find((k) => k === m) ??
+        'wood'
+      );
+    }
+  }
+}
 
 /** What a thing is made of, for impact and grab sounds. */
 export interface MaterialLookup {
@@ -155,6 +193,19 @@ export class Sfx {
       bus.on('boot_bubbled', () => this.play('blub')),
       bus.on('wrung_out', () => this.play('squish')),
       bus.on('water_zapped', () => this.play('bzzt')),
+      bus.on('bug_bumped', () => this.play('boop')),
+      bus.on('bug_tagged', () => this.play('tag')),
+      bus.on('bug_threw', () => this.play('toss')),
+      bus.on('bug_caught', () => this.play('catch')),
+      bus.on('bug_comforted', () => this.play('pat')),
+      bus.on('bug_posed', () => this.play('ta_da')),
+      bus.on('bug_slipped', () => this.play('slide')),
+      bus.on('bug_picked_up', () => this.limited('pick', 150, 0.6)),
+      bus.on('bug_put_down', () => this.limited('pick', 150, 0.4)),
+      bus.on('bug_snatched', () => this.play('swish')),
+      bus.on('bug_inspected', () => this.play('sniff')),
+      bus.on('bug_curled', (e) => (e.on ? this.play('curl') : undefined)),
+      bus.on('stack_fell', () => this.play('crash')),
     ];
   }
 
@@ -541,6 +592,87 @@ export class Sfx {
             { freq: 110 * j, dur: 0.35, wave: 'square', gain: 0.12, vibrato: { rate: 45, depth: 30 } },
             { freq: 5000 * j, to: 3000 * j, dur: 0.3, wave: 'noise', q: 2, gain: 0.12 },
           ];
+        case 'boop':
+          // Two heads meet: a soft rising blip and a tiny knock.
+          return [
+            { freq: 420 * j, to: 780 * j, dur: 0.12, wave: 'sine', gain: 0.32 },
+            { freq: 900 * j, to: 500 * j, dur: 0.04, wave: 'noise', q: 4, gain: 0.15 },
+          ];
+        case 'tag':
+          return [
+            { freq: 880 * j, to: 1320 * j, dur: 0.07, wave: 'square', gain: 0.1 },
+            { freq: 1320 * j, to: 1760 * j, dur: 0.07, wave: 'square', gain: 0.1, delay: 0.08 },
+          ];
+        case 'toss':
+          return [{ freq: 1800 * j, to: 600 * j, dur: 0.16, wave: 'noise', q: 2, gain: 0.18, attack: 0.03 }];
+        case 'catch':
+          return [
+            { freq: 300 * j, to: 180 * j, dur: 0.05, wave: 'noise', q: 3, gain: 0.25 },
+            { freq: 660 * j, to: 990 * j, dur: 0.1, wave: 'triangle', gain: 0.2, delay: 0.03 },
+          ];
+        case 'pat':
+          return [0, 0.16, 0.32].map((delay) => ({
+            freq: 260 * j,
+            to: 180 * j,
+            dur: 0.06,
+            wave: 'noise' as const,
+            q: 2,
+            gain: 0.18,
+            delay,
+          }));
+        case 'snore':
+          // A soft, low, breathy snore.
+          return [
+            {
+              freq: 300 * j,
+              to: 180 * j,
+              dur: 0.55,
+              wave: 'noise',
+              q: 3,
+              gain: 0.07 * intensity,
+              attack: 0.2,
+            },
+            { freq: 90 * j, to: 70 * j, dur: 0.5, wave: 'sine', gain: 0.05 * intensity, attack: 0.2 },
+          ];
+        case 'ta_da':
+          return [523, 659, 784].map((f, i) => ({
+            freq: f * j,
+            to: f * j,
+            dur: i === 2 ? 0.3 : 0.1,
+            wave: 'triangle' as const,
+            gain: 0.18,
+            delay: i * 0.1,
+          }));
+        case 'slide':
+          return [
+            {
+              freq: 300 * j,
+              to: 900 * j,
+              dur: 0.35,
+              wave: 'sine',
+              gain: 0.18,
+              vibrato: { rate: 18, depth: 40 },
+            },
+          ];
+        case 'pick':
+          return [{ freq: 700 * j, to: 1000 * j, dur: 0.05, wave: 'triangle', gain: 0.18 * intensity }];
+        case 'sniff':
+          return [0, 0.12].map((delay) => ({
+            freq: 3200 * j,
+            to: 2400 * j,
+            dur: 0.07,
+            wave: 'noise' as const,
+            q: 3,
+            gain: 0.1,
+            delay,
+          }));
+        case 'crash':
+          return [
+            { freq: 400 * j, to: 120 * j, dur: 0.3, wave: 'noise', q: 1, gain: 0.35 },
+            { freq: 160 * j, to: 60 * j, dur: 0.25, wave: 'sine', gain: 0.3 },
+          ];
+        case 'curl':
+          return [{ freq: 500 * j, to: 250 * j, dur: 0.14, wave: 'triangle', gain: 0.22 }];
         case 'trickle':
           return [
             { freq: 3200 * j, to: 2200 * j, dur: 0.12, wave: 'noise', q: 3, gain: 0.07 * intensity },

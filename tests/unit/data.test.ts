@@ -15,6 +15,7 @@ describe('content registries', () => {
       'bug_pillbug_rollo',
       'bug_snail_glorp',
       'bug_waterstrider_skeet',
+      'bug_grasshopper_boing',
     ]);
     const pond = CONTENT.areas.get('area_puddle_pond').start.map((s) => s.defId);
     for (const id of [
@@ -35,7 +36,7 @@ describe('content registries', () => {
     expect(count('item_berry_red')).toBe(3);
     for (const id of ['item_ruler_ramp', 'item_spring_coil', 'item_rubber_ball', 'item_twig', 'item_leaf'])
       expect(count(id), id).toBe(1);
-    expect(start.filter((s) => s.kind === 'bug')).toHaveLength(3);
+    expect(start.filter((s) => s.kind === 'bug')).toHaveLength(4);
   });
 
   it('gives every item a known material and only known tags', () => {

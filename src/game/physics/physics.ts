@@ -102,7 +102,23 @@ export class Physics {
     this.ground.createFixture(new Edge(Vec2(width, wallTop), Vec2(width, wallBottom)), { friction: 0.3 });
 
     this.world.on('begin-contact', (contact: Contact) => this.recordImpact(contact));
+    this.world.on('pre-solve', (contact: Contact) => {
+      const filter = this.passThrough;
+      if (!filter) return;
+      const a = contact.getFixtureA().getBody().getUserData() as EntityId | null;
+      const b = contact.getFixtureB().getBody().getUserData() as EntityId | null;
+      if (a == null || b == null) return;
+      const m = contact.getWorldManifold(null);
+      if (m && filter(a, b, m.normal.x, m.normal.y)) contact.setEnabled(false);
+    });
   }
+
+  /**
+   * Contacts this says yes to are ignored for one step: the bodies slide
+   * past each other. The sim uses it so walking bugs never shove the
+   * player's setups sideways.
+   */
+  passThrough: ((a: EntityId, b: EntityId, nx: number, ny: number) => boolean) | null = null;
 
   private recordImpact(contact: Contact): void {
     const ba = contact.getFixtureA().getBody();
@@ -296,6 +312,46 @@ export class Physics {
     return out.sort((a, b) => a - b);
   }
 
+  /**
+   * A fixed part of the world shaped as an open polyline (the sunken
+   * teacup): static, never grabbed, collides like the ground.
+   */
+  addStaticChain(key: string, points: readonly Vec[]): void {
+    if (this.platforms.has(key)) return;
+    const body = this.world.createBody({ type: 'static' });
+    body.createFixture(
+      new Chain(
+        points.map((p) => Vec2(p.x, p.y)),
+        false,
+      ),
+      { friction: 0.7, restitution: 0.1 },
+    );
+    this.platforms.set(key, body);
+  }
+
+  /**
+   * Pairs of entities where one rests on top of the other right now: their
+   * contact normal is mostly vertical. Lower ID first, sorted.
+   */
+  restingPairs(): [EntityId, EntityId][] {
+    const out: [EntityId, EntityId][] = [];
+    const seen = new Set<string>();
+    for (let c = this.world.getContactList(); c; c = c.getNext()) {
+      if (!c.isTouching()) continue;
+      const a = c.getFixtureA().getBody().getUserData() as EntityId | null;
+      const b = c.getFixtureB().getBody().getUserData() as EntityId | null;
+      if (a == null || b == null || a === b) continue;
+      const m = c.getWorldManifold(null);
+      if (!m || Math.abs(m.normal.y) < 0.6) continue;
+      const pair: [EntityId, EntityId] = a < b ? [a, b] : [b, a];
+      const key = `${pair[0]}:${pair[1]}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(pair);
+    }
+    return out.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+  }
+
   /** Glue two bodies together where they are now. Returns a handle for `unweld`. */
   weld(a: EntityId, b: EntityId, x: number, y: number): number {
     const joint = this.world.createJoint(
@@ -317,6 +373,23 @@ export class Physics {
     if (!w) return;
     this.world.destroyJoint(w.joint);
     this.welds.delete(handle);
+  }
+
+  /** What this body touches right now, with the contact normal pointing from it to the other. */
+  contactsOf(id: EntityId): { other: EntityId; nx: number; ny: number }[] {
+    const body = this.requireBody(id);
+    const out: { other: EntityId; nx: number; ny: number }[] = [];
+    for (let edge = body.getContactList(); edge; edge = edge.next ?? null) {
+      const contact = edge.contact;
+      if (!contact.isTouching()) continue;
+      const other = edge.other ? (edge.other.getUserData() as EntityId | null) : null;
+      if (other == null) continue;
+      const m = contact.getWorldManifold(null);
+      if (!m) continue;
+      const sign = contact.getFixtureA().getBody() === body ? 1 : -1;
+      out.push({ other, nx: m.normal.x * sign, ny: m.normal.y * sign });
+    }
+    return out;
   }
 
   /** Pairs of entities touching right now, lower ID first, sorted. */
@@ -395,9 +468,19 @@ export class Physics {
       if (!manifold) continue;
       // The normal points from fixture A to fixture B; flip it to point into this body.
       const sign = contact.getFixtureA().getBody() === body ? -1 : 1;
-      const nx = manifold.normal.x * sign;
-      const ny = manifold.normal.y * sign;
-      if (ny < -0.3 && (best === null || ny < best.y)) best = { x: nx, y: ny };
+      let nx = manifold.normal.x * sign;
+      let ny = manifold.normal.y * sign;
+      if (ny >= -0.3) continue;
+      // Standing on a small loose thing (a bottle cap, a pebble): treat its top as
+      // flat, or gripping would shove it out from underneath. Long things (the
+      // ruler ramp, a raft) keep their slope.
+      const other = edge.other;
+      const otherId = other ? (other.getUserData() as EntityId | null) : null;
+      if (otherId != null && other && other.isDynamic() && (this.halfExtents.get(otherId)?.x ?? 0) < 0.8) {
+        nx = 0;
+        ny = -1;
+      }
+      if (best === null || ny < best.y) best = { x: nx, y: ny };
     }
     return best;
   }
@@ -417,7 +500,8 @@ export class Physics {
       const manifold = contact.getWorldManifold(null);
       if (!manifold) continue;
       const sign = contact.getFixtureA().getBody() === body ? -1 : 1;
-      if (manifold.normal.x * sign * dir < -0.6) return otherId;
+      // Low things (a bottle cap) touch a round bug near its bottom: count those too.
+      if (manifold.normal.x * sign * dir < -0.35) return otherId;
     }
     return null;
   }

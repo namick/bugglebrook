@@ -1,4 +1,5 @@
-import type { EntityId, EntityKind } from './core/entities';
+import type { BugAction, EntityId, EntityKind, SocialKind } from './core/entities';
+import type { AdvertAction } from './data/types';
 
 /**
  * Every game event and its payload. Audio, particles, and the journal
@@ -32,8 +33,8 @@ export interface GameEvents {
   bug_landed: { id: EntityId; defId: string; speed: number; x: number; y: number };
   bug_dizzy: { id: EntityId; defId: string; speed: number; durationTicks: number };
   bug_recovered: { id: EntityId; defId: string };
-  /** A bug picked something to go and do. */
-  bug_chose_action: { id: EntityId; defId: string; action: 'eat' | 'bounce'; targetId: EntityId };
+  /** A bug picked something to go and do. `targetId` is null for a spot (the water, the stump top). */
+  bug_chose_action: { id: EntityId; defId: string; action: BugAction; targetId: EntityId | null };
   bug_hopped: { id: EntityId; defId: string; x: number; y: number };
   bug_ate: {
     id: EntityId;
@@ -44,8 +45,8 @@ export interface GameEvents {
     x: number;
     y: number;
   };
-  /** A bug finished using a toy (the spring). */
-  bug_used: { id: EntityId; defId: string; targetId: EntityId; action: 'bounce' };
+  /** A bug finished using something: bounced on the spring, sniffed a new thing, splashed. */
+  bug_used: { id: EntityId; defId: string; targetId: EntityId | null; action: AdvertAction };
   /**
    * Food went into a bug's mouth and it started chewing. `byPlayer` is true
    * when the player dropped or threw it there.
@@ -136,7 +137,81 @@ export interface GameEvents {
   /** An area went to sleep (no physics) or woke up, as the camera moved. */
   area_slept: { areaId: string };
   area_woke: { areaId: string };
+
+  // --- Needs, social play, and the setup rule (M4) ------------------------
+  /** Sniffing a thing it has not met before. */
+  bug_inspected: { id: EntityId; defId: string; itemId: EntityId; itemDefId: string };
+  /** Picked something up in its front legs. */
+  bug_picked_up: { id: EntityId; defId: string; itemId: EntityId; itemDefId: string };
+  /** Set down what it was carrying. */
+  bug_put_down: { id: EntityId; defId: string; itemId: EntityId; x: number; y: number };
+  /** Two bugs started doing something together. */
+  bug_socialized: { id: EntityId; defId: string; partnerId: EntityId; kind: SocialKind };
+  /** An interaction ended. `happy` is false if it fizzled (a partner was grabbed away). */
+  bug_social_ended: { id: EntityId; defId: string; partnerId: EntityId; kind: SocialKind; happy: boolean };
+  /** One line of a chat: a pictogram topic, and the food or bug it is about. */
+  bug_chatted: {
+    id: EntityId;
+    defId: string;
+    partnerId: EntityId;
+    topic: ChatTopic;
+    about: string | null;
+  };
+  /** A head-bump greeting: boop. */
+  bug_bumped: { id: EntityId; defId: string; partnerId: EntityId; x: number; y: number };
+  /** Tag! `id` tapped `partnerId`, who is now it. */
+  bug_tagged: { id: EntityId; defId: string; partnerId: EntityId; x: number; y: number };
+  /** Threw something to a friend. */
+  bug_threw: { id: EntityId; defId: string; itemId: EntityId; x: number; y: number; vx: number; vy: number };
+  /** Caught something a friend threw. */
+  bug_caught: { id: EntityId; defId: string; itemId: EntityId; x: number; y: number };
+  /** Gave a friend a snack. */
+  bug_shared: { id: EntityId; defId: string; partnerId: EntityId; itemId: EntityId; itemDefId: string };
+  /** Snatched a snack out of another bug's hands. */
+  bug_snatched: { id: EntityId; defId: string; partnerId: EntityId; itemId: EntityId; itemDefId: string };
+  /** Patted a dizzy friend, who gets better faster. */
+  bug_comforted: { id: EntityId; defId: string; partnerId: EntityId; x: number; y: number };
+  /** Turned to look at something loud nearby (a crash, a hard landing). The `gawk` reaction says how. */
+  bug_gawked: { id: EntityId; defId: string; x: number; y: number };
+  /** Hopped onto another bug's head for a ride, or off it. */
+  bug_rode: { id: EntityId; defId: string; mountId: EntityId; on: boolean };
+  bug_slept: { id: EntityId; defId: string; x: number; y: number };
+  /** Woke up. `early` if something woke it before it was rested. */
+  bug_woke: { id: EntityId; defId: string; early: boolean };
+  /** Striking a pose at the top of the world (Dot), or for the camera. */
+  bug_posed: { id: EntityId; defId: string; x: number; y: number };
+  /** A small idle animation: a hum, a yawn, a look around. */
+  bug_fidgeted: { id: EntityId; defId: string; fidget: Fidget };
+  /** Slid on a slime trail. */
+  bug_slipped: { id: EntityId; defId: string; x: number; y: number };
+  /** Curled into a ball, or uncurled and peeked out. */
+  bug_curled: { id: EntityId; defId: string; on: boolean };
+  /** Ducked behind something, or came out. */
+  bug_hid: { id: EntityId; defId: string; coverId: EntityId | null; on: boolean };
+  /** A stack the player built came crashing down. */
+  stack_fell: { x: number; y: number; count: number };
 }
+
+/** What a chat line is about. The renderer draws it as a pictogram. */
+export type ChatTopic =
+  'food' | 'friend' | 'star' | 'question' | 'heart' | 'note' | 'spring' | 'drop' | 'zzz' | 'laugh' | 'sun';
+
+export const CHAT_TOPICS: readonly ChatTopic[] = [
+  'food',
+  'friend',
+  'star',
+  'question',
+  'heart',
+  'note',
+  'spring',
+  'drop',
+  'zzz',
+  'laugh',
+  'sun',
+];
+
+/** Idle fidgets (game design doc, section 5, `st_idle`). */
+export type Fidget = 'look' | 'hum' | 'yawn' | 'scratch' | 'groom' | 'stretch' | 'kick' | 'twirl';
 
 /** What changed a tag, so listeners can pick the right effect. */
 export type TagCause =
@@ -155,15 +230,21 @@ export type TagCause =
   | 'wring'
   | 'wore_off'
   | 'returned'
-  | 'debug';
+  | 'debug'
+  | 'player'
+  | 'stack'
+  | 'slime';
 
 export type Liking = 'loved' | 'liked' | 'neutral' | 'disliked';
 
 /**
- * Reactions to the player (game design doc, section 5). Each has at least
- * three variants. `land_hard` is for bugs that never get dizzy (Glorp).
- * `splash` plays on falling in water, `shake_dry` on climbing out, and
- * `stink` on smelling something (a happy sniff for stink lovers).
+ * Reactions (game design doc, section 5). Each has at least three variants.
+ * `land_hard` is for bugs that never get dizzy (Glorp). `splash` plays on
+ * falling in water, `shake_dry` on climbing out, and `stink` on smelling
+ * something (a happy sniff for stink lovers). M4 adds `inspect` (sniffing
+ * something new), `wake`, `gawk` (looking at a crash), `robbed` (a snack
+ * snatched away), `slip` (on slime), `show_off` (a pose), `play` (the happy
+ * end of a game together), and `peek` (uncurling, or peeking out of cover).
  */
 export type ReactionType =
   | 'grab'
@@ -178,7 +259,15 @@ export type ReactionType =
   | 'fed_disliked'
   | 'splash'
   | 'shake_dry'
-  | 'stink';
+  | 'stink'
+  | 'inspect'
+  | 'wake'
+  | 'gawk'
+  | 'robbed'
+  | 'slip'
+  | 'show_off'
+  | 'play'
+  | 'peek';
 
 export const REACTION_TYPES: readonly ReactionType[] = [
   'grab',
@@ -194,6 +283,14 @@ export const REACTION_TYPES: readonly ReactionType[] = [
   'splash',
   'shake_dry',
   'stink',
+  'inspect',
+  'wake',
+  'gawk',
+  'robbed',
+  'slip',
+  'show_off',
+  'play',
+  'peek',
 ];
 
 /** Variants per reaction type. */

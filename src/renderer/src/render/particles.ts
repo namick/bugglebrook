@@ -17,7 +17,8 @@ type Kind =
   | 'drop'
   | 'bubble'
   | 'shard'
-  | 'spark';
+  | 'spark'
+  | 'zee';
 
 interface Particle {
   kind: Kind;
@@ -365,6 +366,40 @@ export class Particles extends Container {
     }
   }
 
+  /** A snore: a blue "Z" drifting up and to the side, growing as it goes. */
+  zzz(x: number, y: number, dir: 1 | -1): void {
+    this.add({
+      kind: 'zee',
+      x,
+      y,
+      vx: dir * this.rnd(16, 26),
+      vy: -this.rnd(30, 42),
+      max: 1.8,
+      size: this.rnd(9, 12),
+      color: 0x5b6ee1,
+      rot: this.rnd(-0.25, 0.25),
+    });
+  }
+
+  /** A little "boop": a ring and a couple of stars where two heads meet. */
+  boop(x: number, y: number): void {
+    this.ring(x, y, 26);
+    for (let i = 0; i < 3; i++)
+      this.add({
+        kind: 'star',
+        x,
+        y,
+        vx: this.rnd(-90, 90),
+        vy: -this.rnd(80, 160),
+        gravity: 260,
+        max: this.rnd(0.5, 0.8),
+        size: this.rnd(7, 11),
+        color: 0xffd23f,
+        rot: this.rnd(0, 6),
+        vr: this.rnd(-6, 6),
+      });
+  }
+
   update(dt: number): void {
     const g = this.g.clear();
     const keep: Particle[] = [];
@@ -485,6 +520,22 @@ export class Particles extends Container {
             g.lineTo(x, y);
           }
           g.stroke({ width: 3.5, color: p.color, alpha: fade, cap: 'round', join: 'round' });
+          break;
+        }
+        case 'zee': {
+          const z = p.size * (0.6 + t * 0.8);
+          const a = t < 0.15 ? t / 0.15 : fade;
+          const c = Math.cos(p.rot);
+          const s = Math.sin(p.rot);
+          const pt = (u: number, v: number): [number, number] => [p.x + u * c - v * s, p.y + u * s + v * c];
+          const pts = [pt(-z, -z), pt(z, -z), pt(-z, z), pt(z, z)];
+          for (const [w, color] of [
+            [6, 0xffffff],
+            [3.5, p.color],
+          ] as const) {
+            pts.forEach(([px, py], k) => (k === 0 ? g.moveTo(px, py) : g.lineTo(px, py)));
+            g.stroke({ width: w, color, alpha: a, cap: 'round', join: 'round' });
+          }
           break;
         }
         case 'bubble':

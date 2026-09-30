@@ -48,7 +48,7 @@ function calm(sim: Sim, id: number): void {
   b.timer = 100000;
   b.decideIn = 100000;
   b.facing = 1;
-  b.needs = { need_hunger: 60, need_fun: 90, need_energy: 90 };
+  b.needs = { need_hunger: 60, need_fun: 90, need_energy: 90, need_social: 80, need_clean: 90 };
 }
 
 /** Spawn a food, pick it up, and hold it at an offset from the bug's mouth, then let go gently. */
@@ -355,11 +355,16 @@ describe('tickles and shakes', () => {
 describe('moods', () => {
   it('follows needs and recent annoyances', () => {
     const b = newBugBrain(0, new Rng('m'));
-    b.needs = { need_hunger: 90, need_fun: 90, need_energy: 90 };
+    b.needs = { need_hunger: 90, need_fun: 90, need_energy: 90, need_social: 80, need_clean: 90 };
     expect(moodOf(b, 0)).toBe('mood_happy');
     b.needs.need_hunger = 50;
     b.needs.need_fun = 50;
+    b.needs.need_social = 40;
     expect(moodOf(b, 0)).toBe('mood_content');
+    // Happy needs all five fine: a lonely bug is only content.
+    b.needs = { need_hunger: 90, need_fun: 90, need_energy: 90, need_social: 20, need_clean: 90 };
+    expect(moodOf(b, 0)).toBe('mood_content');
+    b.needs.need_social = 50;
     b.needs.need_fun = 10;
     expect(moodOf(b, 0)).toBe('mood_bored');
     b.needs.need_hunger = 10;

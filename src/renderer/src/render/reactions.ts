@@ -34,7 +34,9 @@ export type Picto =
   | 'snow'
   | 'drop'
   | 'stink'
-  | 'food';
+  | 'food'
+  | 'friend'
+  | 'sun';
 
 /** A short body move that plays with the reaction. */
 export type Move =
@@ -50,7 +52,11 @@ export type Move =
   | 'shell_spin'
   | 'pose'
   | 'cower'
-  | 'shake_off';
+  | 'shake_off'
+  | 'sniff'
+  | 'pat'
+  | 'yawn'
+  | 'bow';
 
 /** One-off particles at the start of a reaction. */
 export type ReactionFx =
@@ -212,9 +218,65 @@ const SHELL: Triple = three(
   },
 );
 
-type Personal = 'grab' | 'poke' | 'fling' | 'land' | 'splash' | 'shake_dry' | 'stink';
+type Classic = 'grab' | 'poke' | 'fling' | 'land' | 'splash' | 'shake_dry' | 'stink';
+type Everyday = 'inspect' | 'gawk' | 'play' | 'show_off';
 
-const PERSONAL: Record<BugArt, Record<Personal, Triple>> = {
+const CLASSIC: ReadonlySet<string> = new Set<Classic>([
+  'grab',
+  'poke',
+  'fling',
+  'land',
+  'splash',
+  'shake_dry',
+  'stink',
+]);
+const EVERYDAY: ReadonlySet<string> = new Set<Everyday>(['inspect', 'gawk', 'play', 'show_off']);
+
+// Reactions everyone shares: waking up, a snack snatched, slipping on slime, peeking out.
+const WAKE: Triple = three(
+  { eyes: 'wide', mouth: 'o', pictos: ['zzz', 'exclaim'], emotion: 'gasp', move: 'shiver', seconds: 1.4 },
+  { eyes: 'sleepy', mouth: 'aah', pictos: ['zzz'], emotion: 'sleepy', move: 'yawn', seconds: 1.8 },
+  { eyes: 'sleepy', mouth: 'smile', pictos: ['sun'], emotion: 'sleepy', move: 'yawn', seconds: 1.6 },
+);
+// "Hey!" A snatched snack is a game, never a fight.
+const ROBBED: Triple = three(
+  { eyes: 'wide', mouth: 'o', pictos: ['exclaim', 'food'], emotion: 'gasp', move: 'hop', seconds: 1.2 },
+  {
+    eyes: 'open',
+    mouth: 'o',
+    pictos: ['question', 'food'],
+    emotion: 'question',
+    move: 'shrug',
+    seconds: 1.2,
+  },
+  {
+    eyes: 'wide',
+    mouth: 'whee',
+    pictos: ['exclaim', 'laugh'],
+    emotion: 'giggle',
+    move: 'stomp',
+    seconds: 1.2,
+  },
+);
+const SLIP: Triple = three(
+  { eyes: 'wide', mouth: 'whee', pictos: ['exclaim', 'sweat'], emotion: 'whee', move: 'wiggle', seconds: 1 },
+  { eyes: 'x', mouth: 'wobble', pictos: ['swirl'], emotion: 'gasp', move: 'shiver', seconds: 1 },
+  { eyes: 'happy', mouth: 'whee', pictos: ['laugh'], emotion: 'giggle', move: 'none', seconds: 1 },
+);
+const PEEK: Triple = three(
+  { eyes: 'worried', mouth: 'o', pictos: ['question'], emotion: 'question', move: 'none', seconds: 1 },
+  { eyes: 'open', mouth: 'smile', pictos: ['dots'], emotion: 'meh', move: 'nod', seconds: 1 },
+  { eyes: 'worried', mouth: 'smile', pictos: ['sweat'], emotion: 'scared', move: 'shiver', seconds: 1 },
+);
+
+/** Show-off poses for bugs that are not Dot: a little star turn. */
+const POSE: Triple = three(
+  { eyes: 'happy', mouth: 'grin', blush: true, pictos: ['star'], emotion: 'happy', move: 'pose', seconds: 2 },
+  { eyes: 'open', mouth: 'grin', pictos: ['thumbs_up'], emotion: 'happy', move: 'bow', seconds: 2 },
+  { eyes: 'happy', mouth: 'lick', pictos: ['star', 'heart'], emotion: 'happy', move: 'pose', seconds: 2 },
+);
+
+const PERSONAL: Record<BugArt, Record<Classic, Triple>> = {
   // Dot: a show-off who loves being handled and thrown.
   ladybug: {
     grab: three(
@@ -614,6 +676,421 @@ const PERSONAL: Record<BugArt, Record<Personal, Triple>> = {
       { eyes: 'angry', mouth: 'teeth', pictos: ['stink'], emotion: 'grumpy', move: 'cower', fx: 'stink' },
     ),
   },
+  // Boing: hyper, can't sit still, loves being flung.
+  grasshopper: {
+    grab: three(
+      { eyes: 'happy', mouth: 'grin', blush: true, pictos: ['laugh'], emotion: 'giggle', move: 'wiggle' },
+      { eyes: 'wide', mouth: 'whee', pictos: ['up', 'exclaim'], emotion: 'whee', move: 'wiggle' },
+      { eyes: 'x', mouth: 'grin', blush: true, pictos: ['star'], emotion: 'giggle', move: 'shiver' },
+    ),
+    poke: three(
+      { eyes: 'wide', mouth: 'whee', pictos: ['exclaim'], emotion: 'whee', move: 'hop', seconds: 0.7 },
+      {
+        eyes: 'happy',
+        mouth: 'grin',
+        blush: true,
+        pictos: ['laugh'],
+        emotion: 'giggle',
+        move: 'hop',
+        seconds: 0.7,
+      },
+      { eyes: 'open', mouth: 'grin', pictos: ['up'], emotion: 'happy', move: 'spin', seconds: 0.7 },
+    ),
+    fling: three(
+      { eyes: 'happy', mouth: 'whee', blush: true, pictos: ['star', 'exclaim'], emotion: 'whee' },
+      { eyes: 'x', mouth: 'whee', blush: true, pictos: ['laugh'], emotion: 'whee' },
+      { eyes: 'wide', mouth: 'grin', pictos: ['up', 'up'], emotion: 'whee' },
+    ),
+    // Uses the landing to hop again.
+    land: three(
+      {
+        eyes: 'happy',
+        mouth: 'grin',
+        blush: true,
+        pictos: ['up', 'star'],
+        emotion: 'happy',
+        move: 'hop',
+        seconds: 1.2,
+      },
+      { eyes: 'wide', mouth: 'whee', pictos: ['spring'], emotion: 'whee', move: 'hop', seconds: 1.2 },
+      {
+        eyes: 'happy',
+        mouth: 'grin',
+        pictos: ['thumbs_up', 'up'],
+        emotion: 'happy',
+        move: 'spin',
+        seconds: 1.2,
+      },
+    ),
+    // Kicks furiously and shoots out in one hop.
+    splash: three(
+      {
+        eyes: 'wide',
+        mouth: 'o',
+        pictos: ['drop', 'exclaim'],
+        emotion: 'gasp',
+        fx: 'splash',
+        move: 'shiver',
+        seconds: 1.4,
+      },
+      { eyes: 'x', mouth: 'wobble', pictos: ['drop', 'up'], emotion: 'scared', fx: 'splash', seconds: 1.4 },
+      {
+        eyes: 'squint',
+        mouth: 'teeth',
+        pictos: ['exclaim', 'exclaim'],
+        emotion: 'scared',
+        move: 'wiggle',
+        seconds: 1.4,
+      },
+    ),
+    shake_dry: three(
+      {
+        eyes: 'happy',
+        mouth: 'grin',
+        pictos: ['drop', 'up'],
+        emotion: 'giggle',
+        move: 'shake_off',
+        fx: 'spray',
+      },
+      {
+        eyes: 'squint',
+        mouth: 'whee',
+        pictos: ['drop', 'star'],
+        emotion: 'whee',
+        move: 'shake_off',
+        fx: 'spray',
+      },
+      { eyes: 'x', mouth: 'grin', pictos: ['laugh'], emotion: 'giggle', move: 'shake_off', fx: 'spray' },
+    ),
+    stink: three(
+      {
+        eyes: 'x',
+        mouth: 'tongue',
+        tint: 'green',
+        pictos: ['stink', 'yuck'],
+        emotion: 'yuck',
+        move: 'hop',
+        fx: 'stink',
+      },
+      {
+        eyes: 'squint',
+        mouth: 'puff',
+        tint: 'green',
+        pictos: ['stink', 'up'],
+        emotion: 'yuck',
+        move: 'shiver',
+        fx: 'stink',
+      },
+      {
+        eyes: 'wide',
+        mouth: 'teeth',
+        pictos: ['stink', 'exclaim'],
+        emotion: 'gasp',
+        move: 'shake_head',
+        fx: 'stink',
+      },
+    ),
+  },
+};
+
+/**
+ * Everyday reactions, by personality: sniffing something new, turning to
+ * look at a crash, the happy end of a game, and striking a pose.
+ */
+const EVERYDAY_LOOKS: Record<BugArt, Record<Everyday, Triple>> = {
+  // Dot: always first to try a new thing; cheers at stunts; poses like a star.
+  ladybug: {
+    inspect: three(
+      {
+        eyes: 'wide',
+        mouth: 'whee',
+        pictos: ['food', 'exclaim'],
+        emotion: 'whee',
+        move: 'hop',
+        seconds: 1.2,
+      },
+      {
+        eyes: 'open',
+        mouth: 'o',
+        pictos: ['food', 'question'],
+        emotion: 'question',
+        move: 'sniff',
+        seconds: 1.2,
+      },
+      {
+        eyes: 'happy',
+        mouth: 'grin',
+        blush: true,
+        pictos: ['food', 'star'],
+        emotion: 'happy',
+        move: 'sniff',
+        seconds: 1.2,
+      },
+    ),
+    gawk: three(
+      {
+        eyes: 'happy',
+        mouth: 'grin',
+        blush: true,
+        pictos: ['laugh'],
+        emotion: 'giggle',
+        move: 'hop',
+        seconds: 1.3,
+      },
+      { eyes: 'wide', mouth: 'whee', pictos: ['star', 'star'], emotion: 'whee', move: 'hop', seconds: 1.3 },
+      { eyes: 'wide', mouth: 'o', pictos: ['exclaim'], emotion: 'gasp', move: 'none', seconds: 1.3 },
+    ),
+    play: three(
+      {
+        eyes: 'happy',
+        mouth: 'grin',
+        blush: true,
+        pictos: ['laugh'],
+        emotion: 'giggle',
+        move: 'hop',
+        seconds: 1.2,
+      },
+      {
+        eyes: 'happy',
+        mouth: 'whee',
+        pictos: ['star', 'heart'],
+        emotion: 'whee',
+        move: 'spin',
+        seconds: 1.2,
+      },
+      { eyes: 'open', mouth: 'grin', pictos: ['thumbs_up'], emotion: 'happy', move: 'pose', seconds: 1.2 },
+    ),
+    show_off: three(
+      {
+        eyes: 'happy',
+        mouth: 'grin',
+        blush: true,
+        pictos: ['star', 'star'],
+        emotion: 'happy',
+        move: 'pose',
+        seconds: 2,
+      },
+      {
+        eyes: 'happy',
+        mouth: 'lick',
+        blush: true,
+        pictos: ['heart', 'star'],
+        emotion: 'love',
+        move: 'pose',
+        seconds: 2,
+      },
+      { eyes: 'wide', mouth: 'whee', pictos: ['up', 'star'], emotion: 'whee', move: 'bow', seconds: 2 },
+    ),
+  },
+  // Rollo: careful sniffs, jumpy at crashes, shy smiles after games.
+  pillbug: {
+    inspect: three(
+      {
+        eyes: 'worried',
+        mouth: 'o',
+        pictos: ['food', 'question'],
+        emotion: 'question',
+        move: 'sniff',
+        seconds: 1.3,
+      },
+      {
+        eyes: 'squint',
+        mouth: 'flat',
+        pictos: ['food', 'dots'],
+        emotion: 'meh',
+        move: 'sniff',
+        seconds: 1.3,
+      },
+      {
+        eyes: 'worried',
+        mouth: 'smile',
+        blush: true,
+        pictos: ['food', 'heart'],
+        emotion: 'happy',
+        move: 'nod',
+        seconds: 1.3,
+      },
+    ),
+    gawk: three(
+      {
+        eyes: 'wide',
+        mouth: 'o',
+        pictos: ['exclaim', 'sweat'],
+        emotion: 'gasp',
+        move: 'shiver',
+        seconds: 1.3,
+      },
+      { eyes: 'worried', mouth: 'o', pictos: ['question'], emotion: 'question', move: 'cower', seconds: 1.3 },
+      {
+        eyes: 'happy',
+        mouth: 'smile',
+        blush: true,
+        pictos: ['laugh'],
+        emotion: 'giggle',
+        move: 'none',
+        seconds: 1.3,
+      },
+    ),
+    play: three(
+      {
+        eyes: 'happy',
+        mouth: 'smile',
+        blush: true,
+        pictos: ['laugh'],
+        emotion: 'giggle',
+        move: 'wiggle',
+        seconds: 1.2,
+      },
+      {
+        eyes: 'worried',
+        mouth: 'smile',
+        blush: true,
+        pictos: ['heart'],
+        emotion: 'happy',
+        move: 'nod',
+        seconds: 1.2,
+      },
+      {
+        eyes: 'squint',
+        mouth: 'grin',
+        pictos: ['sweat', 'laugh'],
+        emotion: 'giggle',
+        move: 'shiver',
+        seconds: 1.2,
+      },
+    ),
+    show_off: POSE,
+  },
+  // Glorp: deadpan. Everything gets a long "ooooh".
+  snail: {
+    inspect: three(
+      { eyes: 'sleepy', mouth: 'o', pictos: ['food', 'dots'], emotion: 'ooh', move: 'sniff', seconds: 1.6 },
+      { eyes: 'open', mouth: 'o', pictos: ['food', 'question'], emotion: 'ooh', move: 'none', seconds: 1.6 },
+      {
+        eyes: 'sleepy',
+        mouth: 'smile',
+        pictos: ['food', 'thumbs_up'],
+        emotion: 'ooh',
+        move: 'nod',
+        seconds: 1.6,
+      },
+    ),
+    gawk: three(
+      { eyes: 'open', mouth: 'o', pictos: ['dots'], emotion: 'ooh', move: 'none', seconds: 1.6 },
+      { eyes: 'wide', mouth: 'o', pictos: ['exclaim'], emotion: 'ooh', move: 'nod', seconds: 1.6 },
+      { eyes: 'sleepy', mouth: 'grin', pictos: ['laugh'], emotion: 'ooh', move: 'none', seconds: 1.6 },
+    ),
+    play: three(
+      { eyes: 'sleepy', mouth: 'grin', pictos: ['laugh'], emotion: 'ooh', move: 'nod', seconds: 1.4 },
+      { eyes: 'sleepy', mouth: 'smile', pictos: ['heart'], emotion: 'happy', move: 'none', seconds: 1.4 },
+      { eyes: 'open', mouth: 'o', pictos: ['dots', 'laugh'], emotion: 'ooh', move: 'none', seconds: 1.4 },
+    ),
+    show_off: POSE,
+  },
+  // Skeet: unbothered, then suddenly very impressed.
+  strider: {
+    inspect: three(
+      {
+        eyes: 'sleepy',
+        mouth: 'flat',
+        pictos: ['food', 'question'],
+        emotion: 'meh',
+        move: 'sniff',
+        seconds: 1.2,
+      },
+      {
+        eyes: 'sleepy',
+        mouth: 'smile',
+        pictos: ['food', 'thumbs_up'],
+        emotion: 'happy',
+        move: 'nod',
+        seconds: 1.2,
+      },
+      { eyes: 'wide', mouth: 'o', pictos: ['food', 'star'], emotion: 'ooh', move: 'none', seconds: 1.2 },
+    ),
+    gawk: three(
+      {
+        eyes: 'wide',
+        mouth: 'grin',
+        pictos: ['star', 'exclaim'],
+        emotion: 'whee',
+        move: 'pose',
+        seconds: 1.4,
+      },
+      { eyes: 'wide', mouth: 'o', pictos: ['thumbs_up'], emotion: 'ooh', move: 'nod', seconds: 1.4 },
+      { eyes: 'happy', mouth: 'grin', pictos: ['laugh'], emotion: 'giggle', move: 'none', seconds: 1.4 },
+    ),
+    play: three(
+      { eyes: 'sleepy', mouth: 'grin', pictos: ['thumbs_up'], emotion: 'happy', move: 'nod', seconds: 1.2 },
+      { eyes: 'happy', mouth: 'grin', pictos: ['star'], emotion: 'whee', move: 'none', seconds: 1.2 },
+      { eyes: 'squint', mouth: 'grin', pictos: ['laugh'], emotion: 'giggle', move: 'shrug', seconds: 1.2 },
+    ),
+    show_off: POSE,
+  },
+  // Boing: everything is exciting.
+  grasshopper: {
+    inspect: three(
+      { eyes: 'wide', mouth: 'whee', pictos: ['food', 'exclaim'], emotion: 'whee', move: 'hop', seconds: 1 },
+      {
+        eyes: 'open',
+        mouth: 'grin',
+        pictos: ['food', 'question'],
+        emotion: 'question',
+        move: 'sniff',
+        seconds: 1,
+      },
+      {
+        eyes: 'happy',
+        mouth: 'grin',
+        blush: true,
+        pictos: ['food', 'star'],
+        emotion: 'happy',
+        move: 'wiggle',
+        seconds: 1,
+      },
+    ),
+    gawk: three(
+      {
+        eyes: 'happy',
+        mouth: 'whee',
+        blush: true,
+        pictos: ['laugh', 'laugh'],
+        emotion: 'giggle',
+        move: 'hop',
+        seconds: 1.2,
+      },
+      { eyes: 'wide', mouth: 'grin', pictos: ['star', 'up'], emotion: 'whee', move: 'hop', seconds: 1.2 },
+      {
+        eyes: 'x',
+        mouth: 'grin',
+        pictos: ['exclaim', 'laugh'],
+        emotion: 'giggle',
+        move: 'wiggle',
+        seconds: 1.2,
+      },
+    ),
+    play: three(
+      {
+        eyes: 'x',
+        mouth: 'whee',
+        blush: true,
+        pictos: ['laugh', 'laugh'],
+        emotion: 'giggle',
+        move: 'hop',
+        seconds: 1.2,
+      },
+      { eyes: 'happy', mouth: 'grin', pictos: ['star', 'up'], emotion: 'whee', move: 'spin', seconds: 1.2 },
+      {
+        eyes: 'happy',
+        mouth: 'whee',
+        pictos: ['heart', 'laugh'],
+        emotion: 'giggle',
+        move: 'wiggle',
+        seconds: 1.2,
+      },
+    ),
+    show_off: POSE,
+  },
 };
 
 /** What reaction `type`, variant `variant`, looks like on a bug drawn as `art`. */
@@ -623,15 +1100,19 @@ export function reactionLook(art: BugArt, type: ReactionType, variant: number): 
       ? TICKLE
       : type === 'land_hard'
         ? SHELL
-        : type === 'grab' ||
-            type === 'poke' ||
-            type === 'fling' ||
-            type === 'land' ||
-            type === 'splash' ||
-            type === 'shake_dry' ||
-            type === 'stink'
-          ? PERSONAL[art][type]
-          : FED[type];
+        : type === 'wake'
+          ? WAKE
+          : type === 'robbed'
+            ? ROBBED
+            : type === 'slip'
+              ? SLIP
+              : type === 'peek'
+                ? PEEK
+                : CLASSIC.has(type)
+                  ? PERSONAL[art][type as Classic]
+                  : EVERYDAY.has(type)
+                    ? EVERYDAY_LOOKS[art][type as Everyday]
+                    : FED[type as keyof typeof FED];
   return set[((variant % 3) + 3) % 3]!;
 }
 
@@ -650,6 +1131,14 @@ const SHOWS_IN: Readonly<Record<ReactionType, readonly BugMode[]>> = {
   splash: ['st_swim'],
   shake_dry: ['st_react'],
   stink: ['st_react', 'st_wander', 'st_idle'],
+  inspect: ['st_react', 'st_idle'],
+  wake: ['st_react', 'st_idle'],
+  gawk: ['st_react', 'st_idle', 'st_wander', 'st_seek'],
+  robbed: ['st_idle', 'st_social', 'st_react'],
+  slip: ['st_wander', 'st_seek', 'st_social', 'st_idle'],
+  show_off: ['st_perform'],
+  play: ['st_react', 'st_idle', 'st_wander'],
+  peek: ['st_react', 'st_idle'],
 };
 
 /** Is a reaction that started `ageSeconds` ago still showing in `mode`? */
@@ -721,6 +1210,30 @@ export function movePose(move: Move, t: number, seconds: number): MovePose {
       return { ...rest, tilt: -0.14 * fade, sy: 1 + 0.05 * fade };
     case 'cower':
       return { ...rest, sy: 1 - 0.14 * fade, sx: 1 + 0.08 * fade, bob: 2 * fade };
+    case 'sniff': {
+      // Leaning in for little sniffs.
+      const k = Math.min(1, t / 0.2) * fade;
+      return {
+        ...rest,
+        tilt: (0.12 + Math.max(0, Math.sin(t * 16)) * 0.05) * k,
+        bob: 2 * k,
+        sx: 1 + 0.03 * k,
+      };
+    }
+    case 'pat':
+      return {
+        ...rest,
+        tilt: Math.max(0, Math.sin(t * 9)) * 0.14 * fade,
+        bob: Math.max(0, Math.sin(t * 9)) * 3 * fade,
+      };
+    case 'yawn': {
+      const k = Math.sin(Math.min(1, t / (seconds * 0.8)) * Math.PI);
+      return { ...rest, sy: 1 + 0.1 * k, sx: 1 - 0.05 * k, tilt: -0.08 * k };
+    }
+    case 'bow': {
+      const k = t < seconds * 0.6 ? Math.sin((t / (seconds * 0.6)) * Math.PI) : 0;
+      return { ...rest, tilt: 0.3 * k, bob: 3 * k };
+    }
     case 'shake_off': {
       // A wet dog: fast side-to-side twists that wind down, with a little crouch first.
       const k = t < 0.15 ? t / 0.15 : fade;

@@ -5,6 +5,7 @@ import type { BugglebrookApi } from '../../../shared/ipc';
 import type { AudioBackend } from '../audio/synth';
 import { Sfx } from '../audio/sfx';
 import type { Material } from '../audio/sfx';
+import { soundMaterial } from '../audio/sfx';
 import { BugVoices } from '../audio/voices';
 import { PointerController } from '../input/pointerController';
 import { Camera } from '../render/camera';
@@ -237,7 +238,7 @@ export class Game {
     const materialOf = (kind: 'bug' | 'item', defId: string): Material =>
       kind === 'bug' || !sim.content.items.has(defId)
         ? 'bug'
-        : (sim.content.items.get(defId).material.slice(4) as Material);
+        : soundMaterial(sim.content.items.get(defId).material);
     this.sfx.attach(sim.events, materialOf, (defId) =>
       sim.content.items.has(defId) ? sim.content.items.get(defId).tags : [],
     );

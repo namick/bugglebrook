@@ -40,7 +40,7 @@ function touching(a: string, b: string): { sim: Sim; a: number; b: number; log: 
 
 const calm = (sim: Sim, id: number): void => {
   const brain = sim.entities.get(id)!.bug!;
-  brain.needs = { need_hunger: 100, need_fun: 100, need_energy: 100 };
+  brain.needs = { need_hunger: 100, need_fun: 100, need_energy: 100, need_social: 80, need_clean: 90 };
 };
 
 describe('tag state', () => {
@@ -583,7 +583,7 @@ describe('saves', () => {
               targetId: null,
               action: null,
               facing: 1,
-              needs: { need_hunger: 70, need_fun: 70, need_energy: 80 },
+              needs: { need_hunger: 70, need_fun: 70, need_energy: 80, need_social: 80, need_clean: 90 },
               decideIn: 30,
               airPeak: 0,
               selfLaunched: false,
@@ -614,7 +614,7 @@ describe('saves', () => {
       },
     };
     const save = loadSaveFile(JSON.stringify(v3));
-    expect(save.version).toBe(4);
+    expect(save.version).toBe(SAVE_VERSION);
     expect(save.view.cameraX).toBe(3 + PLAZA_X);
     const [dot, berry] = save.world.entities;
     expect(dot!.body.x).toBe(7 + PLAZA_X);

@@ -72,6 +72,14 @@ export interface BugFaceInput {
   dizzyProof?: boolean;
   /** Frozen solid in a block of ice. */
   frozen?: boolean;
+  /** Just woken and still groggy. */
+  groggy?: boolean;
+  /** Gliding down on open wings (Dot). */
+  gliding?: boolean;
+  /** Saying a line in a chat right now. */
+  talking?: boolean;
+  /** Sniffing something new (`st_use` with `inspect`). */
+  sniffing?: boolean;
 }
 
 /**
@@ -93,6 +101,13 @@ export function bugFace(input: BugFaceInput): BugFace {
 
   if (input.frozen) return face('wide', 'o', input.art === 'snail' ? 'in_shell' : 'normal', true);
   if (mode === 'st_dizzy') return face('spiral', 'wobble');
+  if (mode === 'st_sleep') {
+    // Snoozing: eyes shut (the pose closes them), a little open mouth for snores.
+    const snore = Math.sin(input.time * 1.4) > 0.3;
+    const form = input.art === 'snail' ? 'in_shell' : input.art === 'pillbug' ? 'curled' : 'normal';
+    return face('sleepy', snore ? 'o' : 'smile', form);
+  }
+  if (mode === 'st_rolled') return face('squint', 'o', input.art === 'pillbug' ? 'curled' : 'normal');
   if (input.woozy)
     return input.dizzyProof ? face('wide', 'o', 'in_shell') : face('spiral', 'wobble', 'normal', true);
   if (mode === 'st_held' && (input.tickle ?? 0) > 0) {
@@ -122,6 +137,17 @@ export function bugFace(input: BugFaceInput): BugFace {
   }
   if (input.flinch && (mode === 'st_idle' || mode === 'st_wander' || mode === 'st_seek'))
     return face('wide', 'o', base.form);
+  if (input.talking && (mode === 'st_social' || mode === 'st_idle')) {
+    // Gibber-jabber: the mouth flaps while the line lasts.
+    const flap = Math.sin(input.time * 22) > 0;
+    return face(
+      base.eyes === 'sleepy' && input.art !== 'strider' ? 'open' : base.eyes,
+      flap ? 'o' : 'smile',
+      base.form,
+      base.blush,
+    );
+  }
+  if (input.groggy && (mode === 'st_react' || mode === 'st_idle')) return face('sleepy', 'flat');
   if (
     input.offered &&
     (mode === 'st_idle' || mode === 'st_wander' || mode === 'st_seek' || mode === 'st_react')
@@ -165,15 +191,31 @@ function stateFace(input: BugFaceInput, face: Make): BugFace {
       if (cool) return face('sleepy', 'flat');
       return face('worried', 'o');
     case 'st_airborne':
-      if (input.selfLaunched) return face('open', 'o');
+      if (input.gliding) return face('happy', 'whee', 'flying', true);
+      if (input.selfLaunched)
+        return face(art === 'grasshopper' ? 'happy' : 'open', art === 'grasshopper' ? 'whee' : 'o');
       if (art === 'pillbug') return face('squint', 'o', 'curled');
       if (art === 'snail') return face('wide', 'o', 'in_shell');
       if (cool) return face('wide', 'whee', 'normal', true);
       return face('wide', 'whee', input.likesFlinging ? 'flying' : 'normal', input.likesFlinging);
     case 'st_use':
+      // Sniffing something new is curious; otherwise it is a spring hop.
+      if (input.sniffing) return face(art === 'strider' ? 'sleepy' : 'wide', 'o');
       return face('happy', 'whee', art === 'ladybug' ? 'flying' : 'normal', true);
     case 'st_landing':
       return face('squint', 'o');
+    case 'st_perform':
+      return face('happy', 'grin', 'normal', true);
+    case 'st_hide':
+      // Peeking out from behind cover.
+      return face('worried', 'o', input.art === 'snail' ? 'in_shell' : 'normal');
+    case 'st_ride':
+      return face('happy', 'whee', 'normal', true);
+    case 'st_social':
+      if (input.mood === 'mood_grumpy') break;
+      return art === 'pillbug'
+        ? face('worried', 'smile', 'normal', true)
+        : face(cool ? 'sleepy' : 'happy', 'grin', 'normal', true);
     case 'st_recover':
       return face('open', 'smile');
     case 'st_react':

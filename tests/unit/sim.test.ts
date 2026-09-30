@@ -397,7 +397,7 @@ describe('bugs', () => {
     brain.needs.need_hunger = 100;
     const log = record(sim);
     sim.run(60 * 20);
-    const used = find(log, 'bug_used');
+    const used = find(log, 'bug_used').filter((u) => u.action === 'bounce');
     expect(used.length).toBeGreaterThan(0);
     expect(used[0]).toMatchObject({ id: bug.id, targetId: spring.id, action: 'bounce' });
     expect(find(log, 'spring_bounced').some((e) => e.targetId === bug.id)).toBe(true);

@@ -73,7 +73,7 @@ export interface WaterDef {
   current: number;
 }
 
-export type FixtureKind = 'hose_tap' | 'lily_pad' | 'rubber_boot';
+export type FixtureKind = 'hose_tap' | 'lily_pad' | 'rubber_boot' | 'teacup';
 
 /** A fixed part of an area. Positions are area-local x and world y, in meters. */
 export interface FixtureDef {
@@ -81,12 +81,18 @@ export interface FixtureDef {
   kind: FixtureKind;
   x: number;
   y: number;
-  /** Click radius in meters, for clickable fixtures. */
+  /** Click radius in meters, for clickable fixtures. For the teacup, half its width. */
   radius: number;
 }
 
-export type NeedId = 'need_hunger' | 'need_fun' | 'need_energy';
-export const NEED_IDS: readonly NeedId[] = ['need_hunger', 'need_fun', 'need_energy'];
+export type NeedId = 'need_hunger' | 'need_fun' | 'need_energy' | 'need_social' | 'need_clean';
+export const NEED_IDS: readonly NeedId[] = [
+  'need_hunger',
+  'need_fun',
+  'need_energy',
+  'need_social',
+  'need_clean',
+];
 
 export type Wave = 'sine' | 'square' | 'triangle' | 'sawtooth';
 
@@ -103,7 +109,41 @@ export interface VoiceProfile {
   formantShift: number;
 }
 
-export type BugArt = 'ladybug' | 'pillbug' | 'snail' | 'strider';
+export type BugArt = 'ladybug' | 'pillbug' | 'snail' | 'strider' | 'grasshopper';
+
+/**
+ * Personality knobs that the AI reads, 0 to 1. `curious` sniffs new things,
+ * `sociable` seeks company, `cheeky` plays tag and snatches snacks,
+ * `generous` shares food, `nervous` curls up or hides when startled.
+ */
+export interface BugTraits {
+  restless: number;
+  bouncy: number;
+  curious: number;
+  sociable: number;
+  cheeky: number;
+  generous: number;
+  nervous: number;
+}
+
+/**
+ * Signature behaviors (game design doc, section 4). Each one switches on a
+ * piece of AI that only some bugs have.
+ */
+export interface BugHabits {
+  /** Gets around by hopping in big arcs instead of walking (Boing). */
+  hops?: boolean;
+  /** Sometimes hops onto another bug's head and sits there (Boing). */
+  ridesHeads?: boolean;
+  /** Leaves a slime trail that makes other bugs slide (Glorp). */
+  slimeTrail?: boolean;
+  /** Lines up loose pebbles in a neat row near where he rests (Rollo). */
+  rowsPebbles?: boolean;
+  /** Climbs to the highest point, poses, and glides down; poses for the camera when ignored (Dot). */
+  showsOff?: boolean;
+  /** Drifts away from crowds of four or more (Skeet). */
+  crowdShy?: boolean;
+}
 
 /**
  * How a bug copes with water (game design doc, section 5, `st_swim`):
@@ -131,8 +171,8 @@ export interface BugDef {
   /** Hidden bugs start locked and are found through secrets. */
   hidden: boolean;
   home: string;
-  /** Personality knobs that the AI reads. 0 to 1. */
-  traits: { restless: number; bouncy: number };
+  traits: BugTraits;
+  habits: BugHabits;
   /** Multiplies need decay and urgency. 0.5 to 1.5. */
   needWeights: Readonly<Record<NeedId, number>>;
   /** Item IDs this bug loves, likes, or dislikes. Anything else is neutral. */
@@ -214,7 +254,22 @@ export type ItemArt =
   | 'gum_blob'
   | 'magnet';
 
-export type AdvertAction = 'eat' | 'bounce';
+/**
+ * What a bug can do with an advert (game design doc, section 5). Items offer
+ * eat, bounce, sleep, and carry; any item a bug has not met offers inspect;
+ * spots in the world offer splash and perform.
+ */
+export type AdvertAction = 'eat' | 'bounce' | 'inspect' | 'sleep' | 'splash' | 'carry' | 'perform';
+
+export const ADVERT_ACTIONS: readonly AdvertAction[] = [
+  'eat',
+  'bounce',
+  'inspect',
+  'sleep',
+  'splash',
+  'carry',
+  'perform',
+];
 
 /** What an object offers a bug (game design doc, section 5). */
 export interface Advert {
@@ -253,6 +308,8 @@ export interface ItemDef {
   magnet?: number;
   /** Waved through the air while wet or soapy, it blows a trail of bubbles. */
   blowsBubbles?: boolean;
+  /** Small and round enough for two bugs to play catch with. */
+  catchable?: boolean;
 }
 
 export interface RecipeDef {

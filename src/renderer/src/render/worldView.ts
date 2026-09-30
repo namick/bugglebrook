@@ -2,7 +2,7 @@ import { Container, Graphics } from 'pixi.js';
 import type { Renderer } from 'pixi.js';
 import { PIXELS_PER_METER, VIEW_WIDTH_PX } from '../../../game/constants';
 import type { EntityId } from '../../../game/core/entities';
-import type { Liking } from '../../../game/events';
+import type { ChatTopic, Fidget, Liking } from '../../../game/events';
 import type { EntityView, Sim } from '../../../game/sim';
 import { likingOf } from '../../../game/systems/bugAi';
 import { Background } from './background';
@@ -18,7 +18,7 @@ import { ItemSprite } from './draw/item';
 import { SquashSpring, approach, stretchFor } from './juice';
 import { OUTLINE } from './palette';
 import { Particles } from './particles';
-import type { Picto, ReactionLook } from './reactions';
+import type { Move, Picto, ReactionLook } from './reactions';
 import { movePose, reactionLook, reactionShowing } from './reactions';
 import { thoughtFor } from './thoughts';
 import { SoapBubbles } from './soapBubbles';
@@ -66,6 +66,14 @@ interface Juice {
   /** Seconds until the next drip, stink puff, or underwater bubble. */
   drip: number;
   puff: number;
+  /** Seconds left of a chat line being said. */
+  talk: number;
+  /** An idle fidget or a social move playing, and how far along it is. */
+  move: { move: Move; t: number; seconds: number } | null;
+  /** Seconds until the next snore "Z". */
+  snore: number;
+  /** Glancing around (a fidget): seconds left. */
+  glance: number;
 }
 
 /** Where the cursor is, in world meters, or null when it is off the canvas. */
@@ -100,7 +108,7 @@ export class WorldView extends Container {
   /** Over entities: ice blocks, foam, gloss, goo, frost. */
   private readonly over = new Graphics();
   /** Sounds that come from the view itself (bubble pops, the running hose). */
-  onSound: ((name: 'pop' | 'trickle', strength: number) => void) | null = null;
+  onSound: ((name: 'pop' | 'trickle' | 'snore', strength: number) => void) | null = null;
   private trickleIn = 0;
   /** Where each weld sits on its two bodies, so the goo blob follows them. */
   private readonly welds = new Map<string, { la: Point; lb: Point }>();
@@ -162,6 +170,10 @@ export class WorldView extends Container {
         food: null,
         drip: Math.random() * 0.3,
         puff: Math.random(),
+        talk: 0,
+        move: null,
+        snore: 0.5 + Math.random(),
+        glance: 0,
       };
       this.juice.set(id, j);
     }
@@ -186,10 +198,26 @@ export class WorldView extends Container {
     return this.sim.content.items.has(defId) && this.sim.content.items.get(defId).tags.includes(tag);
   }
 
-  /** Show a speech bubble for a bug. */
-  private say(id: EntityId, pictos: readonly Picto[], seconds: number, food: string | null = null): void {
+  /** Show a speech bubble for a bug. `friend` is a bug def to picture. */
+  private say(
+    id: EntityId,
+    pictos: readonly Picto[],
+    seconds: number,
+    food: string | null = null,
+    friend: string | null = null,
+  ): void {
     const def = food && this.sim.content.items.has(food) ? this.sim.content.items.get(food) : null;
-    this.bubbles.show(id, 'speech', pictos, seconds, def);
+    const pal = friend && this.sim.content.bugs.has(friend) ? this.sim.content.bugs.get(friend) : null;
+    this.bubbles.show(id, 'speech', pictos, seconds, def, pal);
+  }
+
+  /** Play a body move on a bug for a while (a fidget or a pat). */
+  private moveBug(id: EntityId, move: Move, seconds: number): void {
+    this.juiceFor(id).move = { move, t: 0, seconds };
+  }
+
+  private defOf(id: EntityId): string | null {
+    return this.sim.entities.get(id)?.defId ?? null;
   }
 
   private listen(): void {
@@ -240,12 +268,7 @@ export class WorldView extends Container {
         this.juiceFor(e.targetId).flying = 2;
         this.particles.burst(px(e.x), px(e.y) - 30, 5, 0xffffff, Math.PI * 0.9, -Math.PI / 2);
       }),
-      ev.on('bug_chose_action', (e) => {
-        const target = this.sim.entities.get(e.targetId);
-        if (!target) return;
-        if (e.action === 'eat') this.say(e.id, ['food', 'exclaim'], 1.3, target.defId);
-        else this.say(e.id, ['spring', 'exclaim'], 1.3);
-      }),
+      ev.on('bug_chose_action', (e) => this.intent(e.id, e.action, e.targetId)),
       ev.on('bug_reacted', (e) => this.react(e.id, e.defId, e.reaction, e.variant)),
       ev.on('bug_fed', (e) => {
         const j = this.juiceFor(e.id);
@@ -334,7 +357,200 @@ export class WorldView extends Container {
       }),
       ev.on('entity_removed', (e) => this.drop(e.id)),
       ...this.listenWater(),
+      ...this.listenSocial(),
     );
+  }
+
+  /** What a bug is off to do, shown as a quick bubble so players can read its plan. */
+  private intent(id: EntityId, action: string, targetId: EntityId | null): void {
+    const target = targetId === null ? null : this.defOf(targetId);
+    const brain = this.sim.entities.get(id)?.bug;
+    const item = brain?.social?.item ?? null;
+    const toy = item === null ? null : this.defOf(item);
+    switch (action) {
+      case 'eat':
+        if (target) this.say(id, ['food', 'exclaim'], 1.3, target);
+        return;
+      case 'bounce':
+        this.say(id, ['spring', 'exclaim'], 1.3);
+        return;
+      case 'inspect':
+        if (target) this.say(id, ['question', 'food'], 1.1, target);
+        return;
+      case 'sleep':
+        this.say(id, ['zzz'], 1.2);
+        return;
+      case 'splash':
+        this.say(id, ['drop', 'exclaim'], 1.2);
+        return;
+      case 'perform':
+        this.say(id, ['star', 'up'], 1.2);
+        return;
+      case 'soc_chat':
+        this.say(id, ['friend', 'heart'], 1.1, null, target);
+        return;
+      case 'soc_bump':
+        this.say(id, ['friend', 'star'], 1.1, null, target);
+        return;
+      case 'soc_tag':
+        this.say(id, ['friend', 'exclaim'], 1.1, null, target);
+        return;
+      case 'soc_catch':
+        this.say(id, ['food', 'friend'], 1.3, toy, target);
+        return;
+      case 'soc_share_food':
+        this.say(id, ['food', 'heart'], 1.3, toy);
+        return;
+      case 'soc_comfort':
+        this.say(id, ['friend', 'sweat'], 1.2, null, target);
+        return;
+      case 'soc_steal':
+        // A sneaky grin at someone's snack.
+        {
+          const snack = targetId === null ? null : (this.sim.entities.get(targetId)?.bug?.carrying ?? null);
+          this.say(id, ['food', 'laugh'], 1.1, snack === null ? null : this.defOf(snack));
+        }
+        return;
+      case 'soc_ride':
+        this.say(id, ['up', 'friend'], 1.1, null, target);
+        return;
+      default:
+        return;
+    }
+  }
+
+  /** Bugs together: chats, boops, tag, catch, snacks shared and snatched, pats, naps, and rides. */
+  private listenSocial(): Array<() => void> {
+    const ev = this.sim.events;
+    const px = (m: number): number => m * PPM;
+    const TOPIC: Readonly<Record<ChatTopic, Picto>> = {
+      food: 'food',
+      friend: 'friend',
+      star: 'star',
+      question: 'question',
+      heart: 'heart',
+      note: 'note',
+      spring: 'spring',
+      drop: 'drop',
+      zzz: 'zzz',
+      laugh: 'laugh',
+      sun: 'sun',
+    };
+    const FIDGET: Readonly<Record<Fidget, [Move, number]>> = {
+      look: ['none', 1.2],
+      hum: ['nod', 1.4],
+      yawn: ['yawn', 1.6],
+      scratch: ['shiver', 0.8],
+      groom: ['wiggle', 1.1],
+      stretch: ['yawn', 1],
+      kick: ['stomp', 0.7],
+      twirl: ['spin', 0.6],
+    };
+    return [
+      ev.on('bug_chatted', (e) => {
+        const j = this.juiceFor(e.id);
+        j.talk = 0.9;
+        const topic = TOPIC[e.topic];
+        const extra: Picto | null =
+          e.topic === 'friend'
+            ? (['laugh', 'heart', 'question'] as const)[Math.floor(Math.random() * 3)]!
+            : null;
+        const pictos = extra ? [topic, extra] : [topic];
+        this.say(
+          e.id,
+          pictos,
+          1.15,
+          e.topic === 'food' ? e.about : null,
+          e.topic === 'friend' ? e.about : null,
+        );
+        const partner = this.sim.view(e.partnerId);
+        const me = this.sim.view(e.id);
+        if (partner && me) this.juiceFor(e.partnerId).look = { x: me.x > partner.x ? 0.6 : -0.6, y: 0 };
+      }),
+      ev.on('bug_bumped', (e) => {
+        this.particles.boop(px(e.x), px(e.y) - 20);
+        this.juiceFor(e.id).squash.kick(1.15, 0.88);
+        this.juiceFor(e.partnerId).squash.kick(1.15, 0.88);
+      }),
+      ev.on('bug_tagged', (e) => {
+        this.say(e.id, ['exclaim'], 0.8);
+        this.say(e.partnerId, ['laugh'], 0.9);
+        this.particles.burst(px(e.x), px(e.y) - 20, 5, 0xffffff);
+        this.juiceFor(e.partnerId).squash.kick(0.85, 1.15);
+      }),
+      ev.on('bug_threw', (e) => {
+        this.juiceFor(e.itemId).flying = 1.5;
+        this.juiceFor(e.id).squash.kick(0.9, 1.1);
+      }),
+      ev.on('bug_caught', (e) => {
+        this.particles.sparkles(px(e.x), px(e.y), 3);
+        this.juiceFor(e.id).squash.kick(1.12, 0.9);
+      }),
+      ev.on('bug_shared', (e) => {
+        const v = this.sim.view(e.partnerId);
+        if (v) this.particles.hearts(px(v.x), px(v.y) - this.sizeOf(e.partnerId) * 1.4, 3);
+        this.say(e.id, ['heart'], 1.2);
+      }),
+      ev.on('bug_snatched', (e) => {
+        const v = this.sim.view(e.id);
+        if (v) this.particles.burst(px(v.x), px(v.y) - 20, 6, 0xffd23f);
+        this.juiceFor(e.partnerId).food = e.itemDefId;
+        this.say(e.id, ['food', 'laugh'], 1.2, e.itemDefId);
+      }),
+      ev.on('bug_comforted', (e) => {
+        this.moveBug(e.id, 'pat', 1.2);
+        const v = this.sim.view(e.partnerId);
+        if (v) this.particles.hearts(px(v.x), px(v.y) - this.sizeOf(e.partnerId) * 1.5, 3);
+        this.say(e.id, ['heart'], 1.2);
+      }),
+      ev.on('bug_rode', (e) => {
+        if (!e.on) return;
+        this.say(e.id, ['up', 'star'], 1.2);
+        const mount = this.sim.view(e.mountId);
+        if (mount?.bug && mount.bug.mode !== 'st_sleep') this.say(e.mountId, ['question'], 1.1);
+      }),
+      ev.on('bug_slept', (e) => {
+        this.juiceFor(e.id).snore = 0.8;
+        this.bubbles.hide(e.id);
+      }),
+      ev.on('bug_posed', (e) => {
+        this.particles.sparkles(px(e.x), px(e.y) - 60, 8);
+      }),
+      ev.on('bug_fidgeted', (e) => {
+        const [move, seconds] = FIDGET[e.fidget];
+        this.moveBug(e.id, move, seconds);
+        const j = this.juiceFor(e.id);
+        if (e.fidget === 'look') j.glance = 1.2;
+        if (e.fidget === 'hum') this.bubbles.show(e.id, 'speech', ['note'], 1.2);
+        if (e.fidget === 'groom') {
+          const v = this.sim.view(e.id);
+          if (v) this.particles.sparkles(px(v.x), px(v.y) - 20, 3);
+        }
+        if (e.fidget === 'kick') {
+          const v = this.sim.view(e.id);
+          if (v) this.particles.dust(px(v.x) + this.facingOf(e.id) * 30, px(v.y) + this.sizeOf(e.id), 1);
+        }
+      }),
+      ev.on('bug_slipped', (e) => {
+        this.particles.drops(
+          px(e.x),
+          px(e.y) + this.sizeOf(e.id),
+          -this.facingOf(e.id) * 80,
+          -60,
+          0xb8e986,
+          4,
+        );
+      }),
+      ev.on('bug_curled', (e) => this.juiceFor(e.id).squash.kick(e.on ? 0.8 : 1.15, e.on ? 1.2 : 0.9)),
+      ev.on('bug_inspected', (e) => {
+        this.juiceFor(e.id).food = e.itemDefId;
+      }),
+      ev.on('bug_picked_up', (e) => this.juiceFor(e.itemId).squash.kick(1.2, 0.85)),
+      ev.on('stack_fell', (e) => {
+        this.particles.dust(px(e.x), px(e.y), 10);
+        this.shake(3, 0.15);
+      }),
+    ];
   }
 
   /** Water and property events: splashes, steam, ice, goo, bubbles, stink. */
@@ -563,7 +779,7 @@ export class WorldView extends Container {
       j.squash.update(dt);
       // Floaters ride the ripples.
       const bob = this.water.bob(view);
-      sprite.position.set(view.x * PPM, view.y * PPM + bob.dy);
+      sprite.position.set(view.x * PPM, view.y * PPM + bob.dy + this.footDrop(view));
       const rim = hoverId === view.id && !view.held ? rimPulse : 0;
       if (view.inMouthOf === undefined && view.submerged === 0 && !this.sim.environment.waterAt(view.x))
         this.drawShadow(shadows, view);
@@ -582,7 +798,10 @@ export class WorldView extends Container {
         const moving = view.held || j.flying > 0;
         const stretch = moving ? stretchFor(speed, 1.2, 0.5) : 1;
         let k = 1;
-        if (view.inMouthOf !== undefined) {
+        if (view.carriedBy !== undefined) {
+          // Held out in front in the bug's front legs.
+          sprite.zIndex = view.carriedBy + 0.5;
+        } else if (view.inMouthOf !== undefined) {
           // Held in the mouth, in front of the face, shrinking with each bite.
           const bug = this.juice.get(view.inMouthOf);
           const liking = this.sim.view(view.inMouthOf)?.bug?.mouthful?.liking;
@@ -604,6 +823,7 @@ export class WorldView extends Container {
       }
     }
     for (const id of [...this.sprites.keys()]) if (!seen.has(id)) this.drop(id);
+    this.drawSlime(behind, left, right);
     this.drawWelds(over);
     this.drawMagnets(over, views, left, right);
     this.bubbles.update(dt, (id) => {
@@ -678,8 +898,15 @@ export class WorldView extends Container {
     if (j.chewing >= 0) j.chewing += dt;
     j.flinch = Math.max(0, j.flinch - dt);
     j.hot = Math.max(0, j.hot - dt);
+    j.talk = Math.max(0, j.talk - dt);
+    j.glance = Math.max(0, j.glance - dt);
+    if (j.move) {
+      j.move.t += dt;
+      if (j.move.t >= j.move.seconds) j.move = null;
+    }
     const pose = bugPose({
-      mode: bug.mode,
+      // Sniffing something is standing still; `st_use` on its own is a spring hop.
+      mode: bug.mode === 'st_use' && bug.action !== 'bounce' ? 'st_idle' : bug.mode,
       vx: view.vx,
       vy: view.vy,
       time: this.time,
@@ -727,20 +954,32 @@ export class WorldView extends Container {
       woozy: bug.woozy,
       flinch: j.flinch > 0,
       dizzyProof: def.dizzyProof,
+      groggy: bug.groggy,
+      gliding: bug.gliding,
+      talking: j.talk > 0,
+      sniffing: bug.mode === 'st_use' && bug.action === 'inspect',
     });
     if (j.hot > 0 && face.form === 'normal') face.tint = 'red';
     // Disliked food offered: shake the head no.
     let move = look ? movePose(look.move, age, look.seconds) : undefined;
     if (!look && offered === 'disliked') move = movePose('shake_head', this.time % 1, 2);
     if (!look && bug.tickle > 0) move = movePose('wiggle', this.time % 1, 2);
+    if (!look && !move && j.move) move = movePose(j.move.move, j.move.t, j.move.seconds);
 
     const speed = Math.hypot(view.vx, view.vy);
     const flying = bug.mode === 'st_airborne' || bug.mode === 'st_use';
     const held = bug.mode === 'st_held';
 
-    // Where to look: the cursor when it is close, food on offer, or ahead.
+    // Where to look: the cursor when it is close, food on offer, a friend, or ahead.
     let target: Look = { x: bug.facing * 0.5, y: 0.1 };
     if (bug.mode === 'st_eat') target = { x: bug.facing * 0.7, y: 0.6 };
+    if (j.glance > 0) target = { x: Math.sin(j.glance * 5) * 0.9, y: -0.2 };
+    const buddy = bug.social ? this.sim.view(bug.social.partner) : null;
+    if (buddy) target = { x: buddy.x > view.x ? 0.7 : -0.7, y: (buddy.y - view.y) * 0.3 };
+    if (bug.mode === 'st_use' && bug.targetId !== null) {
+      const thing = this.sim.view(bug.targetId);
+      if (thing) target = { x: thing.x > view.x ? 0.8 : -0.8, y: 0.5 };
+    }
     const focus = offer && offered ? { x: offer.x, y: offer.y } : hover;
     if (focus && !flying) {
       const hx = view.x + bug.facing * r * 0.8;
@@ -786,7 +1025,19 @@ export class WorldView extends Container {
       rim,
       skate: this.sim.environment.skating.has(view.id),
       chute: def.glidesWhenFlung && bug.mode === 'st_airborne' && !bug.selfLaunched && view.vy > 0.5,
+      carrying: bug.carrying !== null,
+      hopping: bug.mode === 'st_airborne' && bug.selfLaunched,
     });
+    // Snoring: a "Z" drifts up every second and a half.
+    if (bug.mode === 'st_sleep') {
+      j.snore -= dt;
+      if (j.snore <= 0) {
+        j.snore = 1.4 + Math.random() * 0.5;
+        const headX = view.x * PPM + bug.facing * r * PPM * 0.7;
+        this.particles.zzz(headX, view.y * PPM - r * PPM * 1.1, bug.facing);
+        this.onSound?.('snore', 1);
+      }
+    }
     // Rollo holding his breath on the bottom lets out the odd bubble.
     if (bug.mode === 'st_swim' && view.submerged > 0.9) {
       j.puff -= dt;
@@ -810,12 +1061,30 @@ export class WorldView extends Container {
     const due = j.thinkIn <= 0 || j.hovered >= HOVER_THOUGHT;
     if (busy || !due || view.bug!.mode === 'st_held') return;
     const def = this.sim.content.bugs.get(view.defId);
-    const thought = thoughtFor(def, view.bug!.needs, this.sim.content.items);
+    const mode = view.bug!.mode;
+    if (mode === 'st_sleep' || mode === 'st_social' || mode === 'st_ride') return;
+    const thought = thoughtFor(def, view.bug!.needs, this.sim.content.items, this.bestFriend(view.defId));
     j.thinkIn = THOUGHT_EVERY;
     if (j.hovered >= HOVER_THOUGHT) j.hovered = -60; // once per hover
     if (!thought) return;
     const food = thought.food ? this.sim.content.items.get(thought.food) : null;
-    this.bubbles.show(view.id, 'thought', thought.pictos, 2.6, food);
+    const friend = thought.friend ? this.sim.content.bugs.get(thought.friend) : null;
+    this.bubbles.show(view.id, 'thought', thought.pictos, 2.6, food, friend);
+  }
+
+  /** The bug this one likes best, among bugs in the world. */
+  private bestFriend(defId: string): string | null {
+    let best: string | null = null;
+    let score = -Infinity;
+    for (const other of this.sim.entities.ofKind('bug')) {
+      if (other.defId === defId) continue;
+      const a = this.sim.affinityOf(defId, other.defId);
+      if (a > score) {
+        score = a;
+        best = other.defId;
+      }
+    }
+    return best;
   }
 
   /** Things soap bubbles pop against: every entity on screen, as a circle. */
@@ -958,6 +1227,40 @@ export class WorldView extends Container {
           .lineTo(x + Math.cos(a) * r1, y + Math.sin(a) * r1)
           .stroke({ width: 4, color: OUTLINE, cap: 'round', join: 'round' });
       }
+    }
+  }
+
+  /**
+   * A round collider on a steep root rests on its side, so its feet would
+   * float. Drop the drawing onto the ground under its middle.
+   */
+  private footDrop(view: EntityView): number {
+    const mode = view.bug?.mode;
+    if (!mode || view.held || mode === 'st_airborne' || mode === 'st_swim' || mode === 'st_ride') return 0;
+    const r = this.sim.content.bugs.get(view.defId).radius;
+    const gap = this.sim.surfaceY(view.x) - (view.y + r);
+    return gap > 0.005 && gap < r * 0.6 ? gap * PPM : 0;
+  }
+
+  /** Glorp's slime trail: a glossy green smear on the ground that fades out. */
+  private drawSlime(g: Graphics, left: number, right: number): void {
+    const tick = this.sim.tick;
+    for (const strip of this.sim.environment.state.slime) {
+      if (strip.x1 < left || strip.x0 > right) continue;
+      const k = Math.min(1, (strip.until - tick) / (8 * 60));
+      if (k <= 0) continue;
+      const x0 = strip.x0 * PPM;
+      const x1 = strip.x1 * PPM;
+      const ground = (x: number): number => this.sim.surfaceY(x / PPM) * PPM - 3;
+      const steps = Math.max(2, Math.round((x1 - x0) / 20));
+      g.moveTo(x0, ground(x0));
+      for (let i = 1; i <= steps; i++) {
+        const x = x0 + ((x1 - x0) * i) / steps;
+        g.lineTo(x, ground(x));
+      }
+      g.stroke({ width: 11, color: 0xb8e986, alpha: 0.55 * k, cap: 'round', join: 'round' });
+      for (let x = x0 + 12; x < x1 - 6; x += 46)
+        g.ellipse(x, ground(x) - 3, 7, 2.5).fill({ color: 0xffffff, alpha: 0.6 * k });
     }
   }
 

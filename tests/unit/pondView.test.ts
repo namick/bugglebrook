@@ -83,7 +83,7 @@ describe('faces, poses, and moves in and out of the water', () => {
   const base: BugFaceInput = {
     art: 'ladybug',
     mode: 'st_idle',
-    needs: { need_hunger: 80, need_fun: 80, need_energy: 80 },
+    needs: { need_hunger: 80, need_fun: 80, need_energy: 80, need_social: 80, need_clean: 90 },
     time: 0,
     likesFlinging: true,
   };

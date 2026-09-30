@@ -1,8 +1,8 @@
 import { Container, Graphics } from 'pixi.js';
 import type { EntityId } from '../../../game/core/entities';
-import type { ItemDef } from '../../../game/data/types';
+import type { BugDef, ItemDef } from '../../../game/data/types';
 import { ItemSprite } from './draw/item';
-import { drawPicto } from './draw/pictogram';
+import { drawFriend, drawPicto } from './draw/pictogram';
 import { stroke } from './palette';
 import type { Picto } from './reactions';
 
@@ -45,9 +45,10 @@ class Bubble extends Container {
     readonly info: BubbleInfo,
     readonly life: number,
     food: ItemDef | null,
+    friend: BugDef | null = null,
   ) {
     super();
-    const pictos = info.pictos.filter((p) => p !== 'food' || food);
+    const pictos = info.pictos.filter((p) => (p !== 'food' || food) && (p !== 'friend' || friend));
     this.w = PAD + pictos.length * SLOT;
     this.addChild(this.g, this.icons);
     const { w, h } = this;
@@ -92,6 +93,11 @@ class Bubble extends Container {
         icon.position.set(x, y + 2);
         this.addChild(icon);
       }
+      if (p === 'friend' && friend) {
+        const face = new Graphics();
+        drawFriend(face, friend, x, y + 2, SLOT * 0.72);
+        this.addChild(face);
+      }
     });
     this.pictos = pictos;
   }
@@ -104,7 +110,7 @@ class Bubble extends Container {
     this.pivot.y = Math.sin(this.age * 3) * 2;
     this.icons.clear();
     this.pictos.forEach((p, i) => {
-      if (p === 'food') return;
+      if (p === 'food' || p === 'friend') return;
       const x = -this.w / 2 + PAD / 2 + SLOT / 2 + i * SLOT;
       drawPicto(this.icons, p, x, -this.h / 2, SLOT * 0.72, this.age);
     });
@@ -125,10 +131,11 @@ export class Bubbles extends Container {
     pictos: readonly Picto[],
     seconds: number,
     food: ItemDef | null = null,
+    friend: BugDef | null = null,
   ): void {
     if (pictos.length === 0) return;
     this.hide(bugId);
-    const b = new Bubble({ bugId, kind, pictos }, seconds, food);
+    const b = new Bubble({ bugId, kind, pictos }, seconds, food, friend);
     this.bubbles.set(bugId, b);
     this.addChild(b);
   }

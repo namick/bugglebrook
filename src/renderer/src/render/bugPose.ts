@@ -70,7 +70,36 @@ export function bugPose(input: BugPoseInput): BugPose {
   let stride = 0;
   let flail = false;
 
-  switch (input.mode) {
+  // Playing, riding, and sniffing look like walking while moving, and like standing otherwise.
+  let mode = input.mode;
+  if (mode === 'st_use') mode = 'st_airborne';
+  else if (mode === 'st_ride') mode = 'st_idle';
+  else if (mode === 'st_social' || mode === 'st_hide')
+    mode = speed > 0.3 ? 'st_wander' : mode === 'st_hide' ? 'st_hide' : 'st_idle';
+
+  switch (mode) {
+    case 'st_sleep': {
+      // Slow, deep breaths, sunk low, eyes shut.
+      const breath = (Math.sin(t * Math.PI * 2 * 0.22) + 1) / 2;
+      sy = 0.9 + 0.06 * breath;
+      sx = 1.06 - 0.02 * breath;
+      bob = 2;
+      break;
+    }
+    case 'st_hide':
+      // Crouched low behind cover, trembling a little.
+      sy = 0.84;
+      sx = 1.08;
+      tilt = Math.sin(t * 40) * 0.015;
+      bob = 3;
+      break;
+    case 'st_perform': {
+      // Chest out, a proud little sway.
+      sy = 1.06;
+      sx = 0.97;
+      tilt = -0.1 + Math.sin(t * 3) * 0.04;
+      break;
+    }
     case 'st_idle':
     case 'st_react':
     case 'st_recover':
@@ -113,7 +142,6 @@ export function bugPose(input: BugPoseInput): BugPose {
       tilt = Math.sin(t * 5) * 0.1;
       break;
     case 'st_airborne':
-    case 'st_use':
       flail = true;
       legPhase = t * 20;
       stride = 1;
@@ -142,7 +170,7 @@ export function bugPose(input: BugPoseInput): BugPose {
     bob,
     legPhase,
     stride,
-    eyeOpen: 1 - blink,
+    eyeOpen: input.mode === 'st_sleep' ? 0 : 1 - blink,
     dizzy: input.mode === 'st_dizzy',
     flail,
   };

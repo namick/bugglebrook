@@ -5,7 +5,7 @@ import type { EnvState } from '../systems/environment';
 import type { TagState } from '../systems/tags';
 
 /** Bump when the save shape changes, and add a migration in migrations.ts. */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export interface SavedEntity {
   id: number;
@@ -28,6 +28,8 @@ export interface WorldSave {
   entities: SavedEntity[];
   /** Water, the hose, ice, welds, lily pads, weather. Absent in saves before version 4. */
   env?: EnvState;
+  /** How play has changed bug-pair affinity. Absent in saves before version 5. */
+  social?: { affinity: Record<string, number> };
 }
 
 /** Render-side state that should persist (camera position, etc.). */

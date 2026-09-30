@@ -17,7 +17,7 @@ import { thoughtFor } from '../../src/renderer/src/render/thoughts';
 import { cursorPose } from '../../src/renderer/src/ui/cursor';
 import { PLAZA_X } from './world';
 
-const ARTS = ['ladybug', 'pillbug', 'snail', 'strider'] as const;
+const ARTS = ['ladybug', 'pillbug', 'snail', 'strider', 'grasshopper'] as const;
 
 describe('reaction table', () => {
   it('has three different variants for every reaction and every bug', () => {
@@ -97,7 +97,7 @@ describe('reaction table', () => {
 const base: BugFaceInput = {
   art: 'ladybug',
   mode: 'st_idle',
-  needs: { need_hunger: 70, need_fun: 70, need_energy: 70 },
+  needs: { need_hunger: 70, need_fun: 70, need_energy: 70, need_social: 80, need_clean: 90 },
   time: 0,
   likesFlinging: true,
 };
@@ -145,7 +145,7 @@ describe('bugFace for M2', () => {
 });
 
 describe('thought bubbles', () => {
-  const full = { need_hunger: 90, need_fun: 90, need_energy: 90 };
+  const full = { need_hunger: 90, need_fun: 90, need_energy: 90, need_social: 80, need_clean: 90 };
   it('thinks about a favorite food when hungry, a toy when bored, and sleep when tired', () => {
     const dot = BUGS.get('bug_ladybug_dot');
     expect(thoughtFor(dot, full, ITEMS)).toBeNull();

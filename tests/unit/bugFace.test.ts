@@ -3,7 +3,7 @@ import { BUG_MODES } from '../../src/game';
 import { bugFace } from '../../src/renderer/src/render/bugFace';
 import type { BugFaceInput } from '../../src/renderer/src/render/bugFace';
 
-const content = { need_hunger: 70, need_fun: 70, need_energy: 70 };
+const content = { need_hunger: 70, need_fun: 70, need_energy: 70, need_social: 80, need_clean: 90 };
 const base: BugFaceInput = { art: 'ladybug', mode: 'st_idle', needs: content, time: 0, likesFlinging: true };
 
 describe('bugFace', () => {
@@ -44,8 +44,11 @@ describe('bugFace', () => {
     expect(mouths).toContain('chew');
     expect(bugFace({ ...base, needs: { ...content, need_hunger: 10 } }).mouth).toBe('frown');
     expect(bugFace({ ...base, needs: { ...content, need_energy: 5 } }).eyes).toBe('sleepy');
-    expect(bugFace({ ...base, needs: { need_hunger: 90, need_fun: 90, need_energy: 90 } }).mouth).toBe(
-      'grin',
-    );
+    expect(
+      bugFace({
+        ...base,
+        needs: { need_hunger: 90, need_fun: 90, need_energy: 90, need_social: 80, need_clean: 90 },
+      }).mouth,
+    ).toBe('grin');
   });
 });

@@ -3,7 +3,7 @@ import type { Entity, EntityId } from '../core/entities';
 import { SIM_DT, SIM_HZ } from '../core/loop';
 import type { AreaDef, FixtureDef } from '../data/types';
 import type { TagCause } from '../events';
-import type { Impact, ShapeSpec } from '../physics/physics';
+import type { BodyState, Impact, ShapeSpec } from '../physics/physics';
 import type { Sim } from '../sim';
 import type { WaterSurface } from './water';
 import {
@@ -35,6 +35,15 @@ export interface Stick {
   since: number;
 }
 
+/** A strip of Glorp's slime trail on the ground (tag_slimy, 30 s). */
+export interface SlimeStrip {
+  x0: number;
+  x1: number;
+  /** The height of the bug that left it, so it lies on the right surface. */
+  y: number;
+  until: number;
+}
+
 /** A lily pad's bob: offset below its rest height and its speed. */
 export interface PadState {
   dy: number;
@@ -59,6 +68,8 @@ export interface EnvState {
   rain: boolean;
   rainSince: number;
   pads: Record<string, PadState>;
+  /** Glorp's slime trail. */
+  slime: SlimeStrip[];
 }
 
 export function newEnvState(): EnvState {
@@ -73,8 +84,13 @@ export function newEnvState(): EnvState {
     rain: false,
     rainSince: -1,
     pads: {},
+    slime: [],
   };
 }
+
+/** Slime lasts this long, in seconds. */
+export const SLIME_SECONDS = 30;
+const MAX_SLIME = 40;
 
 /** Area rules run at 4 Hz (game design doc, section 6). */
 export const RULE_TICKS = 15;
@@ -248,8 +264,40 @@ export class Environment {
   // --- Loading -------------------------------------------------------------
 
   /** Restore saved state: rebuild welds, and note what is already in the water. */
+  /**
+   * Glorp leaves a slime trail as he slides along the ground: strips that
+   * last 30 s. Other bugs slip on it.
+   */
+  slime(bug: Entity, s: BodyState, radius: number): void {
+    const tick = this.tick;
+    const trail = this.state.slime;
+    for (let i = trail.length - 1; i >= 0; i--) if (trail[i]!.until <= tick) trail.splice(i, 1);
+    if (!this.sim.physics.isSupported(bug.id) || Math.abs(s.vx) < 0.1 || this.waterAt(s.x)) return;
+    const mode = bug.bug?.mode;
+    if (mode !== 'st_wander' && mode !== 'st_seek' && mode !== 'st_social') return;
+    const x0 = s.x - radius * 1.2;
+    const x1 = s.x + radius * 0.2;
+    const until = tick + SLIME_SECONDS * SIM_HZ;
+    const last = trail[trail.length - 1];
+    if (
+      last &&
+      Math.abs(last.y - s.y) < 0.15 &&
+      x0 <= last.x1 + 0.05 &&
+      x1 >= last.x0 - 0.05 &&
+      last.x1 - last.x0 < 3
+    ) {
+      last.x0 = Math.min(last.x0, x0);
+      last.x1 = Math.max(last.x1, x1);
+      last.until = until;
+      return;
+    }
+    trail.push({ x0, x1, y: s.y, until });
+    if (trail.length > MAX_SLIME) trail.shift();
+  }
+
   restore(state: EnvState): void {
     this.state = state;
+    state.slime ??= [];
     const keep: Stick[] = [];
     for (const s of state.sticks) {
       if (!this.sim.entities.has(s.a) || !this.sim.entities.has(s.b)) continue;
@@ -323,6 +371,10 @@ export class Environment {
       if (bugDef?.glidesWhenFlung && e.bug?.mode === 'st_airborne' && !e.bug.selfLaunched && s.vy > 2.5) {
         // A parachute of long legs.
         physics.applyForce(e.id, -mass * 0.8 * s.vx, -mass * Math.min(GRAVITY * 1.4, 12 * (s.vy - 2.5)));
+      }
+      if (e.bug?.gliding && s.vy > 1.6) {
+        // Dot gliding down from the top on open wings.
+        physics.applyForce(e.id, -mass * 0.3 * s.vx, -mass * Math.min(GRAVITY * 1.3, 10 * (s.vy - 1.6)));
       }
       if (this.state.wind !== 0 && !held && sim.hasTag(e.id, 'tag_light')) {
         const push = this.state.wind - s.vx;
@@ -617,10 +669,12 @@ export class Environment {
     this.immerse(e.id);
   }
 
-  /** Rule R1: in the water, things get wet and washed. */
+  /** Rule R1: in the water, things get wet and washed. A dip gets a bug fully clean. */
   private immerse(id: EntityId): void {
     const sim = this.sim;
     sim.addTag(id, 'tag_wet', 'water');
+    const brain = sim.entities.get(id)?.bug;
+    if (brain) brain.needs.need_clean = 100;
     for (const tag of WASHED)
       if (sim.removeTag(id, tag, 'water', 30) && tag === 'tag_sticky') this.unstickAll(id);
     if (sim.removeTag(id, 'tag_hot', 'water', 30)) {
@@ -750,10 +804,18 @@ export class Environment {
       const frac = this.submerged.get(e.id) ?? 0;
       const s = physics.getState(e.id);
       if (frac > 0.2) this.immerse(e.id);
-      // R15: rain soaks anything under the open sky.
-      if (raining && frac <= 0.2 && physics.isActive(e.id)) sim.addTag(e.id, 'tag_wet', 'rain');
-      if (arc.some(([x, y]) => Math.hypot(s.x - x, s.y - y) < SPRAY_REACH + 0.25))
+      // R15: rain soaks anything under the open sky, and rinses bugs (+2/s).
+      if (raining && frac <= 0.2 && physics.isActive(e.id)) {
+        sim.addTag(e.id, 'tag_wet', 'rain');
+        if (e.bug) e.bug.needs.need_clean = Math.min(100, e.bug.needs.need_clean + 0.5);
+      }
+      if (arc.some(([x, y]) => Math.hypot(s.x - x, s.y - y) < SPRAY_REACH + 0.25)) {
         sim.addTag(e.id, 'tag_wet', 'hose');
+        if (e.bug) e.bug.needs.need_clean = Math.min(100, e.bug.needs.need_clean + 5);
+      }
+      // Skating keeps a water strider's feet clean.
+      if (e.bug && this.skating.has(e.id))
+        e.bug.needs.need_clean = Math.min(100, e.bug.needs.need_clean + 0.3);
       // R7: soap and water blow bubbles every half second.
       if (this.tick % (RULE_TICKS * 2) === 0 && sim.hasTag(e.id, 'tag_soapy') && sim.hasTag(e.id, 'tag_wet'))
         sim.events.emit('bubbles_blown', { id: e.id, x: s.x, y: s.y, count: frac > 0 ? 3 : 2 });

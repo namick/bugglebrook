@@ -1,7 +1,7 @@
 import type { EventBus } from '../../../game/core/events';
 import { Rng } from '../../../game/core/rng';
 import type { BugDef, VoiceProfile } from '../../../game/data/types';
-import type { GameEvents, Mood } from '../../../game/events';
+import type { ChatTopic, GameEvents, Mood } from '../../../game/events';
 import { reactionLook } from '../render/reactions';
 import type { AudioBackend, Tone } from './synth';
 
@@ -37,6 +37,21 @@ export const EMOTIONS: readonly Emotion[] = [
   'yuck',
   'meh',
 ];
+
+/** How a chat line sounds, by what it is about. */
+const CHAT_EMOTION: Readonly<Record<ChatTopic, Emotion>> = {
+  food: 'yum',
+  friend: 'question',
+  star: 'whee',
+  question: 'question',
+  heart: 'love',
+  note: 'happy',
+  spring: 'whee',
+  drop: 'meh',
+  zzz: 'sleepy',
+  laugh: 'giggle',
+  sun: 'happy',
+};
 
 /** Vowel formants in Hz: a, e, i, o, u (game design doc, section 16). */
 const VOWELS: readonly (readonly [number, number])[] = [
@@ -219,8 +234,27 @@ export class BugVoices {
       bus.on('bug_fed', (e) => {
         if (e.liking === 'disliked') this.say(e.id, e.defId, 'gasp', true);
       }),
-      bus.on('bug_used', (e) => this.say(e.id, e.defId, 'whee')),
-      bus.on('bug_chose_action', (e) => this.say(e.id, e.defId, 'question')),
+      bus.on('bug_used', (e) => {
+        if (e.action === 'bounce') this.say(e.id, e.defId, 'whee');
+      }),
+      bus.on('bug_chose_action', (e) => {
+        if (e.action === 'eat' || e.action === 'bounce' || e.action.startsWith('soc_'))
+          this.say(e.id, e.defId, 'question');
+      }),
+      // A chat line: the pictogram's mood in gibberish.
+      bus.on('bug_chatted', (e) => this.say(e.id, e.defId, CHAT_EMOTION[e.topic], true)),
+      bus.on('bug_tagged', (e) => this.say(e.id, e.defId, 'giggle')),
+      bus.on('bug_caught', (e) => this.say(e.id, e.defId, 'whee')),
+      bus.on('bug_shared', (e) => this.say(e.id, e.defId, 'happy')),
+      bus.on('bug_snatched', (e) => this.say(e.id, e.defId, 'giggle', true)),
+      bus.on('bug_comforted', (e) => this.say(e.id, e.defId, 'ooh')),
+      bus.on('bug_rode', (e) => {
+        if (e.on) this.say(e.id, e.defId, 'whee');
+      }),
+      bus.on('bug_fidgeted', (e) => {
+        if (e.fidget === 'hum') this.say(e.id, e.defId, 'happy');
+        else if (e.fidget === 'yawn') this.say(e.id, e.defId, 'sleepy');
+      }),
     ];
   }
 

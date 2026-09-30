@@ -1,4 +1,5 @@
-import { BUG_MODES } from '../core/entities';
+import { BUG_MODES, SOCIAL_KINDS } from '../core/entities';
+import { ADVERT_ACTIONS } from '../data/types';
 import { REACTION_TYPES } from '../events';
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
@@ -7,7 +8,10 @@ const isObj = (v: unknown): v is Record<string, unknown> =>
 
 const BODY_KEYS = ['x', 'y', 'angle', 'vx', 'vy', 'av'] as const;
 const BUG_MODES_SET = new Set<string>(BUG_MODES);
-const NEEDS = ['need_hunger', 'need_fun', 'need_energy'] as const;
+const NEEDS = ['need_hunger', 'need_fun', 'need_energy', 'need_social', 'need_clean'] as const;
+const ACTIONS = new Set<string>([...ADVERT_ACTIONS, ...SOCIAL_KINDS]);
+const SOCIAL_SET = new Set<string>(SOCIAL_KINDS);
+const PLANS = new Set(['rest', 'sleep', 'wander', 'eat', 'play', 'visit', 'home']);
 const BRAIN_NUMBERS = [
   'timer',
   'targetX',
@@ -25,7 +29,17 @@ const BRAIN_NUMBERS = [
   'woozyUntil',
   'smelledAt',
   'hopAt',
+  'groggyUntil',
+  'napAt',
+  'fidgetAt',
+  'slippedAt',
+  'restX',
+  'hopReady',
+  'touchedAt',
+  'airTop',
+  'audience',
 ] as const;
+const isIdOrNull = (v: unknown): boolean => v === null || isNum(v);
 const REACTIONS = new Set<string>(REACTION_TYPES);
 
 /** Problems with a saved bug brain, or an empty list. */
@@ -36,12 +50,54 @@ function brainProblems(bug: unknown): string[] {
   for (const k of BRAIN_NUMBERS) if (!isNum(bug[k])) errors.push(`${k} must be a number`);
   if (bug.facing !== 1 && bug.facing !== -1) errors.push('facing must be 1 or -1');
   if (bug.targetId !== null && !isNum(bug.targetId)) errors.push('targetId must be a number or null');
-  if (bug.action !== null && bug.action !== 'eat' && bug.action !== 'bounce')
-    errors.push('action is invalid');
+  if (bug.action !== null && !ACTIONS.has(bug.action as string)) errors.push('action is invalid');
   const needs = bug.needs;
-  if (!isObj(needs) || !NEEDS.every((n) => isNum(needs[n]))) errors.push('needs are invalid');
-  if (typeof bug.selfLaunched !== 'boolean' || typeof bug.done !== 'boolean')
+  if (!isObj(needs) || !NEEDS.every((n) => isNum(needs[n]) && needs[n] >= 0 && needs[n] <= 100))
+    errors.push('needs are invalid');
+  if (
+    typeof bug.selfLaunched !== 'boolean' ||
+    typeof bug.done !== 'boolean' ||
+    typeof bug.gliding !== 'boolean'
+  )
     errors.push('flags are invalid');
+  if (!isIdOrNull(bug.carrying)) errors.push('carrying must be a number or null');
+  if (bug.resume !== null && !BUG_MODES_SET.has(bug.resume as string)) errors.push('resume is invalid');
+  const social = bug.social;
+  if (
+    social !== null &&
+    !(
+      isObj(social) &&
+      SOCIAL_SET.has(social.kind as string) &&
+      isNum(social.partner) &&
+      (social.role === 'lead' || social.role === 'follow') &&
+      ['stage', 'count', 'goal', 'beat', 'left'].every((k) => isNum(social[k])) &&
+      isIdOrNull(social.item) &&
+      (social.last === null || typeof social.last === 'string')
+    )
+  )
+    errors.push('social is invalid');
+  const memory = bug.memory;
+  if (
+    !Array.isArray(memory) ||
+    !memory.every((m) => isObj(m) && isNum(m.id) && isNum(m.tick) && typeof m.good === 'boolean')
+  )
+    errors.push('memory is invalid');
+  for (const k of ['inspected', 'pokes'] as const) {
+    const list = bug[k];
+    if (!Array.isArray(list) || !list.every(isNum)) errors.push(`${k} is invalid`);
+  }
+  const plan = bug.plan;
+  if (
+    plan !== null &&
+    !(
+      isObj(plan) &&
+      PLANS.has(plan.kind as string) &&
+      isNum(plan.at) &&
+      isNum(plan.x) &&
+      isIdOrNull(plan.targetId)
+    )
+  )
+    errors.push('plan is invalid');
   const used = bug.used;
   if (!Array.isArray(used) || !used.every((u) => isObj(u) && isNum(u.id) && isNum(u.tick)))
     errors.push('used is invalid');
@@ -96,6 +152,12 @@ function envProblems(env: unknown): string[] {
   const pads = env.pads;
   if (!isObj(pads) || !Object.values(pads).every((p) => isObj(p) && isNum(p.dy) && isNum(p.vy)))
     errors.push('pads are invalid');
+  const slime = env.slime;
+  if (
+    !Array.isArray(slime) ||
+    !slime.every((t) => isObj(t) && isNum(t.x0) && isNum(t.x1) && isNum(t.y) && isNum(t.until))
+  )
+    errors.push('slime is invalid');
   return errors;
 }
 
@@ -149,5 +211,8 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
     const problems = envProblems(world.env);
     if (problems.length > 0) errors.push(`world.env is invalid: ${problems.join(', ')}`);
   }
+  const social = world.social;
+  if (social !== undefined && !(isObj(social) && isNumMap(social.affinity)))
+    errors.push('world.social is invalid');
   return errors;
 }

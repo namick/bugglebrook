@@ -219,7 +219,13 @@ describe('lily pads', () => {
     const pad = pads[1]!;
     expect(Math.abs(pad.y - POND.level)).toBeLessThan(0.1);
     const bug = sim.spawn('bug', 'bug_ladybug_dot', pad.x, pad.y - 1.5);
-    sim.entities.get(bug.id)!.bug!.needs = { need_hunger: 100, need_fun: 100, need_energy: 100 };
+    sim.entities.get(bug.id)!.bug!.needs = {
+      need_hunger: 100,
+      need_fun: 100,
+      need_energy: 100,
+      need_social: 80,
+      need_clean: 90,
+    };
     sim.run(90);
     const after = sim.environment.pads()[1]!;
     expect(after.y).toBeGreaterThan(pad.y); // pushed down a little
@@ -283,7 +289,7 @@ describe('swimming and shaking dry', () => {
     const log = record(sim);
     const bug = sim.spawn('bug', defId, OPEN_X, POND.level - 2);
     const brain = sim.entities.get(bug.id)!.bug!;
-    brain.needs = { need_hunger: 100, need_fun: 100, need_energy: 100 };
+    brain.needs = { need_hunger: 100, need_fun: 100, need_energy: 100, need_social: 80, need_clean: 90 };
     return { sim, log, id: bug.id };
   };
 
@@ -326,7 +332,7 @@ describe('swimming and shaking dry', () => {
     const dot = sim.spawn('bug', 'bug_ladybug_dot', 2, GROUND_Y - 0.6);
     const b = sim.entities.get(dot.id)!.bug!;
     for (let t = 0; t < 90 * 60; t++) {
-      b.needs = { need_hunger: 90, need_fun: 90, need_energy: 90 };
+      b.needs = { need_hunger: 90, need_fun: 90, need_energy: 90, need_social: 80, need_clean: 90 };
       sim.step();
       expect(sim.view(dot.id)!.bug!.mode).not.toBe('st_swim');
     }
@@ -353,13 +359,19 @@ describe('area sleep (M3 acceptance)', () => {
       expect(a.asleep).toBe(true);
       expect([a.x, a.y]).toEqual([b.x, b.y]);
     }
-    expect(sim.view(skeet.id)!.x).toBe(skeetBefore.x);
+    // Skeet runs the coarse off-screen model: he may have moved, but only
+    // along the pond, standing on the water or the bank.
+    const skeetAsleep = sim.view(skeet.id)!;
+    expect(skeetAsleep.asleep).toBe(true);
+    expect(skeetAsleep.x).toBeLessThan(32);
+    expect(skeetBefore.asleep).toBe(true);
     sim.send({ type: 'focus', x0: PLAZA_X, x1: PLAZA_X + VIEW_WIDTH_M });
     sim.step();
     expect(sim.isAreaAsleep('area_puddle_pond')).toBe(false);
     expect(sim.view(before[0]!.id)!.asleep).toBeUndefined();
+    const woke = sim.view(skeet.id)!.x;
     sim.run(5 * 60);
-    expect(sim.view(skeet.id)!.x).not.toBe(skeetBefore.x);
+    expect(sim.view(skeet.id)!.x).not.toBe(woke);
   });
 
   it('nothing sleeps while the camera is on the pond or next to it', () => {

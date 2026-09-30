@@ -142,6 +142,8 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { id: 'fix_lily_pad_middle', kind: 'lily_pad', x: 12.8, y: POND.level, radius: 0.65 },
       { id: 'fix_lily_pad_east', kind: 'lily_pad', x: 17, y: POND.level, radius: 0.65 },
       { id: 'fix_rubber_boot', kind: 'rubber_boot', x: 19.4, y: 9.95, radius: 0.55 },
+      // A half-sunk teacup on the bottom: things that sink above it land inside.
+      { id: 'fix_sunken_teacup', kind: 'teacup', x: 12, y: 10.4, radius: 0.62 },
     ],
   },
   {
@@ -181,6 +183,7 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'bug', defId: 'bug_ladybug_dot', x: 7, lift: 0.17 },
       { kind: 'bug', defId: 'bug_pillbug_rollo', x: 5.4 },
       { kind: 'bug', defId: 'bug_snail_glorp', x: 18.6 },
+      { kind: 'bug', defId: 'bug_grasshopper_boing', x: 25.6 },
     ],
     respawn: [
       { item: 'item_berry_red', count: 3 },

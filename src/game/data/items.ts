@@ -2,6 +2,8 @@ import type { Advert, ItemDef } from './types';
 import { createRegistry } from './registry';
 
 const EAT_FOOD: Advert = { action: 'eat', needs: { need_hunger: 20 } };
+/** Something soft or snug to curl up on for a nap. */
+const NAP = (energy: number): Advert => ({ action: 'sleep', needs: { need_energy: energy } });
 
 // Props and foods for the plaza and the pond (game design doc, sections 7.1, 7.2, 7.5).
 // Sizes are a little larger than the doc's pixel sizes so they read well
@@ -19,7 +21,7 @@ export const ITEMS = createRegistry<ItemDef>('item', [
     color: 0x2ec4b6,
     accent: 0xcbf3f0,
     tags: ['tag_magnetic', 'tag_heavy'],
-    adverts: [],
+    adverts: [NAP(50)],
   },
   {
     id: 'item_marble_blue',
@@ -62,7 +64,8 @@ export const ITEMS = createRegistry<ItemDef>('item', [
     color: 0xb3adc4,
     accent: 0xe3dff0,
     tags: ['tag_heavy', 'tag_stackable'],
-    adverts: [],
+    // Rollo lines loose pebbles up in a neat row.
+    adverts: [{ action: 'carry', needs: { need_fun: 12 } }],
   },
   {
     id: 'item_ruler_ramp',
@@ -106,6 +109,7 @@ export const ITEMS = createRegistry<ItemDef>('item', [
     accent: 0x4d9bff,
     tags: ['tag_bouncy'],
     adverts: [],
+    catchable: true,
   },
   {
     id: 'item_berry_red',
@@ -120,6 +124,7 @@ export const ITEMS = createRegistry<ItemDef>('item', [
     accent: 0x5cb85c,
     tags: ['tag_edible'],
     adverts: [EAT_FOOD],
+    catchable: true,
   },
   {
     id: 'item_twig',
@@ -148,7 +153,7 @@ export const ITEMS = createRegistry<ItemDef>('item', [
     color: 0x7ccf4f,
     accent: 0x4e9a3a,
     tags: ['tag_leafy', 'tag_edible', 'tag_light', 'tag_floaty'],
-    adverts: [EAT_FOOD],
+    adverts: [EAT_FOOD, NAP(40)],
   },
   {
     id: 'item_sugar_cube',
@@ -252,6 +257,7 @@ export const ITEMS = createRegistry<ItemDef>('item', [
     accent: 0x2c3a8f,
     tags: ['tag_edible', 'tag_floaty'],
     adverts: [EAT_FOOD],
+    catchable: true,
   },
   {
     id: 'item_cork',
@@ -313,7 +319,7 @@ export const ITEMS = createRegistry<ItemDef>('item', [
     color: 0xffd84d,
     accent: 0x6fbf4a,
     tags: ['tag_absorbent', 'tag_floaty'],
-    adverts: [],
+    adverts: [NAP(50)],
   },
   {
     // Glorp's weird favorite: he eats it and burps bubbles. Nobody seeks it out.

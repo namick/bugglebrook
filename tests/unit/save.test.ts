@@ -143,7 +143,12 @@ describe('loadSaveFile', () => {
     expect(dot.needs.need_hunger).toBeGreaterThan(0);
     expect(save.world.entities[1]!.bug!.mode).toBe('st_wander');
     const sim = Sim.load(save.world);
-    expect(sim.entities.all().map((e) => e.defId)).toEqual(['bug_ladybug_dot']);
+    // Placeholder content is gone; starting bugs the old save predates join it.
+    const defs = sim.entities.all().map((e) => e.defId);
+    expect(defs[0]).toBe('bug_ladybug_dot');
+    expect(defs).not.toContain('bip');
+    expect(defs).not.toContain('pebble');
+    expect(defs).toContain('bug_grasshopper_boing');
     sim.run(60);
   });
 

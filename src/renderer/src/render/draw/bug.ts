@@ -43,6 +43,10 @@ export interface BugFrame {
   skate?: boolean;
   /** Floating down with legs spread like a parachute (Skeet, flung). */
   chute?: boolean;
+  /** Front legs held out, carrying something. */
+  carrying?: boolean;
+  /** Mid-hop on purpose (Boing): back legs kicked straight out. */
+  hopping?: boolean;
 }
 
 const TINTS = { green: { color: 0x8fd14f, alpha: 0.6 }, red: { color: 0xff3b2f, alpha: 0.45 } } as const;
@@ -147,6 +151,9 @@ export class BugSprite extends Container {
       case 'strider':
         this.drawStrider();
         break;
+      case 'grasshopper':
+        this.drawGrasshopper();
+        break;
     }
     this.drawRim(form);
   }
@@ -175,6 +182,12 @@ export class BugSprite extends Container {
       g.circle(r * 0.88, -r * 0.3, r * 0.3).stroke(white);
       return;
     }
+    if (this.def.art === 'grasshopper') {
+      g.poly(this.hopperBody()).stroke(white);
+      g.ellipse(r * 0.78, -r * 0.18, r * 0.5, r * 0.46).stroke(white);
+      g.ellipse(-r * 0.62, -r * 0.3, r * 0.5, r * 0.32).stroke(white);
+      return;
+    }
     if (this.def.art === 'ladybug') {
       g.poly(this.dome(-r * 0.15, r * 0.34, r * 1.02, r * 1.14)).stroke(white);
       g.circle(r * 0.8, r * 0.12, r * 0.55).stroke(white);
@@ -193,6 +206,7 @@ export class BugSprite extends Container {
     const t = TINTS[tint];
     if (this.def.art === 'ladybug') g.circle(r * 0.8, r * 0.12, r * 0.52).fill(t);
     else if (this.def.art === 'strider') g.circle(r * 0.88, -r * 0.3, r * 0.28).fill(t);
+    else if (this.def.art === 'grasshopper') g.ellipse(r * 0.8, -r * 0.18, r * 0.46, r * 0.42).fill(t);
     else if (this.def.art === 'pillbug') g.circle(r * 1.14, r * 0.36, r * 0.47).fill(t);
     else g.ellipse(r * 1.08, r * 0.2, r * 0.36, r * 0.42).fill(t);
   }
@@ -320,6 +334,137 @@ export class BugSprite extends Container {
         far,
       );
       leg(g, [r * 0.62, -r * 0.14], [r * 0.98, r * 0.15], [r * 1.22, r * 0.34], far);
+    }
+  }
+
+  /** Boing's long body: a tapering capsule, tail at the left, a touch higher at the front. */
+  private hopperBody(): number[] {
+    const { r } = this;
+    const pts: number[] = [];
+    for (let i = 0; i <= 28; i++) {
+      const a = (i / 28) * Math.PI * 2;
+      const x = Math.cos(a);
+      const y = Math.sin(a);
+      // Thicker at the front, pointed tail.
+      const thick = 0.28 + 0.14 * (x + 1) * 0.5;
+      pts.push(-r * 0.3 + x * r * 1.05, r * 0.18 + y * r * thick - x * r * 0.08);
+    }
+    return pts;
+  }
+
+  private drawGrasshopper(): void {
+    const { r, def } = this;
+    const b = this.body;
+    // Body with a yellow belly and three segment lines.
+    b.poly(this.hopperBody()).fill(def.body).stroke(stroke());
+    b.moveTo(-r * 1.2, r * 0.36)
+      .quadraticCurveTo(-r * 0.4, r * 0.62, r * 0.55, r * 0.34)
+      .stroke({ width: r * 0.16, color: def.belly, cap: 'round' });
+    for (const k of [-0.95, -0.65, -0.35]) {
+      b.moveTo(r * k, r * 0.0)
+        .quadraticCurveTo(r * (k + 0.07), r * 0.2, r * k, r * 0.44)
+        .stroke({ width: 3.5, color: darken(def.body, 0.3), cap: 'round' });
+    }
+    // A folded wing along the back.
+    b.moveTo(-r * 1.15, -r * 0.08)
+      .quadraticCurveTo(-r * 0.6, -r * 0.46, r * 0.25, -r * 0.2)
+      .quadraticCurveTo(-r * 0.45, -r * 0.08, -r * 1.15, -r * 0.08)
+      .fill(def.accent)
+      .stroke(stroke(4.5));
+    b.moveTo(-r * 0.9, -r * 0.14)
+      .quadraticCurveTo(-r * 0.4, -r * 0.3, r * 0.1, -r * 0.2)
+      .stroke({ width: 2.5, color: lighten(def.accent, 0.35), alpha: 0.8, cap: 'round' });
+    // A big round head with a wide grin, lighter lime.
+    b.ellipse(r * 0.78, -r * 0.18, r * 0.5, r * 0.46)
+      .fill(lighten(def.body, 0.12))
+      .stroke(stroke());
+    b.moveTo(r * 0.5, -r * 0.5)
+      .quadraticCurveTo(r * 0.72, -r * 0.62, r * 0.96, -r * 0.54)
+      .stroke({ width: r * 0.08, color: 0xffffff, alpha: 0.55, cap: 'round' });
+  }
+
+  /**
+   * Boing's legs: two small pairs in front, and the big hinged back legs.
+   * Folded standing, crouched deeper between hops, kicked straight out while
+   * hopping, and dangling when held.
+   */
+  private drawHopperLegs(pose: BugPose, frame: BugFrame): void {
+    const { r, def } = this;
+    const back = this.legsBack;
+    const front = this.legsFront;
+    const ph = pose.legPhase;
+    for (const far of [true, false]) {
+      const g = far ? back : front;
+      const off = far ? r * 0.12 : 0;
+      const color = far ? darken(def.body, 0.25) : def.body;
+      // Front legs: little stepping legs under the chest.
+      for (const [hx, k] of [
+        [r * 0.25, 0],
+        [-r * 0.05, Math.PI],
+      ] as const) {
+        const phase = ph + k + (far ? Math.PI : 0);
+        const reach = frame.carrying && hx > 0 ? r * 0.45 : 0;
+        const fx = pose.flail
+          ? hx + off + Math.sin(phase * 1.2) * r * 0.2
+          : hx + off + reach + Math.sin(phase) * pose.stride * r * 0.18;
+        const fy = pose.flail
+          ? r * 0.85
+          : frame.carrying && hx > 0
+            ? r * 0.15
+            : r - Math.max(0, Math.cos(phase)) * pose.stride * r * 0.12;
+        g.moveTo(hx + off, r * 0.4)
+          .lineTo((hx + off + fx) / 2 + r * 0.1, (r * 0.4 + fy) / 2 - r * 0.05)
+          .lineTo(fx, fy)
+          .stroke({ width: 5, color: OUTLINE, cap: 'round', join: 'round', alpha: far ? 0.75 : 1 });
+      }
+      // The big hind leg: a thick thigh up to the knee, a thin shin down to the foot.
+      const hip = { x: -r * 0.45 + off, y: r * 0.22 };
+      let knee: { x: number; y: number };
+      let foot: { x: number; y: number };
+      if (frame.hopping) {
+        // Kicked out straight behind.
+        knee = { x: -r * 1.25 + off, y: r * 0.3 };
+        foot = { x: -r * 2.0 + off, y: r * 0.55 };
+      } else if (pose.flail) {
+        const w = Math.sin(ph + (far ? 1 : 0)) * r * 0.2;
+        knee = { x: -r * 1.05 + off, y: -r * 0.2 + w * 0.5 };
+        foot = { x: -r * 1.2 + off + w, y: r * 0.95 };
+      } else {
+        const crouch = pose.sy < 0.97 ? 0.15 : 0;
+        const step = Math.sin(ph + (far ? Math.PI : 0)) * pose.stride * r * 0.08;
+        knee = { x: -r * 1.02 + off, y: -r * (0.62 - crouch) };
+        foot = { x: -r * 1.18 + off + step, y: r };
+      }
+      // Thigh: a drumstick shape.
+      const dx = knee.x - hip.x;
+      const dy = knee.y - hip.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len;
+      const ny = dx / len;
+      const w0 = r * 0.2;
+      const w1 = r * 0.08;
+      g.poly([
+        hip.x + nx * w0,
+        hip.y + ny * w0,
+        knee.x + nx * w1,
+        knee.y + ny * w1,
+        knee.x - nx * w1,
+        knee.y - ny * w1,
+        hip.x - nx * w0,
+        hip.y - ny * w0,
+      ])
+        .fill(color)
+        .stroke(stroke(far ? 3.5 : 4.5));
+      if (!far)
+        g.moveTo(hip.x + dx * 0.25, hip.y + dy * 0.25)
+          .lineTo(hip.x + dx * 0.75, hip.y + dy * 0.75)
+          .stroke({ width: 2.5, color: darken(def.body, 0.3), cap: 'round' });
+      g.moveTo(knee.x, knee.y)
+        .lineTo(foot.x, foot.y)
+        .stroke({ width: 5, color: OUTLINE, cap: 'round', alpha: far ? 0.75 : 1 });
+      g.moveTo(foot.x, foot.y)
+        .lineTo(foot.x + r * 0.22, foot.y)
+        .stroke({ width: 5, color: OUTLINE, cap: 'round', alpha: far ? 0.75 : 1 });
     }
   }
 
@@ -514,6 +659,10 @@ export class BugSprite extends Container {
       this.drawStriderLegs(pose, frame);
       return;
     }
+    if (def.art === 'grasshopper') {
+      this.drawHopperLegs(pose, frame);
+      return;
+    }
     if (def.art === 'snail') {
       this.drawFootRipple(pose);
       return;
@@ -598,6 +747,22 @@ export class BugSprite extends Container {
         const ty = by - r * (0.55 - i * 0.1) + s.y;
         g.moveTo(bx, by)
           .quadraticCurveTo(bx + r * 0.25, by - r * 0.55, tx, ty)
+          .stroke({ width: 4, color: OUTLINE, cap: 'round' });
+      });
+      return;
+    }
+    if (def.art === 'grasshopper') {
+      // Two very long feelers sweeping up and back, springy.
+      const bases: [number, number][] = [
+        [r * 0.72, -r * 0.6],
+        [r * 0.92, -r * 0.58],
+      ];
+      bases.forEach(([bx, by], i) => {
+        const s = i === 0 ? a! : b!;
+        const tx = bx - r * (0.55 - i * 0.2) + s.x * frame.facing * 1.4 + sway;
+        const ty = by - r * (1.25 - i * 0.12) + s.y * 1.4;
+        g.moveTo(bx, by)
+          .bezierCurveTo(bx + r * 0.1, by - r * 0.6, tx + r * 0.5, ty + r * 0.1, tx, ty)
           .stroke({ width: 4, color: OUTLINE, cap: 'round' });
       });
       return;
@@ -692,6 +857,15 @@ export class BugSprite extends Container {
       drawEye(g, r * 1.04, -r * 0.38, r * 0.19, f.eyes, look, open, lid, frame.time, 3.5);
       g.circle(r * 1.1, -r * 0.14, r * 0.07).fill({ color: CHEEK, alpha: f.blush ? 0.9 : 0.5 });
       drawMouth(g, r * 1.0, -r * 0.15, r * 0.26, f.mouth, frame.time, OUTLINE, 3.5);
+      return;
+    }
+    if (def.art === 'grasshopper') {
+      const lid = lighten(def.body, 0.12);
+      drawEye(g, r * 0.62, -r * 0.3, r * 0.2, f.eyes, look, open, lid, frame.time, 3.5);
+      drawEye(g, r * 0.95, -r * 0.3, r * 0.23, f.eyes, look, open, lid, frame.time, 4);
+      g.circle(r * 1.1, -r * 0.02, r * 0.09).fill({ color: CHEEK, alpha: f.blush ? 0.9 : 0.55 });
+      // Boing's wide grin: the mouth sits low and wide on his head.
+      drawMouth(g, r * 0.9, r * 0.06, r * 0.42, f.mouth, frame.time, OUTLINE, 4);
       return;
     }
     if (def.art === 'pillbug') {
@@ -809,7 +983,7 @@ export class BugSprite extends Container {
 
 /** A frame for a bug shown outside the world (menus): happy, facing right. */
 export function standaloneFrame(mode: BugMode, time: number, dt: number, phase: number): BugFrame {
-  const needs = { need_hunger: 90, need_fun: 90, need_energy: 90 };
+  const needs = { need_hunger: 90, need_fun: 90, need_energy: 90, need_social: 80, need_clean: 90 };
   return {
     pose: bugPose({ mode, vx: mode === 'st_wander' ? 1 : 0, vy: 0, time, phase, walkSpeed: 1 }),
     face: { ...bugFace({ art: 'ladybug', mode, needs, time, likesFlinging: true }), form: 'normal' },

@@ -1,105 +1,63 @@
-import type { BugBrain, BugMode, Entity, EntityId, Needs } from '../core/entities';
-import { SIM_DT, SIM_HZ } from '../core/loop';
+import type { BugBrain, Entity, EntityId, SocialKind } from '../core/entities';
+import { SOCIAL_KINDS } from '../core/entities';
+import { SIM_HZ } from '../core/loop';
 import type { Rng } from '../core/rng';
-import { DIZZY_SPEED, GRAVITY } from '../constants';
+import { DIZZY_SPEED } from '../constants';
 import type { AdvertAction, BugDef, NeedId } from '../data/types';
 import { NEED_IDS } from '../data/types';
-import type { Liking, Mood, ReactionType } from '../events';
-import { REACTION_VARIANTS } from '../events';
-import type { BodyState, Vec } from '../physics/physics';
+import type { Fidget, Liking } from '../events';
+import type { AdvertCandidate, BugContext, BugDecision, BugNotice, OtherBug } from './bugTypes';
+import { EMPTY_WORLD, SPOT_CAMERA, SPOT_SLEEP_HERE, SPOT_TOP, SPOT_WATER } from './bugTypes';
+import {
+  ARRIVE,
+  DECIDE_EVERY,
+  SEEK_TIMEOUT,
+  STUCK_TICKS,
+  clearIntent,
+  clearLanding,
+  enter,
+  enterIdle,
+  face,
+  grip,
+  hopVelocity,
+  kindUseId,
+  launch,
+  memoryModifier,
+  react,
+  recordUse,
+  remember,
+  stepToward,
+  walk,
+  walkVelocity,
+} from './bugMove';
+import {
+  CATCH_FAR,
+  CATCH_NEAR,
+  CATCH_WINDUP,
+  available,
+  endSocial,
+  engage,
+  updateRide,
+  updateSocial,
+} from './bugSocial';
+import { addNeeds, decayNeeds, freshNeeds, moodOf, urgency } from './needs';
 
-/** Something a bug could go and do, offered by an object nearby. */
-export interface AdvertCandidate {
-  id: EntityId;
-  defId: string;
-  x: number;
-  y: number;
-  action: AdvertAction;
-  needs: Readonly<Partial<Record<NeedId, number>>>;
-  /** Another bug is already on its way to it. */
-  claimed: boolean;
-}
+export type {
+  AdvertCandidate,
+  BugContext,
+  BugDecision,
+  BugNotice,
+  BugWorld,
+  LooseItem,
+  Obstacle,
+  OtherBug,
+  TargetInfo,
+} from './bugTypes';
+export { EMPTY_WORLD, SPOT_CAMERA, SPOT_SLEEP_HERE, SPOT_TOP, SPOT_WATER } from './bugTypes';
+export { hopVelocity, memoryModifier, pickVariant, react, remember } from './bugMove';
+export { moodOf, urgency } from './needs';
+export { catchTurn, handPoint, leadState } from './bugSocial';
 
-/** Where a target entity is right now. */
-export interface TargetInfo {
-  defId: string;
-  x: number;
-  y: number;
-  /** Half its width, so a bug can stand beside it. */
-  halfWidth: number;
-  /** Half its height. */
-  halfHeight: number;
-  /** Rotation in radians. */
-  angle: number;
-  held: boolean;
-}
-
-export interface BugContext {
-  tick: number;
-  def: BugDef;
-  state: BodyState;
-  held: boolean;
-  /** Upward normal of what the bug stands on, or null when not supported. */
-  support: Vec | null;
-  /** Hardest impact on the bug during the last step, m/s, or 0. */
-  impact: number;
-  worldWidth: number;
-  rng: Rng;
-  adverts: () => AdvertCandidate[];
-  target: (id: EntityId) => TargetInfo | null;
-  /** What is pressing against the bug on that side, if anything. */
-  obstacle: (dir: 1 | -1) => Obstacle | null;
-  /** Food the player is holding, if any: nearby bugs stop and turn to it. */
-  offered?: { x: number; y: number } | null;
-  /** Fraction of the bug under water, 0 to 1. */
-  submerged?: number;
-  /** Open water (not ice or a lily pad) under world x. */
-  overWater?: (x: number) => boolean;
-  /** Where the nearest dry land is from here, for a swimming bug. */
-  shore?: number | null;
-  /** Frozen in a block of ice: it cannot move. */
-  frozen?: boolean;
-  /** Its home area's x range: wandering drifts back there. */
-  home?: { x0: number; x1: number } | null;
-}
-
-export interface Obstacle {
-  id: EntityId;
-  isBug: boolean;
-  /** y of its top edge. */
-  top: number;
-}
-
-/** Things the sim turns into game events. */
-export type BugNotice =
-  | { type: 'landed'; speed: number }
-  | { type: 'dizzy'; speed: number; durationTicks: number }
-  | { type: 'recovered' }
-  | { type: 'chose'; action: AdvertAction; targetId: EntityId }
-  | { type: 'hopped' }
-  | { type: 'reacted'; reaction: ReactionType; variant: number }
-  | { type: 'burped' }
-  | { type: 'tickled'; level: number }
-  | { type: 'swam' }
-  | { type: 'shook_dry' };
-
-export interface BugDecision {
-  /** Velocity to set on the body, or null to leave physics alone. */
-  velocity: Vec | null;
-  /** The bug finished eating this item. */
-  eat: { itemId: EntityId; liking: Liking } | null;
-  /** Put this item in the bug's mouth: it starts chewing. */
-  take: { itemId: EntityId; liking: Liking } | null;
-  /** Spit this item back out. */
-  spit: { itemId: EntityId } | null;
-  /** Tickled too long: wriggle out of the player's hand. */
-  wriggle: boolean;
-  notices: BugNotice[];
-}
-
-// Timings in ticks (60 per second).
-const DECIDE_EVERY = Math.round(1.5 * SIM_HZ);
-const SEEK_TIMEOUT = 10 * SIM_HZ;
 /** Chewing time before swallowing, or before spitting out disliked food. */
 const CHEW_TICKS: Readonly<Record<Liking, number>> = { loved: 100, liked: 90, neutral: 90, disliked: 50 };
 /** How long the reaction after a meal lasts. */
@@ -124,13 +82,10 @@ export const FULL_BELLY = 95;
 const LANDING_TICKS = 10;
 const RECOVER_TICKS = 40;
 const REACT_TICKS = 36;
-const STUCK_TICKS = 45;
 const HOP_TRIES = 3;
-const HOP_TIME = 0.5;
-/** Tallest thing a bug will hop over while walking, in meters. */
-const STEP_HEIGHT = 0.7;
 const REPEAT_WINDOW = 10 * SIM_HZ;
 const RECENT_USE = 60 * SIM_HZ;
+const RECENT_KIND = 90 * SIM_HZ;
 
 const WANDER_RANGE = 6;
 /** Deeper than this in water, a bug that cannot skate starts swimming. */
@@ -142,17 +97,46 @@ export const SMELL_EVERY = 10 * SIM_HZ;
 const STINK_REACT_TICKS = 84;
 /** Walks this far away from a stink it dislikes. */
 const STINK_FLEE = 4;
-const PERCEPTION = 9;
-const ARRIVE = 0.12;
+/** How far a bug notices adverts: 900 px (game design doc, section 5). */
+export const PERCEPTION = 9;
 const TUMBLE_SPEED = 3.5;
 const SCORE_FLOOR = 8;
 /** Food held within this range (m) gets a bug's attention. */
 export const OFFER_RANGE = 2.5;
-
-/** Base need decay per second (game design doc, section 5). */
-const DECAY: Readonly<Record<NeedId, number>> = { need_hunger: 0.25, need_fun: 0.3, need_energy: 0.1 };
-/** Energy regained per second while resting. */
-const REST_ENERGY = 0.3;
+/** Something the player just brought stays new and interesting this long. */
+export const FRESH_TICKS = 60 * SIM_HZ;
+/** How much extra a fresh thing scores, scaled by curiosity. */
+const FRESH_BONUS = 20;
+/** Sniffing something new takes 1.3 to 2.2 s. */
+const INSPECT_TICKS: readonly [number, number] = [80, 130];
+/** Asleep, a bump this hard (m/s) wakes a bug up. */
+const WAKE_IMPACT = 6;
+/** Woken early, a bug is groggy for 3 s and nods off again 20 s later if still tired. */
+const GROGGY_TICKS = 3 * SIM_HZ;
+const RENAP_TICKS = 20 * SIM_HZ;
+/** Rested enough to wake up on its own. */
+const RESTED = 99.5;
+/** Dot poses this long at the top before she leaps. */
+const POSE_TICKS = 120;
+/** Dot comes into view to pose after being ignored this long. */
+export const IGNORED_TICKS = 90 * SIM_HZ;
+/** Rollo curls up after three pokes this close together, or a fall this far (m). */
+const POKE_WINDOW = 90;
+const CURL_FALL = 3;
+/** Where Rollo lines up pebbles: slots this far apart, starting at his resting spot. */
+export const ROW_GAP = 0.55;
+const ROW_SLOTS = 6;
+/** Crowd-shy bugs drift away from this many bugs this close. */
+const CROWD = 4;
+const CROWD_RANGE = 2.5;
+/** Loud things this close make idle bugs turn and look. */
+export const GAWK_RANGE = 7;
+/** Spots for pebbles on their way to the row. */
+const SPOT_ROW = -5;
+/** Beside a friend, where a snack gets carried to be eaten in company. */
+const SPOT_PICNIC = -6;
+/** How often a sociable bug takes its snack over to a friend. */
+const PICNIC_CHANCE = 0.3;
 
 const FOOD_DELTA: Readonly<Record<Liking, number>> = { loved: 60, liked: 40, neutral: 20, disliked: 0 };
 const LIKE_MULTIPLIER: Readonly<Record<Liking, number>> = {
@@ -161,9 +145,22 @@ const LIKE_MULTIPLIER: Readonly<Record<Liking, number>> = {
   neutral: 1,
   disliked: 0.2,
 };
+/** What each social interaction offers, before affinity (section 5: social +15 to +30). */
+const SOCIAL_NEEDS: Readonly<Record<SocialKind, Readonly<Partial<Record<NeedId, number>>>>> = {
+  soc_chat: { need_social: 25, need_fun: 4 },
+  soc_bump: { need_social: 16, need_fun: 8 },
+  soc_tag: { need_social: 18, need_fun: 26 },
+  soc_share_food: { need_social: 26 },
+  soc_catch: { need_social: 18, need_fun: 30 },
+  soc_comfort: { need_social: 22 },
+  soc_steal: { need_hunger: 25, need_fun: 18 },
+  soc_ride: { need_social: 12, need_fun: 22 },
+};
+const SOCIAL_SET: ReadonlySet<string> = new Set(SOCIAL_KINDS);
 
-const AIRBORNE: ReadonlySet<BugMode> = new Set(['st_airborne', 'st_use', 'st_held', 'st_swim']);
-const RESTING: ReadonlySet<BugMode> = new Set(['st_idle', 'st_eat', 'st_recover', 'st_landing']);
+export function isSocial(action: string | null): action is SocialKind {
+  return action !== null && SOCIAL_SET.has(action);
+}
 
 export function newBugBrain(x: number, rng: Rng): BugBrain {
   return {
@@ -173,11 +170,7 @@ export function newBugBrain(x: number, rng: Rng): BugBrain {
     targetId: null,
     action: null,
     facing: rng.chance(0.5) ? 1 : -1,
-    needs: {
-      need_hunger: Math.round(rng.range(55, 90)),
-      need_fun: Math.round(rng.range(55, 90)),
-      need_energy: Math.round(rng.range(70, 95)),
-    },
+    needs: freshNeeds(rng),
     decideIn: rng.int(10, DECIDE_EVERY),
     airPeak: 0,
     selfLaunched: false,
@@ -198,38 +191,34 @@ export function newBugBrain(x: number, rng: Rng): BugBrain {
     woozyUntil: -1,
     smelledAt: -1,
     hopAt: -1,
+    carrying: null,
+    social: null,
+    memory: [],
+    inspected: [],
+    groggyUntil: -1,
+    napAt: -1,
+    pokes: [],
+    gliding: false,
+    fidgetAt: rng.int(120, 480),
+    slippedAt: -1,
+    restX: x,
+    plan: null,
+    resume: null,
+    hopReady: 0,
+    touchedAt: -1,
+    airTop: 0,
+    audience: 0,
   };
 }
 
-/**
- * Pick a variant for a reaction, never the one this bug played last time
- * for the same reaction type.
- */
-export function pickVariant(brain: BugBrain, type: ReactionType, rng: Rng): number {
-  const last = brain.variants[type];
-  const options: number[] = [];
-  for (let v = 0; v < REACTION_VARIANTS; v++) if (v !== last) options.push(v);
-  const variant = rng.pick(options);
-  brain.variants[type] = variant;
-  return variant;
-}
-
-/** Start a reaction: pick its variant and remember it for the renderer. */
-export function react(brain: BugBrain, type: ReactionType, rng: Rng, tick: number): BugNotice {
-  const variant = pickVariant(brain, type, rng);
-  brain.reaction = { type, variant, tick };
-  return { type: 'reacted', reaction: type, variant };
-}
-
-/** Mood from needs and recent events (game design doc, section 5). */
-export function moodOf(brain: BugBrain, tick: number): Mood {
-  const n = brain.needs;
-  if (tick < brain.grumpyUntil) return 'mood_grumpy';
-  if (n.need_energy < 20) return 'mood_sleepy';
-  if (n.need_hunger < 25) return 'mood_hungry';
-  if (n.need_fun < 25) return 'mood_bored';
-  const avg = (n.need_hunger + n.need_fun + n.need_energy) / 3;
-  return avg >= 65 ? 'mood_happy' : 'mood_content';
+/** Airborne for real: thrown, falling, hopping, bouncing, held, or swimming. */
+function isAirborne(brain: BugBrain): boolean {
+  return (
+    brain.mode === 'st_airborne' ||
+    brain.mode === 'st_held' ||
+    brain.mode === 'st_swim' ||
+    (brain.mode === 'st_use' && brain.action === 'bounce')
+  );
 }
 
 /**
@@ -239,17 +228,19 @@ export function moodOf(brain: BugBrain, tick: number): Mood {
  */
 export function feedBug(brain: BugBrain, def: BugDef, itemId: EntityId, itemDefId: string): Liking {
   const liking = likingOf(def, itemDefId);
+  if (brain.carrying === itemId) brain.carrying = null;
   enter(brain, 'st_eat', CHEW_TICKS[liking]);
   brain.mouthful = itemId;
   brain.targetId = itemId;
   brain.action = 'eat';
   brain.tickle = 0;
+  brain.gliding = false;
   return liking;
 }
 
 /** Can this bug take food in its mouth right now? */
 export function canEat(brain: BugBrain): boolean {
-  return !AIRBORNE.has(brain.mode) && brain.mouthful === null;
+  return !isAirborne(brain) && brain.mouthful === null && brain.mode !== 'st_rolled';
 }
 
 /** Called by the sim when the player starts or stops tickling a held bug. */
@@ -269,7 +260,7 @@ export function shakeBug(brain: BugBrain, tick: number): void {
 }
 
 /** Modes in which a bug notices smells. */
-const SMELLING: ReadonlySet<BugMode> = new Set([
+const SMELLING: ReadonlySet<string> = new Set([
   'st_idle',
   'st_wander',
   'st_seek',
@@ -291,17 +282,17 @@ export function smellBug(
   tick: number,
   worldWidth: number,
 ): BugNotice[] {
-  if (!SMELLING.has(brain.mode)) return [];
+  if (!SMELLING.has(brain.mode) || brain.social !== null || brain.carrying !== null) return [];
   if (brain.smelledAt >= 0 && tick - brain.smelledAt < SMELL_EVERY) return [];
   brain.smelledAt = tick;
-  brain.targetId = null;
-  brain.action = null;
+  clearIntent(brain);
   if (def.likesStink) {
     brain.facing = sourceX >= x ? 1 : -1;
     enter(brain, 'st_react', STINK_REACT_TICKS);
     return [react(brain, 'stink', rng, tick)];
   }
-  // Hold your nose and walk the other way.
+  // Hold your nose and walk the other way. A whiff costs a little cleanliness.
+  addNeeds(brain.needs, { need_clean: -10 });
   const away = sourceX >= x ? -1 : 1;
   const margin = def.radius + 0.5;
   enter(brain, 'st_wander', SEEK_TIMEOUT);
@@ -317,12 +308,6 @@ export function likingOf(def: BugDef, itemDefId: string): Liking {
   return 'neutral';
 }
 
-/** How badly a need wants filling: 0 when full, 100 when empty. */
-export function urgency(value: number): number {
-  const lack = Math.min(100, Math.max(0, 100 - value)) / 100;
-  return lack * lack * 100;
-}
-
 /** Dizzy length in seconds for a landing (game design doc, section 5). */
 export function dizzySeconds(impact: number, streak = 0): number {
   const base = Math.min(4, Math.max(0, (impact - DIZZY_SPEED) / 2.5)) + 2;
@@ -335,7 +320,17 @@ export function advertDeltas(def: BugDef, candidate: AdvertCandidate): Partial<R
   return { ...candidate.needs, need_hunger: FOOD_DELTA[likingOf(def, candidate.defId)] };
 }
 
-/** Score one advert for one bug, without the random bonus. */
+/** Restless bugs don't like napping (Boing is the last to fall asleep). */
+function sleepiness(def: BugDef): number {
+  return 1.3 - def.traits.restless * 0.8;
+}
+
+/**
+ * Score one advert for one bug, without the random bonus (game design doc,
+ * section 5): the sum of urgency times weight times delta, times liking,
+ * distance falloff, novelty, the recent-use penalty, and memory. Fresh things
+ * the player just brought, and dizzy friends, add a bonus on top.
+ */
 export function scoreAdvert(
   brain: BugBrain,
   def: BugDef,
@@ -349,73 +344,32 @@ export function scoreAdvert(
     const delta = deltas[need];
     if (delta) sum += urgency(brain.needs[need]) * def.needWeights[need] * (delta / 100);
   }
-  const like = LIKE_MULTIPLIER[likingOf(def, candidate.defId)];
+  let like = candidate.like ?? LIKE_MULTIPLIER[likingOf(def, candidate.defId)];
+  if (candidate.action === 'sleep') like *= sleepiness(def);
   const falloff = 1 / (1 + Math.abs(candidate.x - x) / 6);
   const uses = brain.used.filter((u) => u.id === candidate.id);
-  const novelty = uses.length === 0 ? 1.6 : 1;
+  const novelty = uses.length === 0 && candidate.id > 0 ? 1.6 : 1;
   const recent = uses.some((u) => tick - u.tick < RECENT_USE) ? 0.4 : 1;
-  return sum * like * falloff * novelty * recent;
-}
-
-function addNeeds(needs: Needs, deltas: Partial<Record<NeedId, number>>): void {
-  for (const need of NEED_IDS) {
-    const d = deltas[need];
-    if (d) needs[need] = Math.min(100, Math.max(0, needs[need] + d));
-  }
-}
-
-function recordUse(brain: BugBrain, id: EntityId, tick: number): void {
-  brain.used.push({ id, tick });
-  if (brain.used.length > 8) brain.used.shift();
-}
-
-function enter(brain: BugBrain, mode: BugMode, timer = 0): void {
-  brain.mode = mode;
-  brain.timer = timer;
-  brain.stuck = 0;
-}
-
-function enterIdle(brain: BugBrain, rng: Rng, def: BugDef): void {
-  // Restless bugs rest less: 2 to 5 seconds, scaled.
-  const scale = 1.4 - def.traits.restless * 0.8;
-  enter(brain, 'st_idle', Math.round(rng.int(120, 300) * scale));
-  brain.targetId = null;
-  brain.action = null;
-}
-
-/** Tangent along the ground, pointing right. */
-function tangent(n: Vec): Vec {
-  return { x: -n.y, y: n.x };
-}
-
-/**
- * A velocity that walks along the surface at `speed` (signed) and cancels
- * the slope's pull, so bugs neither slide down roots nor slow on the way up.
- */
-function walkVelocity(n: Vec, speed: number): Vec {
-  const t = tangent(n);
-  const slide = GRAVITY * t.y * SIM_DT;
-  return { x: t.x * (speed - slide) - n.x * 0.1, y: t.y * (speed - slide) - n.y * 0.1 };
-}
-
-/** Hold still on the surface, even on a slope. */
-function grip(n: Vec): Vec {
-  return walkVelocity(n, 0);
-}
-
-/** Launch velocity for a hop that lands on (x, y) after `time` seconds. */
-export function hopVelocity(fromX: number, fromY: number, toX: number, toY: number, time = HOP_TIME): Vec {
-  return { x: (toX - fromX) / time, y: (toY - fromY - 0.5 * GRAVITY * time * time) / time };
+  // Played this kind of game lately: try something else for a while.
+  const kind = isSocial(candidate.action) ? kindUseId(SOCIAL_KINDS.indexOf(candidate.action)) : null;
+  const again =
+    kind !== null && brain.used.some((u) => u.id === kind && tick - u.tick < RECENT_KIND) ? 0.45 : 1;
+  const memory = memoryModifier(brain, candidate.id, tick);
+  let score = sum * like * falloff * novelty * recent * again * memory;
+  if (candidate.fresh) score += FRESH_BONUS * (0.5 + def.traits.curious * 0.7) * falloff * 1.5;
+  if (candidate.bonus) score += candidate.bonus * falloff;
+  return score;
 }
 
 /** Called by the sim when the player lets go of a bug. */
-export function releaseBug(brain: BugBrain, def: BugDef, flung: boolean): void {
+export function releaseBug(brain: BugBrain, def: BugDef, flung: boolean, y = 0): void {
   enter(brain, 'st_airborne');
   brain.airPeak = 0;
+  brain.airTop = y;
   brain.selfLaunched = false;
-  brain.targetId = null;
-  brain.action = null;
+  clearIntent(brain);
   brain.tickle = 0;
+  brain.gliding = false;
   if (flung && def.likesFlinging) addNeeds(brain.needs, { need_fun: 15 });
 }
 
@@ -424,25 +378,82 @@ export function pokeBug(brain: BugBrain): boolean {
   if (
     brain.mode === 'st_dizzy' ||
     brain.mode === 'st_airborne' ||
-    brain.mode === 'st_use' ||
-    brain.mode === 'st_swim'
+    (brain.mode === 'st_use' && brain.action === 'bounce') ||
+    brain.mode === 'st_swim' ||
+    brain.mode === 'st_rolled' ||
+    brain.mode === 'st_ride'
   )
     return false;
   enter(brain, 'st_react', REACT_TICKS);
-  brain.targetId = null;
-  brain.action = null;
+  clearIntent(brain);
   return true;
+}
+
+/**
+ * What a poke does (game design doc, section 5): wakes a sleeper up
+ * groggy, makes a nervous bug curl into a ball after three quick pokes, and
+ * otherwise gets a poke reaction. Returns the notices, or null if the poke
+ * did nothing (dizzy, flying, swimming).
+ */
+export function pokedBug(brain: BugBrain, def: BugDef, rng: Rng, tick: number): BugNotice[] | null {
+  brain.touchedAt = tick;
+  if (brain.mode === 'st_sleep') return wakeBug(brain, true, rng, tick);
+  brain.pokes = [...brain.pokes.filter((t) => tick - t < POKE_WINDOW), tick].slice(-3);
+  if (!pokeBug(brain)) return null;
+  if (def.curlsWhenFlung && def.traits.nervous >= 0.5 && brain.pokes.length >= 3) {
+    brain.pokes = [];
+    return curl(brain, rng);
+  }
+  return [react(brain, 'poke', rng, tick)];
+}
+
+/** Curl up into a ball (Rollo): a real rolling ball for 4 to 8 s. */
+function curl(brain: BugBrain, rng: Rng): BugNotice[] {
+  enter(brain, 'st_rolled', rng.int(4 * SIM_HZ, 8 * SIM_HZ));
+  clearIntent(brain);
+  return [{ type: 'curled', on: true }];
+}
+
+/** Fall asleep right here. */
+function enterSleep(brain: BugBrain, def: BugDef, x: number): BugNotice[] {
+  enter(brain, 'st_sleep');
+  clearIntent(brain);
+  brain.napAt = -1;
+  // A new resting spot, unless the pebble row is close by.
+  if (def.habits.rowsPebbles && Math.abs(x - brain.restX) > 6) brain.restX = x;
+  return [{ type: 'slept' }];
+}
+
+/**
+ * Wake a sleeping bug. Woken early (a poke, a grab, a bump), it is groggy
+ * for 3 s and nods off again after 20 s if it is still tired.
+ */
+export function wakeBug(brain: BugBrain, early: boolean, rng: Rng, tick: number): BugNotice[] {
+  if (brain.mode !== 'st_sleep') return [];
+  enter(brain, 'st_react', early ? GROGGY_TICKS : 70);
+  clearIntent(brain);
+  if (early) {
+    brain.groggyUntil = tick + GROGGY_TICKS;
+    brain.napAt = brain.needs.need_energy < 50 ? tick + RENAP_TICKS : -1;
+  }
+  return [{ type: 'woke', early }, react(brain, 'wake', rng, tick)];
 }
 
 /**
  * Called by the sim when a spring launches a bug. If the bug hopped on on
  * purpose, the bounce pays off. Returns true in that case.
  */
-export function springLaunched(brain: BugBrain, springId: EntityId, tick: number): boolean {
+export function springLaunched(
+  brain: BugBrain,
+  springId: EntityId,
+  tick: number,
+  likesFlinging = true,
+): boolean {
   if (brain.mode !== 'st_use' || brain.targetId !== springId || brain.done) return false;
   brain.done = true;
   addNeeds(brain.needs, { need_fun: 30, need_energy: -5 });
   recordUse(brain, springId, tick);
+  remember(brain, springId, likesFlinging, tick);
   return true;
 }
 
@@ -454,35 +465,287 @@ export function makeDizzy(brain: BugBrain, impact: number, tick: number): number
   const ticks = Math.round(dizzySeconds(impact, brain.dizzyStreak) * SIM_HZ);
   enter(brain, 'st_dizzy', ticks);
   brain.dizzyTicks = ticks;
-  brain.targetId = null;
-  brain.action = null;
+  brain.audience = 0;
+  clearIntent(brain);
   return ticks;
 }
 
-function decayNeeds(brain: BugBrain, def: BugDef): void {
-  for (const need of NEED_IDS) {
-    brain.needs[need] = Math.max(0, brain.needs[need] - (DECAY[need] * def.needWeights[need]) / SIM_HZ);
+/** Modes in which something loud nearby makes a bug turn and look. */
+const GAWKING: ReadonlySet<string> = new Set(['st_idle', 'st_wander', 'st_seek', 'st_landing', 'st_recover']);
+
+/**
+ * Something loud happened nearby: a crash, a hard landing, a stack falling
+ * (game design doc, section 5, `soc_gawk`). Idle bugs turn to look and laugh
+ * or cheer. A nervous bug with no friend nearby ducks behind cover or curls
+ * up instead. Returns the notices, or none if the bug is busy.
+ */
+export function gawkBug(
+  brain: BugBrain,
+  def: BugDef,
+  x: number,
+  src: { x: number; y: number },
+  rng: Rng,
+  tick: number,
+  near: { friend: boolean; cover: { id: EntityId; x: number } | null },
+): BugNotice[] {
+  if (!GAWKING.has(brain.mode) || brain.social !== null || brain.carrying !== null) return [];
+  if (brain.mode === 'st_seek' && brain.action === 'eat') return [];
+  clearIntent(brain);
+  brain.facing = src.x >= x ? 1 : -1;
+  if (def.traits.nervous >= 0.8 && !near.friend) {
+    if (near.cover) {
+      enter(brain, 'st_hide', rng.int(3 * SIM_HZ, 8 * SIM_HZ));
+      const side = near.cover.x >= src.x ? 1 : -1;
+      brain.targetX = near.cover.x + side * (def.radius + 0.35);
+      brain.targetId = near.cover.id;
+      return [{ type: 'hid', coverId: near.cover.id, on: true }];
+    }
+    return curl(brain, rng);
   }
-  if (RESTING.has(brain.mode)) {
-    brain.needs.need_energy = Math.min(100, brain.needs.need_energy + REST_ENERGY / SIM_HZ);
+  enter(brain, 'st_react', 80);
+  return [{ type: 'gawked', x: src.x, y: src.y }, react(brain, 'gawk', rng, tick)];
+}
+
+/** Is this bug napping right next to a sleeping friend? */
+function inPile(me: EntityId, x: number, def: BugDef, ctx: BugContext): boolean {
+  const world = ctx.world ?? EMPTY_WORLD;
+  return world
+    .bugs()
+    .some(
+      (o) =>
+        o.id !== me &&
+        o.brain.mode === 'st_sleep' &&
+        Math.abs(o.x - x) < def.radius + o.def.radius + 0.5 &&
+        world.affinity(def.id, o.defId) > 0,
+    );
+}
+
+/** The pebble row's free slots, from Rollo's resting spot outward. */
+export function rowSlots(brain: BugBrain, ctx: BugContext): { free: number[]; filled: number[] } {
+  const world = ctx.world ?? EMPTY_WORLD;
+  const x0 = brain.restX + ctx.def.radius + 0.4;
+  const y0 = world.surfaceY(x0);
+  const free: number[] = [];
+  const filled: number[] = [];
+  const loose = world.loose();
+  for (let k = 0; k < ROW_SLOTS; k++) {
+    const x = x0 + k * ROW_GAP;
+    if (Math.abs(world.surfaceY(x) - y0) > 0.06 || ctx.overWater?.(x)) break;
+    // Keep well clear of the player's things, and of anything in the way.
+    if (world.setupNear(x, y0 - 0.2, 1.2)) break;
+    const here = loose.filter((l) => Math.abs(l.x - x) < 0.45 && Math.abs(l.y - (y0 - 0.2)) < 0.4);
+    if (here.some((l) => l.defId === 'item_pebble' && Math.abs(l.x - x) < 0.22)) filled.push(x);
+    else if (here.length === 0) free.push(x);
+    else break;
   }
+  return { free, filled };
+}
+
+/** Other bugs' adverts: chat, bump, tag, catch, share, comfort, snatch, ride, and nap piles. */
+function socialAdverts(me: EntityId, brain: BugBrain, ctx: BugContext): AdvertCandidate[] {
+  const world = ctx.world ?? EMPTY_WORLD;
+  const { def, state } = ctx;
+  const out: AdvertCandidate[] = [];
+  const bugs = world.bugs();
+  const loose = world.loose();
+  const energetic = brain.needs.need_energy > 30;
+  const sociable = 0.5 + def.traits.sociable;
+  for (const o of bugs) {
+    if (o.id === me || Math.abs(o.x - state.x) > PERCEPTION || Math.abs(o.y - state.y) > 4) continue;
+    const aff = world.affinity(def.id, o.defId);
+    const like = Math.max(0.1, (0.6 + aff) * sociable);
+    const wanted = bugs.some((q) => q.id !== me && q.brain.social?.partner === o.id);
+    const base = { id: o.id, defId: o.defId, x: o.x, y: o.y, claimed: wanted };
+    const ob = o.brain;
+    if (ob.mode === 'st_dizzy' && aff > 0 && !wanted && brain.needs.need_social < 95)
+      out.push({
+        ...base,
+        action: 'soc_comfort',
+        needs: SOCIAL_NEEDS.soc_comfort,
+        like,
+        bonus: 12 + 20 * aff,
+      });
+    if (ob.mode === 'st_sleep' && aff >= 0.2 && brain.needs.need_energy < 65)
+      // A nap pile: curl up next to a sleeping friend.
+      out.push({
+        ...base,
+        claimed: false,
+        action: 'sleep',
+        needs: { need_energy: 50, need_social: 20 },
+        like: 0.9 + aff,
+        bonus: 3,
+      });
+    if (def.traits.cheeky >= 0.5 && ob.carrying !== null && brain.needs.need_hunger < 75 && !wanted) {
+      // A friend carrying a snack: snatch it and run.
+      const snack = ctx.target(ob.carrying);
+      if (snack && world.edible(snack.defId) && likingOf(def, snack.defId) !== 'disliked')
+        out.push({
+          ...base,
+          action: 'soc_steal',
+          needs: SOCIAL_NEEDS.soc_steal,
+          like: 0.4 + def.traits.cheeky,
+          // Mischief: too tempting to pass up.
+          bonus: brain.needs.need_fun < 90 ? 9 * def.traits.cheeky : 0,
+        });
+    }
+    if (
+      def.habits.ridesHeads &&
+      o.supported &&
+      !o.held &&
+      o.def.radius >= 0.45 &&
+      ob.carrying === null &&
+      (ob.mode === 'st_idle' || ob.mode === 'st_eat' || (ob.mode === 'st_use' && ob.action === 'inspect')) &&
+      !bugs.some((q) => q.brain.mode === 'st_ride' && q.brain.social?.partner === o.id) &&
+      !wanted
+    )
+      out.push({
+        ...base,
+        action: 'soc_ride',
+        needs: SOCIAL_NEEDS.soc_ride,
+        like: 0.7 + aff,
+        bonus: brain.needs.need_fun < 90 ? 1 : 0,
+      });
+    if (!available(o) || wanted || brain.carrying !== null) continue;
+    out.push({ ...base, action: 'soc_chat', needs: SOCIAL_NEEDS.soc_chat, like: like * 1.25 });
+    out.push({ ...base, action: 'soc_bump', needs: SOCIAL_NEEDS.soc_bump, like: like * 0.9 });
+    if (energetic && ob.needs.need_energy > 30)
+      out.push({
+        ...base,
+        action: 'soc_tag',
+        needs: SOCIAL_NEEDS.soc_tag,
+        like: like * (0.3 + def.traits.cheeky * 0.5) * (0.6 + o.def.traits.restless * 0.4),
+      });
+    if (energetic) {
+      // A ball or a berry nearby to throw back and forth.
+      const toy = loose.find(
+        (l) =>
+          l.catchable &&
+          l.speed < 0.3 &&
+          Math.abs(l.x - state.x) < 5 &&
+          !world.setupBetween(Math.min(l.x, o.x) - 1, Math.max(l.x, o.x) + 1),
+      );
+      if (toy)
+        out.push({
+          ...base,
+          action: 'soc_catch',
+          needs: SOCIAL_NEEDS.soc_catch,
+          like: like * (0.6 + def.traits.restless * 0.6),
+          item: toy.id,
+        });
+    }
+    if (def.traits.generous >= 0.3 && ob.needs.need_hunger < 45) {
+      // A snack the friend would like.
+      const snack = loose.find(
+        (l) =>
+          l.edible &&
+          l.speed < 0.3 &&
+          Math.abs(l.x - state.x) < 6 &&
+          likingOf(o.def, l.defId) !== 'disliked' &&
+          likingOf(o.def, l.defId) !== 'neutral',
+      );
+      if (snack)
+        out.push({
+          ...base,
+          action: 'soc_share_food',
+          needs: SOCIAL_NEEDS.soc_share_food,
+          like: like * (0.4 + def.traits.generous),
+          bonus: urgency(ob.needs.need_hunger) * 0.08 * def.traits.generous,
+          item: snack.id,
+        });
+    }
+  }
+  return out;
+}
+
+/** Places that advertise: a nap right here, the water, the top of the stump, the camera. */
+function spotAdverts(brain: BugBrain, ctx: BugContext): AdvertCandidate[] {
+  const world = ctx.world ?? EMPTY_WORLD;
+  const { def, state, tick } = ctx;
+  const out: AdvertCandidate[] = [];
+  const spot = (id: number, x: number, action: AdvertAction, needs: Partial<Record<NeedId, number>>) =>
+    out.push({ id, defId: '', x, y: state.y, action, needs, claimed: false, like: 1 });
+  if (brain.needs.need_energy < 55) spot(SPOT_SLEEP_HERE, state.x, 'sleep', { need_energy: 35 });
+  if (def.swim !== 'skate') {
+    const edge = world.waterEdge(state.x);
+    if (edge && Math.abs(edge.x - state.x) < PERCEPTION)
+      spot(SPOT_WATER, edge.x, 'splash', { need_clean: 80, need_fun: 12 });
+  }
+  if (def.habits.showsOff) {
+    const top = world.summit(state.x);
+    const onTop = top && state.x > top.x0 && state.x < top.x1 && state.y < top.y;
+    if (top && !onTop && brain.needs.need_energy > 35) {
+      // Her signature: up to the top to pose, then a glide down.
+      spot(SPOT_TOP, (top.x0 + top.x1) / 2, 'perform', { need_fun: 28, need_social: 6 });
+      if (brain.needs.need_fun < 85) out[out.length - 1]!.bonus = 6;
+    }
+    const view = world.view;
+    const since = brain.touchedAt < 0 ? tick : tick - brain.touchedAt;
+    if (view && since > IGNORED_TICKS) {
+      const x = Math.min(view.x1 - 3, Math.max(view.x0 + 3, state.x));
+      if (!ctx.overWater?.(x) && (!ctx.home || (x > ctx.home.x0 && x < ctx.home.x1))) {
+        // Nobody has played with her for ages: into view for a pose.
+        spot(SPOT_CAMERA, x, 'perform', { need_social: 30, need_fun: 10 });
+        out[out.length - 1]!.like = 2.5;
+      }
+    }
+  }
+  return out;
+}
+
+/** Everything this bug could do next, from items, other bugs, and spots. */
+function candidates(me: EntityId, brain: BugBrain, ctx: BugContext): AdvertCandidate[] {
+  const { def } = ctx;
+  const items = ctx.adverts().filter((c) => {
+    if (c.action === 'carry') return !!def.habits.rowsPebbles;
+    // Day bugs look for a bed when their energy runs under about half.
+    if (c.action === 'sleep') return brain.needs.need_energy < 55;
+    return true;
+  });
+  let carry = items.filter((c) => c.action === 'carry');
+  if (carry.length > 0) {
+    const row = rowSlots(brain, ctx);
+    carry =
+      row.free.length === 0
+        ? []
+        : carry
+            .filter(
+              (c) => Math.abs(c.x - brain.restX) < 7 && !row.filled.some((x) => Math.abs(x - c.x) < 0.3),
+            )
+            // Lining up pebbles is Rollo's favorite quiet pastime.
+            .map((c) => ({ ...c, bonus: brain.needs.need_fun < 90 ? 7 : 0 }));
+  }
+  return [
+    ...items.filter((c) => c.action !== 'carry'),
+    ...carry,
+    ...socialAdverts(me, brain, ctx),
+    ...spotAdverts(brain, ctx),
+  ];
 }
 
 /**
  * Score everything nearby and maybe pick something to do. Picks among the
  * top three with weights 60/30/10. Returns true if the bug chose an action.
  */
-function choose(brain: BugBrain, ctx: BugContext, notices: BugNotice[]): boolean {
+function choose(me: EntityId, brain: BugBrain, ctx: BugContext, out: BugDecision): boolean {
   const { def, state, rng, tick } = ctx;
   const desperate = NEED_IDS.some((n) => brain.needs[n] < 15);
-  const scored = ctx
-    .adverts()
-    .filter((c) => !c.claimed && (desperate || Math.abs(c.x - state.x) <= PERCEPTION))
+  const exhausted = brain.needs.need_energy < 10;
+  const scored = candidates(me, brain, ctx)
+    .filter((c) => !c.claimed && (desperate || c.id === SPOT_CAMERA || Math.abs(c.x - state.x) <= PERCEPTION))
+    .filter((c) => !exhausted || c.action === 'sleep')
     .map((c) => ({ c, score: scoreAdvert(brain, def, c, state.x, tick) + rng.range(0, 6) }))
     .filter((s) => s.score > SCORE_FLOOR)
-    .sort((a, b) => b.score - a.score || a.c.id - b.c.id)
-    .slice(0, 3);
-  if (scored.length === 0) return false;
+    .sort((a, b) => b.score - a.score || a.c.id - b.c.id || a.c.action.localeCompare(b.c.action))
+    .slice(0, 3)
+    // Something urgent wins: the runners-up only get a look in when they are close.
+    .filter((s, _i, all) => s.score >= all[0]!.score * 0.5);
+  if (scored.length === 0) {
+    if (exhausted && ctx.support) {
+      out.notices.push(...enterSleep(brain, def, state.x));
+      return true;
+    }
+    return false;
+  }
   const weights = [60, 30, 10].slice(0, scored.length);
   let roll = rng.range(
     0,
@@ -496,14 +759,40 @@ function choose(brain: BugBrain, ctx: BugContext, notices: BugNotice[]): boolean
       break;
     }
   }
+  return start(brain, ctx, pick.c, out);
+}
+
+/** Set off to do what an advert offers. */
+function start(brain: BugBrain, ctx: BugContext, c: AdvertCandidate, out: BugDecision): boolean {
+  const { def, state } = ctx;
+  out.notices.push({ type: 'chose', action: c.action, targetId: c.id >= 0 ? c.id : null });
+  if (c.id === SPOT_SLEEP_HERE) {
+    out.notices.push(...enterSleep(brain, def, state.x));
+    return true;
+  }
   // Ten seconds, plus however long the walk takes a slow snail.
-  enter(brain, 'st_seek', SEEK_TIMEOUT + Math.round((Math.abs(pick.c.x - state.x) / def.speed) * SIM_HZ));
-  brain.targetId = pick.c.id;
-  brain.action = pick.c.action;
-  brain.targetX = pick.c.x;
+  enter(brain, 'st_seek', SEEK_TIMEOUT + Math.round((Math.abs(c.x - state.x) / def.speed) * SIM_HZ));
+  brain.targetId = c.id;
+  brain.action = c.action;
+  brain.targetX = c.x;
   brain.tries = 0;
   brain.done = false;
-  notices.push({ type: 'chose', action: pick.c.action, targetId: pick.c.id });
+  if (isSocial(c.action)) {
+    const fetch = c.item !== undefined && c.item !== null;
+    brain.social = {
+      kind: c.action,
+      partner: c.id,
+      role: 'lead',
+      stage: fetch ? 0 : 1,
+      count: 0,
+      goal: 0,
+      beat: 0,
+      left: 0,
+      item: c.item ?? null,
+      last: null,
+    };
+    if (fetch) brain.targetId = c.item!;
+  }
   return true;
 }
 
@@ -511,7 +800,7 @@ function choose(brain: BugBrain, ctx: BugContext, notices: BugNotice[]): boolean
  * Walk somewhere nearby, drifting back toward home (game design doc,
  * section 5). Bugs that cannot skate never pick a spot on open water.
  */
-function startWander(brain: BugBrain, ctx: BugContext): void {
+function startWander(brain: BugBrain, ctx: BugContext, away?: number): void {
   const { def, state, rng } = ctx;
   const margin = def.radius + 0.5;
   let lo = Math.max(margin, state.x - WANDER_RANGE);
@@ -528,7 +817,7 @@ function startWander(brain: BugBrain, ctx: BugContext): void {
     }
   }
   enter(brain, 'st_wander', SEEK_TIMEOUT);
-  let target = rng.range(lo, Math.max(lo, hi));
+  let target = away === undefined ? rng.range(lo, Math.max(lo, hi)) : away;
   if (def.swim !== 'skate' && ctx.overWater) {
     // Stop at the water's edge instead.
     const step = target > state.x ? 0.2 : -0.2;
@@ -539,17 +828,54 @@ function startWander(brain: BugBrain, ctx: BugContext): void {
   brain.targetX = target;
 }
 
+/** Drop out of anything shared: interactions end and whatever is in hand is let go. */
+function letGo(me: EntityId, brain: BugBrain, ctx: BugContext, out: BugDecision): void {
+  if (brain.social) endSocial(me, brain, ctx, false, out);
+  brain.carrying = null;
+  brain.gliding = false;
+}
+
+/** Small idle animations (section 5, `st_idle`): a hum, a yawn, a look around, a groom. */
+function fidget(brain: BugBrain, ctx: BugContext, out: BugDecision): void {
+  const { def, rng, tick } = ctx;
+  brain.fidgetAt = tick + Math.round(rng.range(3, 8) * SIM_HZ * (1.3 - def.traits.restless * 0.6));
+  const n = brain.needs;
+  let kind: Fidget;
+  if (def.habits.hops && rng.chance(0.5)) {
+    // Boing can't sit still.
+    kind = 'stretch';
+    if (ctx.support) launch(brain, out, { x: 0, y: -4.2 }, ctx.state.y);
+  } else if (n.need_energy < 40) kind = rng.chance(0.6) ? 'yawn' : 'stretch';
+  else if (n.need_clean < 60 && rng.chance(0.6)) {
+    // Grooming: +20 cleanliness.
+    kind = 'groom';
+    addNeeds(n, { need_clean: 20 });
+  } else if (n.need_fun < 30) kind = rng.chance(0.5) ? 'kick' : 'look';
+  else if (moodOf(brain, tick) === 'mood_happy') kind = rng.chance(0.55) ? 'hum' : 'look';
+  else kind = rng.pick(['look', 'scratch', 'look', 'hum'] as const);
+  out.notices.push({ type: 'fidgeted', fidget: kind });
+}
+
 /**
  * One tick of bug behavior. Mutates the brain and returns what the bug
  * wants physics to do. The sim calls this for every bug in ID order.
  */
 export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
-  const out: BugDecision = { velocity: null, eat: null, take: null, spit: null, wriggle: false, notices: [] };
+  const out: BugDecision = {
+    velocity: null,
+    eat: null,
+    take: null,
+    spit: null,
+    wriggle: false,
+    throw: null,
+    notices: [],
+  };
   const brain = entity.bug;
   if (!brain) return out;
+  const me = ctx.id ?? entity.id;
   const { def, state, rng } = ctx;
   const speed = Math.hypot(state.vx, state.vy);
-  decayNeeds(brain, def);
+  decayNeeds(brain, def, 1, brain.mode === 'st_sleep' && inPile(me, state.x, def, ctx));
   const moved = Math.abs(state.x - brain.lastX);
   brain.lastX = state.x;
   if (brain.burpAt >= 0 && ctx.tick >= brain.burpAt) {
@@ -559,10 +885,16 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
 
   if (ctx.held) {
     if (brain.mode !== 'st_held') {
+      const asleep = brain.mode === 'st_sleep';
+      letGo(me, brain, ctx, out);
       enter(brain, 'st_held');
-      brain.targetId = null;
-      brain.action = null;
+      clearIntent(brain);
       brain.tickle = 0;
+      brain.touchedAt = ctx.tick;
+      if (asleep) {
+        out.notices.push({ type: 'woke', early: true });
+        brain.groggyUntil = ctx.tick + GROGGY_TICKS;
+      }
       out.notices.push(react(brain, 'grab', rng, ctx.tick));
     } else if (brain.tickle > 0) {
       brain.tickle++;
@@ -575,16 +907,26 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
     }
     return out;
   }
-  if (brain.mode === 'st_held') releaseBug(brain, def, false);
+  if (brain.mode === 'st_held') releaseBug(brain, def, false, state.y);
 
   // Frozen solid in a block of ice: nothing moves until it thaws.
   if (ctx.frozen) return out;
 
+  // Anything shared needs the right mode; so does anything carried.
+  const socialOk =
+    brain.mode === 'st_social' ||
+    brain.mode === 'st_ride' ||
+    brain.mode === 'st_seek' ||
+    (brain.mode === 'st_airborne' && brain.selfLaunched);
+  if (brain.social && !socialOk) endSocial(me, brain, ctx, false, out);
+  if (brain.carrying !== null && !socialOk) brain.carrying = null;
+
   // Fell in the water: swim for it (skaters stand on the surface instead).
   if (def.swim !== 'skate' && brain.mode !== 'st_swim' && (ctx.submerged ?? 0) > SWIM_DEPTH) {
+    if (brain.mode === 'st_sleep') out.notices.push({ type: 'woke', early: true });
+    letGo(me, brain, ctx, out);
     enter(brain, 'st_swim');
-    brain.targetId = null;
-    brain.action = null;
+    clearIntent(brain);
     brain.selfLaunched = false;
     brain.hopAt = -1;
     out.notices.push({ type: 'swam' }, react(brain, 'splash', rng, ctx.tick));
@@ -601,58 +943,38 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
       enter(brain, 'st_airborne');
       brain.selfLaunched = true;
       brain.airPeak = 0;
-      out.velocity = { x: brain.facing * 0.6, y: -7.5 };
+      brain.airTop = state.y;
+      // Straight up if the player's things are close, so it comes down where it was.
+      const near = (ctx.world ?? EMPTY_WORLD).setupNear(state.x, state.y, 1.5);
+      out.velocity = { x: near ? 0 : brain.facing * 0.6, y: -7.5 };
       out.notices.push({ type: 'hopped' });
       return out;
     }
   }
 
   // Knocked off its feet by something.
-  if (!AIRBORNE.has(brain.mode) && !ctx.support && speed > TUMBLE_SPEED) {
+  if (
+    !isAirborne(brain) &&
+    brain.mode !== 'st_rolled' &&
+    brain.mode !== 'st_ride' &&
+    !ctx.support &&
+    speed > TUMBLE_SPEED
+  ) {
+    if (brain.mode === 'st_sleep') out.notices.push({ type: 'woke', early: true });
+    letGo(me, brain, ctx, out);
     enter(brain, 'st_airborne');
     brain.airPeak = 0;
+    brain.airTop = state.y;
     brain.selfLaunched = false;
-    brain.targetId = null;
-    brain.action = null;
+    clearIntent(brain);
   }
 
   const n = ctx.support;
   switch (brain.mode) {
     case 'st_airborne':
     case 'st_use': {
-      brain.airPeak = Math.max(brain.airPeak, ctx.impact);
-      const settled = def.curlsWhenFlung && !brain.selfLaunched ? speed < 1.2 : ctx.impact > 0 || speed < 1;
-      if (!n || !settled) return out;
-      out.notices.push({ type: 'landed', speed: brain.airPeak });
-      if (!brain.selfLaunched && brain.airPeak >= DIZZY_SPEED && def.dizzyProof) {
-        // Glorp never gets dizzy: he pulls into his shell and spins like a top.
-        enter(brain, 'st_react', SHELL_TICKS);
-        brain.targetId = null;
-        brain.action = null;
-        out.notices.push(react(brain, 'land_hard', rng, ctx.tick));
-      } else if (!brain.selfLaunched && brain.airPeak >= DIZZY_SPEED) {
-        const ticks = makeDizzy(brain, brain.airPeak, ctx.tick);
-        out.notices.push({ type: 'dizzy', speed: brain.airPeak, durationTicks: ticks });
-      } else if (
-        brain.selfLaunched &&
-        brain.targetId !== null &&
-        !(brain.mode === 'st_use' && brain.done) &&
-        brain.tries + 1 < HOP_TRIES
-      ) {
-        // Missed the spring, or hopped over something on the way. Carry on.
-        brain.tries++;
-        brain.mode = 'st_seek';
-        brain.timer = SEEK_TIMEOUT;
-        brain.stuck = 0;
-      } else {
-        enter(brain, 'st_landing', LANDING_TICKS);
-        brain.targetId = null;
-        brain.action = null;
-        if (!brain.selfLaunched) out.notices.push(react(brain, 'land', rng, ctx.tick));
-      }
-      brain.selfLaunched = false;
-      out.velocity = n ? grip(n) : null;
-      return out;
+      if (brain.mode === 'st_use' && brain.action !== 'bounce') return use(brain, ctx, out);
+      return airborne(me, brain, ctx, speed, out);
     }
 
     case 'st_landing':
@@ -667,6 +989,9 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
       if (--brain.timer <= 0) {
         enter(brain, 'st_recover', RECOVER_TICKS);
         out.notices.push({ type: 'recovered' });
+        // The one who crashed often laughs along with whoever was watching.
+        if (brain.audience > 0 && rng.chance(0.7)) out.notices.push(react(brain, 'play', rng, ctx.tick));
+        brain.audience = 0;
       }
       if (!n) return out;
       // A slow, wobbly stagger back and forth.
@@ -676,22 +1001,49 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
       return out;
     }
 
-    case 'st_idle':
-      if (offeredNear(ctx)) {
-        // Food on offer: turn to it and wait, instead of wandering off.
-        brain.facing = ctx.offered!.x >= state.x ? 1 : -1;
-        brain.timer = Math.max(brain.timer, 30);
-        out.velocity = n ? grip(n) : null;
+    case 'st_sleep':
+      out.velocity = n ? grip(n) : null;
+      if (ctx.impact > WAKE_IMPACT) out.notices.push(...wakeBug(brain, true, rng, ctx.tick));
+      else if (brain.needs.need_energy >= RESTED) out.notices.push(...wakeBug(brain, false, rng, ctx.tick));
+      return out;
+
+    case 'st_rolled':
+      // A real rolling ball: physics does the rest.
+      if (--brain.timer <= 0 && speed < 0.6) {
+        enter(brain, 'st_react', 60);
+        out.notices.push({ type: 'curled', on: false }, react(brain, 'peek', rng, ctx.tick));
+      }
+      return out;
+
+    case 'st_hide': {
+      const dx = brain.targetX - state.x;
+      if (Math.abs(dx) > 0.15 && brain.timer > 60 && n) {
+        if (stepToward(brain, ctx, dx, moved, out, 1.4) === 'blocked') brain.targetX = state.x;
+        if (brain.mode !== 'st_hide') return out;
+        brain.facing = dx > 0 ? -1 : 1;
         return out;
       }
-      brain.timer--;
-      if (--brain.decideIn <= 0) {
-        brain.decideIn = DECIDE_EVERY;
-        if (n && choose(brain, ctx, out.notices)) return out;
-      }
-      if (brain.timer <= 0 && n) startWander(brain, ctx);
       out.velocity = n ? grip(n) : null;
+      if (--brain.timer <= 0) {
+        const cover = brain.targetId;
+        enter(brain, 'st_react', 60);
+        clearIntent(brain);
+        out.notices.push({ type: 'hid', coverId: cover, on: false }, react(brain, 'peek', rng, ctx.tick));
+      }
       return out;
+    }
+
+    case 'st_perform':
+      return perform(brain, ctx, out);
+
+    case 'st_ride':
+      return updateRide(me, brain, ctx, out);
+
+    case 'st_social':
+      return updateSocial(me, brain, ctx, moved, out);
+
+    case 'st_idle':
+      return idle(me, brain, ctx, out);
 
     case 'st_wander': {
       if (offeredNear(ctx)) {
@@ -701,54 +1053,21 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
       }
       if (--brain.decideIn <= 0) {
         brain.decideIn = DECIDE_EVERY;
-        if (n && choose(brain, ctx, out.notices)) return out;
+        if (n && choose(me, brain, ctx, out)) return out;
       }
       const dx = brain.targetX - state.x;
       if (Math.abs(dx) < ARRIVE || --brain.timer <= 0) {
         enterIdle(brain, rng, def);
         out.velocity = n ? grip(n) : null;
+        if (def.swim === 'skate' && ctx.overWater?.(state.x))
+          out.notices.push({ type: 'fidgeted', fidget: 'twirl' });
         return out;
       }
       return walk(brain, ctx, dx, moved, out);
     }
 
-    case 'st_seek': {
-      const target = brain.targetId === null ? null : ctx.target(brain.targetId);
-      if (!target || target.held || --brain.timer <= 0) {
-        enterIdle(brain, rng, def);
-        return out;
-      }
-      const side = target.x >= state.x ? 1 : -1;
-      const gap = brain.action === 'bounce' ? 0.3 : 0.04;
-      const standX = target.x - side * (def.radius + target.halfWidth + gap);
-      brain.targetX = standX;
-      const dx = standX - state.x;
-      const edgeGap = Math.abs(target.x - state.x) - def.radius - target.halfWidth;
-      const arrived = Math.abs(dx) < ARRIVE || (edgeGap < gap + 0.1 && Math.sign(dx) !== side);
-      if (arrived && n) {
-        brain.facing = side;
-        if (brain.action === 'eat') {
-          const itemId = brain.targetId!;
-          const liking = feedBug(brain, def, itemId, target.defId);
-          out.take = { itemId, liking };
-          out.velocity = grip(n);
-          return out;
-        }
-        if (Math.abs(target.angle) > 0.5) {
-          enterIdle(brain, rng, def); // The spring fell over; nothing to bounce on.
-          return out;
-        }
-        // Hop onto the spring's top.
-        const topY = target.y - target.halfHeight - def.radius - 0.02;
-        out.velocity = hopVelocity(state.x, state.y, target.x - side * 0.04, topY);
-        enter(brain, 'st_use');
-        brain.selfLaunched = true;
-        brain.airPeak = 0;
-        out.notices.push({ type: 'hopped' });
-        return out;
-      }
-      return walk(brain, ctx, dx, moved, out);
-    }
+    case 'st_seek':
+      return seek(me, brain, ctx, moved, out);
 
     case 'st_swim':
       return swim(brain, ctx, moved, out);
@@ -776,18 +1095,537 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
         if (brain.needs.need_hunger >= FULL_BELLY) brain.burpAt = ctx.tick + BURP_DELAY;
       }
       enter(brain, 'st_react', FED_REACT_TICKS[liking]);
-      brain.targetId = null;
-      brain.action = null;
+      clearIntent(brain);
       out.notices.push(react(brain, `fed_${liking}`, rng, ctx.tick));
       return out;
     }
+
+    case 'st_held':
+    case 'st_pocketed':
+      return out;
   }
+}
+
+function idle(me: EntityId, brain: BugBrain, ctx: BugContext, out: BugDecision): BugDecision {
+  const { def, state, tick } = ctx;
+  const n = ctx.support;
+  const world = ctx.world ?? EMPTY_WORLD;
+  if (offeredNear(ctx)) {
+    // Food on offer: turn to it and wait, instead of wandering off.
+    brain.facing = ctx.offered!.x >= state.x ? 1 : -1;
+    brain.timer = Math.max(brain.timer, 30);
+    out.velocity = n ? grip(n) : null;
+    return out;
+  }
+  out.velocity = n ? grip(n) : null;
+  if (def.habits.rowsPebbles && Math.abs(state.x - brain.restX) > 12) brain.restX = state.x;
+  // Woken early and still tired: back to sleep.
+  if (brain.napAt >= 0 && tick >= brain.napAt) {
+    brain.napAt = -1;
+    if (brain.needs.need_energy < 50 && n) {
+      out.notices.push(...enterSleep(brain, def, state.x));
+      return out;
+    }
+  }
+  if (def.habits.crowdShy && n) {
+    const crowd = world
+      .bugs()
+      .filter((o) => o.id !== me && Math.hypot(o.x - state.x, o.y - state.y) < CROWD_RANGE);
+    if (crowd.length >= CROWD) {
+      const cx = crowd.reduce((a, o) => a + o.x, 0) / crowd.length;
+      const away = state.x >= cx ? 1 : -1;
+      // Too many bugs: hop clear of them, then drift off.
+      const landX = state.x + away * 3.2;
+      brain.facing = away;
+      if (clearLanding(ctx, landX)) {
+        startWander(brain, ctx, landX + away * 2);
+        launch(
+          brain,
+          out,
+          hopVelocity(state.x, state.y, landX, world.surfaceY(landX) - def.radius, 0.7),
+          state.y,
+        );
+        return out;
+      }
+      startWander(brain, ctx, state.x + away * 4);
+      return out;
+    }
+  }
+  brain.timer--;
+  if (--brain.decideIn <= 0) {
+    brain.decideIn = DECIDE_EVERY;
+    if (n && choose(me, brain, ctx, out)) return out;
+  }
+  if (tick >= brain.fidgetAt && n) {
+    fidget(brain, ctx, out);
+    if (brain.mode !== 'st_idle') return out;
+  }
+  if (brain.timer <= 0 && n) startWander(brain, ctx);
+  return out;
+}
+
+/** Flying, falling, hopping, and bouncing, and how each landing ends. */
+function airborne(
+  me: EntityId,
+  brain: BugBrain,
+  ctx: BugContext,
+  speed: number,
+  out: BugDecision,
+): BugDecision {
+  const { def, state, rng } = ctx;
+  const n = ctx.support;
+  const world = ctx.world ?? EMPTY_WORLD;
+  brain.airPeak = Math.max(brain.airPeak, ctx.impact);
+  brain.airTop = Math.min(brain.airTop, state.y);
+  const settled = def.curlsWhenFlung && !brain.selfLaunched ? speed < 1.2 : ctx.impact > 0 || speed < 1;
+  if (!n || !settled) return out;
+  const fall = state.y - brain.airTop;
+  out.notices.push({ type: 'landed', speed: brain.airPeak });
+  const glided = brain.gliding;
+  brain.gliding = false;
+  out.velocity = grip(n);
+  if (!brain.selfLaunched && brain.airPeak >= DIZZY_SPEED && def.dizzyProof) {
+    // Glorp never gets dizzy: he pulls into his shell and spins like a top.
+    enter(brain, 'st_react', SHELL_TICKS);
+    clearIntent(brain);
+    out.notices.push(react(brain, 'land_hard', rng, ctx.tick));
+  } else if (!brain.selfLaunched && brain.airPeak >= DIZZY_SPEED) {
+    const ticks = makeDizzy(brain, brain.airPeak, ctx.tick);
+    out.notices.push({ type: 'dizzy', speed: brain.airPeak, durationTicks: ticks });
+  } else if (brain.selfLaunched && brain.resume !== null) {
+    // A hop on the way somewhere: carry on.
+    brain.mode = brain.resume;
+    brain.resume = null;
+    brain.stuck = 0;
+  } else if (
+    brain.selfLaunched &&
+    brain.mode === 'st_use' &&
+    brain.targetId !== null &&
+    !brain.done &&
+    brain.tries + 1 < HOP_TRIES
+  ) {
+    // Missed the spring. Try again.
+    brain.tries++;
+    brain.mode = 'st_seek';
+    brain.timer = SEEK_TIMEOUT;
+    brain.stuck = 0;
+  } else if (brain.selfLaunched && brain.action === 'sleep') {
+    out.notices.push(...enterSleep(brain, def, state.x));
+  } else if (brain.selfLaunched && brain.action === 'soc_ride' && brain.social) {
+    const mount = world.bug(brain.social.partner);
+    const onHead =
+      !!mount && Math.abs(state.x - mount.x) < mount.def.radius && state.y < mount.y - mount.def.radius * 0.5;
+    if (mount && onHead) {
+      engage(me, brain, mount, 'soc_ride', ctx, out);
+      out.notices.push({ type: 'rode', mountId: mount.id, on: true });
+    } else {
+      brain.social = null;
+      enterIdle(brain, rng, def);
+    }
+  } else if (brain.selfLaunched && glided) {
+    // Dot's glide down from the top: "again!"
+    addNeeds(brain.needs, { need_fun: 25, need_social: 5 });
+    recordUse(brain, SPOT_TOP, ctx.tick);
+    enter(brain, 'st_landing', LANDING_TICKS);
+    clearIntent(brain);
+    out.notices.push(
+      { type: 'used', action: 'perform', targetId: null },
+      react(brain, 'land', rng, ctx.tick),
+    );
+  } else if (!brain.selfLaunched && def.curlsWhenFlung && fall > CURL_FALL) {
+    // Dropped from high up: stays curled for a while.
+    out.notices.push(...curl(brain, rng));
+    out.velocity = null;
+  } else if (
+    !brain.selfLaunched &&
+    def.habits.hops &&
+    brain.touchedAt >= 0 &&
+    ctx.tick - brain.touchedAt < 5 * SIM_HZ
+  ) {
+    // Boing loves a fling: he uses the landing to hop again.
+    out.notices.push(react(brain, 'land', rng, ctx.tick));
+    const toX = state.x + brain.facing * 1.2;
+    if (clearLanding(ctx, toX)) {
+      enter(brain, 'st_airborne');
+      brain.selfLaunched = true;
+      brain.airPeak = 0;
+      brain.airTop = state.y;
+      out.velocity = { x: brain.facing * 1.8, y: -7.5 };
+      out.notices.push({ type: 'hopped' });
+      clearIntent(brain);
+      return out;
+    }
+    enter(brain, 'st_landing', LANDING_TICKS);
+    clearIntent(brain);
+  } else {
+    enter(brain, 'st_landing', LANDING_TICKS);
+    clearIntent(brain);
+    if (!brain.selfLaunched) out.notices.push(react(brain, 'land', rng, ctx.tick));
+  }
+  brain.selfLaunched = false;
+  return out;
+}
+
+/** Sniffing something new (`st_use` with `inspect`). */
+function use(brain: BugBrain, ctx: BugContext, out: BugDecision): BugDecision {
+  const { rng, tick, def } = ctx;
+  const target = brain.targetId === null ? null : ctx.target(brain.targetId);
+  if (target) face(brain, ctx, target.x, out);
+  else out.velocity = ctx.support ? grip(ctx.support) : null;
+  if (--brain.timer > 0 && target && !target.held) return out;
+  const id = brain.targetId;
+  if (id !== null && target) {
+    addNeeds(brain.needs, { need_fun: 8 });
+    recordUse(brain, id, tick);
+    if (!brain.inspected.includes(id)) brain.inspected.push(id);
+    if (brain.inspected.length > 64) brain.inspected.shift();
+    out.notices.push(
+      { type: 'inspected', itemId: id },
+      { type: 'used', action: 'inspect', targetId: id },
+      react(brain, 'inspect', rng, tick),
+    );
+    enter(brain, 'st_react', 60);
+    brain.targetId = id;
+    brain.action = null;
+    return out;
+  }
+  enterIdle(brain, rng, def);
+  return out;
+}
+
+/** Dot posing at the top (then leaping off to glide down), or for the camera. */
+function perform(brain: BugBrain, ctx: BugContext, out: BugDecision): BugDecision {
+  const { def, state, rng, tick } = ctx;
+  const world = ctx.world ?? EMPTY_WORLD;
+  out.velocity = ctx.support ? grip(ctx.support) : null;
+  if (--brain.timer > 0) return out;
+  if (brain.targetId === SPOT_TOP) {
+    const top = world.summit(state.x);
+    if (top && ctx.support) {
+      const edges = [
+        { dir: -1 as const, x: top.x0 },
+        { dir: 1 as const, x: top.x1 },
+      ].sort((a, b) => Math.abs(a.x - state.x) - Math.abs(b.x - state.x));
+      for (const edge of edges) {
+        const landX = edge.x + edge.dir * rng.range(3.2, 4.2);
+        // Gliding drifts, so keep the whole way down clear of the player's things.
+        if (
+          !clearLanding(ctx, landX) ||
+          world.setupBetween(Math.min(edge.x, landX) - 2, Math.max(edge.x, landX) + 2)
+        )
+          continue;
+        // Leap off the edge and glide down with wings open.
+        brain.facing = edge.dir;
+        const toY = world.surfaceY(landX) - def.radius;
+        const v = hopVelocity(state.x, state.y, landX, toY, 1.1);
+        enter(brain, 'st_airborne');
+        brain.targetId = SPOT_TOP;
+        brain.selfLaunched = true;
+        brain.gliding = true;
+        brain.airPeak = 0;
+        brain.airTop = state.y;
+        out.velocity = { x: v.x, y: Math.min(v.y, -5.5) };
+        out.notices.push({ type: 'hopped' });
+        return out;
+      }
+    }
+  }
+  // Posed for the camera (or nowhere safe to leap): take a bow.
+  addNeeds(brain.needs, { need_fun: 12, need_social: 20 });
+  recordUse(brain, brain.targetId ?? SPOT_CAMERA, tick);
+  out.notices.push({ type: 'used', action: 'perform', targetId: null });
+  enterIdle(brain, rng, def);
+  return out;
+}
+
+/** Where to stand to use a target, and whether the bug is there yet. */
+function seek(me: EntityId, brain: BugBrain, ctx: BugContext, moved: number, out: BugDecision): BugDecision {
+  const { def, state, rng, tick } = ctx;
+  const n = ctx.support;
+  const world = ctx.world ?? EMPTY_WORLD;
+  const id = brain.targetId;
+  const giveUp = (): BugDecision => {
+    // Could not get there: go off it for a while instead of trying again at once.
+    if (id !== null) remember(brain, id, false, tick);
+    brain.social = null;
+    brain.carrying = null;
+    enterIdle(brain, rng, def);
+    out.velocity = n ? grip(n) : null;
+    return out;
+  };
+  if (--brain.timer <= 0 || id === null) return giveUp();
+
+  // Places: the water's edge, the top of the stump, the camera, the pebble row.
+  if (id < 0) {
+    const dx = brain.targetX - state.x;
+    if (Math.abs(dx) < (id === SPOT_TOP ? 0.8 : 0.2) && n) {
+      if (id === SPOT_WATER) {
+        const edge = world.waterEdge(state.x);
+        const dir = edge?.dir ?? brain.facing;
+        brain.facing = dir;
+        addNeeds(brain.needs, { need_fun: 10 });
+        recordUse(brain, SPOT_WATER, tick);
+        out.notices.push({ type: 'used', action: 'splash', targetId: null });
+        enter(brain, 'st_airborne');
+        brain.selfLaunched = true;
+        brain.airPeak = 0;
+        brain.airTop = state.y;
+        clearIntent(brain);
+        out.velocity = { x: dir * 2.6, y: -5 };
+        out.notices.push({ type: 'hopped' });
+        return out;
+      }
+      if (id === SPOT_PICNIC) {
+        // Snack time next to a friend.
+        const food = brain.carrying === null ? null : ctx.target(brain.carrying);
+        if (brain.carrying === null || !food) return giveUp();
+        const itemId = brain.carrying;
+        addNeeds(brain.needs, { need_social: 8 });
+        const liking = feedBug(brain, def, itemId, food.defId);
+        out.take = { itemId, liking };
+        out.velocity = grip(n);
+        return out;
+      }
+      if (id === SPOT_ROW) {
+        // Set the pebble down in its place in the row.
+        brain.facing = 1;
+        if (brain.carrying !== null) recordUse(brain, brain.carrying, tick);
+        brain.carrying = null;
+        addNeeds(brain.needs, { need_fun: 12 });
+        out.notices.push({ type: 'used', action: 'carry', targetId: null });
+        enterIdle(brain, rng, def);
+        out.velocity = grip(n);
+        return out;
+      }
+      if (id === SPOT_TOP || id === SPOT_CAMERA) {
+        const top = world.summit(state.x);
+        if (id === SPOT_TOP && !(top && state.y < top.y))
+          return walk(brain, ctx, dx || brain.facing, moved, out);
+        const targetId = id;
+        enter(brain, 'st_perform', POSE_TICKS);
+        brain.targetId = targetId;
+        brain.action = 'perform';
+        out.velocity = grip(n);
+        out.notices.push({ type: 'posed' }, react(brain, 'show_off', rng, tick));
+        return out;
+      }
+      return giveUp();
+    }
+    return walk(brain, ctx, dx, moved, out);
+  }
+
+  const target = ctx.target(id);
+  if (!target || target.held) return giveUp();
+  // Someone else picked it up first (snatching is its own game).
+  if (target.kind === 'item' && world.bugs().some((o) => o.id !== me && o.brain.carrying === id))
+    return giveUp();
+  const s = brain.social;
+  const partner = s ? world.bug(s.partner) : null;
+  if (s && !partner) return giveUp();
+
+  // A bug to play with.
+  if (s && partner && s.stage >= 1 && id === partner.id) {
+    const kind = s.kind;
+    const side = partner.x >= state.x ? 1 : -1;
+    const gap = Math.abs(partner.x - state.x) - def.radius - partner.def.radius;
+    if (kind === 'soc_catch') {
+      const d = Math.abs(partner.x - state.x);
+      if (d >= CATCH_NEAR && d <= CATCH_FAR && n) {
+        if (!available(partner)) return giveUp();
+        brain.facing = side;
+        engage(me, brain, partner, kind, ctx, out);
+        brain.timer = CATCH_WINDUP;
+        out.velocity = grip(n);
+        return out;
+      }
+      const want = d < CATCH_NEAR ? -side * 2 : side * (d - 2.8);
+      if (stepToward(brain, ctx, want, moved, out) === 'blocked') return giveUp();
+      return out;
+    }
+    if (kind === 'soc_ride') {
+      if (gap < 1.4 && n) {
+        const topY = partner.y - partner.def.radius - def.radius - 0.05;
+        // A player setup right there: not worth the risk of falling on it.
+        if (!clearLanding(ctx, partner.x)) return giveUp();
+        brain.facing = side;
+        out.velocity = hopVelocity(state.x, state.y, partner.x, topY, 0.45);
+        enter(brain, 'st_airborne');
+        brain.selfLaunched = true;
+        brain.airPeak = 0;
+        brain.airTop = state.y;
+        brain.targetId = partner.id;
+        brain.action = 'soc_ride';
+        out.notices.push({ type: 'hopped' });
+        return out;
+      }
+      return walkOrGiveUp(
+        brain,
+        ctx,
+        partner.x - side * (def.radius + partner.def.radius + 0.9) - state.x,
+        moved,
+        out,
+        giveUp,
+      );
+    }
+    if (gap < 0.4 && n) {
+      brain.facing = side;
+      out.velocity = grip(n);
+      if (kind === 'soc_comfort') {
+        if (partner.brain.mode !== 'st_dizzy') return giveUp();
+        engage(me, brain, partner, kind, ctx, out);
+        return out;
+      }
+      if (kind === 'soc_steal') {
+        const item = partner.brain.carrying;
+        if (item === null || partner.held) return giveUp();
+        // Snatch! Then run for it.
+        if (partner.brain.social)
+          endSocial(partner.id, partner.brain, { ...ctx, def: partner.def }, false, out);
+        partner.brain.carrying = null;
+        brain.carrying = item;
+        brain.social = { ...s, item };
+        out.notices.push({ type: 'snatched', partnerId: partner.id, itemId: item });
+        enter(partner.brain, 'st_idle', 60);
+        out.notices.push({ ...react(partner.brain, 'robbed', rng, tick), by: partner.id });
+        engage(me, brain, partner, kind, ctx, out);
+        return out;
+      }
+      if (!available(partner)) return giveUp();
+      engage(me, brain, partner, kind, ctx, out);
+      return out;
+    }
+    const chaseSpeed = kind === 'soc_comfort' || kind === 'soc_steal' ? 1.35 : 1;
+    const standX = partner.x - side * (def.radius + partner.def.radius + 0.2);
+    if (stepToward(brain, ctx, standX - state.x, moved, out, chaseSpeed) === 'blocked') return giveUp();
+    return out;
+  }
+
+  // An item: stand beside it (a bit back for the spring).
+  const side = target.x >= state.x ? 1 : -1;
+  const action = brain.action;
+  // Stand back a little from a spring, or from something being sniffed.
+  const gap = action === 'bounce' || action === 'inspect' ? 0.3 : 0.04;
+  const standX = target.x - side * (def.radius + target.halfWidth + gap);
+  brain.targetX = standX;
+  const dx = standX - state.x;
+  const edgeGap = Math.abs(target.x - state.x) - def.radius - target.halfWidth;
+  const arrived = Math.abs(dx) < ARRIVE || (edgeGap < gap + 0.1 && Math.sign(dx) !== side);
+  if (!arrived || !n) {
+    if (!n || action !== 'inspect' || edgeGap > 3) return walkOrGiveUp(brain, ctx, dx, moved, out, giveUp);
+    // Something in the way of a new thing: have a good look from here instead.
+    if (stepToward(brain, ctx, dx, moved, out) !== 'blocked') return out;
+    brain.facing = side;
+    out.velocity = grip(n);
+    enter(brain, 'st_use', rng.int(INSPECT_TICKS[0], INSPECT_TICKS[1]));
+    return out;
+  }
+  brain.facing = side;
+  out.velocity = grip(n);
+  if (s && s.stage === 0 && s.item === id) {
+    // Picked up the toy or snack; now go and find the friend.
+    if (world.isSetup(id) || world.bugs().some((o) => o.brain.carrying === id)) return giveUp();
+    brain.carrying = id;
+    s.stage = 1;
+    brain.targetId = s.partner;
+    brain.timer = SEEK_TIMEOUT;
+    return out;
+  }
+  switch (action) {
+    case 'eat': {
+      // Sometimes a snack is nicer next to a friend: carry it over first.
+      const pal =
+        brain.needs.need_hunger > 15 && def.traits.sociable >= 0.5 && !world.isSetup(id)
+          ? world
+              .bugs()
+              .find(
+                (o) =>
+                  o.id !== me &&
+                  o.supported &&
+                  o.brain.mode !== 'st_sleep' &&
+                  Math.abs(o.x - state.x) < 6 &&
+                  Math.abs(o.y - state.y) < 1.5 &&
+                  world.affinity(def.id, o.defId) >= 0.3,
+              )
+          : undefined;
+      if (pal && rng.chance(PICNIC_CHANCE)) {
+        const toward = pal.x >= state.x ? 1 : -1;
+        brain.carrying = id;
+        brain.targetId = SPOT_PICNIC;
+        brain.targetX = pal.x - toward * (def.radius + pal.def.radius + 0.35);
+        brain.timer = SEEK_TIMEOUT;
+        return out;
+      }
+      const liking = feedBug(brain, def, id, target.defId);
+      out.take = { itemId: id, liking };
+      return out;
+    }
+    case 'bounce': {
+      if (Math.abs(target.angle) > 0.5) return giveUp(); // The spring fell over.
+      // Hop onto the spring's top.
+      const topY = target.y - target.halfHeight - def.radius - 0.02;
+      out.velocity = hopVelocity(state.x, state.y, target.x - side * 0.04, topY);
+      enter(brain, 'st_use');
+      brain.selfLaunched = true;
+      brain.airPeak = 0;
+      brain.airTop = state.y;
+      out.notices.push({ type: 'hopped' });
+      return out;
+    }
+    case 'inspect':
+      enter(brain, 'st_use', rng.int(INSPECT_TICKS[0], INSPECT_TICKS[1]));
+      return out;
+    case 'sleep': {
+      if (target.kind === 'item' && target.halfHeight * 2 <= 0.35 && !world.isSetup(id)) {
+        // Hop up onto it and curl up there.
+        const topY = target.y - target.halfHeight - def.radius - 0.02;
+        out.velocity = hopVelocity(state.x, state.y, target.x, topY, 0.42);
+        enter(brain, 'st_airborne');
+        brain.targetId = id;
+        brain.action = 'sleep';
+        brain.selfLaunched = true;
+        brain.airPeak = 0;
+        brain.airTop = state.y;
+        out.notices.push({ type: 'hopped' });
+        return out;
+      }
+      out.notices.push(...enterSleep(brain, def, state.x));
+      return out;
+    }
+    case 'carry': {
+      if (world.isSetup(id) || world.bugs().some((o) => o.brain.carrying === id)) return giveUp();
+      const row = rowSlots(brain, ctx);
+      const slot = row.free[0];
+      if (slot === undefined) return giveUp();
+      // Pick it up and take it to the next free place in the row, arms out over the spot.
+      brain.carrying = id;
+      brain.targetId = SPOT_ROW;
+      brain.targetX = slot - def.radius * 0.95;
+      brain.timer = SEEK_TIMEOUT;
+      return out;
+    }
+    default:
+      return giveUp();
+  }
+}
+
+/** Walk, and give up if the way is blocked. */
+function walkOrGiveUp(
+  brain: BugBrain,
+  ctx: BugContext,
+  dx: number,
+  moved: number,
+  out: BugDecision,
+  giveUp: () => BugDecision,
+): BugDecision {
+  if (!ctx.support) return out;
+  if (stepToward(brain, ctx, dx, moved, out) === 'blocked') return giveUp();
   return out;
 }
 
 /**
  * Swimming (game design doc, section 5, `st_swim`): paddle, float, or walk
- * the bottom toward the nearest shore, then shake dry on land.
+ * the bottom toward the nearest shore, then shake dry on land. Boing kicks
+ * furiously and shoots out in one big hop.
  */
 function swim(brain: BugBrain, ctx: BugContext, moved: number, out: BugDecision): BugDecision {
   const { def, state } = ctx;
@@ -803,6 +1641,13 @@ function swim(brain: BugBrain, ctx: BugContext, moved: number, out: BugDecision)
   const shore = ctx.shore ?? state.x;
   const dir: 1 | -1 = shore >= state.x ? 1 : -1;
   brain.facing = dir;
+  brain.timer++;
+  if (def.habits.hops && brain.timer === 40) {
+    const dist = Math.abs(shore - state.x) + 1;
+    out.velocity = { x: dir * Math.min(7, dist / 0.9), y: -9.5 };
+    out.notices.push({ type: 'hopped' });
+    return out;
+  }
   brain.stuck = moved < 0.004 ? brain.stuck + 1 : 0;
   if (brain.stuck > STUCK_TICKS && (n || def.swim !== 'sink')) {
     // Bumping a lily pad or a steep bank: kick up and over.
@@ -832,60 +1677,20 @@ function offeredNear(ctx: BugContext): boolean {
   return !!o && !!ctx.support && Math.hypot(o.x - ctx.state.x, o.y - ctx.state.y) < OFFER_RANGE;
 }
 
-function walk(brain: BugBrain, ctx: BugContext, dx: number, moved: number, out: BugDecision): BugDecision {
-  const { def, rng } = ctx;
-  const n = ctx.support;
-  brain.facing = dx > 0 ? 1 : -1;
-  if (!n) return out;
-  if (def.swim !== 'skate' && ctx.overWater?.(ctx.state.x + brain.facing * (def.radius + 0.25))) {
-    // Water ahead. Stranded on a lily pad or ice with water all round? Jump in and swim.
-    const behind = ctx.overWater(ctx.state.x - brain.facing * (def.radius + 0.25));
-    if (behind && rng.chance(0.02)) {
-      out.velocity = { x: brain.facing * 2, y: -4 };
-      enter(brain, 'st_airborne');
-      brain.selfLaunched = true;
-      brain.airPeak = 0;
-      out.notices.push({ type: 'hopped' });
-      return out;
-    }
-    enterIdle(brain, rng, def);
-    out.velocity = grip(n);
-    return out;
-  }
-  const ob = ctx.obstacle(brain.facing);
-  const bottom = ctx.state.y + def.radius;
-  if (ob && (ob.isBug || bottom - ob.top > STEP_HEIGHT)) {
-    // Another bug, or something too tall to step over: go do something else.
-    enterIdle(brain, rng, def);
-    out.velocity = grip(n);
-    return out;
-  }
-  if (ob) {
-    // A little hop over pebbles and twigs instead of bulldozing them.
-    const rise = bottom - ob.top + 0.12;
-    out.velocity = { x: brain.facing * Math.max(def.speed, 1.4), y: -Math.sqrt(2 * GRAVITY * rise) };
-    enter(brain, 'st_airborne');
-    brain.selfLaunched = true;
-    brain.airPeak = 0;
-    out.notices.push({ type: 'hopped' });
-    return out;
-  }
-  brain.stuck = moved < def.speed * SIM_DT * 0.25 ? brain.stuck + 1 : 0;
-  if (brain.stuck > STUCK_TICKS) {
-    brain.stuck = 0;
-    // Bouncy bugs hop over whatever is in the way; others give up.
-    if (rng.chance(def.traits.bouncy)) {
-      out.velocity = { x: brain.facing * def.speed * 1.2, y: -6.5 };
-      enter(brain, 'st_airborne');
-      brain.selfLaunched = true;
-      brain.airPeak = 0;
-      out.notices.push({ type: 'hopped' });
-      return out;
-    }
-    enterIdle(brain, rng, def);
-    out.velocity = grip(n);
-    return out;
-  }
-  out.velocity = walkVelocity(n, brain.facing * def.speed);
-  return out;
+/** Is a bug among `bugs` a friend within `range` of x (affinity at least 0.3)? */
+export function friendNear(
+  bugs: readonly OtherBug[],
+  me: EntityId,
+  def: BugDef,
+  x: number,
+  range: number,
+  affinity: (a: string, b: string) => number,
+): boolean {
+  return bugs.some(
+    (o) =>
+      o.id !== me &&
+      Math.abs(o.x - x) < range &&
+      affinity(def.id, o.defId) >= 0.3 &&
+      o.brain.mode !== 'st_sleep',
+  );
 }

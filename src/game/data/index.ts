@@ -11,6 +11,8 @@ import { NEED_IDS } from './types';
 import { MATERIALS } from './materials';
 import { VIEW_HEIGHT_M } from '../constants';
 import { TAG_IDS } from '../systems/tags';
+import { AFFINITY, EVERYONE_AFFINITY } from './affinity';
+import type { AffinityDef } from './affinity';
 
 export * from './types';
 export { AREAS, BUGS, ITEMS, MATERIALS, POTIONS, RECIPES, SECRETS };
@@ -53,8 +55,25 @@ export function areaAt(x: number, content: Content = CONTENT): AreaDef {
  * references, and impossible numbers. Returns a list of messages; empty means
  * the content is valid.
  */
-export function validateContent(content: Content = CONTENT): string[] {
+export function validateContent(
+  content: Content = CONTENT,
+  affinity: readonly AffinityDef[] = AFFINITY,
+): string[] {
   const errors: string[] = [];
+  // Affinity may name bugs from later milestones, so check the shape, not the registry.
+  const pairs = new Set<string>();
+  for (const a of affinity) {
+    const where = `affinity ${a.a}/${a.b}`;
+    for (const id of [a.a, a.b])
+      if (!id.startsWith('bug_') || !ID_PATTERN.test(id)) errors.push(`${where} names a bad bug id "${id}"`);
+    if (a.a === a.b) errors.push(`${where} pairs a bug with itself`);
+    if (!(a.value >= -1 && a.value <= 1)) errors.push(`${where} must be -1 to 1`);
+    const key = [a.a, a.b].sort().join('|');
+    if (pairs.has(key)) errors.push(`${where} is listed twice`);
+    pairs.add(key);
+  }
+  for (const [id, v] of Object.entries(EVERYONE_AFFINITY))
+    if (!(v >= -1 && v <= 1) || !id.startsWith('bug_')) errors.push(`everyone-affinity ${id} is invalid`);
   const registries = Object.values(content) as Registry<{ id: string }>[];
 
   for (const reg of registries) {
@@ -144,6 +163,9 @@ export function validateContent(content: Content = CONTENT): string[] {
       const w = bug.needWeights[need];
       if (!(w >= 0.5 && w <= 1.5)) errors.push(`${where} ${need} weight must be 0.5 to 1.5`);
     }
+    const t = bug.traits;
+    for (const [k, val] of Object.entries(t))
+      if (!(val >= 0 && val <= 1)) errors.push(`${where} trait ${k} must be 0 to 1`);
     const v = bug.voice;
     if (!(v.low > 0 && v.high >= v.low && v.syllablesPerSecond > 0))
       errors.push(`${where} voice needs a positive pitch range and syllable rate`);

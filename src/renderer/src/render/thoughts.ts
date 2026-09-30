@@ -9,23 +9,29 @@ export interface Thought {
   pictos: Picto[];
   /** The food to picture, for a `food` pictogram. */
   food: string | null;
+  /** The friend to picture, for a `friend` pictogram. */
+  friend?: string | null;
 }
 
 /**
  * What a bug is thinking about, from its lowest need under the threshold:
- * a food it loves or likes when hungry, a toy it likes when bored, and
- * "Zzz" when sleepy. Null when nothing is low. Pure.
+ * a food it loves or likes when hungry, a toy it likes when bored, "Zzz"
+ * when sleepy, its best friend's face when lonely, and a water drop when it
+ * wants a wash. Null when nothing is low. Pure.
  */
 export function thoughtFor(
   def: BugDef,
   needs: Needs,
   items: { has(id: string): boolean; get(id: string): ItemDef },
+  friend: string | null = null,
 ): Thought | null {
   const low = (
     [
       ['need_energy', 20],
       ['need_hunger', THOUGHT_BELOW],
       ['need_fun', THOUGHT_BELOW],
+      ['need_social', THOUGHT_BELOW],
+      ['need_clean', THOUGHT_BELOW],
     ] as const
   )
     .filter(([need, below]) => needs[need] < below)
@@ -45,5 +51,9 @@ export function thoughtFor(
       if (toy === 'item_spring_coil') return { pictos: ['spring'], food: null };
       return { pictos: ['note'], food: null };
     }
+    case 'need_social':
+      return friend ? { pictos: ['friend'], food: null, friend } : { pictos: ['heart'], food: null };
+    case 'need_clean':
+      return { pictos: ['drop'], food: null };
   }
 }

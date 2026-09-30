@@ -110,6 +110,54 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
       world: { ...world, entities },
     };
   },
+  // 4 -> 5: M4's needs AI. Bugs gain the social and cleanliness needs, and
+  // the bookkeeping for carrying, playing together, memory, sleep, signature
+  // behaviors, and the off-screen plan. The world gains pair affinity and
+  // Glorp's slime trail. (Boing, new in M4, joins old worlds on load.)
+  4: (save) => {
+    const world = save.world as Record<string, unknown>;
+    const entities = (world.entities as Record<string, unknown>[]).map((e) => {
+      if (e.kind !== 'bug') return e;
+      const bug = e.bug as Record<string, unknown>;
+      const needs = bug.needs as Record<string, unknown>;
+      const x = typeof bug.lastX === 'number' ? bug.lastX : 0;
+      return {
+        ...e,
+        bug: {
+          ...bug,
+          needs: { ...needs, need_social: 70, need_clean: 90 },
+          carrying: null,
+          social: null,
+          memory: [],
+          inspected: [],
+          groggyUntil: -1,
+          napAt: -1,
+          pokes: [],
+          gliding: false,
+          fidgetAt: 0,
+          slippedAt: -1,
+          restX: x,
+          plan: null,
+          resume: null,
+          hopReady: 0,
+          touchedAt: -1,
+          airTop: 0,
+          audience: 0,
+        },
+      };
+    });
+    const env = world.env as Record<string, unknown> | undefined;
+    return {
+      ...save,
+      version: 5,
+      world: {
+        ...world,
+        entities,
+        ...(env ? { env: { ...env, slime: [] } } : {}),
+        social: { affinity: {} },
+      },
+    };
+  },
 };
 
 export class SaveError extends Error {

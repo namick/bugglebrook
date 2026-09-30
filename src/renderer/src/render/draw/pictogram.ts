@@ -1,6 +1,7 @@
 import type { Graphics } from 'pixi.js';
 import type { Picto } from '../reactions';
-import { OUTLINE, STAR, stroke } from '../palette';
+import type { BugDef } from '../../../../game/data/types';
+import { OUTLINE, STAR, lighten, stroke } from '../palette';
 import { heartPath, spiral } from './face';
 
 const LINE = 3.5;
@@ -289,7 +290,69 @@ export function drawPicto(g: Graphics, picto: Picto, x: number, y: number, s: nu
       }
       return;
     }
+    case 'sun': {
+      for (let k = 0; k < 8; k++) {
+        const a = (k * Math.PI) / 4 + time * 0.8;
+        g.moveTo(x + Math.cos(a) * h * 0.7, y + Math.sin(a) * h * 0.7)
+          .lineTo(x + Math.cos(a) * h, y + Math.sin(a) * h)
+          .stroke({ width: 4, color: 0xffa62b, cap: 'round' });
+      }
+      g.circle(x, y, h * 0.55)
+        .fill(STAR)
+        .stroke(st);
+      g.moveTo(x - h * 0.25, y + h * 0.08)
+        .quadraticCurveTo(x, y + h * 0.3, x + h * 0.25, y + h * 0.08)
+        .stroke(stroke(2.5));
+      return;
+    }
     case 'food':
+    case 'friend':
       return;
   }
+}
+
+/**
+ * A friend's face for bubbles (gossip, missing a friend): a round head in
+ * the bug's colors with its eyes and one telling feature.
+ */
+export function drawFriend(g: Graphics, def: BugDef, x: number, y: number, s: number): void {
+  const h = s / 2;
+  const st = stroke(LINE);
+  const head =
+    def.art === 'ladybug'
+      ? 0x3a2a40
+      : def.art === 'pillbug'
+        ? lighten(def.body, 0.35)
+        : lighten(def.body, 0.1);
+  if (def.art === 'ladybug') {
+    // Her red shell peeking over the top of her head.
+    g.circle(x - h * 0.45, y - h * 0.35, h * 0.55)
+      .fill(def.body)
+      .stroke(st);
+    g.circle(x - h * 0.55, y - h * 0.45, h * 0.12).fill(OUTLINE);
+  } else if (def.art === 'snail') {
+    g.circle(x - h * 0.5, y - h * 0.2, h * 0.55)
+      .fill(def.accent)
+      .stroke(st);
+    spiral(g, x - h * 0.5, y - h * 0.2, h * 0.4, 1.6).stroke({ width: 2.5, color: 0xffffff, cap: 'round' });
+  } else if (def.art === 'grasshopper' || def.art === 'strider') {
+    for (const dx of [-0.2, 0.25])
+      g.moveTo(x + h * dx, y - h * 0.55)
+        .quadraticCurveTo(x + h * (dx - 0.1), y - h * 1.1, x + h * (dx - 0.45), y - h * 1.05)
+        .stroke({ width: 3, color: OUTLINE, cap: 'round' });
+  }
+  g.circle(x + h * 0.1, y + h * 0.05, h * 0.62)
+    .fill(head)
+    .stroke(st);
+  for (const dx of [-0.12, 0.32]) {
+    g.circle(x + h * dx, y - h * 0.05, h * 0.18)
+      .fill(0xffffff)
+      .stroke(stroke(2));
+    g.circle(x + h * dx + h * 0.04, y - h * 0.03, h * 0.08).fill(OUTLINE);
+  }
+  const cool = def.art === 'strider';
+  g.moveTo(x - h * 0.08, y + h * 0.3)
+    .quadraticCurveTo(x + h * 0.12, y + h * (cool ? 0.38 : 0.5), x + h * 0.36, y + h * 0.3)
+    .stroke(stroke(2.5));
+  g.circle(x + h * 0.52, y + h * 0.25, h * 0.08).fill({ color: 0xff8fab, alpha: 0.9 });
 }

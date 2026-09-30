@@ -74,6 +74,8 @@ export interface TestHook {
   areaAt(x: number): string;
   /** Soap bubbles floating right now. */
   soapBubbles(): number;
+  /** How much two bug defs like each other now, -1 to 1. */
+  affinity(a: string, b: string): number;
 }
 
 declare global {
@@ -157,6 +159,7 @@ export function installTestHook(game: Game): void {
     areaAsleep: (areaId) => game.session?.sim.isAreaAsleep(areaId) ?? false,
     areaAt: (x) => game.session?.sim.areaOf(x).id ?? '',
     soapBubbles: () => game.session?.view.soapBubbleCount ?? 0,
+    affinity: (a, b) => game.session?.sim.affinityOf(a, b) ?? 0,
     clearLogs: () => {
       game.sfx.log.length = 0;
       game.voices.log.length = 0;
