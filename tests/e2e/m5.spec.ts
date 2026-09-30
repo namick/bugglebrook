@@ -372,14 +372,19 @@ test('the first scene: Dot naps on the bottle cap and wakes when the hand comes 
     await expect.poll(async () => (await bugNamed(page, 'bug_ladybug_dot')).bug!.mode).toBe('st_sleep');
     const dot = await bugNamed(page, 'bug_ladybug_dot');
     // The camera slides in from the pond side and settles with Dot in the middle.
-    await expect.poll(() => page.evaluate(() => window.__bb!.intro()?.t ?? 0)).toBeGreaterThan(3.2);
+    // Scene time runs slower than the wall clock on a slow renderer (frames are capped at 0.1 s).
+    await expect
+      .poll(() => page.evaluate(() => window.__bb!.intro()?.t ?? 0), { timeout: 60_000 })
+      .toBeGreaterThan(3.2);
     const cam = (await page.evaluate(() => window.__bb!.camera())).x;
     expect(Math.abs(cam + 9.6 - dot.x)).toBeLessThan(0.5);
     expect((await page.evaluate(() => window.__bb!.intro()))!.cover).toBe(0);
     const near = await toClient(page, dot.x + 1.2, dot.y - 1);
     await page.mouse.move(near.x - 300, near.y - 200);
     await page.mouse.move(near.x, near.y, { steps: 8 });
-    await expect.poll(async () => (await entity(page, dot.id))!.bug!.mode).not.toBe('st_sleep');
+    await expect
+      .poll(async () => (await entity(page, dot.id))!.bug!.mode, { timeout: 30_000 })
+      .not.toBe('st_sleep');
     const woke = (await page.evaluate(() => window.__bb!.events())).filter((e) => e.name === 'bug_woke');
     expect(woke.length).toBeGreaterThan(0);
   } finally {

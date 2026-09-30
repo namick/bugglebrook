@@ -339,6 +339,8 @@ export class Sim {
     }
     this.environment.forget(id);
     this.sleeping.delete(id);
+    // The setup cache may list it; later systems this step would look up its gone body.
+    this.linkedCache = null;
     if (this.pocketed.delete(id)) this.pocket = tidyPocket(this.pocket, (e) => e !== id);
     this.physics.removeBody(id);
     this.entities.remove(id);

@@ -55,12 +55,18 @@ test('a berry dropped within 50 px of a mouth is eaten; outside 50 px it falls',
     await holdNearMouth(page, near, glorp.id, 0.05, -0.3);
     await expect.poll(() => page.evaluate((id) => window.__bb!.dropTarget(id), near)).toBe(glorp.id);
     await page.mouse.up();
-    await expect.poll(async () => (await events(page, 'bug_fed')).length).toBe(1);
-    const [fed] = await events(page, 'bug_fed');
+    // Only the player's feeding counts: Glorp may help himself to the first berry meanwhile.
+    const fedByHand = async () => (await events(page, 'bug_fed')).filter((e) => e.payload.byPlayer);
+    await expect.poll(async () => (await fedByHand()).length).toBe(1);
+    const [fed] = await fedByHand();
     expect(fed!.payload).toMatchObject({ id: glorp.id, itemId: near, liking: 'neutral', byPlayer: true });
     expect((await entity(page, glorp.id))!.bug!.mode).toBe('st_eat');
     // Chewed, swallowed, and a happy reaction with a bubble.
-    await expect.poll(async () => (await events(page, 'bug_ate')).length, { timeout: 30_000 }).toBe(1);
+    await expect
+      .poll(async () => (await events(page, 'bug_ate')).filter((e) => e.payload.itemId === near).length, {
+        timeout: 30_000,
+      })
+      .toBe(1);
     expect(await entity(page, near)).toBeNull();
     const reacted = await events(page, 'bug_reacted');
     expect(reacted.some((e) => e.payload.reaction === 'fed_neutral')).toBe(true);
@@ -206,11 +212,11 @@ test('every verb makes a sound', async () => {
     await page.waitForTimeout(800);
 
     // Hold-poke a bug: it gets tickled.
+    // Press until the sim has her (on a slow machine she can walk off between reading
+    // her spot and the press), then hold still.
     const dot = await bugNamed(page, 'bug_ladybug_dot');
-    const dp = await toClient(page, dot.x, dot.y);
-    await page.mouse.move(dp.x, dp.y);
     await clear();
-    await page.mouse.down();
+    await pressOn(page, dot.id);
     await expectSound('hold-poke', 'tickle');
     await expect.poll(heard).toContain('voice:giggle');
     await page.mouse.up();

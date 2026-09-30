@@ -758,3 +758,17 @@ describe('the first two minutes', () => {
     expect(sim.view(dot.id)!.x).toBeGreaterThan(dot.x + 2);
   });
 });
+
+describe('setup cache', () => {
+  it('forgets a removed thing at once, so later systems in the same step never look up its body', () => {
+    const sim = Sim.create({ seed: 'cache' });
+    const berry = sim.entities.ofKind('item').find((e) => e.defId === 'item_berry_red')!.id;
+    hold(sim, berry);
+    sim.send({ type: 'release', vx: 0, vy: 0 });
+    sim.step();
+    expect(sim.setupLinked().has(berry)).toBe(true);
+    sim.remove(berry);
+    expect(sim.setupLinked().has(berry)).toBe(false);
+    sim.run(10);
+  });
+});
