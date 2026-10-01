@@ -20,7 +20,6 @@ import type { TestHook } from './app';
 // weather, driven with the real mouse. The sim is frozen and stepped frame
 // by frame (__bb.setPaused + __bb.frames) wherever timing matters, so CI's
 // slow software renderer sees exactly the same steps as a fast machine.
-test.setTimeout(180_000);
 
 type Command = Parameters<TestHook['send']>[0];
 
@@ -203,6 +202,10 @@ test('rain wets things in the open within 5 s, raises the pond, fills puddles, a
     await frames(page, 10 * 60);
     expect(await level()).toBeGreaterThan(high + 0.03);
     await freeze(page, false);
+    // A forced change shows at once: no drops left falling from before (R28).
+    await expect
+      .poll(async () => (await page.evaluate(() => window.__bb!.weatherStats())).drops, { timeout: 5000 })
+      .toBe(0);
     expect(bb.errors).toEqual([]);
   } finally {
     await bb.close();

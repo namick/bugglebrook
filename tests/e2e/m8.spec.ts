@@ -19,7 +19,6 @@ import type { TestHook } from './app';
 // the real mouse. The sim is frozen and stepped frame by frame, and
 // everything is staged with debug commands near where it is used, so each
 // test runs the same on CI's slow software renderer.
-test.setTimeout(120_000);
 
 type Command = Parameters<TestHook['send']>[0];
 const send = (page: Page, c: Command): Promise<void> => page.evaluate((cmd) => window.__bb!.send(cmd), c);

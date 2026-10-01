@@ -39,6 +39,9 @@ export async function launchApp(userData?: string): Promise<Launched> {
     if (msg.type() === 'error') errors.push(msg.text());
   });
   await page.waitForFunction(() => window.__bb !== undefined);
+  // On a software renderer (CI's xvfb), draw at a tiny resolution: tests read the game through
+  // the hook, and every frame drawn in software holds the page up. Tours want real pictures.
+  if (!process.env.BB_FULL_RENDER) await page.evaluate(() => window.__bb!.liteRender(true));
   // A tiling window manager may stretch the window to fill its tile. Put it
   // back to the 1280x720 that CI's virtual screen gives it.
   if (!process.env.CI) {

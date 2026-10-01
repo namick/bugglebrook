@@ -23,7 +23,6 @@ import type { TestHook } from './app';
 // and unlocks, driven with the real mouse. The sim is frozen and stepped
 // frame by frame wherever timing matters, so CI's slow software renderer
 // sees exactly the same steps as a fast machine.
-test.setTimeout(240_000);
 
 type Command = Parameters<TestHook['send']>[0];
 

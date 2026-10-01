@@ -3,6 +3,7 @@ import type { Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { clickSlot, entities, launchApp, PLAZA_X } from '../e2e/app';
+import { sharpShots, worldClip } from './clip';
 
 // The M7 items, for reviewing their art by eye: `pnpm exec playwright test -c
 // playwright.shots.config.ts tests/shots/items.spec.ts`. Writes /tmp/bb-shots/items-*.png.
@@ -70,17 +71,8 @@ async function shot(page: Page, name: string): Promise<void> {
 
 /** A close-up around a world point, `w` by `h` meters. */
 async function closeUp(page: Page, name: string, x: number, y: number, w = 1.8, h = 1.3): Promise<void> {
-  const a = await page.evaluate(([px, py]) => window.__bb!.worldToClient(px!, py!), [x - w / 2, y - h / 2]);
-  const b = await page.evaluate(([px, py]) => window.__bb!.worldToClient(px!, py!), [x + w / 2, y + h / 2]);
-  const size = page.viewportSize() ?? { width: 1920, height: 1080 };
-  const x0 = Math.max(0, Math.min(size.width - 40, a.x));
-  const y0 = Math.max(0, Math.min(size.height - 40, a.y));
-  const x1 = Math.max(x0 + 40, Math.min(size.width, b.x));
-  const y1 = Math.max(y0 + 40, Math.min(size.height, b.y));
-  await page.screenshot({
-    path: join(DIR, `items-${name}.png`),
-    clip: { x: x0, y: y0, width: x1 - x0, height: y1 - y0 },
-  });
+  const clip = await worldClip(page, x - w / 2, y - h / 2, x + w / 2, y + h / 2);
+  await page.screenshot({ path: join(DIR, `items-${name}.png`), clip });
 }
 
 /** Spawn an item and return its new ID. */
@@ -106,6 +98,7 @@ async function spawn(page: Page, defId: string, x: number, y: number): Promise<n
 async function open(): Promise<Awaited<ReturnType<typeof launchApp>>> {
   mkdirSync(DIR, { recursive: true });
   const bb = await launchApp();
+  sharpShots(bb.page);
   await bb.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1920, 1080));
   await bb.page.waitForTimeout(500);
   await clickSlot(bb.page, 0);

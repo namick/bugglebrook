@@ -43,9 +43,11 @@ async function boot(): Promise<void> {
 
   // Keep a fixed 1920x1080 logical stage, letterboxed and scaled to the
   // window, rendering at the real pixel density so edges stay crisp.
+  // Tests can ask for a tiny resolution on software GL (`__bb.liteRender`).
+  let lite = false;
   const resize = (): void => {
     const fit = fitViewport(window.innerWidth, window.innerHeight, VIEW_WIDTH_PX, VIEW_HEIGHT_PX);
-    const resolution = software ? 0.5 : Math.min(2, fit.scale * window.devicePixelRatio);
+    const resolution = software ? (lite ? 0.125 : 0.5) : Math.min(2, fit.scale * window.devicePixelRatio);
     app.renderer.resize(VIEW_WIDTH_PX, VIEW_HEIGHT_PX, resolution);
     Object.assign(canvas.style, {
       width: `${fit.width}px`,
@@ -59,6 +61,10 @@ async function boot(): Promise<void> {
 
   const game = new Game(app, api, new WebAudioBackend());
   game.softwareRenderer = software;
+  game.setLiteRender = (on) => {
+    lite = on;
+    resize();
+  };
   if (api.testMode) installTestHook(game);
   await game.start();
 }

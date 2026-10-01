@@ -3,6 +3,7 @@ import type { Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { freeze, frames, launchApp, lookAt, openFrozen } from '../e2e/app';
+import { sharpShots } from './clip';
 
 // The M8 tour (`pnpm shots -g "crafting"`): the Tinker Bench at rest, a near
 // miss, mid-shake, the ta-da, a junk blob, blueprints on the cork board; the
@@ -56,6 +57,7 @@ test('crafting and potions tour', async () => {
   test.setTimeout(900_000);
   mkdirSync(DIR, { recursive: true });
   const bb = await launchApp();
+  sharpShots(bb.page);
   const { app, page } = bb;
   try {
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1920, 1080));

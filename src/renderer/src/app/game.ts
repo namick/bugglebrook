@@ -103,6 +103,12 @@ export class Game {
   readonly updateTimes: number[] = [];
   /** True when WebGL runs in software (CI, VMs). Set by main.ts. */
   softwareRenderer = false;
+  /**
+   * Tests only: draw the screen at a tiny resolution on a software renderer
+   * (`main.ts` sets this). Software GL is fill-rate bound and holds up the
+   * page while it draws; tests read the game through the hook, not pixels.
+   */
+  setLiteRender: ((on: boolean) => void) | null = null;
   /** Recent sim events, newest last, for the test hook. */
   readonly eventLog: { name: string; tick: number; payload: unknown }[] = [];
   readonly cursor = new HandCursor();

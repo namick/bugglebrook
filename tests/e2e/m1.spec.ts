@@ -23,7 +23,6 @@ import type { EntityView } from './app';
 // launch and frame-time check, every test freezes the sim (__bb.setPaused)
 // and steps it frame by frame (__bb.frames): a slow machine then sees the
 // same steps as a fast one.
-test.setTimeout(300_000);
 
 type Logged = { name: string; tick: number; payload: Record<string, number | string | boolean> };
 
@@ -99,19 +98,21 @@ test('launches into the plaza within 5 s and holds 60 fps with 3 bugs and 20 ite
       .poll(async () => (await entities(page)).filter((e) => e.kind === 'item').length)
       .toBeGreaterThanOrEqual(20);
 
-    // Let 600 frames pass in the world, then check frame times.
+    // Let 600 frames pass in the world, then check frame times. A software renderer (CI) draws
+    // a few frames a second, and only update time counts there, so 240 frames tell as much.
+    const software = await page.evaluate(() => window.__bb!.softwareRenderer());
+    const n = software ? 240 : 600;
     await expect
-      .poll(() => page.evaluate(() => window.__bb!.frameTimes(600).length), { timeout: 280_000 })
-      .toBe(600);
+      .poll(() => page.evaluate((k) => window.__bb!.frameTimes(k).length, n), { timeout: 50_000 })
+      .toBe(n);
     const stats = (xs: number[]): { mean: number; p95: number } => ({
       mean: xs.reduce((a, b) => a + b, 0) / xs.length,
       p95: [...xs].sort((a, b) => a - b)[Math.floor(xs.length * 0.95)]!,
     });
-    const total = stats(await page.evaluate(() => window.__bb!.frameTimes(600)));
-    const update = stats(await page.evaluate(() => window.__bb!.updateTimes(600)));
-    const software = await page.evaluate(() => window.__bb!.softwareRenderer());
+    const total = stats(await page.evaluate((k) => window.__bb!.frameTimes(k), n));
+    const update = stats(await page.evaluate((k) => window.__bb!.updateTimes(k), n));
     console.log(
-      `frame work over 600 frames: update mean ${update.mean.toFixed(2)} ms p95 ${update.p95.toFixed(2)} ms; ` +
+      `frame work over ${n} frames: update mean ${update.mean.toFixed(2)} ms p95 ${update.p95.toFixed(2)} ms; ` +
         `with render mean ${total.mean.toFixed(2)} ms p95 ${total.p95.toFixed(2)} ms (software GL: ${software})`,
     );
     expect(update.mean).toBeLessThan(16.7);

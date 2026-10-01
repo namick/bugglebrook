@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -14,6 +14,7 @@ import {
   spawnItem,
   toClient,
 } from '../e2e/app';
+import { screenSize, sharpShots, worldClip } from './clip';
 
 const DIR = process.env.BB_SHOTS_DIR ?? '/tmp/bb-shots';
 
@@ -23,18 +24,8 @@ async function shot(page: Page, name: string): Promise<void> {
 
 /** A close-up around a world point, `w` by `h` meters. */
 async function closeUp(page: Page, name: string, x: number, y: number, w = 4, h = 2.6): Promise<void> {
-  const a = await page.evaluate(([px, py]) => window.__bb!.worldToClient(px!, py!), [x - w / 2, y - h / 2]);
-  const b = await page.evaluate(([px, py]) => window.__bb!.worldToClient(px!, py!), [x + w / 2, y + h / 2]);
-  // Keep the clip on screen, so a bug near the edge still gets its picture.
-  const size = page.viewportSize() ?? { width: 1920, height: 1080 };
-  const x0 = Math.max(0, Math.min(size.width - 40, a.x));
-  const y0 = Math.max(0, Math.min(size.height - 40, a.y));
-  const x1 = Math.max(x0 + 40, Math.min(size.width, b.x));
-  const y1 = Math.max(y0 + 40, Math.min(size.height, b.y));
-  await page.screenshot({
-    path: join(DIR, `${name}.png`),
-    clip: { x: x0, y: y0, width: x1 - x0, height: y1 - y0 },
-  });
+  const clip = await worldClip(page, x - w / 2, y - h / 2, x + w / 2, y + h / 2);
+  await page.screenshot({ path: join(DIR, `${name}.png`), clip });
 }
 
 async function bug(page: Page, defId: string) {
@@ -55,6 +46,7 @@ async function holdBug(page: Page, defId: string, dx: number, dy: number): Promi
 test('screenshot tour', async () => {
   mkdirSync(DIR, { recursive: true });
   const bb = await launchApp();
+  sharpShots(bb.page);
   const { app, page } = bb;
   try {
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1920, 1080));
@@ -162,6 +154,7 @@ async function letGo(page: Page): Promise<void> {
 test('feeding and reactions tour', async () => {
   mkdirSync(DIR, { recursive: true });
   const bb = await launchApp();
+  sharpShots(bb.page);
   const { app, page } = bb;
   try {
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1920, 1080));
@@ -349,6 +342,7 @@ const setTag = (page: Page, id: number, tag: string, on = true): Promise<void> =
 test('pond and properties tour', async () => {
   mkdirSync(DIR, { recursive: true });
   const bb = await launchApp();
+  sharpShots(bb.page);
   const { app, page } = bb;
   try {
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1920, 1080));
@@ -493,6 +487,7 @@ test('idle watch', async () => {
   test.setTimeout(600_000);
   mkdirSync(DIR, { recursive: true });
   const bb = await launchApp();
+  sharpShots(bb.page);
   const { app, page } = bb;
   const log: string[] = [];
   const names = new Map<number, string>();
@@ -579,6 +574,7 @@ async function carryToPocket(page: Page, id: number, slot: number, shotName?: st
 test('menu, pause, pocket, and first scene tour', async () => {
   mkdirSync(DIR, { recursive: true });
   const bb = await launchApp();
+  sharpShots(bb.page);
   const { app, page } = bb;
   try {
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1920, 1080));
@@ -629,20 +625,26 @@ test('menu, pause, pocket, and first scene tour', async () => {
     await carryToPocket(page, pebble2, 0);
     const rollo = await bug(page, 'bug_pillbug_rollo');
     await carryToPocket(page, rollo.id, 1);
-    await page.mouse.move(960, 1060, { steps: 6 });
-    await page.waitForTimeout(600);
+    // Hover the bottom of the real window (it may be smaller than 1080) so the tray stays up.
+    const size = await screenSize(page);
+    await page.mouse.move(size.width / 2, size.height - 20, { steps: 6 });
+    await expect.poll(() => page.evaluate(() => window.__bb!.pocketOpen())).toBeGreaterThan(0.95);
+    await page.waitForTimeout(300);
     await shot(page, '99b-pocket-with-things');
+    // A sharp screenshot redraws the page, which can drop the hover: hover again first.
+    await page.mouse.move(size.width / 2 + 4, size.height - 22, { steps: 3 });
+    await expect.poll(() => page.evaluate(() => window.__bb!.pocketOpen())).toBeGreaterThan(0.95);
     const a = (await page.evaluate(() => window.__bb!.pocketSlotClient(0)))!;
     const b = (await page.evaluate(() => window.__bb!.pocketSlotClient(5)))!;
-    const size = page.viewportSize() ?? { width: 1920, height: 1080 };
     const w = b.x - a.x;
+    const top = Math.max(0, a.y - w * 0.12);
     await page.screenshot({
       path: join(DIR, '99c-pocket-closeup.png'),
       clip: {
-        x: a.x - w * 0.15,
-        y: a.y - w * 0.12,
-        width: w * 1.3,
-        height: Math.max(20, size.height - (a.y - w * 0.12)),
+        x: Math.max(0, a.x - w * 0.15),
+        y: top,
+        width: Math.min(size.width, w * 1.3),
+        height: Math.max(20, size.height - top),
       },
     });
     await page.mouse.move(960, 500, { steps: 6 });
@@ -679,6 +681,7 @@ test('menu, pause, pocket, and first scene tour', async () => {
 test('day, night, and weather tour', async () => {
   mkdirSync(DIR, { recursive: true });
   const bb = await launchApp();
+  sharpShots(bb.page);
   const { app, page } = bb;
   const send = (c: Parameters<NonNullable<typeof window.__bb>['send']>[0]): Promise<void> =>
     page.evaluate((cmd) => window.__bb!.send(cmd), c);

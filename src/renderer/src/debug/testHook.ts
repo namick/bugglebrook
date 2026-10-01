@@ -101,6 +101,8 @@ export interface TestHook {
   updateTimes(n: number): number[];
   /** True when WebGL is running in software, where render time says nothing about the game. */
   softwareRenderer(): boolean;
+  /** On a software renderer, draw the screen at a tiny resolution (E2E tests do; tours do not). */
+  liteRender(on: boolean): void;
   /** Live particles and entity sprites. */
   renderStats(): { particles: number; sprites: number };
   saveNow(): Promise<void>;
@@ -337,6 +339,7 @@ export function installTestHook(game: Game): void {
     frameTimes: (n) => game.frameTimes.slice(-n),
     updateTimes: (n) => game.updateTimes.slice(-n),
     softwareRenderer: () => game.softwareRenderer,
+    liteRender: (on) => game.setLiteRender?.(on),
     renderStats: () => ({
       particles: game.session?.view.particles.count ?? 0,
       sprites: game.session?.view.spriteCount ?? 0,

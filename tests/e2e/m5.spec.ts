@@ -23,7 +23,6 @@ import type { Launched } from './app';
 
 // M5 acceptance (game design doc, section 19): saves, the menu, settings,
 // and the pocket, driven with the real mouse and checked through window.__bb.
-test.setTimeout(180_000);
 
 /** Back to the menu the way a player goes: pause, then the stump sign. */
 async function toMenu(page: Page): Promise<void> {

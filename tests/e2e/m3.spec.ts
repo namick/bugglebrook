@@ -22,7 +22,6 @@ import {
 // M3 acceptance (game design doc, section 19): properties and the pond,
 // driven with the real mouse and checked through window.__bb. Waits are
 // generous because CI renders in software at a few frames per second.
-test.setTimeout(180_000);
 
 type Logged = { name: string; tick: number; payload: Record<string, unknown> };
 

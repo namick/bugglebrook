@@ -21,7 +21,6 @@ import {
 // through window.__bb. The sim is frozen (__bb.setPaused) and driven frame by
 // frame (__bb.frames), and long stretches of bug life run through __bb.step,
 // so the tests see the same steps on CI's software renderer as anywhere.
-test.setTimeout(180_000);
 
 type Logged = { name: string; tick: number; payload: Record<string, unknown> };
 

@@ -20,7 +20,6 @@ import {
 // M2 acceptance (game design doc, section 19): feeding, likes, reactions,
 // sounds, and the hand cursor, driven with the real mouse. Waits are
 // generous because CI renders in software at a few frames per second.
-test.setTimeout(180_000);
 
 type Logged = { name: string; tick: number; payload: Record<string, unknown> };
 

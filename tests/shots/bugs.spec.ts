@@ -18,6 +18,7 @@ import {
   scrollTo,
   toClient,
 } from '../e2e/app';
+import { sharpShots, worldClip } from './clip';
 
 // Close-ups of the M7 bugs for judging their art by eye: `pnpm shots -g "M7 bugs"`.
 // Writes /tmp/bb-shots/bugs-*.png (or $BB_SHOTS_DIR).
@@ -30,17 +31,8 @@ const CAMERA = PLAZA_X + 22;
 
 /** A close-up around a world point, `w` by `h` meters. */
 async function closeUp(page: Page, name: string, x: number, y: number, w = 4, h = 2.6): Promise<void> {
-  const a = await toClient(page, x - w / 2, y - h / 2);
-  const b = await toClient(page, x + w / 2, y + h / 2);
-  const size = page.viewportSize() ?? { width: 1920, height: 1080 };
-  const x0 = Math.max(0, Math.min(size.width - 40, a.x));
-  const y0 = Math.max(0, Math.min(size.height - 40, a.y));
-  const x1 = Math.max(x0 + 40, Math.min(size.width, b.x));
-  const y1 = Math.max(y0 + 40, Math.min(size.height, b.y));
-  await page.screenshot({
-    path: join(DIR, `bugs-${name}.png`),
-    clip: { x: x0, y: y0, width: x1 - x0, height: y1 - y0 },
-  });
+  const clip = await worldClip(page, x - w / 2, y - h / 2, x + w / 2, y + h / 2);
+  await page.screenshot({ path: join(DIR, `bugs-${name}.png`), clip });
 }
 
 /** Park the hand in a corner, out of the shot and far enough that Twig does not freeze. */
@@ -357,6 +349,7 @@ test('M7 bugs close-ups', async () => {
   test.setTimeout(1_200_000);
   mkdirSync(DIR, { recursive: true });
   const bb = await launchApp();
+  sharpShots(bb.page);
   const { app, page } = bb;
   try {
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1920, 1080));
