@@ -64,6 +64,8 @@ export class PocketTray extends Container {
   private readonly slots: SlotView[] = [];
   private time = 0;
   private hasContents = false;
+  /** 0 to 1: the hidden tray's flap peeking up as an affordance hint (the hand rests near the bottom). */
+  private peek = 0;
 
   constructor(private readonly sim: Sim) {
     super();
@@ -135,7 +137,7 @@ export class PocketTray extends Container {
   }
 
   private layout(): void {
-    const top = trayTop(this.open, this.hasContents);
+    const top = trayTop(this.open, this.hasContents) - this.peek * 36 * (1 - this.open);
     this.back.position.set(POCKET_X, top);
     this.slots.forEach((s, i) => {
       const r = slotRect(i, top);
@@ -210,7 +212,12 @@ export class PocketTray extends Container {
    * `holding` is the thing in the hand (or null); `pointer` is the cursor in
    * view pixels (or null when it left the window).
    */
-  update(dt: number, holding: number | null, pointer: { x: number; y: number } | null): void {
+  update(
+    dt: number,
+    holding: number | null,
+    pointer: { x: number; y: number } | null,
+    hint: { demo: boolean; glint: number; wobble: number } = { demo: false, glint: 0, wobble: 0 },
+  ): void {
     this.time += dt;
     this.refresh();
     // It stays up while the hand is over the tray itself.
@@ -220,8 +227,15 @@ export class PocketTray extends Container {
       pointer.y >= trayTop(this.open, this.hasContents) - 10 &&
       pointer.x >= POCKET_X - 20 &&
       pointer.x <= POCKET_X + POCKET_WIDTH + 20;
-    this.open = slideTray(this.open, overTray || trayWantsOpen(holding !== null, pointer?.y ?? null), dt);
-    this.visible = this.open > 0 || this.hasContents;
+    // The ghost hand's pocket demo slides it up too (it shows; nothing goes in).
+    this.open = slideTray(
+      this.open,
+      overTray || hint.demo || trayWantsOpen(holding !== null, pointer?.y ?? null),
+      dt,
+    );
+    this.peek += (hint.glint - this.peek) * Math.min(1, dt * 10);
+    this.x = hint.wobble * 7 * (1 - this.open);
+    this.visible = this.open > 0 || this.hasContents || this.peek > 0.02;
     const over = holding !== null && pointer ? this.slotAt(pointer.x, pointer.y) : null;
     const glow = this.glow.clear();
     const contents = this.sim.pocketSlots();

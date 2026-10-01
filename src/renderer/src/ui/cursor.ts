@@ -1,8 +1,12 @@
 import { Container, Graphics } from 'pixi.js';
 import { stroke } from '../render/palette';
 
-/** The hand's five poses (game design doc, section 2). */
-export type CursorPose = 'open' | 'hover_grab' | 'hover_poke' | 'grab' | 'pan';
+/**
+ * The hand's five poses (game design doc, section 2), and a sixth: `stir`,
+ * a fist round a ladle handle with a swirl, over a cauldron with something
+ * in it (and while stirring), so the hand says "go round".
+ */
+export type CursorPose = 'open' | 'hover_grab' | 'hover_poke' | 'grab' | 'pan' | 'stir';
 
 export interface CursorState {
   /** What the pointer controller is doing. */
@@ -15,14 +19,18 @@ export interface CursorState {
   overButton: boolean;
   /** Over a clickable fixture, like the hose tap. */
   overFixture?: boolean;
+  /** Over the cauldron's rim with something in the brew: it wants stirring. */
+  overStir?: boolean;
 }
 
 /** Pick the hand pose. Pure. */
 export function cursorPose(s: CursorState): CursorPose {
   if (s.mode === 'hold') return s.holding ? 'grab' : 'open';
-  // Turning the sundial's rim, pulling the bench's lever, stirring the cauldron: a firm grip.
-  if (s.mode === 'dial' || s.mode === 'lever' || s.mode === 'stir') return 'grab';
+  if (s.mode === 'stir') return 'stir';
+  // Turning the sundial's rim, pulling the bench's lever: a firm grip.
+  if (s.mode === 'dial' || s.mode === 'lever') return 'grab';
   if (s.mode === 'pan') return 'pan';
+  if (s.overStir && !s.overButton) return 'stir';
   if (s.overButton || s.overFixture) return 'hover_poke';
   if (s.overGrabbable) return 'hover_grab';
   return 'open';
@@ -89,6 +97,35 @@ function drawPose(pose: CursorPose): Graphics {
       g.roundRect(-20, -2, 30, 12, 6).fill(GLOVE_SHADE).stroke(stroke(3.5));
       break;
     }
+    case 'stir': {
+      // A fist round a ladle handle, a swirl going round it.
+      g.moveTo(-6, 14)
+        .lineTo(-30, 52)
+        .stroke({ width: 13 + LINE * 2, color: 0x2b1d2e, cap: 'round' });
+      g.moveTo(-6, 14).lineTo(-30, 52).stroke({ width: 13, color: 0xc7d3e3, cap: 'round' });
+      g.ellipse(-34, 58, 14, 8).fill(0xc7d3e3).stroke(stroke(3.5));
+      g.roundRect(-22, -20, 44, 38, 15).fill(GLOVE).stroke(stroke(LINE));
+      for (const x of [-13, -4, 5, 14]) g.circle(x, -18, 6.5).fill(GLOVE).stroke(stroke(3.5));
+      g.roundRect(-20, -18, 40, 11, 6).fill(GLOVE);
+      g.roundRect(-18, -2, 28, 11, 6).fill(GLOVE_SHADE).stroke(stroke(3.5));
+      // The swirl: most of a squashed circle, thick and fading at its tail.
+      const steps = 22;
+      for (let k = 0; k < steps; k++) {
+        const a0 = -0.4 + (k / steps) * Math.PI * 1.6;
+        const a1 = -0.4 + ((k + 1) / steps) * Math.PI * 1.6;
+        const p0 = { x: Math.cos(a0) * 40 - 8, y: Math.sin(a0) * 16 + 46 };
+        const p1 = { x: Math.cos(a1) * 40 - 8, y: Math.sin(a1) * 16 + 46 };
+        const u = k / steps;
+        // An outlined motion line, so it reads over pale brews and bright skies alike.
+        g.moveTo(p0.x, p0.y)
+          .lineTo(p1.x, p1.y)
+          .stroke({ width: 7 + u * 6, color: 0x2b1d2e, alpha: 0.3 + u * 0.5, cap: 'round' });
+        g.moveTo(p0.x, p0.y)
+          .lineTo(p1.x, p1.y)
+          .stroke({ width: 3 + u * 4, color: 0xfff6c2, alpha: 0.5 + u * 0.5, cap: 'round' });
+      }
+      break;
+    }
     case 'pan': {
       // A flat palm, fingers together.
       for (const [x, len] of [
@@ -127,11 +164,13 @@ export class HandCursor extends Container {
       hover_poke: drawPose('hover_poke'),
       grab: drawPose('grab'),
       pan: drawPose('pan'),
+      stir: drawPose('stir'),
     };
     // Open hands point with the index fingertip; fists and palms center on the pointer.
     for (const p of ['open', 'hover_grab', 'hover_poke'] as const) this.poses[p].position.set(-12, -4);
     // The fist pinches from above, so the held thing shows below it.
     this.poses.grab.position.set(0, -26);
+    this.poses.stir.position.set(0, -20);
     for (const g of Object.values(this.poses)) this.addChild(g);
     this.setPose('open');
   }
@@ -144,7 +183,8 @@ export class HandCursor extends Container {
   /** Move to (x, y) in logical pixels and animate. */
   update(dt: number, x: number, y: number): void {
     // The fist is small and see-through so the face of whatever it holds stays readable.
-    const target = this.pose === 'hover_grab' ? 1.1 : this.pose === 'grab' ? 0.75 : 1;
+    const target =
+      this.pose === 'hover_grab' ? 1.1 : this.pose === 'grab' ? 0.75 : this.pose === 'stir' ? 1.05 : 1;
     this.poses.grab.alpha = 0.8;
     // Reaches the target in about 120 ms.
     this.scaleNow += (target - this.scaleNow) * Math.min(1, dt / 0.04);

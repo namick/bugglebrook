@@ -19,6 +19,28 @@ export function standUp(t: number): number {
   return 1 - Math.cos(u * Math.PI * 2.5) * Math.exp(-u * 4.5) * (1 - u);
 }
 
+/** The thirsty sunflower's head droops this far toward the pond, in pixels. */
+const DROOP = 150;
+
+/**
+ * Where the sunflower's stalk top, drooping head, and "water me" pictogram
+ * are (world px), for its root at `x` on the ground at `ground`, stood up by
+ * `k` (0 drooping, 1 tall) and swaying by `sway`. The head hangs toward the
+ * pond, so its sad face and the pictogram beside it show when the camera
+ * rests at the barrier.
+ */
+export function sunflowerClue(
+  x: number,
+  ground: number,
+  k: number,
+  sway: number,
+): { top: { x: number; y: number }; head: { x: number; y: number }; hint: { x: number; y: number } } {
+  const height = 470 + k * 60;
+  const top = { x: x + 30 * (1 - k) + sway, y: ground - height };
+  const head = { x: top.x + DROOP * (1 - k), y: top.y + 190 * (1 - k) };
+  return { top, head, hint: { x: head.x + 110, y: head.y - 60 } };
+}
+
 /**
  * The droopy sunflower on the pond's bank, the barrier to the flowerbed:
  * head hanging across the path over cracked, thirsty soil, a dry-droplet
@@ -61,7 +83,9 @@ export class SunflowerLive extends AreaLive {
     const k = open ? standUp(this.since) : 0;
     const x = this.x;
     const ground = f.sim.surfaceY(this.barrier.x) * PPM;
-    const sway = Math.sin(f.time * 1.1) * 4 + f.sim.environment.state.wind * 8;
+    // An affordance wobble when the hand rests near or hovers it (section 2), on top of the breeze.
+    const nudge = open ? 0 : (f.hints?.wobble('barrier_sunflower') ?? 0) * (f.reduced ? 0.4 : 1);
+    const sway = Math.sin(f.time * 1.1) * 4 + f.sim.environment.state.wind * 8 + nudge * 16;
     // The soil patch: cracked and pale while thirsty, dark and damp once it drank.
     const wet = k > 0;
     g.ellipse(x, ground + 4, this.soilR, 16)
@@ -77,30 +101,29 @@ export class SunflowerLive extends AreaLive {
           .lineTo(x + ((a + b) / 2) * this.soilR, ground + 10)
           .lineTo(x + b * this.soilR, ground + 4)
           .stroke({ width: 2.5, color: 0x7a5a3a });
-    // Stalk: bent over toward the flowerbed while drooping, straight once it stands.
+    // Stalk: bent over toward the pond while drooping (the face and its clue stay on screen
+    // when the camera rests at the barrier), straight once it stands.
     const height = 470 + k * 60;
-    const top = { x: x - 40 * (1 - k) + sway, y: ground - height };
-    const head = {
-      x: top.x - 170 * (1 - k),
-      y: top.y + 190 * (1 - k),
-    };
+    const clue = sunflowerClue(x, ground, k, sway);
+    const top = clue.top;
+    const head = clue.head;
     g.moveTo(x, ground)
       .bezierCurveTo(
-        x + 10,
+        x - 10,
         ground - height * 0.5,
-        top.x + 20 * (1 - k),
+        top.x - 20 * (1 - k),
         top.y + 40,
-        head.x + 40 * (1 - k),
+        head.x - 40 * (1 - k),
         head.y - 10 * (1 - k),
       )
       .stroke({ width: 18, color: 0x5ea24a, cap: 'round' });
     g.moveTo(x, ground)
       .bezierCurveTo(
-        x + 10,
+        x - 10,
         ground - height * 0.5,
-        top.x + 20 * (1 - k),
+        top.x - 20 * (1 - k),
         top.y + 40,
-        head.x + 40 * (1 - k),
+        head.x - 40 * (1 - k),
         head.y - 10 * (1 - k),
       )
       .stroke(soft(3, 0.5));
@@ -178,8 +201,8 @@ export class SunflowerLive extends AreaLive {
       const t = this.hint % 4;
       if (t < 1.6) {
         const a = Math.sin((t / 1.6) * Math.PI);
-        const bx = x + 10;
-        const by = ground - 60 - t * 20;
+        const bx = clue.hint.x;
+        const by = clue.hint.y - t * 20;
         g.circle(bx, by, 26)
           .fill({ color: 0xffffff, alpha: 0.9 * a })
           .stroke({ width: 3, color: OUTLINE, alpha: 0.6 * a });
@@ -259,21 +282,25 @@ export class CanWallLive extends AreaLive {
     const labels = [0x2ec4b6, 0xe8453c, 0xffd23f, 0x4d7cff, 0x9b6bd6, 0xff8a5c];
     if (!open) {
       // A wall of cans, stacked in rows, with a tunnel at the bottom.
+      // The cans rattle when the hand rests near or hovers the wall (section 2), more toward the top.
+      const nudge = (f.hints?.wobble('barrier_can_tunnel') ?? 0) * (f.reduced ? 0.4 : 1);
       for (let y = bottom, row = 0; y > top; y -= 68, row++) {
         const h = Math.min(68, y - top);
-        g.roundRect(this.wx0 - 6, y - h, w + 12, h, 8)
+        const x0 = this.wx0 + nudge * (row % 2 === 0 ? 1 : -1) * (2 + row * 0.8);
+        const x1 = x0 + w;
+        g.roundRect(x0 - 6, y - h, w + 12, h, 8)
           .fill(0xc7d3e3)
           .stroke(stroke(4));
-        g.rect(this.wx0 - 6, y - h + h * 0.25, w + 12, h * 0.5).fill(labels[row % labels.length]!);
+        g.rect(x0 - 6, y - h + h * 0.25, w + 12, h * 0.5).fill(labels[row % labels.length]!);
         for (let k = 1; k < 4; k++)
-          g.moveTo(this.wx0 - 6, y - h + (h * k) / 4)
-            .lineTo(this.wx1 + 6, y - h + (h * k) / 4)
+          g.moveTo(x0 - 6, y - h + (h * k) / 4)
+            .lineTo(x1 + 6, y - h + (h * k) / 4)
             .stroke({
               width: 1.5,
               color: 0x8e9bb0,
               alpha: 0.5,
             });
-        g.rect(this.wx0, y - h + 6, 8, h - 12).fill({ color: 0xffffff, alpha: 0.45 });
+        g.rect(x0, y - h + 6, 8, h - 12).fill({ color: 0xffffff, alpha: 0.45 });
       }
       // The tunnel mouth: dark, round-topped, a pill bug wide; the latch glints inside.
       const th = 106;

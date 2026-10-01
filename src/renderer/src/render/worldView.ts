@@ -46,6 +46,8 @@ import { PAINT_HEX } from '../../../game/systems/paint';
 import type { PotionLook } from './potionLooks';
 import { drawPotionBehind, drawPotionOver } from './potionView';
 import { hourOf } from '../../../game/systems/sky';
+import type { HintLook } from './hints';
+import { NO_HINTS } from './hints';
 import type { SkyExtras } from './background';
 import {
   listen as _listen,
@@ -174,6 +176,8 @@ export class WorldView extends Container {
   private shakeLeft = 0;
   private shakePower = 0;
   private reduced = false;
+  /** Affordance wobbles and glints, set by the game (`render/hints.ts`). */
+  hints: HintLook = NO_HINTS;
   /** Shakes asked for, and the biggest shake offset drawn, since `resetShakeStats` (test hook). */
   readonly shakeStats = { requests: 0, max: 0 };
   private lastHover: Point | null = null;
@@ -307,6 +311,11 @@ export class WorldView extends Container {
 
   get reduceMotion(): boolean {
     return this.reduced;
+  }
+
+  /** The cauldron's ladle is going round by itself, inviting a stir (test hook). */
+  get ladleInviting(): boolean {
+    return this.lives.some((l) => l instanceof CauldronLive && l.inviting);
   }
 
   /** How far the screen shake moves the world this frame, in pixels (test hook). */
@@ -550,6 +559,8 @@ export class WorldView extends Container {
     // Water reads the sky too: orange at dusk, deep teal at night.
     const water = mix(mix(0xffffff, 0xffc8a0, this.look.warmth * 0.5), 0x5f8fb0, this.look.glow * 0.7);
     this.water.back.tint = this.water.front.tint = water;
+    this.fixtures.hints = this.hints;
+    this.fixtures.reduced = this.reduced;
     this.fixtures.update(dt, this.time, this.look.glow);
     if (this.shakeLeft > 0) this.shakeLeft -= dt;
     const shake = shakeOffset(this.shakePower, this.shakeLeft, this.reduced);
@@ -595,6 +606,8 @@ export class WorldView extends Container {
       particles: this.particles,
       sound: (name, strength) => this.onAmbient?.(name, strength),
       drag: this.pointer?.fixtureDrag ?? null,
+      hints: this.hints,
+      reduced: this.reduced,
     };
     for (const live of this.lives) {
       live.update(this.areaFrame);
@@ -670,8 +683,13 @@ export class WorldView extends Container {
           }
         }
         if (view.brew) sprite.setLiquid(view.brew.color);
+        // The lattice leans and rattles a little when the hand rests near or hovers it (section 2).
+        const lean =
+          view.defId === 'item_lattice_panel' && !view.held
+            ? this.hints.wobble('barrier_lattice') * (this.reduced ? 0.012 : 0.035)
+            : 0;
         sprite.pose(
-          view.angle + bob.angle,
+          view.angle + bob.angle + lean,
           Math.atan2(view.vy, view.vx),
           stretch,
           j.squash.sx * k,

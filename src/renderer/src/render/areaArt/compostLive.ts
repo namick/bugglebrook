@@ -203,8 +203,10 @@ export class CompostLive extends AreaLive {
           .lineTo(r1 - 50 + k * 22, 638)
           .stroke({ width: 3, color: 0xa87444 });
     }
+    // The bottom bucket swings a little when the hand rests near or hovers it (section 2).
+    const nudge = open ? 0 : (f.hints?.wobble('barrier_bucket_lift') ?? 0) * (f.reduced ? 0.4 : 1) * 8;
     const drawBucket = (cx: number, floor: number, front: boolean, gg: Graphics): void => {
-      const x = cx * PPM;
+      const x = cx * PPM + (cx === b.x ? nudge : 0);
       const y = floor * PPM;
       const top = y - wall;
       if (!front) {

@@ -3,6 +3,8 @@ import { PIXELS_PER_METER } from '../../../game/constants';
 import type { AreaDef, FixtureDef } from '../../../game/data/types';
 import type { Sim } from '../../../game/sim';
 import { HOUR, timeOfDay } from '../../../game/systems/sky';
+import type { HintLook } from './hints';
+import { NO_HINTS } from './hints';
 import { OUTLINE, mix, stroke } from './palette';
 
 const PPM = PIXELS_PER_METER;
@@ -66,6 +68,12 @@ export class FixtureArt extends Container {
   private blink = 0;
   private peekFlash = 0;
   private dialGlow = 0;
+  /** The gnomon's shadow twitches forward now and then, as if itching to move: seconds to the next, and how far into one. */
+  private twitchIn = 4;
+  private twitch = -1;
+  /** Hint wobbles and glints, and whether reduce motion is on (set by the world view each frame). */
+  hints: HintLook = NO_HINTS;
+  reduced = false;
   private readonly spots: Map<FixtureDef['kind'], { x: number; y: number }>;
 
   constructor(private readonly sim: Sim) {
@@ -166,6 +174,22 @@ export class FixtureArt extends Container {
     const { rx, ry } = DIAL;
     const turning = sim.weather.fastForward;
     this.dialGlow += ((turning ? 1 : 0) - this.dialGlow) * Math.min(1, dt * 6);
+    // Now and then the shadow gives a little forward twitch and settles back: it wants turning.
+    this.twitchIn -= dt;
+    if (this.twitchIn <= 0 && this.twitch < 0 && !turning) {
+      this.twitch = 0;
+      this.twitchIn = 6 + Math.random() * 7;
+    }
+    let twitch = 0;
+    if (this.twitch >= 0) {
+      this.twitch += dt;
+      const u = this.twitch / 0.6;
+      twitch = u >= 1 ? 0 : twitchCurve(u) * (this.reduced ? 0.5 : 1);
+      if (u >= 1) this.twitch = -1;
+    }
+    // The rim nudges a notch clockwise and back when the hand rests near or hovers it; its notches glint.
+    const rimTurn = this.hints.wobble('sundial') * (this.reduced ? 0.03 : 0.09);
+    const glint = this.hints.glint('sundial');
     // The pedestal.
     g.roundRect(x - 28, y + 6, 56, gy - y - 6, 8)
       .fill(0xb8b1c7)
@@ -180,13 +204,25 @@ export class FixtureArt extends Container {
     if (this.dialGlow > 0.01)
       g.ellipse(x, y, rx + 6, ry + 6).stroke({ width: 6, color: 0xffe066, alpha: 0.7 * this.dialGlow });
     // Hour marks around the rim, a whole day in one turn.
+    // A glint runs clockwise round the notches while the hand is near: this way.
+    const sweep = time * 5;
+    let spark: { x: number; y: number; k: number } | null = null;
     for (let k = 0; k < 24; k++) {
-      const a = Math.PI + ((k - 12) / 24) * Math.PI * 2;
+      const a = Math.PI + ((k - 12) / 24) * Math.PI * 2 + rimTurn;
       const r0 = k % 6 === 0 ? 0.74 : 0.84;
+      const shine = glint * notchShine(a, sweep);
       g.moveTo(x + Math.cos(a) * rx * r0, y + Math.sin(a) * ry * r0)
         .lineTo(x + Math.cos(a) * rx * 0.94, y + Math.sin(a) * ry * 0.94)
-        .stroke({ width: k % 6 === 0 ? 3 : 2, color: 0x8a82a0, alpha: 0.8, cap: 'round' });
+        .stroke({
+          width: (k % 6 === 0 ? 3 : 2) + shine * 2.5,
+          color: mix(0x8a82a0, 0xfff6c2, shine),
+          alpha: 0.8 + shine * 0.2,
+          cap: 'round',
+        });
+      if (shine > (spark?.k ?? 0.5))
+        spark = { x: x + Math.cos(a) * rx * 0.94, y: y + Math.sin(a) * ry * 0.94, k: shine };
     }
+    if (spark) twinkle(g, spark.x, spark.y, 9 * spark.k, spark.k);
     // The painted sun (left) and moon (right).
     const sx = x - 50;
     g.circle(sx, y, 12).fill(0xffd23f).stroke(soft(2, 0.7));
@@ -200,7 +236,7 @@ export class FixtureArt extends Container {
     g.circle(mx, y, 11).fill(0x6b7bd6);
     g.circle(mx + 5, y - 3, 9).fill(0xd8d2e3);
     // The gnomon's shadow swings with the clock: soft by day, a pale blue by moonlight.
-    const a = dialAngle(sky.clock);
+    const a = dialAngle(sky.clock) + twitch;
     const glow = sim.weather.dark;
     const tip = { x: x + Math.cos(a) * rx * 0.86, y: y + Math.sin(a) * ry * 0.86 };
     const midnight =
@@ -249,4 +285,43 @@ export class FixtureArt extends Container {
     }
     void stroke;
   }
+}
+
+/** The gnomon shadow's twitch, `u` from 0 to 1: a quick nudge forward (clockwise), a bounce, and back. Radians. */
+export function twitchCurve(u: number): number {
+  if (u <= 0 || u >= 1) return 0;
+  return 0.16 * Math.sin(u * Math.PI) * Math.cos(u * Math.PI * 2.2) * (1 - u * 0.3);
+}
+
+/** How bright a rim notch at angle `a` is while a glint sweeps round to `sweep` (0 to 1). */
+export function notchShine(a: number, sweep: number): number {
+  const d = Math.cos(a - sweep);
+  return d > 0 ? d ** 10 : 0;
+}
+
+/** A four-point twinkle. */
+export function twinkle(g: Graphics, x: number, y: number, r: number, alpha: number): void {
+  if (r <= 0.5 || alpha <= 0.02) return;
+  g.poly([
+    x,
+    y - r * 1.6,
+    x + r * 0.3,
+    y - r * 0.3,
+    x + r * 1.6,
+    y,
+    x + r * 0.3,
+    y + r * 0.3,
+    x,
+    y + r * 1.6,
+    x - r * 0.3,
+    y + r * 0.3,
+    x - r * 1.6,
+    y,
+    x - r * 0.3,
+    y - r * 0.3,
+  ]).fill({
+    color: 0xfffbe0,
+    alpha,
+  });
+  g.circle(x, y, r * 0.35).fill({ color: 0xffffff, alpha });
 }

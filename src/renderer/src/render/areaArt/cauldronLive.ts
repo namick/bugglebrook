@@ -28,6 +28,34 @@ export function bubbling(progress: number, brewing: boolean): number {
   return brewing ? 1 : 0.12 + 0.5 * progress;
 }
 
+/** The ladle's "stir me" swing: it waits this long after an ingredient lands, goes round once, then rests. */
+export const LADLE_INVITE = { delay: 0.6, turn: 1.6, rest: 2.6 } as const;
+
+/**
+ * How far round the ladle has swung by itself (radians, clockwise), `t`
+ * seconds after something went into an unstirred brew. One full circle,
+ * a rest, and again, until the hand takes over. `slow` stretches it.
+ */
+export function ladleInvite(t: number, slow = 1): number {
+  const turn = LADLE_INVITE.turn * slow;
+  const u = t - LADLE_INVITE.delay;
+  if (u <= 0) return 0;
+  const cycle = turn + LADLE_INVITE.rest;
+  const done = Math.floor(u / cycle);
+  const inTurn = Math.min(1, (u - done * cycle) / turn);
+  const eased = inTurn < 0.5 ? 2 * inTurn * inTurn : 1 - (-2 * inTurn + 2) ** 2 / 2;
+  return (done + eased) * Math.PI * 2;
+}
+
+/** How much of the swirl shows (0 to 1) `t` seconds into the invitation: on while the ladle goes round. */
+export function swirlAmount(t: number, slow = 1): number {
+  const turn = LADLE_INVITE.turn * slow;
+  const u = t - LADLE_INVITE.delay;
+  if (u <= 0) return 0;
+  const p = (u % (turn + LADLE_INVITE.rest)) / turn;
+  return p >= 1.25 ? 0 : Math.sin(Math.min(1, p / 1.25) * Math.PI);
+}
+
 /**
  * The compost cauldron (game design doc, section 9), alive: half an
  * eggshell sitting in the warm heap, its brew tinted by what went in, a
@@ -51,6 +79,14 @@ export class CauldronLive extends AreaLive {
   private splash = 0;
   /** The ladle's angle round the pot, eased toward the hand's. */
   private ladle = -0.6;
+  /** Seconds since something went into a brew nobody has stirred yet, or -1: the ladle invites a stir. */
+  private invite = -1;
+  /** The swirl of bubbles behind the ladle, 0 to 1. */
+  private swirl = 0;
+  /** The ladle is going round by itself right now (for the test hook). */
+  get inviting(): boolean {
+    return this.invite >= LADLE_INVITE.delay;
+  }
   private scope: {
     at: { x: number; y: number };
     defId: string | null;
@@ -123,8 +159,22 @@ export class CauldronLive extends AreaLive {
     this.flash = Math.max(0, this.flash - f.dt * 1.2);
     this.tip = Math.max(0, this.tip - f.dt * 1.4);
     this.splash = Math.max(0, this.splash - f.dt * 2);
-    const want = f.drag?.kind === 'stir' ? f.drag.angle : this.ladle + f.dt * 0.15 * Math.sin(f.time * 0.7);
+    // After the first ingredient, until the hand stirs: the ladle swings round in a circle by itself.
+    const stirring = f.drag?.kind === 'stir';
+    const unstirred = c.state.contents.length > 0 && c.progress() === 0 && !c.bubbling;
+    if (unstirred && !stirring) this.invite = this.invite < 0 ? 0 : this.invite + f.dt;
+    else this.invite = -1;
+    const slow = f.reduced ? 1.6 : 1;
+    const swing = this.invite >= 0 ? ladleInvite(this.invite, slow) : 0;
+    const nudge = (f.hints?.wobble('ladle') ?? 0) * (f.reduced ? 0.1 : 0.3);
+    const want = stirring
+      ? f.drag!.angle
+      : this.invite >= 0
+        ? -0.6 + swing
+        : this.ladle + f.dt * 0.15 * Math.sin(f.time * 0.7) + nudge;
     this.ladle += angleDiff(want, this.ladle) * Math.min(1, f.dt * 14);
+    const swirlWant = stirring ? 1 : this.invite >= 0 ? swirlAmount(this.invite, slow) : 0;
+    this.swirl += (swirlWant - this.swirl) * Math.min(1, f.dt * 8);
     this.updateLens(f);
     if (!this.shows(f)) return;
     const heat = bubbling(c.progress(), c.bubbling);
@@ -218,7 +268,22 @@ export class CauldronLive extends AreaLive {
     });
     // The ladle: a bent spoon in the brew, its handle out over the rim.
     const a = this.ladle;
-    const bowl = { x: cx + Math.cos(a) * (w - 70), y: surf + 6 + Math.sin(a) * 10 };
+    // Going round, the bowl sweeps a rounder circle, so the stir reads from the side.
+    const ry = 10 + 12 * this.swirl;
+    const bowl = { x: cx + Math.cos(a) * (w - 70), y: surf + 6 + Math.sin(a) * ry };
+    // A swirl of bubbles trailing the bowl round the pot.
+    if (this.swirl > 0.02)
+      for (let j = 1; j <= 9; j++) {
+        const ba = a - j * 0.32;
+        const r = (9 - j * 0.7) * this.swirl;
+        if (r < 1) continue;
+        const bx = cx + Math.cos(ba) * (w - 70);
+        const by = surf + 4 + Math.sin(ba) * ry - Math.sin(f.time * 9 + j) * 2;
+        g.circle(bx, by, r)
+          .fill({ color: lighten(brewColor, 0.35), alpha: 0.9 * this.swirl })
+          .stroke({ width: 2, color: OUTLINE, alpha: 0.5 * this.swirl });
+        g.circle(bx - r * 0.3, by - r * 0.35, r * 0.3).fill({ color: 0xffffff, alpha: 0.7 * this.swirl });
+      }
     const handle = { x: bowl.x + Math.cos(a) * 30 + 30, y: bowl.y - 190 };
     fg.moveTo(bowl.x, bowl.y).lineTo(handle.x, handle.y).stroke({ width: 16, color: OUTLINE, cap: 'round' });
     fg.moveTo(bowl.x, bowl.y).lineTo(handle.x, handle.y).stroke({ width: 9, color: 0xc7d3e3, cap: 'round' });

@@ -11,6 +11,7 @@ import { soundMaterial } from '../audio/sfx';
 import { BugVoices } from '../audio/voices';
 import { PointerController } from '../input/pointerController';
 import { Camera } from '../render/camera';
+import { GhostHand, HintMarks } from '../render/hintView';
 import { WorldView } from '../render/worldView';
 import type { PictureButton } from '../ui/button';
 import { isUi } from '../ui/button';
@@ -20,6 +21,8 @@ import { MenuScene, homeButton, pauseButton } from '../ui/menu';
 import type { MenuSound } from '../ui/menu';
 import { PocketTray } from '../ui/pocketTray';
 import { SettingsPanel } from '../ui/settingsPanel';
+import { StampStrip } from '../ui/stampStrip';
+import { HintDirector } from './hintDirector';
 import { INTRO, Intro } from './intro';
 import { SaveService } from './saveService';
 import { SettingsService } from './settingsService';
@@ -68,6 +71,13 @@ interface WorldSession {
   handSent: { x: number; y: number } | null;
   /** A camera glide asked for by the world (the lift's first trip), done once the limits catch up. */
   follow: number | null;
+  /** Affordance hints and ghost-hand demos, and how they are drawn. */
+  hints: HintDirector;
+  marks: HintMarks;
+  ghost: GhostHand;
+  hintTime: number;
+  /** The discovery stamps, top right (R22). */
+  stamps: StampStrip;
 }
 
 /** The native moves the browser merged into this one, oldest first, if it can tell us. */
@@ -159,6 +169,7 @@ export class Game {
     api.onFlushRequest(() => this.saveNow().then(() => this.settings.flush()));
     document.addEventListener('visibilitychange', () => this.setHidden(document.hidden));
     window.addEventListener('keydown', (e) => {
+      this.session?.hints.noteInput();
       // Escape opens pause as a convenience (the button is always on screen too).
       if (e.key === 'Escape') {
         if (this.panel) this.closePanel();
@@ -218,6 +229,10 @@ export class Game {
       overGrabbable: !this.overButton && (input?.hoverId ?? null) !== null,
       overButton: this.overButton,
       overFixture: !this.overButton && (input?.hoverFixture ?? null) !== null,
+      overStir:
+        !this.overButton &&
+        input?.hoverFixtureKind === 'cauldron' &&
+        (this.session?.sim.cauldron.state.contents.length ?? 0) > 0,
     });
   }
 
@@ -254,6 +269,7 @@ export class Game {
     stage.hitArea = this.app.screen;
     stage.on('pointerdown', (e: FederatedPointerEvent) => {
       this.audio.resume();
+      this.session?.hints.noteInput();
       const s = this.session;
       if (s && !this.panel) {
         const view = { x: e.global.x, y: e.global.y };
@@ -266,6 +282,9 @@ export class Game {
       this.refreshCursor();
     });
     stage.on('globalpointermove', (e: FederatedPointerEvent) => {
+      // Pixi replays the last move on its ticker; only a real move counts as input for the hints.
+      const was = this.pointer;
+      if (!was || Math.hypot(e.global.x - was.x, e.global.y - was.y) > 0.5) this.session?.hints.noteInput();
       this.pointer = { x: e.global.x, y: e.global.y };
       this.pointerMoveFrame = this.frameCount;
       this.cursor.visible = true;
@@ -303,6 +322,7 @@ export class Game {
       this.cursor.visible = false;
     });
     stage.on('wheel', (e: FederatedWheelEvent) => {
+      this.session?.hints.noteInput();
       if (!this.panel) this.session?.input.wheel(e.deltaX, e.deltaY);
     });
   }
@@ -423,8 +443,15 @@ export class Game {
     const cover = new Graphics().rect(0, 0, VIEW_WIDTH_PX, VIEW_HEIGHT_PX).fill(0x2b1b2e);
     cover.eventMode = 'none';
     cover.alpha = intro ? 1 : 0;
-    ui.addChild(pocket, pause, home);
-    root.addChild(view, cover, ui);
+    const hints = new HintDirector(sim, camera, input);
+    view.hints = hints.affordance;
+    const marks = new HintMarks();
+    const ghost = new GhostHand((defId) => sim.content.items.tryGet(defId));
+    const stamps = new StampStrip(sim);
+    stamps.onStamp = () => this.sfx.play('stamp');
+    ui.addChild(pocket, pause, home, stamps);
+    // The ghost hand goes over the UI, so it can reach into the pocket.
+    root.addChild(view, marks, cover, ui, ghost);
 
     this.menu?.destroy({ children: true });
     this.menu = null;
@@ -466,6 +493,11 @@ export class Game {
       thumb: save?.meta.thumb ?? null,
       handSent: null,
       follow: null,
+      hints,
+      marks,
+      ghost,
+      hintTime: 0,
+      stamps,
     };
     input.onGesture = (gesture, strength) => {
       if (gesture === 'pan' || gesture === 'scroll' || gesture === 'edge') session.panned = true;
@@ -506,6 +538,7 @@ export class Game {
     if (!this.session) return;
     this.sfx.detach();
     this.voices.detach();
+    this.session.hints.dispose();
     this.session.sim.events.clear();
     this.session.root.destroy({ children: true });
     this.session = null;
@@ -756,6 +789,24 @@ export class Game {
     }
     s.pause.update(dt);
     s.home.update(dt);
-    s.pocket.update(dt, this.panel ? null : s.sim.physics.grabbed, this.panel ? null : this.pointer);
+    // Hints: wobbles and glints where the hand rests, and now and then a ghost-hand demo.
+    const reduced = this.settings.get().reduceMotion;
+    const ghost = s.hints.update({
+      dt,
+      wallDt: Math.min(2, this.app.ticker.deltaMS / 1000),
+      blocked: this.paused || this.switching || s.intro !== null,
+      pointer: this.pointer,
+      reduced,
+    });
+    s.ghost.update(dt, ghost);
+    s.hintTime += dt;
+    s.marks.update(s.camera.x, s.hintTime, s.hints.spots, s.hints.affordance, reduced);
+    const tab = s.hints.affordance;
+    s.pocket.update(dt, this.panel ? null : s.sim.physics.grabbed, this.panel ? null : this.pointer, {
+      demo: ghost?.tray ?? false,
+      glint: tab.glint('pocket'),
+      wobble: tab.wobble('pocket') * (reduced ? 0.4 : 1),
+    });
+    s.stamps.update(dt, this.panel ? null : this.pointer);
   }
 }

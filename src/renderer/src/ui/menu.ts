@@ -7,6 +7,7 @@ import type { SlotSummary } from '../app/saveService';
 import { Camera } from '../render/camera';
 import { WorldView } from '../render/worldView';
 import { stroke } from '../render/palette';
+import { HOLD } from './holdArm';
 import { PictureButton, markUi } from './button';
 import { CompostBin, binProgress } from './compostBin';
 import { doorIcon, gearIcon, pauseIcon, stumpIcon, token } from './icons';
@@ -254,12 +255,16 @@ export function pauseButton(onPress: () => void): PictureButton {
   return button;
 }
 
+/** How long the home stump must be held before the camera goes home. */
+export const HOME_HOLD_SECONDS = HOLD.seconds;
+
 /** The home button (bottom right, only away from the plaza): a little stump. */
 export function homeButton(onPress: () => void): PictureButton {
   const art = token(new Graphics(), 48);
   stumpIcon(art, 80);
   art.circle(0, 0, 48).stroke(stroke(6));
-  const button = new PictureButton(art, 110, 110, onPress);
+  // Press and hold: it sits where flung things fly, so a stray click never leaves the place (R35).
+  const button = new PictureButton(art, 110, 110, onPress, HOME_HOLD_SECONDS);
   button.position.set(VIEW_WIDTH_PX - 90, VIEW_HEIGHT_PX - 90);
   button.label = 'home';
   return button;

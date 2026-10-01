@@ -125,6 +125,8 @@ export class PointerController {
   hoverId: EntityId | null = null;
   /** A clickable fixture under the cursor (the hose tap), when nothing grabbable is. */
   hoverFixture: string | null = null;
+  /** The kind of that fixture (the cauldron shows the stir pose). */
+  hoverFixtureKind: string | null = null;
   /** Sounds for gestures that are not sim events. */
   onGesture: ((gesture: Gesture, strength: number) => void) | null = null;
   /** Tickling the held bug right now. */
@@ -275,6 +277,7 @@ export class PointerController {
       this.mode === 'none' && w && id === null ? this.sim.environment.fixtureAt(w.x, w.y) : null;
     if (fixture && fixture.id !== this.hoverFixture) this.gesture('hover');
     this.hoverFixture = fixture?.id ?? null;
+    this.hoverFixtureKind = fixture?.kind ?? null;
   }
 
   move(view: Point, dt = 1 / 60, t = this.now()): void {
