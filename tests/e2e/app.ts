@@ -135,6 +135,26 @@ export async function spawnItem(page: Page, defId: string, near: number): Promis
   return id;
 }
 
+/** With the sim frozen: drop a new item near world x (on a clear flat spot) and step until it settles. */
+export async function spawnFrozen(page: Page, defId: string, near: number): Promise<number> {
+  const x = await clearSpot(page, near);
+  const before = new Set((await entities(page)).map((e) => e.id));
+  await page.evaluate(
+    ([d, px]) => window.__bb!.send({ type: 'spawn', kind: 'item', defId: d!, x: px!, y: 6 }),
+    [defId, x] as const,
+  );
+  let id = -1;
+  const settled = async (): Promise<boolean> => {
+    const found = (await entities(page)).find((e) => !before.has(e.id) && e.defId === defId);
+    id = found?.id ?? -1;
+    return found !== undefined && Math.abs(found.vy) < 0.3 && Math.hypot(found.vx, found.vy) < 1;
+  };
+  await page.evaluate(() => window.__bb!.frames(20));
+  for (let i = 0; i < 30 && !(await settled()); i++) await page.evaluate(() => window.__bb!.frames(10));
+  expect(id).toBeGreaterThan(0);
+  return id;
+}
+
 /**
  * Press on an entity with the real mouse until the sim says it is held
  * (it may still be rolling). Returns where the mouse is.
@@ -165,7 +185,14 @@ export async function pressOn(page: Page, id: number): Promise<{ x: number; y: n
  * mouse button down. The sim is frozen and stepped frame by frame while the
  * hand moves, so a slow machine carries it exactly like a fast one.
  */
-export async function holdNearMouth(page: Page, itemId: number, bugId: number, dx: number, dy: number) {
+export async function holdNearMouth(
+  page: Page,
+  itemId: number,
+  bugId: number,
+  dx: number,
+  dy: number,
+  stayFrozen = false,
+) {
   const frames = (n: number): Promise<void> => page.evaluate((k) => window.__bb!.frames(k), n);
   await page.evaluate(() => window.__bb!.setPaused(true));
   try {
@@ -190,7 +217,7 @@ export async function holdNearMouth(page: Page, itemId: number, bugId: number, d
     await frames(30);
     await page.waitForTimeout(150);
   } finally {
-    await page.evaluate(() => window.__bb!.setPaused(false));
+    if (!stayFrozen) await page.evaluate(() => window.__bb!.setPaused(false));
   }
 }
 

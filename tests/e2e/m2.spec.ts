@@ -6,9 +6,13 @@ import {
   content,
   entities,
   entity,
+  frames,
+  framesUntil,
   holdNearMouth,
   launchApp,
+  openFrozen,
   pressOn,
+  spawnFrozen,
   spawnItem,
   toClient,
 } from './app';
@@ -29,44 +33,51 @@ test('a berry dropped within 50 px of a mouth is eaten; outside 50 px it falls',
   const bb = await launchApp();
   try {
     const { page } = bb;
-    await clickSlot(page, 0);
+    // Frozen and stepped frame by frame, so CI's slow renderer sees the same steps as a fast machine.
+    await openFrozen(page, 0);
     // Glorp, alone on the stump top, so no other mouth is nearby.
     const glorp = await bugNamed(page, 'bug_snail_glorp');
     for (const e of await entities(page)) if (e.kind === 'bug') await content(page, e.id);
+    await frames(page, 2);
 
     // Outside the snap radius: about 75 px from the mouth. It just falls.
-    const far = await spawnItem(page, 'item_berry_red', glorp.x + 1.8);
-    await holdNearMouth(page, far, glorp.id, 0.35, -0.65);
+    const far = await spawnFrozen(page, 'item_berry_red', glorp.x + 1.8);
+    await holdNearMouth(page, far, glorp.id, 0.35, -0.65, true);
     // While held, every mouth glows by taste; berries are neutral to Glorp.
     await expect
       .poll(() => hook(page, () => window.__bb!.glowing()))
       .toContainEqual({ id: glorp.id, liking: 'neutral' });
     expect(await page.evaluate((id) => window.__bb!.dropTarget(id), far)).toBeNull();
     await page.mouse.up();
-    await expect.poll(async () => (await entity(page, far))?.vy ?? 1).toBeLessThan(0.05);
-    await page.waitForTimeout(300);
+    expect(
+      await framesUntil(page, async () => Math.abs((await entity(page, far))?.vy ?? 1) < 0.05, 300, 10),
+    ).toBe(true);
+    await frames(page, 20);
     expect((await events(page, 'bug_fed')).filter((e) => e.payload.itemId === far)).toEqual([]);
     expect(await entity(page, far)).not.toBeNull();
     expect((await entity(page, far))!.inMouthOf).toBeUndefined();
 
     // Inside: 30 px above the mouth. Into the mouth it goes.
     await content(page, glorp.id);
-    const near = await spawnItem(page, 'item_berry_red', (await entity(page, glorp.id))!.x + 1.8);
-    await holdNearMouth(page, near, glorp.id, 0.05, -0.3);
-    await expect.poll(() => page.evaluate((id) => window.__bb!.dropTarget(id), near)).toBe(glorp.id);
+    await frames(page, 2);
+    const near = await spawnFrozen(page, 'item_berry_red', (await entity(page, glorp.id))!.x + 1.8);
+    await holdNearMouth(page, near, glorp.id, 0.05, -0.3, true);
+    expect(await page.evaluate((id) => window.__bb!.dropTarget(id), near)).toBe(glorp.id);
     await page.mouse.up();
     // Only the player's feeding counts: Glorp may help himself to the first berry meanwhile.
     const fedByHand = async () => (await events(page, 'bug_fed')).filter((e) => e.payload.byPlayer);
-    await expect.poll(async () => (await fedByHand()).length).toBe(1);
+    expect(await framesUntil(page, async () => (await fedByHand()).length === 1, 60, 2)).toBe(true);
     const [fed] = await fedByHand();
     expect(fed!.payload).toMatchObject({ id: glorp.id, itemId: near, liking: 'neutral', byPlayer: true });
     expect((await entity(page, glorp.id))!.bug!.mode).toBe('st_eat');
     // Chewed, swallowed, and a happy reaction with a bubble.
-    await expect
-      .poll(async () => (await events(page, 'bug_ate')).filter((e) => e.payload.itemId === near).length, {
-        timeout: 30_000,
-      })
-      .toBe(1);
+    expect(
+      await framesUntil(
+        page,
+        async () => (await events(page, 'bug_ate')).some((e) => e.payload.itemId === near),
+        1200,
+      ),
+    ).toBe(true);
     expect(await entity(page, near)).toBeNull();
     const reacted = await events(page, 'bug_reacted');
     expect(reacted.some((e) => e.payload.reaction === 'fed_neutral')).toBe(true);
