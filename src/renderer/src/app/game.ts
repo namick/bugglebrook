@@ -807,6 +807,6 @@ export class Game {
       glint: tab.glint('pocket'),
       wobble: tab.wobble('pocket') * (reduced ? 0.4 : 1),
     });
-    s.stamps.update(dt, this.panel ? null : this.pointer);
+    s.stamps.update(dt, this.panel ? null : this.pointer, Math.min(2, this.app.ticker.deltaMS / 1000));
   }
 }

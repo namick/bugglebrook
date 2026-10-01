@@ -195,7 +195,8 @@ export class StampStrip extends Container {
     return p.x >= left - STAMP_UI.nearPx && p.y <= BOOK.y + 60 + STAMP_UI.nearPx;
   }
 
-  update(dt: number, pointer: { x: number; y: number } | null): void {
+  /** `wall` is wall-clock seconds since the last frame: the fade counts real time, however slow the frames. */
+  update(dt: number, pointer: { x: number; y: number } | null, wall = dt): void {
     for (const s of freshStamps(this.seen, this.current())) {
       this.add(s, true);
       this.layout();
@@ -230,7 +231,7 @@ export class StampStrip extends Container {
       this.filled = true;
       this.drawBook();
     }
-    this.away = pointer && this.near(pointer) ? 0 : this.away + dt;
+    this.away = pointer && this.near(pointer) ? 0 : this.away + wall;
     const target = landing ? 1 : iconAlpha(this.away);
     this.alpha += (target - this.alpha) * Math.min(1, dt * 8);
     const w = this.wiggle.update(dt);
