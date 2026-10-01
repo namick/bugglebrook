@@ -4,7 +4,7 @@ Researched on 2026-10-01. Review counts and prices come from Steam's public stor
 
 ## Executive summary
 
-**The short answer.** Bugglebrook can go on Steam for $100. A parent has to be the legal publisher, because a 13-year-old can't sign Valve's distribution agreement. The daughter can still be the credited artist and co-developer, own her art, and be paid from it. Most small Steam games earn very little. This one has to beat the odds with her art, a clear hook, and about a year of steady posting.
+**The short answer.** Bugglebrook can go on Steam for $100. The artist is 17 and turns 18 within months, well before an autumn 2027 launch. At 18 she can sign Valve's distribution agreement herself and be the publisher, so the game, its income, and its track record can be hers. Until her birthday, a parent can hold the Steamworks account and move the game to her account later with Valve's transfer tool. Either way she owns her art and is credited and paid for it. Most small Steam games earn very little. This one has to beat the odds with her art, a clear hook, and about a year of steady posting.
 
 | Key number | Figure |
 |---|---|
@@ -35,7 +35,7 @@ Researched on 2026-10-01. Review counts and prices come from Steam's public stor
 1. Launch on Steam first, for Windows, macOS, Linux, and Steam Deck, at $9.99. Put up a Coming Soon page once her first bugs are done, and enter one Next Fest with a demo.
 2. Market to teens, adult cozy-game players, and parents, as a weird little bug toy hand-drawn by a young artist. Never call it a kids' game.
 3. Settle the Suno question before launch. Steam requires a public AI disclosure for the music, and the cozy crowd this game needs is the most hostile to generative AI. Human-made music is the safe choice.
-4. Put the family side in writing: an art license that pays her a share, an account for her earnings, and an hour each with a lawyer and a CPA.
+4. Put the family side in writing once she's 18: who publishes (she can), a license for whichever side's work the publisher doesn't own (her art or the parent's code), how money is split, a bank account in her name, and an hour each with a lawyer and a CPA.
 5. Make the GitHub repo private before the store page goes up.
 6. Plan for about 12 months and $500 to $4,500 in cash. Launch around autumn 2027.
 
@@ -52,17 +52,30 @@ Researched on 2026-10-01. Review counts and prices come from Steam's public stor
 - **Waiting period.** 21 days from paying the fee to release.
 - **Payouts.** Monthly by ACH, about 30 days after the month of sales, once the balance passes $100.
 
-### 1.2 Can a minor be the publisher?
+### 1.2 Who can be the publisher?
 
-No, in practice. Valve publishes no minimum age, but it needs a legal entity that can sign the Steam Distribution Agreement, and a 13-year-old can't make a binding contract. A parent or guardian holds the account.
+Not a minor, in practice. Valve publishes no firm minimum age, but the account must belong to a legal entity that signs the Steam Distribution Agreement, completes the tax interview, and has a bank account in the same name. A 17-year-old can't make a binding contract. At 18 she can do all three herself: sign as a sole proprietor under her own name, or as her own LLC, with her SSN or the LLC's EIN on the W-9 and payouts to her own account.
+
+She turns 18 within months, long before an autumn 2027 launch, so she can be the publisher. The question is whether she should.
 
 | Option | Who signs with Valve | For | Against |
 |---|---|---|---|
-| Parent as sole proprietor | The parent, with an SSN or EIN | Free and fast. Wages a parent's sole proprietorship pays a child under 18 are exempt from Social Security and Medicare tax. | The game is legally the parent's business, and liability is personal. |
-| Parent-owned single-member LLC | The LLC | Separates the game's money and liability from the family's. Keeps the child-wage tax break. | About $50 to $500 to form, yearly fees in some states, more bookkeeping. |
-| LLC with the daughter as a member | The LLC, managed by the parent | Gives her real ownership. | State rules on minor members vary and usually need a custodian. More legal cost. Loses the child-wage tax break. |
+| She is a sole proprietor | She does, after 18, with her SSN or an EIN | Free and simple. The game, the income, and the Steam track record are hers. She owns her art outright and needs no license to herself. | The parent's code has to be licensed to her in writing. Liability is personal to her. She files a Schedule C and pays self-employment tax. |
+| Her own single-member LLC | Her LLC | Same as above, plus a wall between the game's liabilities and her personal savings. A studio she can keep for later games. | About $50 to $500 to form, yearly fees in some states, more bookkeeping. Still needs the code license. An LLC protects little if she signs things personally or mixes money. |
+| An LLC that she and the parent co-own | The LLC | Both contributions sit in one company, split by an operating agreement. A natural fit if this is the first of several games. | The most paperwork: an operating agreement, a partnership tax return each year, and decisions about votes, buyouts, and what happens if one of you leaves. Both must assign or license their work to the LLC. |
+| The parent publishes and pays her a royalty | The parent, as sole proprietor or through the parent's LLC | The parent carries the liability and the admin. She doesn't have to deal with taxes, Valve, or support. | The business and its record are the parent's. Her income depends on a contract with a parent. Paying her wages no longer has the under-18 tax break once she's 18. |
 
-For a first game, the first or second option is usual. Her ownership and pay come through her art license and a written revenue share, covered in section 8.
+The liability risk here is modest: an offline game that collects no data. The real exposure is an IP claim, most likely over the Suno music (section 8.5). Whoever publishes carries it, which is one more reason to settle the music first.
+
+My recommendation: she publishes, as a sole proprietor at first, and forms her own LLC if the game starts earning real money or she plans more games. The parent licenses the code to her in writing, for a share of revenue or for nothing. That gives her the IP, the income, and a track record of her own. A co-owned LLC is the better choice if you both want a long-term studio. If she'd rather not run a business while finishing school, the parent publishes and pays her a royalty, which is still fair if it's in writing.
+
+**Timing.** The roadmap puts the Steam fee and the Coming Soon page in January to March 2027.
+
+- **Now, at 17.** Keep working, track who made what, and draft the agreements without signing them. If the store page needs to go up before her birthday, the parent can onboard, pay the $100, and build and publish the page.
+- **After her birthday.** She opens a bank account in her name, gets an EIN if she wants one (free, and it keeps her SSN off forms), forms an LLC if that's the plan, and onboards to Steamworks herself. Then she signs the agreements.
+- **Moving the game.** Steamworks has a Transfer Applications tool built for this ("if an individual forms a corporation and needs to move the game"). The current owner starts it, the recipient needs a fully onboarded partner account, which means paying her own $100 Steam Direct fee, and Valve approves it, usually within 2 to 7 business days. The store page, wishlists, followers, and reviews move with the game. The new owner sees sales data only from the transfer date, and payment rights move on a date the sender picks. Transfer before launch, so every sale and every tax form is in the publisher's name from the start.
+
+If her birthday comes before you're ready to pay the fee, skip the transfer: she onboards and creates the app herself.
 
 The store's "Developer" and "Publisher" fields are display names, so a studio name the two of you pick can stand in for the legal entity. Credit her by name or art handle in the credits, the store's About section, and the press kit. The art guide already plans `art/CREDITS.json` and a credits board.
 
@@ -159,6 +172,8 @@ Small, cute toys and sandboxes, mostly from one to three people.
 | Alter Army | Aug 2018 | $4.99 | 33 | ~1k | Two developers who started at 14. PC Gamer covered it. |
 
 The pattern holds across all four. The family story earns press, and press doesn't become sales unless the game stands up without it.
+
+Bugglebrook's story is different from the first three. Those children were 4 to 7, and a parent did most of the making. Here a 17-year-old draws the whole game and will be an adult at launch, which is closer to Alter Army's teen developers. That story is easier to take seriously, but the lesson still holds.
 
 ### 3.4 The wider cozy and creative market
 
@@ -277,11 +292,13 @@ A well-reviewed cozy game keeps selling in seasonal sales for years. Years two t
 
 Two areas, about five bugs, a few secrets, some crafting, and one potion: enough to show depth, not just the toy. End at a locked barrier that promises more bugs behind it. Release it for Next Fest and leave it up. Let demo saves carry into the full game.
 
-### 6.4 The teen-artist-and-dad story
+### 6.4 The young-artist story
 
-It's an asset for local press, human-interest pieces, Reddit, and goodwill. It also invites reviewers to treat the game as a favor, as the Odd Dorable review did. Lead with the game, and tell the story second.
+The angle is a teenage artist's first commercial game: she drew every bug and place, starting at 17, and ships it at 18 or 19, perhaps as its publisher. That's a stronger pitch than "a dad's game with his kid's drawings", because the art is the product and it's plainly her work. It suits local press, art and illustration outlets, Krita's community, Reddit, and human-interest pieces. It also invites reviewers to treat the game as a favor, as the Odd Dorable review did. Lead with the game, and tell the story second.
 
-Protect her. She's 13. Use a studio name and a first name or art handle rather than her full name. Leave her school, town, and face out unless she and you are comfortable. A parent should run the public accounts and moderate comments. Talk about what a mean comment on her art might feel like before one arrives.
+The game is also her portfolio. A shipped Steam game with her name on it, process clips, and press is strong material for an art school application or a first job in games or illustration. That argues for crediting her under the name she'll use professionally. Decide early whether that's her real name or an art handle, since changing it after launch scatters the credit.
+
+How public she is becomes her call as she turns 18. Leave her school and town out regardless. Agree on who answers comments, and talk about what a mean comment on her art might feel like before one arrives. If the parent runs the studio accounts at first, hand them to her, or set up her own, once she's ready, so the following she builds stays hers.
 
 ### 6.5 Benchmarks
 
@@ -323,22 +340,36 @@ Not legal or tax advice. Rules vary by state.
 
 ### 8.1 Business structure
 
-See section 1.2. The usual path: the parent registers as a sole proprietor or forms a single-member LLC; gets a free EIN so the SSN stays off forms; signs with Valve and any other store; and opens a separate bank account in the same name. The daughter is paid through her art license, as an employee, or both, all in writing.
+See section 1.2 for the options and the timing. Whoever publishes does the same steps: register as a sole proprietor or form an LLC; get a free EIN so the SSN stays off forms; sign with Valve and any other store; and open a separate bank account in the same name. All of it can wait for her 18th birthday if she's the publisher.
+
+The work comes from two people, so the publisher needs written rights to the other person's part:
+
+- **She publishes.** The parent licenses or assigns the code to her or her LLC.
+- **The parent publishes.** She licenses her art to the parent's business for a royalty.
+- **Co-owned LLC.** Both license or assign their work to the LLC, and the operating agreement sets the split.
+
+Also write down who decides about updates, ports, price, and pulling the game, and what happens to each person's work if you part ways.
 
 ### 8.2 Her art
 
-- **She owns the copyright** in her drawings from the moment she makes them. A parent has no automatic right to control a child's copyright.
-- **The planned license needs a change for a commercial release.** The art guide's `art/LICENSE` lets her keep copyright and grants the project a non-exclusive, royalty-free license, co-signed by a parent. For a paid game, replace "royalty-free" with a royalty, such as a set percentage of net Steam revenue paid quarterly with a statement she can read. That gives her a real stake that's easy to explain.
-- **Minors can usually void contracts**, sometimes even after turning 18. Have a parent co-sign, keep the deal fair to her, and plan for her to re-sign at 18. Ask a lawyer whether your state lets a court approve a minor's contract.
+- **She owns the copyright** in her drawings from the moment she makes them. A parent has no automatic right to control it. At 18 she can license it, sell it, or publish it herself with no co-signer.
+- **If she publishes, she needs no license to herself.** Her art stays hers, and the code license from the parent is the only agreement the game needs between you. If she later forms an LLC, she can license the art to it rather than assign it, so she keeps the copyright if the company is ever sold or closed.
+- **If someone else publishes, the planned license needs a change.** The art guide's `art/LICENSE` lets her keep copyright and grants the project a non-exclusive, royalty-free license, co-signed by a parent. For a paid game, replace "royalty-free" with a royalty, such as a set percentage of net Steam revenue paid quarterly with a statement she can read.
+- **Sign after her birthday.** A minor can usually void a contract, during minority and for a reasonable time after turning 18. Since she'll be 18 before launch, the simplest fix is to sign the real agreements after her birthday, with no co-signer. Anything signed before then should be re-signed at 18.
 - **Later uses.** Write down what happens to her art if the game is sold, pulled, ported, or turned into merchandise. The safe default is that anything beyond this game needs her written permission and a new deal.
 
 ### 8.3 Paying her and taxes
 
+At 18 she is taxed like any adult with her own small business or job, though she may still be her parents' dependent.
+
 | Method | How it works | Notes |
 |---|---|---|
-| Wages from a parent's sole proprietorship or parent-owned LLC | No Social Security or Medicare tax under 18. No federal income tax on earned income up to the 2026 standard deduction of $16,100. | Pay must be reasonable for real work, like drawing, testing, and clips. Keep a simple hours log. The business deducts the wages. Some states require a minor work permit. |
-| Royalty under the art license | Paid for licensing her own art | Whether it counts as self-employment income or a royalty changes the tax. Self-employment tax starts at $400 of net earnings. Ask the CPA. |
-| Where it goes | A UTMA custodial account or a custodial Roth IRA | A custodial Roth can take up to her earned income or $7,500 in 2026, whichever is less. Custodial money becomes hers outright at 18 or 21, depending on the state. |
+| She is the publisher | The game's profit is her self-employment income, reported on Schedule C | Income tax plus about 15.3% self-employment tax once net earnings pass $400. She can deduct real costs: the Steam fee, software, a tablet, and any money paid to the parent for the code. She makes quarterly estimated payments if the tax gets large. |
+| Royalty from a parent's or co-owned business | Paid for licensing her art | Whether it's self-employment income or passive royalty income changes the tax. If it's passive and she's a full-time student under 24 and still a dependent, the kiddie tax can apply. Ask the CPA. |
+| Wages from a parent's business | Normal payroll | The under-18 exemption from Social Security and Medicare tax ends at 18, so wages lose most of their appeal. Pay must still be reasonable for real work. |
+| Where it goes | Her own bank and brokerage accounts, and a Roth IRA | She can open these herself at 18, with no custodian. A Roth can take up to her earned income or $7,500 in 2026, whichever is less. |
+
+**Financial aid, briefly.** If she'll apply for college aid, her income counts. The FAFSA uses tax data from two years earlier, so 2027 income shows up on the 2029–30 form. Dependent students' income above an allowance (about $11,770 on the 2026–27 form) is assessed at 50%, and savings in her name at 20%. Retirement accounts like a Roth IRA aren't reported. From 2026–27, a family business with 100 or fewer employees is again left out of assets. Colleges that use the CSS Profile look more closely. Most likely outcomes are small enough not to matter, but a good year could cost some aid, so ask the CPA or a college aid office before deciding how and when she's paid.
 
 ### 8.4 The code and the GitHub repo
 
@@ -364,9 +395,9 @@ A web search on 2026-10-01 found only this project's repo and the unrelated Engl
 
 ### 8.7 Questions for the professionals
 
-For a lawyer: sole proprietorship or LLC in our state, and can our daughter be an LLC member? Will the art license and revenue share hold up with a minor, and should a court approve it? Does she need a work permit?
+For a lawyer: should she publish as a sole proprietor or through her own LLC, or should we co-own one? What should the code license from the parent and her art license say, including ports, merchandise, and a sale of the game? Is anything we do before her 18th birthday worth signing, or should it all wait?
 
-For a CPA: should her pay be wages, a royalty, or self-employment income? How do we file for her, and does the kiddie tax apply? What should go in a custodial or Roth account?
+For a CPA: if she publishes, what does she owe in income and self-employment tax, and should she make estimated payments? If she's paid a royalty, is it earned or passive, and does the kiddie tax apply while she's a dependent student? Can she still be claimed as a dependent? How do we time her income around FAFSA years, and how much should go into a Roth IRA?
 
 ---
 
@@ -376,8 +407,8 @@ This assumes launch around autumn 2027. Her schoolwork comes first, so the art s
 
 | When | Steps | Cash cost |
 |---|---|---|
-| Oct to Dec 2026 | Make the repo private. Choose the business structure; get an EIN and a bank account. Sign the art license with a revenue share. Quick trademark search. Decide about the music. She draws Dot, Rollo, and Glorp. Start a parent-run studio account on TikTok or YouTube showing her process. Optional itch.io prototype. | $0 to $500 |
-| Jan to Mar 2027 | Pay the Steam fee and do the tax interview. She draws the plaza and pond and their bugs, plus the capsule. Cut a 30 to 60 second trailer. **Publish the Coming Soon page.** Add Auto-Cloud, achievements, and a Deck layout, and turn off auto-update. Submit to Wholesome Direct before its March deadline. Start a monthly devlog. | $100 Steam fee; $99 Apple Developer ID to notarize the Mac build |
+| Oct to Dec 2026 | Make the repo private. Choose the business structure and draft the agreements; sign them after her 18th birthday. Quick trademark search. Decide about the music. She draws Dot, Rollo, and Glorp. Start a studio account on TikTok or YouTube showing her process. Optional itch.io prototype. | $0 to $500 |
+| Jan to Mar 2027 | Whoever publishes pays the Steam fee and does the tax interview: she does if she's 18 by then, otherwise the parent, with a transfer to her account later (section 1.2). She draws the plaza and pond and their bugs, plus the capsule. Cut a 30 to 60 second trailer. **Publish the Coming Soon page.** Add Auto-Cloud, achievements, and a Deck layout, and turn off auto-update. Submit to Wholesome Direct before its March deadline. Start a monthly devlog. | $100 Steam fee; $99 Apple Developer ID to notarize the Mac build |
 | Apr to Jun 2027 | Build the demo in her art. Playtest with 5 to 10 strangers. Request a Deck review. **June 2027 Next Fest** if the demo is ready, registering about seven weeks ahead; otherwise October. Pitch press and streamers. | $0 to $300 |
 | Jul to Sep 2027 | She finishes the remaining areas, bugs, and common items. Content lock, bug fixing, low-end and Deck performance, press kit. Pick a date away from Steam's big seasonal sales and major releases. | $500 to $3,000 if commissioning music |
 | Oct to Nov 2027 | Launch at 10% to 20% off for week one. Email press and curators. Post daily for two weeks. Answer every review. Ship a fix-up update within a month. | $0 |
@@ -412,6 +443,7 @@ Steam and Steamworks
 - [GameGrin: Steam updates regional pricing tools](https://www.gamegrin.com/news/steam-updates-regional-pricing-tools-in-steamworks-development-news/)
 - [Steam community: minimum age to publish](https://steamcommunity.com/discussions/forum/1/3476233614750851767/)
 - [Steamworks FAQ on W-9 and TIN](https://partner.steamgames.com/documentation/welcome)
+- [Steamworks: transferring applications](https://partner.steamgames.com/doc/gettingstarted/managing_apps/transfer)
 
 AI disclosure and AI sentiment
 
@@ -513,6 +545,12 @@ Showcases
 Business, tax, and copyright
 
 - [Gusto: tax benefits of hiring your children](https://gusto.com/resources/articles/taxes/tax-benefits-hiring-children)
+- [IRS: family employees](https://www.irs.gov/businesses/small-businesses-self-employed/family-employees)
+- [Business Law, 8.2: minors and disaffirmance](https://rvcc.pressbooks.pub/businesslaw131interactive/chapter/8-2-minors-or-infants/)
+- [Federal Student Aid: 2026–27 SAI and Pell Grant eligibility guide](https://fsapartners.ed.gov/sites/default/files/2025-06/202627StudentAidIndexSAIandPellGrantEligibilityGuide.pdf)
+- [The College Investor: 2027–28 SAI chart and allowances](https://thecollegeinvestor.com/43805/student-aid-index-sai-chart/)
+- [Saving for College: how assets affect the FAFSA](https://www.savingforcollege.com/article/how-7-different-assets-can-affect-your-financial-aid-eligibility)
+- [Kid to College: savings and the 2026–27 FAFSA, small business exclusion](https://www.kidtocollege.com/blog/savings-assets-fafsa-aid-impact-2026)
 - [2026 standard deduction, Rev. Proc. 2025-32](https://ustax.tools/standard-deduction-2026/)
 - [Self-employment tax 2026](https://nationaltaxtools.com/guides/self-employment-tax/)
 - [Schwab: Roth IRA for kids](https://www.schwab.com/learn/story/roth-ira-for-kids)
