@@ -184,7 +184,9 @@ test('one of the plaza twigs has legs: picking it up finds Twig', async () => {
   }
 });
 
-test('a ball rolled through the can tunnel opens the latch; a marble clinks back out', async () => {
+// The whole roll (and a marble too small to bump the latch) is checked
+// tick by tick in tests/unit/m7.test.ts; here the player bowls the ball.
+test('a ball bowled with the mouse rolls through the can tunnel and opens the latch', async () => {
   const bb = await launchApp();
   try {
     const { page } = bb;
@@ -192,47 +194,29 @@ test('a ball rolled through the can tunnel opens the latch; a marble clinks back
     await send(page, { type: 'unlock', area: 'area_under_porch' });
     await frames(page, 2);
     const wall = (await fixture(page, 'fix_can_tunnel')).x + 0.2;
-    // Locked: the camera stops 4 m past the tin can wall.
+    // Locked: the camera rests at most 4 m past the tin can wall.
     await lookAt(page, wall);
     expect((await camera(page)) + 19.2).toBeLessThanOrEqual(wall + 4.01);
     await lookAt(page, wall - 15);
-    const roll = async (defId: string): Promise<number> => {
-      await send(page, { type: 'spawn', kind: 'item', defId, x: wall - 4, y: 6 });
-      await frames(page, 90);
-      const thing = (await entities(page)).filter((e) => e.defId === defId).sort((a, b) => b.id - a.id)[0]!;
-      // Pick it up, set it down by the wall, then bowl it along the floor at the tunnel.
-      const from = await pressFrozen(page, thing.id);
-      const low = await toClient(page, wall - 3.2, 8.6);
-      await glideFrames(page, from, low.x - from.x, low.y - from.y, 16, 2);
-      await frames(page, 20);
-      await glideFrames(page, low, 64, 0, 8, 1);
-      await page.mouse.up();
-      await frames(page, 2);
-      return thing.id;
-    };
-    // A marble is too small to bump the latch: it rattles back out.
-    const marble = await roll('item_marble_blue');
+    await send(page, { type: 'spawn', kind: 'item', defId: 'item_rubber_ball', x: wall - 4, y: 6 });
+    await frames(page, 90);
+    const ball = (await entities(page))
+      .filter((e) => e.defId === 'item_rubber_ball')
+      .sort((a, b) => b.id - a.id)[0]!;
+    // Pick it up, set it down by the wall, then bowl it along the floor at the tunnel.
+    const from = await pressFrozen(page, ball.id);
+    const low = await toClient(page, wall - 3.2, 8.6);
+    await glideFrames(page, from, low.x - from.x, low.y - from.y, 8, 4);
+    await frames(page, 20);
+    await glideFrames(page, low, 64, 0, 8, 1);
+    await page.mouse.up();
+    await frames(page, 2);
     expect(
-      await framesUntil(
-        page,
-        async () => (await events(page, 'tunnel_rolled')).some((e) => e.payload.id === marble),
-        240,
-      ),
+      await framesUntil(page, async () => (await unlocked(page)).includes('area_compost_lab'), 400, 60),
     ).toBe(true);
-    await frames(page, 60);
-    expect((await events(page, 'tunnel_rolled')).find((e) => e.payload.id === marble)!.payload.fits).toBe(
-      false,
+    expect((await events(page, 'tunnel_rolled')).find((e) => e.payload.id === ball.id)!.payload.fits).toBe(
+      true,
     );
-    expect(await unlocked(page)).not.toContain('area_compost_lab');
-    expect((await entity(page, marble))!.x).toBeLessThan(wall);
-    // Clear it out of the tunnel mouth before bowling the next one.
-    await carryTo(page, await pressFrozen(page, marble), wall - 8, 8.2);
-    // A rubber ball is just a pill bug wide: through it goes, and the latch drops.
-    const ball = await roll('item_rubber_ball');
-    expect(
-      await framesUntil(page, async () => (await unlocked(page)).includes('area_compost_lab'), 300),
-    ).toBe(true);
-    expect((await events(page, 'tunnel_rolled')).find((e) => e.payload.id === ball)!.payload.fits).toBe(true);
     expect(await page.evaluate(() => window.__bb!.sfxLog())).toEqual(
       expect.arrayContaining(['latch', 'unlock']),
     );

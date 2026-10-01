@@ -23,7 +23,8 @@ export interface TestHook {
   tick(): number;
   entities(): EntityView[];
   entity(id: number): EntityView | null;
-  camera(): { x: number };
+  /** The camera's left edge, and the furthest left and right it rests at (it may peek past those, then springs back). */
+  camera(): { x: number; min: number; max: number };
   /** Client (CSS pixel) position of a world point, for page.mouse. */
   worldToClient(x: number, y: number): Point;
   /** Client position of the centre of a menu slot sign. */
@@ -236,7 +237,10 @@ export function installTestHook(game: Game): void {
     tick: () => game.session?.sim.tick ?? 0,
     entities: () => game.session?.sim.views() ?? [],
     entity: (id) => game.session?.sim.view(id) ?? null,
-    camera: () => ({ x: game.session?.camera.x ?? 0 }),
+    camera: () => {
+      const cam = game.session?.camera;
+      return { x: cam?.x ?? 0, min: cam?.restMin ?? 0, max: cam?.restMax ?? 0 };
+    },
     worldToClient: (x, y) => {
       const cam = game.session?.camera;
       if (!cam) throw new Error('No world open');

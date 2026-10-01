@@ -229,11 +229,14 @@ export async function holdNearMouth(
 
 const camera = async (page: Page): Promise<number> => (await page.evaluate(() => window.__bb!.camera())).x;
 
-/** Scroll the camera with the real mouse wheel until its left edge is near `x`. */
+/** Scroll the camera with the real mouse wheel until its left edge is near `x` (or as near as it may rest). */
 export async function scrollTo(page: Page, x: number): Promise<void> {
   await page.mouse.move(960, 200);
   for (let i = 0; i < 80; i++) {
-    const d = x - (await camera(page));
+    // Aim inside the stretch the camera rests in: past a locked barrier it
+    // only peeks and springs back, so it would never get there.
+    const cam = await page.evaluate(() => window.__bb!.camera());
+    const d = Math.min(cam.max, Math.max(cam.min, x)) - cam.x;
     if (Math.abs(d) < 0.3) return;
     await page.mouse.wheel(0, Math.max(-600, Math.min(600, (d * 100) / 1.5)));
     await page.waitForTimeout(30);
