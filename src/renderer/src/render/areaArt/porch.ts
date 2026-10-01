@@ -169,45 +169,14 @@ export function drawPorchBackdrop(area: AreaDef, rng: Rng): Container {
 }
 
 /**
- * Props behind the walk line: the spool table (the Tinker Bench), the
- * stack of old flowerpots the cobweb hangs between, and cobwebs.
+ * Props behind the walk line: the stack of old flowerpots the cobweb hangs
+ * between, and cobwebs. The Tinker Bench has its own live view.
  */
 export function drawPorchBack(area: AreaDef, rng: Rng): Container {
   const c = new Container();
   const g = new Graphics();
   const x0 = area.xStart * PPM;
-  // The Tinker Bench: a big wooden thread spool standing on end, with a clothespin vise.
-  const sx = x0 + 1720;
-  const disc = 0xc9955f;
-  g.roundRect(sx - 90, 700, 180, 200, 10)
-    .fill(0xe8453c)
-    .stroke(soft(3, 0.55));
-  for (let y = 712; y < 890; y += 14)
-    g.moveTo(sx - 90, y)
-      .lineTo(sx + 90, y + 4)
-      .stroke({ width: 3, color: 0xb52f28, alpha: 0.6 });
-  g.ellipse(sx, GROUND_PX, 220, 36).fill(darken(disc, 0.15)).stroke(soft(3, 0.55));
-  g.rect(sx - 220, 682, 440, 26)
-    .fill(disc)
-    .stroke(soft(3, 0.55));
-  g.ellipse(sx, 682, 220, 30).fill(lighten(disc, 0.15)).stroke(soft(3, 0.55));
-  g.ellipse(sx, 682, 40, 8).fill(darken(disc, 0.4));
-  // The clothespin vise, and a few tools on the bench.
-  g.roundRect(sx + 80, 600, 26, 90, 6)
-    .fill(0xe0c090)
-    .stroke(soft(2.5, 0.55));
-  g.roundRect(sx + 112, 600, 26, 90, 6)
-    .fill(0xd4b080)
-    .stroke(soft(2.5, 0.55));
-  g.circle(sx + 109, 640, 10)
-    .fill(0x9aa3b5)
-    .stroke(soft(2, 0.55));
-  g.roundRect(sx - 160, 664, 120, 16, 6)
-    .fill(0x9aa3b5)
-    .stroke(soft(2, 0.5));
-  g.circle(sx - 60, 652, 14)
-    .fill(0xffd23f)
-    .stroke(soft(2, 0.5));
+  // The Tinker Bench is drawn live (benchLive.ts): it shakes when it works.
   // Old flowerpots stacked into steps toward the boards.
   // [x, bottom, height]: two short stacks hold the cobweb hammock; a tall one reaches the boards.
   const pots: [number, number, number][] = [

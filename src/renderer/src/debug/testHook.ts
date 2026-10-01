@@ -6,6 +6,7 @@ import type { SlotInfo } from '../../../shared/ipc';
 import type { Settings } from '../../../shared/settings';
 import type { Game, SceneName } from '../app/game';
 import type { Point } from '../render/camera';
+import { LEVER_LENGTH, LEVER_PIVOT, LEVER_REST } from '../render/areaArt/benchLive';
 import type { BubbleInfo } from '../render/bubbles';
 import type { CursorPose } from '../ui/cursor';
 import type { ToggleKey, VolumeKey } from '../ui/settingsPanel';
@@ -28,6 +29,11 @@ export interface TestHook {
    * peek past those, then springs back), and the screen frame it was read on.
    */
   camera(): { x: number; min: number; max: number; frame: number };
+  /**
+   * Put the camera's left edge at world x at once (staging for tests that
+   * are not about scrolling), within the stretch it may rest in.
+   */
+  cameraTo(x: number): void;
   /** Client (CSS pixel) position of a world point, for page.mouse. */
   worldToClient(x: number, y: number): Point;
   /** Client position of the centre of a menu slot sign. */
@@ -168,6 +174,20 @@ export interface TestHook {
     glow: number;
     rain: number;
   };
+  /** M8: the Tinker Bench's trays (entity IDs), whether it is shaking, and recipes made and hinted. */
+  bench(): { trays: (number | null)[]; busy: boolean; made: string[]; hinted: string[]; nudged: string[] };
+  /** M8: what is in the cauldron, how far it is stirred (0 to 1), and whether it is bubbling. */
+  cauldron(): { contents: string[]; progress: number; bubbling: boolean; brewed: number };
+  /**
+   * M8: world points to aim the mouse at: the bench's lever knob, its trays, the
+   * cauldron's middle (stir round it), and the bug scope's eyepiece.
+   */
+  m8Points(): {
+    lever: { x: number; y: number };
+    trays: { x: number; y: number }[];
+    cauldron: { x: number; y: number };
+    scope: { x: number; y: number };
+  } | null;
   /** Set an entity's bites or paint directly, to show those looks (test mode only). */
   debugEntity(id: number, fields: { bites?: number; paint?: string[] }): void;
   /** Rain drops, leaves, and light sprites being drawn now (particle budgets). */
@@ -243,6 +263,13 @@ export function installTestHook(game: Game): void {
     camera: () => {
       const cam = game.session?.camera;
       return { x: cam?.x ?? 0, min: cam?.restMin ?? 0, max: cam?.restMax ?? 0, frame: game.frameCount };
+    },
+    cameraTo: (x) => {
+      const cam = game.session?.camera;
+      if (!cam) return;
+      cam.stopGlide();
+      cam.velocity = 0;
+      cam.set(Math.min(cam.restMax, Math.max(cam.restMin, x)));
     },
     worldToClient: (x, y) => {
       const cam = game.session?.camera;
@@ -417,6 +444,46 @@ export function installTestHook(game: Game): void {
       };
     },
     weatherStats: () => game.session?.view.weather.stats() ?? { drops: 0, leaves: 0, lights: 0 },
+    bench: () => {
+      const b = game.session?.sim.bench;
+      if (!b) return { trays: [null, null, null], busy: false, made: [], hinted: [], nudged: [] };
+      return {
+        trays: [...b.state.trays],
+        busy: b.busy,
+        made: [...b.state.made],
+        hinted: [...b.state.hinted],
+        nudged: [...b.state.nudged],
+      };
+    },
+    cauldron: () => {
+      const c = game.session?.sim.cauldron;
+      if (!c) return { contents: [], progress: 0, bubbling: false, brewed: 0 };
+      return {
+        contents: c.state.contents.map((p) => p.defId),
+        progress: c.progress(),
+        bubbling: c.bubbling,
+        brewed: c.state.brewed,
+      };
+    },
+    m8Points: () => {
+      const sim = game.session?.sim;
+      if (!sim) return null;
+      const lever = sim.places.fixtures('bench_lever')[0];
+      const bench = sim.places.fixtures('tinker_bench')[0];
+      const pot = sim.places.fixtures('cauldron')[0];
+      const scope = sim.places.fixtures('bug_scope')[0];
+      if (!lever || !bench || !pot || !scope) return null;
+      return {
+        // The lever's red knob, up at rest.
+        lever: {
+          x: bench.x + LEVER_PIVOT + Math.sin(LEVER_REST) * LEVER_LENGTH,
+          y: bench.fixture.y + 0.04 - Math.cos(LEVER_REST) * LEVER_LENGTH,
+        },
+        trays: [0, 1, 2].map((i) => sim.bench.trayAt(i)),
+        cauldron: { x: pot.x, y: pot.fixture.y },
+        scope: { x: scope.x, y: scope.fixture.y },
+      };
+    },
     debugEntity: (id, fields) => {
       const e = game.session?.sim.entities.get(id);
       if (!e) return;

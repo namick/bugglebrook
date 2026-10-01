@@ -11,9 +11,11 @@ import { CanWallLive, LockView, SunflowerLive } from './areaArt/barrierLive';
 import { CompostLive } from './areaArt/compostLive';
 import { FlowerbedLive } from './areaArt/flowerbedLive';
 import type { AreaLive } from './areaArt/live';
+import { BenchLive } from './areaArt/benchLive';
+import { CauldronLive } from './areaArt/cauldronLive';
 import type { AreaFrame, AreaSound } from './areaArt/live';
 import { PorchLive } from './areaArt/porchLive';
-import type { AreaDef } from '../../../game/data/types';
+import type { AreaDef, FixtureDef } from '../../../game/data/types';
 import { Bubbles } from './bubbles';
 import type { BubbleInfo } from './bubbles';
 import type { FaceOverride } from './bugFace';
@@ -39,6 +41,10 @@ import { FixtureArt } from './fixtureArt';
 import { NO_WEATHER, easeWeather, skyLook, weatherTarget } from './skyLook';
 import type { SkyLook, WeatherMix } from './skyLook';
 import { WeatherView } from './weatherView';
+import { RAINBOW, easeScale, potionLook } from './potionLooks';
+import { PAINT_HEX } from '../../../game/systems/paint';
+import type { PotionLook } from './potionLooks';
+import { drawPotionBehind, drawPotionOver } from './potionView';
 import { hourOf } from '../../../game/systems/sky';
 import type { SkyExtras } from './background';
 
@@ -87,6 +93,12 @@ interface Juice {
   move: { move: Move; t: number; seconds: number } | null;
   /** Seconds until the next snore "Z". */
   snore: number;
+  /** The size potions have it drawn at, springing toward the sim's (M8). */
+  size: { value: number; v: number };
+  /** Its own animation clock: slow-mo runs it slow, speedy fast. */
+  clock: number;
+  /** Seconds until the next potion trail puff. */
+  trailIn: number;
   /** Glancing around (a fidget): seconds left. */
   glance: number;
 }
@@ -99,6 +111,8 @@ export interface PointerSource {
   readonly hoverWorld: Point | null;
   /** The grabbable thing under the cursor, if any. */
   readonly hoverId?: EntityId | null;
+  /** A fixture the hand is working: the bench's lever, or the cauldron's ladle (M8). */
+  readonly fixtureDrag?: { kind: 'lever' | 'stir'; amount: number; angle: number } | null;
 }
 
 /**
@@ -198,6 +212,7 @@ export class WorldView extends Container {
       this.fixtures.eyes,
       this.glows,
       this.bubbles,
+      this.wishHint,
     );
     this.weather.extraLights = (light) => {
       if (!this.areaFrame) return;
@@ -312,6 +327,9 @@ export class WorldView extends Container {
         move: null,
         snore: 0.5 + Math.random(),
         glance: 0,
+        size: { value: 1, v: 0 },
+        clock: Math.random() * 10,
+        trailIn: 0,
       };
       j.squash.amount = this.reduced ? SQUASH_REDUCED : 1;
       this.juice.set(id, j);
@@ -362,6 +380,7 @@ export class WorldView extends Container {
   private listen(): void {
     const ev = this.sim.events;
     const px = (m: number): number => m * PPM;
+    this.offs.push(...this.listenPotions());
     this.offs.push(
       ev.on('item_grabbed', (e) => {
         this.juiceFor(e.id).squash.grab();
@@ -832,7 +851,14 @@ export class WorldView extends Container {
     const def = this.sim.content.bugs.get(defId);
     const look = reactionLook(def.art, type, variant);
     const j = this.juiceFor(id);
-    this.say(id, look.pictos, Math.max(1.2, look.seconds) + 0.4, j.food);
+    // Under an opera or squeaky potion, everything it says comes out sung.
+    const sung = this.sim.view(id)?.effects?.some((e) => e.effect === 'opera' || e.effect === 'squeaky');
+    this.say(
+      id,
+      sung ? ['note', look.pictos[0] ?? 'note'] : look.pictos,
+      Math.max(1.2, look.seconds) + 0.4,
+      j.food,
+    );
     const v = this.sim.view(id);
     if (!v) return;
     const headX = v.x * PPM + this.facingOf(id) * def.radius * PPM * 0.6;
@@ -996,6 +1022,7 @@ export class WorldView extends Container {
       hand: hover ? { x: hover.x * PPM, y: hover.y * PPM } : null,
       particles: this.particles,
       sound: (name, strength) => this.onAmbient?.(name, strength),
+      drag: this.pointer?.fixtureDrag ?? null,
     };
     for (const live of this.lives) {
       live.update(this.areaFrame);
@@ -1056,6 +1083,21 @@ export class WorldView extends Container {
           k = liking === 'disliked' ? 0.62 : Math.max(0.2, 0.62 - 0.13 * Math.floor(t * 2));
           sprite.zIndex = view.inMouthOf + 0.5;
         } else sprite.zIndex = view.id + (view.held ? 10000 : 0);
+        // Potions on things: giant marbles, tiny springs, heavy pebbles look the part.
+        const potion = view.effects ? potionLook(view.effects, view.scale ?? 1, this.time) : null;
+        j.size = easeScale(j.size, view.scale ?? 1, dt);
+        k *= Math.max(0.2, j.size.value);
+        if (potion?.tint) sprite.tint = potion.tint;
+        // Toasted food (rule R12): browned, and it steams a little.
+        if (view.toasted) {
+          sprite.tint = mix(sprite.tint === 0xffffff ? 0xffffff : (sprite.tint as number), 0xc08a5a, 0.55);
+          j.puff -= dt;
+          if (j.puff <= 0) {
+            j.puff = 0.9 + Math.random() * 0.8;
+            this.particles.steam(view.x * PPM, view.y * PPM - 10, 1);
+          }
+        }
+        if (view.brew) sprite.setLiquid(view.brew.color);
         sprite.pose(
           view.angle + bob.angle,
           Math.atan2(view.vy, view.vx),
@@ -1075,6 +1117,7 @@ export class WorldView extends Container {
     this.drawSlime(behind, left, right);
     this.drawWelds(over);
     this.drawMagnets(over, views, left, right);
+    this.updateWish(hoverId ?? null, dt);
     this.bubbles.update(dt, (id) => {
       const v = this.sim.view(id);
       if (!v || !v.bug || v.pocket !== undefined) return null;
@@ -1104,6 +1147,7 @@ export class WorldView extends Container {
   private drawGlows(offer: ReturnType<WorldView['offering']>): void {
     const g = this.glows.clear();
     this.glowing.clear();
+    this.drawTargets(g);
     if (!offer) return;
     for (const bug of this.sim.entities.ofKind('bug')) {
       if (!bug.bug || bug.bug.mouthful !== null || this.sim.physics.grabbed === bug.id) continue;
@@ -1124,6 +1168,57 @@ export class WorldView extends Container {
           color: 0xffffff,
           alpha: 0.6 * (1 - pulse) + 0.2,
         });
+    }
+  }
+
+  /**
+   * While the player holds a thing (M8): the bench's empty trays and the
+   * cauldron's mouth glow softly nearby, and the one it would go in glows
+   * bright. A potion lights up mouths; a paint drop the bug it would paint.
+   */
+  private drawTargets(g: Graphics): void {
+    const held = this.sim.physics.grabbed;
+    const e = held === null ? undefined : this.sim.entities.get(held);
+    if (!e || e.kind !== 'item') return;
+    const v = this.sim.view(e.id);
+    if (!v) return;
+    const target = this.sim.dropTargetFor(e.id);
+    const pulse = 0.5 + 0.5 * Math.sin(this.time * Math.PI * 4);
+    const ring = (x: number, y: number, r: number, color: number, hot: boolean): void => {
+      g.circle(x, y, r * 1.5).fill({ color, alpha: hot ? 0.16 : 0.06 });
+      g.circle(x, y, r + pulse * (hot ? 6 : 2)).stroke({
+        width: hot ? 4 : 2.5,
+        color,
+        alpha: hot ? 0.95 : 0.45,
+      });
+      if (hot)
+        g.circle(x, y, r + 10 + pulse * 6).stroke({
+          width: 2.5,
+          color: 0xffffff,
+          alpha: 0.5 * (1 - pulse) + 0.2,
+        });
+    };
+    // The bench's trays and the cauldron, when the held thing is close.
+    for (const c of [...this.sim.bench.candidates(), ...this.sim.cauldron.candidates()]) {
+      if (Math.hypot(c.x - v.x, c.y - v.y) > 3.5) continue;
+      const hot = target?.kind === c.kind && target.entityId === c.entityId;
+      ring(
+        c.x * PPM,
+        c.y * PPM,
+        c.kind === 'cauldron' ? 70 : 34,
+        c.kind === 'cauldron' ? 0x9be86b : 0xffd23f,
+        hot,
+      );
+    }
+    if (!target) return;
+    if (target.kind === 'mouth' && this.sim.isPotion(e)) {
+      const m = this.mouthPx(target.entityId);
+      if (m) ring(m.x, m.y, 20, 0x5ee06a, true);
+    }
+    if (target.kind === 'body') {
+      const b = this.sim.view(target.entityId);
+      const paint = this.sim.content.items.get(e.defId).paint;
+      if (b && paint) ring(b.x * PPM, b.y * PPM, this.sizeOf(b.id) + 10, PAINT_HEX[paint] ?? 0xffffff, true);
     }
   }
 
@@ -1153,12 +1248,16 @@ export class WorldView extends Container {
       j.move.t += dt;
       if (j.move.t >= j.move.seconds) j.move = null;
     }
+    // Potions: size, tint, extras, and the pace it moves at (slow-mo runs its clock slow).
+    const potion = potionLook(view.effects, view.scale ?? 1, this.time);
+    j.clock += dt * potion.pace;
+    j.size = easeScale(j.size, potion.scale, dt);
     const pose = bugPose({
       // Sniffing something is standing still; `st_use` on its own is a spring hop.
       mode: bug.mode === 'st_use' && bug.action !== 'bounce' ? 'st_idle' : bug.mode,
-      vx: view.vx,
+      vx: view.vx / j.size.value,
       vy: view.vy,
-      time: this.time,
+      time: j.clock,
       phase: view.id * 1.37,
       walkSpeed: def.speed,
     });
@@ -1293,6 +1392,7 @@ export class WorldView extends Container {
       paint: view.paint ?? bug.paint,
       karate,
     });
+    this.potionBug(sprite, view, j, potion, dt);
     // Snoring: a "Z" drifts up every second and a half.
     if (bug.mode === 'st_sleep') {
       j.snore -= dt;
@@ -1313,6 +1413,208 @@ export class WorldView extends Container {
       }
     }
     this.think(view, j, dt, rim > 0);
+  }
+
+  /** Bugs' wishes for something craftable (M8): what, and until when the hover hint may show. */
+  private readonly wishes = new Map<EntityId, { recipe: string; until: number }>();
+  /** The hint shown while hovering a wishing bug: its ingredients as faint outlines. */
+  private readonly wishHint = new Container();
+  private wishFor: EntityId | null = null;
+  private wishHintT = 0;
+
+  /** M8: potions, crafting, and toys as particles, bubbles, squash, and shake. */
+  private listenPotions(): Array<() => void> {
+    const ev = this.sim.events;
+    const px = (m: number): number => m * PPM;
+    const colorOfPotion = (potion: string | null, fallback = 0xb36bff): number =>
+      potion && this.sim.content.potions.has(potion) ? this.sim.content.potions.get(potion).color : fallback;
+    return [
+      ev.on('potion_started', (e) => {
+        const j = this.juiceFor(e.id);
+        // The "bwoomp": a big squash, a burst in the potion's color, sparkles.
+        j.squash.kick(e.effect === 'tiny' ? 1.25 : 0.7, e.effect === 'tiny' ? 0.8 : 1.35);
+        this.particles.burst(px(e.x), px(e.y), 10, colorOfPotion(e.potion));
+        this.particles.sparkles(px(e.x), px(e.y) - 30, 8);
+      }),
+      ev.on('potion_ended', (e) => {
+        this.particles.sparkles(px(e.x), px(e.y) - 20, 6);
+        if (e.cause === 'dunk') this.particles.bubbles(px(e.x), px(e.y), 6);
+        this.juiceFor(e.id).squash.kick(1.15, 0.88);
+      }),
+      ev.on('potion_drunk', (e) => {
+        const m = this.mouthPx(e.id);
+        if (m) this.particles.sparkles(m.x, m.y, 6);
+      }),
+      ev.on('potion_shattered', (e) => {
+        this.particles.shards(px(e.x), px(e.y), 10);
+        this.particles.drops(px(e.x), px(e.y), 0, -240, e.color, 12);
+        this.particles.splash(px(e.x), px(e.y), 4, 0.3);
+      }),
+      ev.on('potion_fizzled', (e) => {
+        this.particles.puff(px(e.x), px(e.y), 0xffffff, 6, 0, -40, 18);
+        this.particles.sparkles(px(e.x), px(e.y) - 20, 5);
+      }),
+      ev.on('potion_burped', (e) => {
+        const m = this.mouthPx(e.id) ?? { x: px(e.x), y: px(e.y) };
+        this.juiceFor(e.id).squash.kick(1.2, 0.85);
+        if (e.kind === 'burp') this.particles.ring(m.x, m.y, 60);
+        if (e.kind === 'fire') {
+          this.particles.flame(m.x, m.y, e.dir);
+          this.particles.flame(m.x + e.dir * 40, m.y, e.dir);
+        }
+        if (e.kind === 'bubble') this.particles.bubbles(m.x + e.dir * 30, m.y, 8);
+        if (e.kind === 'sludge') {
+          this.particles.puff(m.x, m.y, 0x9ccc4a, 14, e.dir * 60, -40, 30);
+          this.particles.ring(m.x, m.y, 90);
+        }
+      }),
+      ev.on('giant_stomped', (e) => {
+        this.particles.dust(px(e.x), px(e.y) + this.sizeOf(e.id), e.heavy ? 3 : 5);
+        this.shake(e.heavy ? 1 : 2, 0.08);
+      }),
+      ev.on('frost_sneezed', (e) => {
+        const m = this.mouthPx(e.id) ?? { x: px(e.x), y: px(e.y) };
+        this.particles.snow(m.x, m.y, this.facingOf(e.id));
+      }),
+      ev.on('balloon_deflated', (e) => {
+        this.particles.puff(px(e.x), px(e.y), 0xffffff, 8, 0, 0, 16);
+        this.say(e.id, ['exclaim', 'swirl'], 1.6);
+      }),
+      ev.on('shattered', (e) => this.particles.shards(px(e.x), px(e.y), 12)),
+      ev.on('toasted', (e) => this.particles.steam(px(e.x), px(e.y), 5)),
+      ev.on('note_played', (e) => {
+        this.juiceFor(e.id).squash.poke();
+        this.particles.sparkles(px(e.x), px(e.y) - 20, 2);
+      }),
+      ev.on('blob_squeaked', (e) => this.juiceFor(e.id).squash.kick(1.3, 0.75)),
+      ev.on('blob_split', (e) => {
+        this.particles.puff(px(e.x), px(e.y), 0xd6cce8, 10, 0, -30, 22);
+        this.particles.sparkles(px(e.x), px(e.y), 8);
+      }),
+      ev.on('toy_used', (e) => {
+        const j = this.juiceFor(e.id);
+        switch (e.action) {
+          case 'fire':
+            j.squash.kick(0.7, 1.3);
+            this.particles.ring(px(e.x), px(e.y), 50);
+            break;
+          case 'launch':
+            this.particles.puff(px(e.x), px(e.y) + 30, 0xffffff, 10, 0, 60, 22);
+            break;
+          case 'boing':
+            j.squash.kick(1.25, 0.75);
+            break;
+          case 'hang':
+          case 'attach':
+          case 'inflate':
+          case 'deflate':
+            this.particles.sparkles(px(e.x), px(e.y), 5);
+            break;
+          case 'fling':
+            this.particles.dust(px(e.x), px(e.y), 1);
+            break;
+        }
+      }),
+      ev.on('bug_wished', (e) => {
+        const out = this.sim.content.items.tryGet(e.output);
+        if (!out) return;
+        this.wishes.set(e.id, { recipe: e.recipe, until: this.time + 4 });
+        this.bubbles.show(e.id, 'thought', ['food'], 4, out);
+      }),
+    ];
+  }
+
+  /**
+   * Hovering a bug that is wishing for something: its ingredients show as
+   * faint outlines by its bubble for 2 s (section 8, "Bug wishes").
+   */
+  private updateWish(hoverId: EntityId | null, dt: number): void {
+    const wish = hoverId === null ? undefined : this.wishes.get(hoverId);
+    if (wish && wish.until > this.time && this.wishFor !== hoverId) {
+      this.wishFor = hoverId;
+      this.wishHintT = 2;
+      this.wishHint.removeChildren().forEach((c) => c.destroy());
+      const recipe = this.sim.content.recipes.tryGet(wish.recipe);
+      recipe?.inputs.forEach((input) => {
+        const id =
+          typeof input === 'string' ? input : 'anyOf' in input ? input.anyOf[0]! : 'item_moon_pebble';
+        if (!this.sim.content.items.has(id)) return;
+        const s = new ItemSprite(this.sim.content.items.get(id), 5);
+        s.alpha = 0.45;
+        s.scale.set(0.6);
+        this.wishHint.addChild(s);
+      });
+    }
+    if (this.wishFor === null) return;
+    this.wishHintT -= dt;
+    const v = this.sim.view(this.wishFor);
+    if (this.wishHintT <= 0 || !v) {
+      this.wishFor = hoverId !== null && this.wishes.has(hoverId) ? this.wishFor : null;
+      this.wishHint.removeChildren().forEach((c) => c.destroy());
+      if (this.wishHintT <= 0) this.wishFor = null;
+      return;
+    }
+    const r = this.sim.content.bugs.get(v.defId).radius * PPM;
+    const n = this.wishHint.children.length;
+    this.wishHint.children.forEach((c, i) => {
+      c.position.set(v.x * PPM + (i - (n - 1) / 2) * 70, v.y * PPM - r * 2.1 - 150);
+    });
+  }
+
+  /** A potion at work on a bug: its size, color, see-through-ness, extras, and trail. */
+  private potionBug(sprite: BugSprite, view: EntityView, j: Juice, look: PotionLook, dt: number): void {
+    const size = Math.max(0.2, j.size.value);
+    const wob = look.wobble > 0 ? Math.sin(this.time * 16) * 0.07 * look.wobble : 0;
+    sprite.scale.set(
+      size * (1 + 0.35 * look.round + wob),
+      size * (1 + 0.5 * look.round - wob) * (look.flipY ? -1 : 1),
+    );
+    sprite.alpha = look.alpha;
+    if (look.tint !== null)
+      sprite.tint = sprite.tint === 0xffffff ? look.tint : mix(sprite.tint as number, look.tint, 0.5);
+    if (look.extras.size === 0 && !look.trail && !look.glow) return;
+    const r = this.sim.content.bugs.get(view.defId).radius * PPM * size;
+    const d = {
+      x: view.x * PPM,
+      y: view.y * PPM,
+      r,
+      facing: view.bug!.facing,
+      time: this.time,
+      body: sprite.def.body,
+      speed: Math.hypot(view.vx, view.vy),
+      seed: view.id,
+    };
+    drawPotionBehind(this.behind, look, d);
+    drawPotionOver(this.over, look, d);
+    j.trailIn -= dt;
+    if (!look.trail || j.trailIn > 0) return;
+    const moving = d.speed > 0.6;
+    switch (look.trail) {
+      case 'rainbow':
+        if (!moving) return;
+        j.trailIn = 0.05;
+        this.trails.trail(
+          d.x,
+          d.y + r * 0.6,
+          RAINBOW[Math.floor(this.time * 20) % RAINBOW.length]!,
+          r * 0.35,
+        );
+        return;
+      case 'smoke':
+        if (!moving) return;
+        j.trailIn = 0.06;
+        this.particles.puff(d.x, d.y + r * 0.8, 0xd8d8e0, 2, 0, 40, 14);
+        return;
+      case 'speed':
+        if (!moving) return;
+        j.trailIn = 0.05;
+        this.trails.trail(d.x - Math.sign(view.vx) * r, d.y, 0xffffff, r * 0.25);
+        return;
+      case 'sparkle':
+        j.trailIn = 0.35;
+        this.particles.sparkles(d.x, d.y + r * (look.flipY ? -1 : 1), 2);
+        return;
+    }
   }
 
   /**
@@ -1684,6 +1986,13 @@ function makeLives(sim: Sim): AreaLive[] {
   if (porch) out.push(new PorchLive(porch));
   if (compost) out.push(new CompostLive(compost));
   if (arcade) out.push(new ArcadeLive(arcade));
+  const fixture = (kind: FixtureDef['kind']): FixtureDef | undefined =>
+    sim.content.areas.all.flatMap((a) => a.fixtures ?? []).find((f) => f.kind === kind);
+  const bench = fixture('tinker_bench');
+  const lever = fixture('bench_lever');
+  if (porch && bench && lever) out.push(new BenchLive(porch, bench, lever));
+  const cauldron = fixture('cauldron');
+  if (compost && cauldron) out.push(new CauldronLive(compost, cauldron, fixture('bug_scope') ?? null));
   const sunflower = sim.barriers.barrier('sunflower');
   if (sunflower) out.push(new SunflowerLive(sunflower));
   const tunnel = sim.barriers.barrier('can_tunnel');

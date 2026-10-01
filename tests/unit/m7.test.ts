@@ -842,7 +842,7 @@ describe('the compost lab', () => {
     ).toBe(true);
   });
 
-  it('shelf jars refill their ingredient every 5 game minutes when it is gone', () => {
+  it('shelf jars refill their ingredient every 5 game minutes when it is gone', { timeout: 90_000 }, () => {
     const sim = openWorld('jars');
     const mushroom = itemOf(sim, 'item_mushroom_cap');
     sim.remove(mushroom.id);

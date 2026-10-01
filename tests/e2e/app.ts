@@ -278,6 +278,16 @@ export async function lookAt(page: Page, x: number): Promise<void> {
   await page.evaluate(() => window.__bb!.isPaused() && window.__bb!.frames(2));
 }
 
+/**
+ * Staging: put the camera at world x at once (for tests about something
+ * else than scrolling), and step two frames so the area there wakes.
+ */
+export async function jumpTo(page: Page, x: number): Promise<void> {
+  await page.evaluate((v) => window.__bb!.cameraTo(v), x);
+  await page.waitForTimeout(100);
+  await page.evaluate(() => window.__bb!.isPaused() && window.__bb!.frames(2));
+}
+
 export type UiName = Parameters<TestHook['uiClient']>[0];
 
 /** Where a named UI control is once it has stopped moving (boards drop in with a bounce). */

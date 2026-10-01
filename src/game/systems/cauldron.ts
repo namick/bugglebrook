@@ -198,7 +198,8 @@ export class Cauldron {
     const m = this.mouth();
     if (!m || !this.ready()) return;
     if (this.bubbling && sim.tick >= this.state.brewAt) this.finish();
-    // Anything falling into the mouth goes in; bugs splash and hop out.
+    // Anything falling into the mouth goes in; bugs splash and hop out. Checked every other step.
+    if (sim.tick % 2 !== 0) return;
     for (const e of sim.entities.all()) {
       if (sim.isSleeping(e.id) || sim.physics.grabbed === e.id || !sim.physics.isActive(e.id)) continue;
       const s = sim.physics.getState(e.id);
@@ -215,6 +216,12 @@ export class Cauldron {
       if (sim.tick - (this.poppedAt.get(e.id) ?? -999) < 45) continue;
       this.add(e);
     }
+  }
+
+  /** A bottle just popped out: it neither falls back in nor breaks where it lands. */
+  fresh(id: EntityId): boolean {
+    const at = this.poppedAt.get(id);
+    return at !== undefined && this.sim.tick - at < 120;
   }
 
   /** Bottles that just popped out, so they do not fall straight back in. */
@@ -234,7 +241,7 @@ export class Cauldron {
     const bottle = sim.spawn('item', defId, m.x, m.y - 0.6);
     bottle.brew = b;
     const dir = this.state.brewed % 2 === 0 ? -1 : 1;
-    sim.physics.setVelocity(bottle.id, dir * 2.8, -6.5);
+    sim.physics.setVelocity(bottle.id, dir * 2.4, -4.5);
     this.poppedAt.set(bottle.id, sim.tick);
     const triple = !!b.potion && sim.content.potions.get(b.potion).recipe.length === 3;
     sim.events.emit('potion_brewed', {

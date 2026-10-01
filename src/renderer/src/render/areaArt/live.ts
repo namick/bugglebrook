@@ -43,6 +43,11 @@ export interface AreaFrame {
   hand: { x: number; y: number } | null;
   particles: Particles;
   sound: (name: AreaSound, strength: number) => void;
+  /**
+   * A fixture the hand is working (M8): pulling the bench's lever down
+   * (`amount` 0 to 1), or stirring the cauldron (`angle` of the ladle).
+   */
+  drag?: { kind: 'lever' | 'stir'; amount: number; angle: number } | null;
 }
 
 /**

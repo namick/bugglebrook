@@ -3,11 +3,11 @@ import type { Sim } from '../../../game/sim';
 import type { Camera, Point } from '../render/camera';
 import { dialMinutes } from '../render/fixtureArt';
 
-/** `dial` is turning the sundial's rim. */
-export type PointerMode = 'none' | 'hold' | 'pan' | 'dial';
+/** `dial` is turning the sundial's rim; `lever` pulls the bench's lever; `stir` goes round the cauldron. */
+export type PointerMode = 'none' | 'hold' | 'pan' | 'dial' | 'lever' | 'stir';
 
 /** Input gestures that make a sound but are not sim events. */
-export type Gesture = 'hover' | 'swish' | 'pan' | 'scroll' | 'edge' | 'dial';
+export type Gesture = 'hover' | 'swish' | 'pan' | 'scroll' | 'edge' | 'dial' | 'lever' | 'stir';
 
 /** Fling velocity is the cursor's average over this window (game design doc, section 2). */
 export const FLING_WINDOW_MS = 80;
@@ -150,6 +150,18 @@ export class PointerController {
   private panVelocity = 0;
   /** The sundial being turned: its centre (world px), where the pointer was, and how far forward it has gone. */
   private dial: { cx: number; cy: number; last: Point; net: number; best: number } | null = null;
+  /** The bench's lever being pulled: where the press began, how far down, and whether it fired. */
+  private lever: { start: Point; amount: number; pulled: boolean } | null = null;
+  /** The cauldron being stirred: its middle (world m), the ladle's last angle, and turning not yet sent. */
+  private stir: { cx: number; cy: number; angle: number; unsent: number; swept: number } | null = null;
+  private stirSound = 0;
+
+  /** The fixture the hand is working right now, for the views (the lever's pull, the ladle's angle). */
+  get fixtureDrag(): { kind: 'lever' | 'stir'; amount: number; angle: number } | null {
+    if (this.mode === 'lever' && this.lever) return { kind: 'lever', amount: this.lever.amount, angle: 0 };
+    if (this.mode === 'stir' && this.stir) return { kind: 'stir', amount: 0, angle: this.stir.angle };
+    return null;
+  }
   private dialSound = 0;
 
   constructor(
@@ -192,6 +204,20 @@ export class PointerController {
     if (hit !== null) {
       this.mode = 'hold';
       this.sim.send({ type: 'grab', x: world.x, y: world.y });
+    } else if (fixture?.kind === 'bench_lever') {
+      // The clothespin lever: pull it down to work the bench.
+      this.mode = 'lever';
+      this.lever = { start: world, amount: 0, pulled: false };
+    } else if (fixture?.kind === 'cauldron') {
+      // The ladle: go round and round to stir.
+      this.mode = 'stir';
+      this.stir = {
+        cx: fixture.x,
+        cy: fixture.y,
+        angle: Math.atan2((world.y - fixture.y) * 2, world.x - fixture.x),
+        unsent: 0,
+        swept: 0,
+      };
     } else if (fixture?.kind === 'sundial') {
       // The sundial's rim: turning it clockwise moves time forward.
       this.mode = 'dial';
@@ -290,6 +316,40 @@ export class PointerController {
         }
       }
     }
+    if (this.mode === 'lever' && this.lever) {
+      const l = this.lever;
+      const w = this.hoverWorld;
+      // Down (and a little outward) pulls it; 0.9 m of pull is all the way.
+      l.amount = Math.min(1, Math.max(0, (w.y - l.start.y) / 0.9 + Math.max(0, w.x - l.start.x) * 0.25));
+      if (!l.pulled && l.amount >= 0.85) {
+        l.pulled = true;
+        this.sim.send({ type: 'pull_lever' });
+        this.gesture('lever');
+      }
+    }
+    if (this.mode === 'stir' && this.stir) {
+      const st = this.stir;
+      const w = this.hoverWorld;
+      // The pot is seen from the side: squash the circle so stirring feels round.
+      const a = Math.atan2((w.y - st.cy) * 2, w.x - st.cx);
+      let d = a - st.angle;
+      if (d > Math.PI) d -= Math.PI * 2;
+      if (d < -Math.PI) d += Math.PI * 2;
+      st.angle = a;
+      if (this.travelled > POKE_PX) {
+        st.unsent += d;
+        st.swept += Math.abs(d);
+        if (Math.abs(st.unsent) > 0.15) {
+          this.sim.send({ type: 'stir', radians: st.unsent });
+          st.unsent = 0;
+        }
+        if (st.swept > 0.8 && t - this.stirSound > 140) {
+          this.stirSound = t;
+          st.swept = 0;
+          this.gesture('stir', 0.6);
+        }
+      }
+    }
     if (this.mode === 'pan') {
       const dxMeters = (view.x - this.panLastX) / this.camera.ppm;
       this.camera.panBy(-dxMeters);
@@ -339,6 +399,15 @@ export class PointerController {
           this.sim.send({ type: 'release', vx: v.x, vy: v.y });
         }
       }
+    }
+    if (this.mode === 'lever' || this.mode === 'stir') {
+      const click = t - this.pressAt <= POKE_MS && this.travelled <= POKE_PX;
+      // A click pulls the lever, or tips the cauldron over.
+      if (click) this.sim.send({ type: 'poke', x: this.pressWorld.x, y: this.pressWorld.y });
+      else if (this.stir && Math.abs(this.stir.unsent) > 0.01)
+        this.sim.send({ type: 'stir', radians: this.stir.unsent });
+      this.lever = null;
+      this.stir = null;
     }
     if (this.mode === 'dial') {
       const click = t - this.pressAt <= POKE_MS && this.travelled <= POKE_PX;

@@ -117,7 +117,10 @@ export type SfxName =
   | 'leaf_rustle'
   | 'scratch'
   | 'tulip_hum'
-  | 'peek_twig';
+  | 'peek_twig'
+  // M8: the bench's lever and the cauldron's ladle (gestures).
+  | 'lever'
+  | 'stir';
 
 /**
  * The impact sound for a material. Soft materials (cloth, paper) thud like
@@ -838,6 +841,15 @@ export class Sfx {
             { freq: 1500 * j, to: 900 * j, dur: 0.03, wave: 'noise', q: 6, gain: 0.18 * intensity },
             { freq: 320 * j, to: 260 * j, dur: 0.04, wave: 'triangle', gain: 0.08 * intensity },
           ];
+        case 'lever':
+          // The clothespin lever snaps down: a woody clack and a spring's boing.
+          return [
+            { freq: 900 * j, to: 300 * j, dur: 0.05, wave: 'noise', q: 5, gain: 0.2 },
+            { freq: 180 * j, to: 360 * j, dur: 0.22, wave: 'triangle', gain: 0.12, delay: 0.03 },
+          ];
+        case 'stir':
+          // A slosh round the pot.
+          return [{ freq: 500 * j, to: 260 * j, dur: 0.26, wave: 'noise', q: 2, gain: 0.08 * intensity }];
         case 'dial_done':
           return [
             { freq: 660 * j, dur: 0.12, wave: 'sine', gain: 0.14 },

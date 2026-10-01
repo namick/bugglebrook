@@ -1047,12 +1047,24 @@ export class Sim {
       this.events.emit('bug_used', { id: bug.id, defId: bug.defId, targetId: toyId, action: 'bounce' });
   }
 
+  private basketCache: { tick: number; list: Entity[] } | null = null;
+
+  /** Balloon baskets in the world, found once a step. */
+  private baskets(): Entity[] {
+    if (this.basketCache?.tick !== this.tick)
+      this.basketCache = {
+        tick: this.tick,
+        list: this.entities.ofKind('item').filter((e) => this.content.items.get(e.defId).toy === 'basket'),
+      };
+    return this.basketCache.list;
+  }
+
   /** How fast the toy a bug stands on is moving, so the bug goes along with it. */
   private rideVelocity(id: EntityId): { x: number; y: number; moving: boolean; aloft: boolean } {
     // Inside a balloon basket that is off the ground, it is carried, touching the floor or not.
     const bs = this.physics.getState(id);
-    for (const basket of this.entities.ofKind('item')) {
-      if (this.content.items.get(basket.defId).toy !== 'basket' || this.isSleeping(basket.id)) continue;
+    for (const basket of this.baskets()) {
+      if (this.isSleeping(basket.id)) continue;
       const k = this.physics.getState(basket.id);
       if (Math.abs(bs.x - k.x) > 0.66 || bs.y > k.y + 0.8 || bs.y < k.y - 0.4) continue;
       if (!this.physics.isSupported(basket.id) && this.physics.grabbed !== basket.id)
@@ -2787,7 +2799,7 @@ export class Sim {
         if (def && !breaks.has(self) && this.physics.grabbed !== self) {
           const otherBug = hit?.kind === 'bug';
           const breaksHere =
-            (this.isPotion(entity) && impact.speed >= SHATTER_SPEED) ||
+            (this.isPotion(entity) && impact.speed >= SHATTER_SPEED && !this.cauldron.fresh(self)) ||
             (def.shatters !== undefined &&
               impact.speed >= def.shatters.speed &&
               !(otherBug && def.shatters.speed >= 10));

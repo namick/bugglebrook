@@ -215,6 +215,19 @@ export class ItemSprite extends Container {
     }
   }
 
+  /**
+   * A potion bottle's brew color (M8): bottles from the cauldron carry their
+   * own (a mix, a paint color). Bottles redraw their liquid when it changes.
+   */
+  setLiquid(color: number): void {
+    if (this.liquid === color) return;
+    this.liquid = color;
+    this.onLiquid?.(color);
+  }
+  private liquid: number | null = null;
+  /** Set by potion art to redraw the liquid. */
+  protected onLiquid: ((color: number) => void) | null = null;
+
   /** Show or hide the hover rim; `pulse` is its opacity (60 to 100 percent). */
   setRim(on: boolean, pulse = 1): void {
     this.rim.visible = on;

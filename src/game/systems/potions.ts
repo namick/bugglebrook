@@ -25,8 +25,8 @@ import { PAINT_SLOTS } from './places';
 export const MAX_EFFECTS = 2;
 /** A splash from a shattered bottle lasts half as long as a drink. */
 export const SPLASH_SCALE = 0.5;
-/** Bottles break on anything they hit at 7 m/s or more. */
-export const SHATTER_SPEED = 7;
+/** Bottles break on anything they hit at 9 m/s (900 px/s) or more: a throw, not a drop. */
+export const SHATTER_SPEED = 9;
 /** A wobble potion flips every 2 s. */
 export const WOBBLE_TICKS = 2 * SIM_HZ;
 /** Effects that work on things, not just bugs. */
