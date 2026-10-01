@@ -2,6 +2,7 @@ import type { Graphics } from 'pixi.js';
 import { CHEEK, OUTLINE, darken, lighten, stroke } from '../../palette';
 import type { BugFrame } from '../bug';
 import { drawMouth } from '../face';
+import { mooseFlail } from '../../pendingLife';
 import { BasePainter } from './base';
 import type { Adjust, AntennaSpring, Box, LegPose, Pt } from './common';
 import { RIM, bezierAt, dome, eyePair, springAntenna, tintHead, tube, walkLegs } from './common';
@@ -12,6 +13,9 @@ import { RIM, bezierAt, dome, eyePair, springAntenna, tintHead, tube, walkLegs }
  * on his back with his legs waving, and lifts heavy things over his head.
  */
 export class StagbeetlePainter extends BasePainter {
+  /** The stuck legs' wave phase: it speeds up in bursts, so it is integrated, not read off the clock. */
+  private wave = 0;
+  private waveAt = 0;
   /** Stuck on his back, the body is mirrored about this line (its shell rests on the ground). */
   private get flipLine(): number {
     return this.r * 0.46;
@@ -178,6 +182,11 @@ export class StagbeetlePainter extends BasePainter {
       [r * 0.32, y(r * 0.48)],
     ];
     const farShift: Pt = [r * 0.12, stuck ? r * 0.04 : -r * 0.04];
+    // Stuck: bursts of frantic flailing, then tired little waves.
+    const flail = mooseFlail(frame.time, 0);
+    this.life = stuck ? flail.amp : 0;
+    if (stuck) this.wave += Math.min(0.25, Math.max(0, frame.time - this.waveAt)) * 7.5 * flail.speed;
+    this.waveAt = frame.time;
     walkLegs(this.L.legsBack, this.L.legsFront, frame, {
       r,
       hips,
@@ -192,10 +201,10 @@ export class StagbeetlePainter extends BasePainter {
         const hip: Pt = far ? [base[0] + farShift[0], base[1] + farShift[1]] : base;
         if (stuck) {
           // Legs waving helplessly in the air.
-          const ph = frame.time * 7.5 + i * 1.9 + (far ? 2.4 : 0);
+          const ph = this.wave + i * 1.9 + (far ? 2.4 : 0);
           const foot: Pt = [
-            hip[0] + Math.sin(ph) * r * 0.3 + (i - 1) * r * 0.2,
-            -r * 0.62 + Math.cos(ph) * r * 0.16,
+            hip[0] + Math.sin(ph) * r * 0.3 * flail.amp + (i - 1) * r * 0.2,
+            -r * 0.62 + Math.cos(ph) * r * 0.16 * flail.amp - (1 - flail.amp) * r * 0.1,
           ];
           const knee: Pt = [(hip[0] + foot[0]) / 2 + (i - 1) * r * 0.18, (hip[1] + foot[1]) / 2 + r * 0.08];
           return { hip, knee, foot };
@@ -251,7 +260,7 @@ export class StagbeetlePainter extends BasePainter {
     g.circle(hx + hrx * 0.62, hy + hry * 0.3, r * 0.06).fill({ color: CHEEK, alpha: f.blush ? 0.95 : 0.55 });
     drawMouth(g, hx + hrx * 0.18, hy + hry * 0.42, r * 0.24, f.mouth, frame.time, 0xffd0b8, 3.5);
     return {
-      tilt: stuck ? Math.sin(frame.time * 2.4) * 0.07 : 0,
+      tilt: stuck ? Math.sin(frame.time * 2.4) * 0.05 + flail.rock : 0,
       bob: 0,
       still: false,
     };

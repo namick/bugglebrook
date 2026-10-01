@@ -2,6 +2,7 @@ import type { Graphics } from 'pixi.js';
 import { CHEEK, OUTLINE, darken, lighten, mix, stroke } from '../../palette';
 import type { BugFrame } from '../bug';
 import { drawEye, drawMouth } from '../face';
+import { bartyFiddle } from '../../pendingLife';
 import { BasePainter } from './base';
 import type { Adjust, AntennaSpring, Box, LegPose, Pt } from './common';
 import { RIM, dome, eyePair, limb, rigLook, springAntenna, tintHead, walkLegs } from './common';
@@ -164,6 +165,9 @@ export class DungbeetlePainter extends BasePainter {
     this.drawShell();
     const rolling = !!frame.rolling && !frame.pose.flail;
     const aloof = frame.pending === 'aloof' && !frame.pose.flail;
+    // Aloof, he fiddles while he waits: taps a foot, polishes a feeler, glances about.
+    const fid = aloof ? bartyFiddle(frame.time, 0) : { tap: 0, preen: 0, glance: 0 };
+    this.life = Math.max(fid.tap, fid.preen, Math.abs(fid.glance));
     const hips: Pt[] = [
       [-r * 0.62, r * 0.48],
       [-r * 0.18, r * 0.52],
@@ -207,6 +211,20 @@ export class DungbeetlePainter extends BasePainter {
           knees[far ? 0 : 1] = leg.knee;
           return leg;
         }
+        if (i === 2 && aloof && !far && fid.preen > 0) {
+          const rub = Math.sin(frame.time * 16) * r * 0.05 * fid.preen;
+          return {
+            hip,
+            knee: [hip[0] + r * 0.3 * fid.preen + r * 0.1, hip[1] - r * 0.1 * fid.preen],
+            foot: [hip[0] + r * (0.3 + 0.32 * fid.preen) + rub, r - fid.preen * r * 1.05],
+          };
+        }
+        if (i === 2 && aloof && !far && fid.tap > 0)
+          return {
+            hip,
+            knee: [hip[0] + r * 0.2, hip[1] + r * 0.12 - fid.tap * r * 0.14],
+            foot: [hip[0] + r * 0.34, r - fid.tap * r * 0.18],
+          };
         if (i === 2 && frame.carrying && !rolling)
           return { hip, knee: [r * 0.72, r * 0.32], foot: [r * 0.98, -r * 0.08] };
         return null;
@@ -270,7 +288,9 @@ export class DungbeetlePainter extends BasePainter {
     const g = this.L.face;
     const f = frame.face;
     tintHead(g, f.tint, r * 0.88, r * 0.14, r * 0.38, r * 0.32);
-    const look = aloof ? { x: 0.3, y: -0.85 } : rigLook(frame);
+    const look = aloof
+      ? { x: 0.3 + fid.glance * 0.6, y: -0.85 + Math.abs(fid.glance) * 0.55 }
+      : rigLook(frame);
     eyePair(
       g,
       frame,

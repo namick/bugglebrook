@@ -10,6 +10,8 @@ export abstract class BasePainter implements SpeciesPainter {
   readonly foot: number;
   readonly curls: boolean = false;
   protected readonly L: SpeciesLayers;
+  /** How strong a waiting bug's sign of life is this frame, 0 to 1 (test hook). */
+  life = 0;
 
   constructor(args: PainterArgs, foot = args.r) {
     this.def = args.def;
