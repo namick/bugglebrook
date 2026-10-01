@@ -2,7 +2,7 @@ import { Container, Graphics } from 'pixi.js';
 import type { Renderer } from 'pixi.js';
 import { PIXELS_PER_METER, VIEW_WIDTH_PX } from '../../../game/constants';
 import type { EntityId } from '../../../game/core/entities';
-import type { ChatTopic, Fidget, Liking } from '../../../game/events';
+import type { Liking } from '../../../game/events';
 import type { EntityView, Sim } from '../../../game/sim';
 import { likingOf } from '../../../game/systems/bugAi';
 import { Background } from './background';
@@ -47,8 +47,15 @@ import type { PotionLook } from './potionLooks';
 import { drawPotionBehind, drawPotionOver } from './potionView';
 import { hourOf } from '../../../game/systems/sky';
 import type { SkyExtras } from './background';
+import {
+  listen as _listen,
+  listenSocial as _listenSocial,
+  listenWater as _listenWater,
+  listenSky as _listenSky,
+  listenPotions as _listenPotions,
+} from './worldViewEvents';
 
-const PPM = PIXELS_PER_METER;
+export const PPM = PIXELS_PER_METER;
 
 /** Mouth glow colors while the player holds food (game design doc, section 2). */
 export const GLOW: Readonly<Record<Liking, number>> = {
@@ -131,7 +138,7 @@ export class WorldView extends Container {
   /** The sundial, the weather vane, and the knothole's eyes. */
   readonly fixtures: FixtureArt;
   /** The weather's look right now, eased so changes roll in. */
-  private weatherMix: WeatherMix = NO_WEATHER;
+  weatherMix: WeatherMix = NO_WEATHER;
 
   /** How much of each weather shows right now (eased), for tests. */
   get weatherAmount(): WeatherMix {
@@ -139,7 +146,7 @@ export class WorldView extends Container {
   }
   /** The current look, for tests and the thumbnail. */
   look: SkyLook = skyLook(9);
-  private shooting: { x: number; y: number; dir: 1 | -1; age: number }[] = [];
+  shooting: { x: number; y: number; dir: 1 | -1; age: number }[] = [];
   private readonly shadows = new Graphics();
   private readonly entityLayer = new Container();
   /** Mouth glows, over the bugs. */
@@ -159,11 +166,11 @@ export class WorldView extends Container {
   onSound: ((name: 'pop' | 'trickle' | 'snore', strength: number) => void) | null = null;
   private trickleIn = 0;
   /** Where each weld sits on its two bodies, so the goo blob follows them. */
-  private readonly welds = new Map<string, { la: Point; lb: Point }>();
-  private readonly sprites = new Map<EntityId, BugSprite | ItemSprite>();
+  readonly welds = new Map<string, { la: Point; lb: Point }>();
+  readonly sprites = new Map<EntityId, BugSprite | ItemSprite>();
   private readonly juice = new Map<EntityId, Juice>();
-  private readonly offs: Array<() => void> = [];
-  private time = 0;
+  readonly offs: Array<() => void> = [];
+  time = 0;
   private shakeLeft = 0;
   private shakePower = 0;
   private reduced = false;
@@ -174,7 +181,7 @@ export class WorldView extends Container {
   readonly glowing = new Map<EntityId, Liking>();
 
   constructor(
-    private readonly sim: Sim,
+    readonly sim: Sim,
     private readonly pointer: PointerSource | null = null,
     renderer: Renderer | null = null,
   ) {
@@ -307,7 +314,7 @@ export class WorldView extends Container {
     return { x: this.world.position.x, y: this.world.position.y };
   }
 
-  private juiceFor(id: EntityId): Juice {
+  juiceFor(id: EntityId): Juice {
     let j = this.juice.get(id);
     if (!j) {
       j = {
@@ -338,25 +345,25 @@ export class WorldView extends Container {
   }
 
   /** A bug's mouth in world pixels. */
-  private mouthPx(id: EntityId): Point | null {
+  mouthPx(id: EntityId): Point | null {
     const m = this.sim.mouthAnchor(id);
     return m ? { x: m.x * PPM, y: m.y * PPM } : null;
   }
 
-  private facingOf(id: EntityId): 1 | -1 {
+  facingOf(id: EntityId): 1 | -1 {
     return this.sim.entities.get(id)?.bug?.facing ?? 1;
   }
 
-  private itemColor(defId: string): number {
+  itemColor(defId: string): number {
     return this.sim.content.items.has(defId) ? this.sim.content.items.get(defId).color : 0xe8334a;
   }
 
-  private hasTag(defId: string, tag: string): boolean {
+  hasTag(defId: string, tag: string): boolean {
     return this.sim.content.items.has(defId) && this.sim.content.items.get(defId).tags.includes(tag);
   }
 
   /** Show a speech bubble for a bug. `friend` is a bug def to picture. */
-  private say(
+  say(
     id: EntityId,
     pictos: readonly Picto[],
     seconds: number,
@@ -369,7 +376,7 @@ export class WorldView extends Container {
   }
 
   /** Play a body move on a bug for a while (a fidget or a pat). */
-  private moveBug(id: EntityId, move: Move, seconds: number): void {
+  moveBug(id: EntityId, move: Move, seconds: number): void {
     this.juiceFor(id).move = { move, t: 0, seconds };
   }
 
@@ -377,160 +384,12 @@ export class WorldView extends Container {
     return this.sim.entities.get(id)?.defId ?? null;
   }
 
-  private listen(): void {
-    const ev = this.sim.events;
-    const px = (m: number): number => m * PPM;
-    this.offs.push(...this.listenPotions());
-    this.offs.push(
-      ev.on('item_grabbed', (e) => {
-        this.juiceFor(e.id).squash.grab();
-        this.particles.dust(px(e.x), px(e.y) + 20, 2);
-      }),
-      ev.on('item_dropped', (e) => {
-        if (e.flung) this.juiceFor(e.id).flying = 3;
-      }),
-      // A forced change (tests, debugging) shows at once: no rain left falling from before.
-      ev.on('weather_changed', (e) => {
-        if (e.forced) this.weatherMix = weatherTarget(e.weather);
-      }),
-      // Something lost out of the world drops back in from the sky: a puff where it appears.
-      ev.on('entity_returned', (e) => {
-        const y = px(Math.max(e.y, 0.4));
-        this.particles.puff(px(e.x), y, 0xffffff, 7, 0, 30, 22);
-        this.particles.sparkles(px(e.x), y, 5);
-      }),
-      ev.on('bonked', (e) => {
-        const j = this.juiceFor(e.id);
-        if (e.kind === 'item') j.squash.land(e.speed * 0.6);
-        const size = this.sizeOf(e.id);
-        // No dust in or on the water (lily pads, ice).
-        if (!this.sim.environment.waterAt(e.x)) this.particles.dust(px(e.x), px(e.y) + size, e.speed);
-        if (e.kind === 'bug' && e.speed >= 14) this.shake(3, 0.12);
-      }),
-      ev.on('bug_landed', (e) => {
-        this.juiceFor(e.id).squash.land(Math.max(6, e.speed));
-      }),
-      ev.on('bug_dizzy', (e) => {
-        const v = this.sim.view(e.id);
-        if (v) this.particles.stars(px(v.x), px(v.y) - this.sizeOf(e.id));
-        if (e.speed >= 16) this.shake(4, 0.16);
-        this.say(e.id, ['swirl', 'star'], Math.min(3, e.durationTicks / 60));
-      }),
-      ev.on('bug_poked', (e) => {
-        this.juiceFor(e.id).squash.poke();
-        this.particles.ring(px(e.x), px(e.y), 36);
-        this.particles.sparkles(px(e.x), px(e.y) - 30, 3);
-      }),
-      ev.on('item_poked', (e) => {
-        this.juiceFor(e.id).squash.poke();
-        this.particles.ring(px(e.x), px(e.y), 24);
-      }),
-      ev.on('bug_hopped', (e) => {
-        this.juiceFor(e.id).squash.kick(0.85, 1.18);
-        this.particles.dust(px(e.x), px(e.y) + this.sizeOf(e.id), 1);
-      }),
-      ev.on('spring_bounced', (e) => {
-        const sprite = this.sprites.get(e.id);
-        if (sprite instanceof ItemSprite) sprite.squish(0.7);
-        this.juiceFor(e.targetId).squash.kick(0.75, 1.3);
-        this.juiceFor(e.targetId).flying = 2;
-        this.particles.burst(px(e.x), px(e.y) - 30, 5, 0xffffff, Math.PI * 0.9, -Math.PI / 2);
-      }),
-      ev.on('bug_chose_action', (e) => this.intent(e.id, e.action, e.targetId)),
-      ev.on('bug_reacted', (e) => this.react(e.id, e.defId, e.reaction, e.variant)),
-      ev.on('bug_fed', (e) => {
-        const j = this.juiceFor(e.id);
-        j.chewing = 0;
-        j.food = e.itemDefId;
-        j.squash.kick(1.12, 0.9);
-        const m = this.mouthPx(e.id);
-        if (!m) return;
-        this.particles.crumbs(m.x, m.y, this.itemColor(e.itemDefId));
-        if (e.liking === 'disliked') {
-          this.particles.puff(m.x, m.y - 10, 0xb8e986, 3, 0, -40, 10);
-          this.say(e.id, ['exclaim', 'sweat'], 0.9);
-        } else if (e.liking === 'loved') this.particles.hearts(m.x, m.y - 30, 2);
-      }),
-      ev.on('bug_ate', (e) => {
-        const j = this.juiceFor(e.id);
-        j.chewing = -1;
-        j.squash.kick(1.15, 0.9);
-        const m = this.mouthPx(e.id) ?? { x: px(e.x), y: px(e.y) };
-        this.particles.crumbs(m.x, m.y, this.itemColor(e.itemDefId));
-        const dir = this.facingOf(e.id);
-        if (this.hasTag(e.itemDefId, 'tag_hot')) {
-          // Dot's weird favorite: she breathes a flame puff.
-          this.particles.flame(m.x + dir * 10, m.y, dir);
-          this.particles.puff(m.x + dir * 30, m.y - 20, 0x9a9aa6, 4, dir * 60, -80, 14);
-          j.hot = 1.8;
-        }
-        if (this.hasTag(e.itemDefId, 'tag_cold')) {
-          this.particles.snow(m.x + dir * 8, m.y, dir);
-          this.particles.puff(m.x + dir * 20, m.y, 0xd6f0ff, 4, dir * 90, -20, 12);
-        }
-      }),
-      ev.on('bug_spat', (e) => {
-        const j = this.juiceFor(e.id);
-        j.chewing = -1;
-        const sneeze = this.hasTag(e.itemDefId, 'tag_cold');
-        j.squash.kick(sneeze ? 0.8 : 1.2, sneeze ? 1.25 : 0.85);
-        const vx = px(e.vx);
-        const vy = px(e.vy);
-        this.particles.drops(
-          px(e.x),
-          px(e.y),
-          vx * 0.6,
-          vy * 0.5,
-          sneeze ? 0xd6f0ff : 0xc9f0a0,
-          sneeze ? 14 : 7,
-        );
-        this.particles.ring(px(e.x), px(e.y), 22);
-        this.particles.burst(px(e.x), px(e.y), 4, 0xffffff, 0.9, Math.atan2(vy, vx));
-        if (sneeze) this.particles.puff(px(e.x), px(e.y), 0xffffff, 5, vx * 0.3, -30, 14);
-      }),
-      ev.on('bug_burped', (e) => {
-        const dir = this.facingOf(e.id);
-        this.juiceFor(e.id).squash.kick(1.2, 0.85);
-        // BRAAP: a big yellow-green cloud rolling out of the mouth, a shock ring, bubbles.
-        this.particles.ring(px(e.x) + dir * 12, px(e.y), 40);
-        this.particles.puff(px(e.x) + dir * 18, px(e.y) - 4, 0xd4e38a, 9, dir * 120, -45, 22);
-        this.particles.bubbles(px(e.x) + dir * 14, px(e.y) - 10, 5);
-        // Soap comes back up as real soap bubbles.
-        const food = this.juiceFor(e.id).food;
-        if (food && this.hasTag(food, 'tag_soapy'))
-          this.soapBubbles.blow(px(e.x) + dir * 20, px(e.y) - 10, 7);
-        this.say(e.id, ['dots', 'sweat'], 1.1);
-      }),
-      ev.on('bug_tickled', (e) => {
-        const v = this.sim.view(e.id);
-        if (v) this.particles.sparkles(px(v.x), px(v.y) - this.sizeOf(e.id), 2 + e.level * 2);
-        this.juiceFor(e.id).squash.kick(1.1, 0.92);
-        this.say(
-          e.id,
-          e.level >= 3 ? ['laugh', 'laugh', 'laugh'] : e.level === 2 ? ['laugh', 'laugh'] : ['laugh'],
-          1.1,
-        );
-      }),
-      ev.on('bug_wriggled_free', (e) => {
-        this.juiceFor(e.id).squash.kick(0.8, 1.25);
-        this.particles.burst(px(e.x), px(e.y), 8, 0xffffff);
-      }),
-      ev.on('item_shaken', (e) => {
-        this.juiceFor(e.id).squash.kick(1.2, 0.85);
-        this.particles.burst(px(e.x), px(e.y), 6, 0xffffff);
-        if (e.kind === 'bug') {
-          const r = this.sim.content.bugs.get(e.defId);
-          this.say(e.id, r.dizzyProof ? ['dots'] : ['swirl'], 1.2);
-        }
-      }),
-      ev.on('entity_removed', (e) => this.drop(e.id)),
-      ...this.listenWater(),
-      ...this.listenSocial(),
-    );
+  listen(): void {
+    _listen(this);
   }
 
   /** What a bug is off to do, shown as a quick bubble so players can read its plan. */
-  private intent(id: EntityId, action: string, targetId: EntityId | null): void {
+  intent(id: EntityId, action: string, targetId: EntityId | null): void {
     const target = targetId === null ? null : this.defOf(targetId);
     const brain = this.sim.entities.get(id)?.bug;
     const item = brain?.social?.item ?? null;
@@ -588,276 +447,17 @@ export class WorldView extends Container {
   }
 
   /** Bugs together: chats, boops, tag, catch, snacks shared and snatched, pats, naps, and rides. */
-  private listenSocial(): Array<() => void> {
-    const ev = this.sim.events;
-    const px = (m: number): number => m * PPM;
-    const TOPIC: Readonly<Record<ChatTopic, Picto>> = {
-      food: 'food',
-      friend: 'friend',
-      star: 'star',
-      question: 'question',
-      heart: 'heart',
-      note: 'note',
-      spring: 'spring',
-      drop: 'drop',
-      zzz: 'zzz',
-      laugh: 'laugh',
-      sun: 'sun',
-    };
-    const FIDGET: Readonly<Record<Fidget, [Move, number]>> = {
-      look: ['none', 1.2],
-      hum: ['nod', 1.4],
-      yawn: ['yawn', 1.6],
-      scratch: ['shiver', 0.8],
-      groom: ['wiggle', 1.1],
-      stretch: ['yawn', 1],
-      kick: ['stomp', 0.7],
-      twirl: ['spin', 0.6],
-      pose: ['pose', 1.8],
-      freeze: ['none', 1.5],
-    };
-    return [
-      ev.on('bug_chatted', (e) => {
-        const j = this.juiceFor(e.id);
-        j.talk = 0.9;
-        const topic = TOPIC[e.topic];
-        const extra: Picto | null =
-          e.topic === 'friend'
-            ? (['laugh', 'heart', 'question'] as const)[Math.floor(Math.random() * 3)]!
-            : null;
-        const pictos = extra ? [topic, extra] : [topic];
-        this.say(
-          e.id,
-          pictos,
-          1.15,
-          e.topic === 'food' ? e.about : null,
-          e.topic === 'friend' ? e.about : null,
-        );
-        const partner = this.sim.view(e.partnerId);
-        const me = this.sim.view(e.id);
-        if (partner && me) this.juiceFor(e.partnerId).look = { x: me.x > partner.x ? 0.6 : -0.6, y: 0 };
-      }),
-      ev.on('bug_bumped', (e) => {
-        this.particles.boop(px(e.x), px(e.y) - 20);
-        this.juiceFor(e.id).squash.kick(1.15, 0.88);
-        this.juiceFor(e.partnerId).squash.kick(1.15, 0.88);
-      }),
-      ev.on('bug_tagged', (e) => {
-        this.say(e.id, ['exclaim'], 0.8);
-        this.say(e.partnerId, ['laugh'], 0.9);
-        this.particles.burst(px(e.x), px(e.y) - 20, 5, 0xffffff);
-        this.juiceFor(e.partnerId).squash.kick(0.85, 1.15);
-      }),
-      ev.on('bug_threw', (e) => {
-        this.juiceFor(e.itemId).flying = 1.5;
-        this.juiceFor(e.id).squash.kick(0.9, 1.1);
-      }),
-      ev.on('bug_caught', (e) => {
-        this.particles.sparkles(px(e.x), px(e.y), 3);
-        this.juiceFor(e.id).squash.kick(1.12, 0.9);
-      }),
-      ev.on('bug_shared', (e) => {
-        const v = this.sim.view(e.partnerId);
-        if (v) this.particles.hearts(px(v.x), px(v.y) - this.sizeOf(e.partnerId) * 1.4, 3);
-        this.say(e.id, ['heart'], 1.2);
-      }),
-      ev.on('bug_snatched', (e) => {
-        const v = this.sim.view(e.id);
-        if (v) this.particles.burst(px(v.x), px(v.y) - 20, 6, 0xffd23f);
-        this.juiceFor(e.partnerId).food = e.itemDefId;
-        this.say(e.id, ['food', 'laugh'], 1.2, e.itemDefId);
-      }),
-      ev.on('bug_comforted', (e) => {
-        this.moveBug(e.id, 'pat', 1.2);
-        const v = this.sim.view(e.partnerId);
-        if (v) this.particles.hearts(px(v.x), px(v.y) - this.sizeOf(e.partnerId) * 1.5, 3);
-        this.say(e.id, ['heart'], 1.2);
-      }),
-      ev.on('bug_rode', (e) => {
-        if (!e.on) return;
-        this.say(e.id, ['up', 'star'], 1.2);
-        const mount = this.sim.view(e.mountId);
-        if (mount?.bug && mount.bug.mode !== 'st_sleep') this.say(e.mountId, ['question'], 1.1);
-      }),
-      ev.on('bug_slept', (e) => {
-        this.juiceFor(e.id).snore = 0.8;
-        this.bubbles.hide(e.id);
-      }),
-      ev.on('bug_posed', (e) => {
-        this.particles.sparkles(px(e.x), px(e.y) - 60, 8);
-      }),
-      ev.on('bug_fidgeted', (e) => {
-        const [move, seconds] = FIDGET[e.fidget];
-        this.moveBug(e.id, move, seconds);
-        const j = this.juiceFor(e.id);
-        if (e.fidget === 'look') j.glance = 1.2;
-        if (e.fidget === 'hum') this.bubbles.show(e.id, 'speech', ['note'], 1.2);
-        if (e.fidget === 'groom') {
-          const v = this.sim.view(e.id);
-          if (v) this.particles.sparkles(px(v.x), px(v.y) - 20, 3);
-        }
-        if (e.fidget === 'kick') {
-          const v = this.sim.view(e.id);
-          if (v) this.particles.dust(px(v.x) + this.facingOf(e.id) * 30, px(v.y) + this.sizeOf(e.id), 1);
-        }
-      }),
-      ev.on('bug_slipped', (e) => {
-        this.particles.drops(
-          px(e.x),
-          px(e.y) + this.sizeOf(e.id),
-          -this.facingOf(e.id) * 80,
-          -60,
-          0xb8e986,
-          4,
-        );
-      }),
-      ev.on('bug_curled', (e) => this.juiceFor(e.id).squash.kick(e.on ? 0.8 : 1.15, e.on ? 1.2 : 0.9)),
-      ev.on('bug_inspected', (e) => {
-        this.juiceFor(e.id).food = e.itemDefId;
-      }),
-      ev.on('bug_picked_up', (e) => this.juiceFor(e.itemId).squash.kick(1.2, 0.85)),
-      ev.on('stack_fell', (e) => {
-        this.particles.dust(px(e.x), px(e.y), 10);
-        this.shake(3, 0.15);
-      }),
-      // The first scene's "again!": a spring in the bubble and a hopeful hop.
-      ev.on('bug_beckoned', (e) => {
-        this.say(e.id, ['spring', 'up'], 3.2);
-        this.moveBug(e.id, 'hop', 0.8);
-        this.particles.sparkles(px(e.x), px(e.y) - this.sizeOf(e.id) * 2, 4);
-      }),
-      // Out of the pocket: a puff where it appears. Into it: a little swirl where it was.
-      ev.on('unpocketed', (e) => {
-        this.juiceFor(e.id).squash.kick(0.8, 1.25);
-        this.particles.ring(px(e.x), px(e.y), 30);
-        this.particles.sparkles(px(e.x), px(e.y), 3);
-      }),
-      ev.on('pocketed', (e) => this.particles.ring(px(e.x), px(e.y), 26)),
-      ev.on('pocket_swapped', (e) => {
-        this.juiceFor(e.id).squash.kick(0.8, 1.25);
-        this.particles.ring(px(e.x), px(e.y), 26);
-      }),
-    ];
+  listenSocial(): Array<() => void> {
+    return _listenSocial(this);
   }
 
   /** Water and property events: splashes, steam, ice, goo, bubbles, stink. */
-  private listenWater(): Array<() => void> {
-    const ev = this.sim.events;
-    const px = (m: number): number => m * PPM;
-    return [
-      ev.on('splashed', (e) => {
-        const big = e.speed > 1.5 || e.kind === 'bug';
-        this.water.splash(px(e.x), e.speed, e.size);
-        if (big) this.particles.splash(px(e.x), px(e.y), e.speed, e.size);
-        else this.particles.drops(px(e.x), px(e.y), 0, -120, 0x5cc3e6, 3);
-        this.juiceFor(e.id).squash.land(Math.min(12, 3 + e.speed));
-      }),
-      ev.on('skipped', (e) => {
-        this.water.splash(px(e.x), 3, 0.08);
-        this.particles.drops(px(e.x), px(e.y), 60, -160, 0x5cc3e6, 5);
-        this.particles.ring(px(e.x), px(e.y), 18);
-      }),
-      ev.on('left_water', (e) => {
-        this.particles.drops(px(e.x), px(e.y), 0, -60, 0x5cc3e6, 4);
-      }),
-      ev.on('steamed', (e) => {
-        this.particles.steam(px(e.x), px(e.y) - 10, 10);
-        this.particles.sparkles(px(e.x), px(e.y) - 20, 3);
-        this.juiceFor(e.id).squash.kick(1.15, 0.88);
-      }),
-      ev.on('froze', (e) => {
-        this.particles.shards(px(e.x), px(e.y), 12);
-        this.particles.snow(px(e.x), px(e.y) - 20, 1);
-        this.juiceFor(e.id).squash.kick(0.9, 1.1);
-      }),
-      ev.on('thawed', (e) => {
-        this.particles.drops(px(e.x), px(e.y), 0, -80, 0x9fd8ff, 6);
-        this.particles.shards(px(e.x), px(e.y), 4);
-      }),
-      ev.on('ice_formed', (e) => {
-        for (let x = px(e.x0); x < px(e.x1); x += 40) this.particles.shards(x, px(e.y), 2);
-        this.particles.sparkles(px((e.x0 + e.x1) / 2), px(e.y) - 20, 8);
-      }),
-      ev.on('ice_melted', (e) => {
-        this.water.splash(px((e.x0 + e.x1) / 2), 2, 0.4);
-        this.particles.drops(px((e.x0 + e.x1) / 2), px(e.y), 0, -100, 0x9fd8ff, 6);
-      }),
-      ev.on('stuck', (e) => {
-        this.particles.drops(px(e.x), px(e.y), 0, -90, 0xff8fc8, 5);
-        this.particles.ring(px(e.x), px(e.y), 16);
-        this.juiceFor(e.a).squash.kick(1.2, 0.85);
-        this.juiceFor(e.b).squash.kick(1.1, 0.9);
-      }),
-      ev.on('unstuck', (e) => {
-        this.welds.delete(`${Math.min(e.a, e.b)}:${Math.max(e.a, e.b)}`);
-        this.particles.drops(px(e.x), px(e.y), 0, -140, 0xff8fc8, 6);
-        this.particles.burst(px(e.x), px(e.y), 5, 0xffd1e8);
-      }),
-      ev.on('bubbles_blown', (e) => this.soapBubbles.blow(px(e.x), px(e.y) - 10, e.count)),
-      ev.on('bug_smelled', (e) => {
-        const src = this.sim.view(e.sourceId);
-        if (src) this.particles.puff(px(src.x), px(src.y) - 20, 0xb8d86a, 5, 0, -50, 16);
-      }),
-      ev.on('water_zapped', (e) => {
-        for (const w of this.sim.environment.surfaces())
-          if (e.x >= w.left - 1 && e.x <= w.right + 1)
-            this.particles.zap(px(w.left), px(w.right), px(w.level));
-        this.shake(3, 0.15);
-      }),
-      ev.on('magnet_snapped', (e) => {
-        this.particles.burst(px(e.x), px(e.y), 6, 0xffe066);
-        this.particles.sparkles(px(e.x), px(e.y), 2);
-        this.juiceFor(e.id).squash.kick(0.85, 1.15);
-      }),
-      ev.on('bug_shook_dry', (e) => {
-        // A wet-dog shake: droplets flung out all round, then a clean sparkle.
-        const r = this.sizeOf(e.id);
-        for (let i = 0; i < 6; i++) {
-          const a = -Math.PI + (i / 5) * Math.PI;
-          this.particles.drops(
-            px(e.x),
-            px(e.y) - r * 0.4,
-            Math.cos(a) * 320,
-            Math.sin(a) * 260 - 80,
-            0x5cc3e6,
-            3,
-          );
-        }
-        this.particles.sparkles(px(e.x), px(e.y) - r, 5);
-      }),
-      ev.on('wrung_out', (e) => {
-        const color = e.tag === 'tag_soapy' ? 0xffffff : 0x5cc3e6;
-        for (let i = 0; i < 4; i++) this.particles.drops(px(e.x), px(e.y) + 10, 0, 60 + i * 60, color, 5);
-        this.juiceFor(e.id).squash.kick(0.7, 1.25);
-        if (e.tag === 'tag_soapy') this.soapBubbles.blow(px(e.x), px(e.y), 4);
-      }),
-      ev.on('hose_toggled', (e) => {
-        this.particles.ring(px(e.x), px(e.y), 30);
-        this.particles.burst(px(e.x), px(e.y), 6, e.on ? 0x9fd8ff : 0xffffff);
-      }),
-      ev.on('boot_bubbled', (e) => {
-        this.particles.bubbles(px(e.x) + 40, px(e.y) - 40, 12);
-        this.water.splash(px(e.x) + 40, 2, 0.3);
-      }),
-      ev.on('tag_lost', (e) => {
-        // Washed or soaped clean: a little sparkle says "clean!".
-        if ((e.cause === 'water' || e.cause === 'soap') && e.tag !== 'tag_hot')
-          this.particles.sparkles(px(e.x), px(e.y) - 20, 3);
-      }),
-      ev.on('tag_gained', (e) => {
-        if (e.cause === 'hose' && e.tag === 'tag_wet')
-          this.particles.drops(px(e.x), px(e.y), 0, -80, 0x5cc3e6, 3);
-      }),
-    ];
+  listenWater(): Array<() => void> {
+    return _listenWater(this);
   }
 
   /** Play a reaction: its bubble and its one-off particles. The face comes from the view each frame. */
-  private react(
-    id: EntityId,
-    defId: string,
-    type: Parameters<typeof reactionLook>[1],
-    variant: number,
-  ): void {
+  react(id: EntityId, defId: string, type: Parameters<typeof reactionLook>[1], variant: number): void {
     const def = this.sim.content.bugs.get(defId);
     const look = reactionLook(def.art, type, variant);
     const j = this.juiceFor(id);
@@ -901,7 +501,7 @@ export class WorldView extends Container {
   }
 
   /** Half height in pixels, roughly. */
-  private sizeOf(id: EntityId): number {
+  sizeOf(id: EntityId): number {
     const e = this.sim.entities.get(id);
     if (!e) return 20;
     if (e.kind === 'bug') {
@@ -921,46 +521,8 @@ export class WorldView extends Container {
   }
 
   /** Day, night, and weather events: the vane, the knothole, shooting stars, fireflies, secrets. */
-  private listenSky(): void {
-    const ev = this.sim.events;
-    const px = (m: number): number => m * PPM;
-    this.offs.push(
-      ev.on('vane_spun', () => this.fixtures.spin()),
-      ev.on('gust_started', (e) => {
-        this.particles.puff(px(e.x), px(e.y), 0xffffff, 8, e.dir * 160, -10, 18);
-      }),
-      ev.on('knothole_peeked', (e) => {
-        if (e.night) this.fixtures.peek();
-        this.particles.dust(px(e.x), px(e.y), 4);
-      }),
-      ev.on('sun_clicked', (e) => this.particles.sparkles(px(e.x), px(e.y), 3 + e.count)),
-      ev.on('shooting_star', (e) => {
-        this.shooting.push({
-          x: 300 + Math.random() * (VIEW_WIDTH_PX - 600),
-          y: px(e.y) * 0.4 + 40,
-          dir: e.dir,
-          age: 0,
-        });
-      }),
-      ev.on('fireflies_blinked', (e) => this.weather.blinkBack(e.answer)),
-      ev.on('light_toggled', (e) => this.particles.sparkles(px(e.x), px(e.y), e.on ? 6 : 2)),
-      ev.on('bug_joined', (e) => {
-        this.particles.sparkles(px(e.x), px(e.y), 14);
-        this.particles.stars(px(e.x), px(e.y));
-      }),
-      ev.on('item_transformed', (e) => {
-        this.particles.sparkles(px(e.x), px(e.y), 12);
-        this.particles.ring(px(e.x), px(e.y), 40);
-      }),
-      ev.on('secret_found', (e) => {
-        this.particles.sparkles(px(e.x), px(e.y), 18);
-        this.particles.hearts(px(e.x), px(e.y) - 30, 3);
-      }),
-      ev.on('bug_umbrella', (e) => {
-        const v = this.sim.view(e.id);
-        if (v) this.particles.sparkles(px(v.x), px(v.y) - 50, 3);
-      }),
-    );
+  listenSky(): void {
+    _listenSky(this);
   }
 
   /** What the sky looks like right now, eased toward the weather. */
@@ -1426,112 +988,15 @@ export class WorldView extends Container {
   }
 
   /** Bugs' wishes for something craftable (M8): what, and until when the hover hint may show. */
-  private readonly wishes = new Map<EntityId, { recipe: string; until: number }>();
+  readonly wishes = new Map<EntityId, { recipe: string; until: number }>();
   /** The hint shown while hovering a wishing bug: its ingredients as faint outlines. */
   private readonly wishHint = new Container();
   private wishFor: EntityId | null = null;
   private wishHintT = 0;
 
   /** M8: potions, crafting, and toys as particles, bubbles, squash, and shake. */
-  private listenPotions(): Array<() => void> {
-    const ev = this.sim.events;
-    const px = (m: number): number => m * PPM;
-    const colorOfPotion = (potion: string | null, fallback = 0xb36bff): number =>
-      potion && this.sim.content.potions.has(potion) ? this.sim.content.potions.get(potion).color : fallback;
-    return [
-      ev.on('potion_started', (e) => {
-        const j = this.juiceFor(e.id);
-        // The "bwoomp": a big squash, a burst in the potion's color, sparkles.
-        j.squash.kick(e.effect === 'tiny' ? 1.25 : 0.7, e.effect === 'tiny' ? 0.8 : 1.35);
-        this.particles.burst(px(e.x), px(e.y), 10, colorOfPotion(e.potion));
-        this.particles.sparkles(px(e.x), px(e.y) - 30, 8);
-      }),
-      ev.on('potion_ended', (e) => {
-        this.particles.sparkles(px(e.x), px(e.y) - 20, 6);
-        if (e.cause === 'dunk') this.particles.bubbles(px(e.x), px(e.y), 6);
-        this.juiceFor(e.id).squash.kick(1.15, 0.88);
-      }),
-      ev.on('potion_drunk', (e) => {
-        const m = this.mouthPx(e.id);
-        if (m) this.particles.sparkles(m.x, m.y, 6);
-      }),
-      ev.on('potion_shattered', (e) => {
-        this.particles.shards(px(e.x), px(e.y), 10);
-        this.particles.drops(px(e.x), px(e.y), 0, -240, e.color, 12);
-        this.particles.splash(px(e.x), px(e.y), 4, 0.3);
-      }),
-      ev.on('potion_fizzled', (e) => {
-        this.particles.puff(px(e.x), px(e.y), 0xffffff, 6, 0, -40, 18);
-        this.particles.sparkles(px(e.x), px(e.y) - 20, 5);
-      }),
-      ev.on('potion_burped', (e) => {
-        const m = this.mouthPx(e.id) ?? { x: px(e.x), y: px(e.y) };
-        this.juiceFor(e.id).squash.kick(1.2, 0.85);
-        if (e.kind === 'burp') this.particles.ring(m.x, m.y, 60);
-        if (e.kind === 'fire') {
-          this.particles.flame(m.x, m.y, e.dir);
-          this.particles.flame(m.x + e.dir * 40, m.y, e.dir);
-        }
-        if (e.kind === 'bubble') this.particles.bubbles(m.x + e.dir * 30, m.y, 8);
-        if (e.kind === 'sludge') {
-          this.particles.puff(m.x, m.y, 0x9ccc4a, 14, e.dir * 60, -40, 30);
-          this.particles.ring(m.x, m.y, 90);
-        }
-      }),
-      ev.on('giant_stomped', (e) => {
-        this.particles.dust(px(e.x), px(e.y) + this.sizeOf(e.id), e.heavy ? 3 : 5);
-        this.shake(e.heavy ? 1 : 2, 0.08);
-      }),
-      ev.on('frost_sneezed', (e) => {
-        const m = this.mouthPx(e.id) ?? { x: px(e.x), y: px(e.y) };
-        this.particles.snow(m.x, m.y, this.facingOf(e.id));
-      }),
-      ev.on('balloon_deflated', (e) => {
-        this.particles.puff(px(e.x), px(e.y), 0xffffff, 8, 0, 0, 16);
-        this.say(e.id, ['exclaim', 'swirl'], 1.6);
-      }),
-      ev.on('shattered', (e) => this.particles.shards(px(e.x), px(e.y), 12)),
-      ev.on('toasted', (e) => this.particles.steam(px(e.x), px(e.y), 5)),
-      ev.on('note_played', (e) => {
-        this.juiceFor(e.id).squash.poke();
-        this.particles.sparkles(px(e.x), px(e.y) - 20, 2);
-      }),
-      ev.on('blob_squeaked', (e) => this.juiceFor(e.id).squash.kick(1.3, 0.75)),
-      ev.on('blob_split', (e) => {
-        this.particles.puff(px(e.x), px(e.y), 0xd6cce8, 10, 0, -30, 22);
-        this.particles.sparkles(px(e.x), px(e.y), 8);
-      }),
-      ev.on('toy_used', (e) => {
-        const j = this.juiceFor(e.id);
-        switch (e.action) {
-          case 'fire':
-            j.squash.kick(0.7, 1.3);
-            this.particles.ring(px(e.x), px(e.y), 50);
-            break;
-          case 'launch':
-            this.particles.puff(px(e.x), px(e.y) + 30, 0xffffff, 10, 0, 60, 22);
-            break;
-          case 'boing':
-            j.squash.kick(1.25, 0.75);
-            break;
-          case 'hang':
-          case 'attach':
-          case 'inflate':
-          case 'deflate':
-            this.particles.sparkles(px(e.x), px(e.y), 5);
-            break;
-          case 'fling':
-            this.particles.dust(px(e.x), px(e.y), 1);
-            break;
-        }
-      }),
-      ev.on('bug_wished', (e) => {
-        const out = this.sim.content.items.tryGet(e.output);
-        if (!out) return;
-        this.wishes.set(e.id, { recipe: e.recipe, until: this.time + 4 });
-        this.bubbles.show(e.id, 'thought', ['food'], 4, out);
-      }),
-    ];
+  listenPotions(): Array<() => void> {
+    return _listenPotions(this);
   }
 
   /**
@@ -1955,7 +1420,7 @@ export class WorldView extends Container {
     return sprite;
   }
 
-  private drop(id: EntityId): void {
+  drop(id: EntityId): void {
     const sprite = this.sprites.get(id);
     if (sprite) sprite.destroy({ children: true });
     this.sprites.delete(id);

@@ -5,29 +5,20 @@ import { EntityStore } from './core/entities';
 import { EventBus } from './core/events';
 import { SIM_DT, SIM_HZ } from './core/loop';
 import { Rng } from './core/rng';
-import { BONK_SPEED, FLING_SPEED, GRAVITY, MAX_FLING_SPEED, VIEW_WIDTH_M } from './constants';
+import { GRAVITY, VIEW_WIDTH_M } from './constants';
 import type { Content } from './data';
 import { CONTENT, areaAt, worldWidth } from './data';
 import { MATERIALS } from './data/materials';
 import type { MaterialId } from './data/types';
 import type { AreaDef, BugDef, ItemDef, PendingState } from './data/types';
-import { NEED_IDS } from './data/types';
 import { baseAffinity, pairKey } from './data/affinity';
 import type { GameEvents, Liking, Mood, ReactionType, TagCause } from './events';
 import type { BodyState, Impact, MaterialSpec, ShapeSpec } from './physics/physics';
 import { Physics } from './physics/physics';
 import type { SavedEntity, WorldCounters, WorldSave } from './save/schema';
 import { Environment } from './systems/environment';
-import { TAG_IDS, addTag, effectiveTags, expireTags, removeTag, shiftTags, tagOn } from './systems/tags';
-import type {
-  AdvertCandidate,
-  BugNotice,
-  BugSky,
-  BugWorld,
-  LooseItem,
-  OtherBug,
-  TargetInfo,
-} from './systems/bugAi';
+import { addTag, effectiveTags, expireTags, removeTag, tagOn } from './systems/tags';
+import type { AdvertCandidate, BugNotice, BugSky, BugWorld, TargetInfo } from './systems/bugAi';
 import {
   GAWK_RANGE,
   PERCEPTION,
@@ -40,25 +31,18 @@ import {
   likingOf,
   moodOf,
   newBugBrain,
-  beckonBug,
   napBug,
   pocketBug,
-  pokedBug,
   react,
   reactBug,
   releaseBug,
-  shiftBrain,
-  shakeBug,
   smellBug,
   springLaunched,
-  tickleBug,
   updateBug,
-  wakeBug,
   wonderBug,
 } from './systems/bugAi';
 import { CATCH_WINDUP } from './systems/bugSocial';
 import { SetupRule } from './systems/setup';
-import type { WeatherId } from './systems/sky';
 import { newSkyState } from './systems/sky';
 import { Weather } from './systems/weather';
 import { Barriers } from './systems/barriers';
@@ -66,7 +50,7 @@ import type { BarrierState } from './systems/barriers';
 import { Places } from './systems/places';
 import { Cast } from './systems/cast';
 import type { Pocketable, PocketState } from './systems/pocket';
-import { emptyPocket, fits, isPocketSlot, pocketPut, pocketTake, tidyPocket } from './systems/pocket';
+import { emptyPocket, tidyPocket } from './systems/pocket';
 import { OffScreen } from './systems/offscreen';
 import type { DropCandidate, DropTarget } from './systems/dropTargets';
 import { pickDropTarget } from './systems/dropTargets';
@@ -74,21 +58,57 @@ import { Terrain } from './world/terrain';
 import { Bench } from './systems/bench';
 import { Cauldron } from './systems/cauldron';
 import { Bounds } from './systems/bounds';
-import { Potions, SHATTER_SPEED, SKY_TOP, scaleShape } from './systems/potions';
+import { BUG_RESTITUTION, halfExtents } from './simShared';
+import {
+  pocketable as _pocketable,
+  pocketFits as _pocketFits,
+  putInPocket as _putInPocket,
+  takeFromPocket as _takeFromPocket,
+  leavePocket as _leavePocket,
+} from './simPocket';
+import {
+  handleImpacts as _handleImpacts,
+  tryCatch as _tryCatch,
+  trySpring as _trySpring,
+} from './simImpacts';
+import { emitNotice as _emitNotice } from './simNotices';
+import {
+  isPotion as _isPotion,
+  brewOf as _brewOf,
+  bottleBrew as _bottleBrew,
+  drink as _drink,
+  shatterPotion as _shatterPotion,
+  shatter as _shatter,
+  paintFromDrop as _paintFromDrop,
+  dropInto as _dropInto,
+  upsideDownAt as _upsideDownAt,
+  ghostAt as _ghostAt,
+  ghostThrough as _ghostThrough,
+  isGhost as _isGhost,
+} from './simPotions';
+import {
+  capWalkForces as _capWalkForces,
+  softContact as _softContact,
+  byPlayer as _byPlayer,
+  touchesSetup as _touchesSetup,
+  setupLinked as _setupLinked,
+  boxOf as _boxOf,
+  setupNearExcept as _setupNearExcept,
+} from './simSetupGuard';
+import { bugWorld as _bugWorld, summitOf as _summitOf, waterEdge as _waterEdge } from './simBugWorld';
+import { apply as _apply, poke as _poke, stageIntro as _stageIntro } from './simCommands';
+import { Potions, SKY_TOP, scaleShape } from './systems/potions';
 import { Toys } from './systems/toys';
 import type { Brew } from './systems/brewing';
 import type { ActiveEffect, SavedPart, ToyState } from './core/entities';
 
-/** Bugs bounce a little; a curled-up Rollo bounces like a marble. */
-const BUG_RESTITUTION = 0.15;
+/** A curled-up Rollo bounces like a marble (standing bugs: `BUG_RESTITUTION`). */
 const ROLLED_RESTITUTION = 0.6;
 /** How often consumables drop back in when an area runs low. */
 export const RESPAWN_TICKS = 45 * SIM_HZ;
 /** Anything this far below the surface is pulled back up. */
 const BURIED_DEPTH = 0.25;
 const NO_TAGS: readonly string[] = [];
-/** A thrown thing can land in a mouth for this long after it leaves the hand. */
-const THROWN_TICKS = 90;
 /** Spat food leaves the mouth this fast, forward and up (m/s). */
 const SPIT_SPEED = { x: 4.2, y: -4.6 };
 /** Areas this far (in meters) from the camera's view sleep: no physics. One screen. */
@@ -104,7 +124,6 @@ const STINK_SECONDS = 6;
 const STINK_EVERY = 8 * SIM_HZ;
 /** Anything with a body this far straight overhead keeps the rain off (the porch boards are 6.5 m up). */
 const SHELTER_REACH = 8;
-const TAG_SET: ReadonlySet<string> = new Set(TAG_IDS);
 /** Things M8 added to the areas' start lists, given to worlds saved before it. */
 const M8_STARTERS: readonly string[] = [
   'item_string',
@@ -127,9 +146,6 @@ const M8_STARTERS: readonly string[] = [
   'item_blueprint_balloon_basket',
   'item_blueprint_disco_ball',
 ];
-/** A heavy bug cannot be flung faster than 900 px/s. */
-const HEAVY_FLING = 9;
-
 /** Read-only view of one bug's mind, for the renderer and the test hook. */
 export interface BugView {
   mode: BugMode;
@@ -236,16 +252,6 @@ export interface SimOptions {
   content?: Content;
 }
 
-const halfExtents = (shape: ShapeSpec, angle: number): { w: number; h: number } => {
-  if (shape.type === 'circle') return { w: shape.radius, h: shape.radius };
-  const c = Math.abs(Math.cos(angle));
-  const s = Math.abs(Math.sin(angle));
-  return {
-    w: (shape.width / 2) * c + (shape.height / 2) * s,
-    h: (shape.width / 2) * s + (shape.height / 2) * c,
-  };
-};
-
 /**
  * The whole game world, headless. Owns entities, physics, RNG, the command
  * queue, and the event bus. Advance it with `step()`; it knows nothing about
@@ -265,16 +271,16 @@ export class Sim {
   /** Times something had to be pulled back out of the ground. Tests expect 0. */
   rescues = 0;
   /** Hardest impact per bug during the last physics step. */
-  private bugImpacts = new Map<EntityId, number>();
+  bugImpacts = new Map<EntityId, number>();
   /** Bugs a spring just launched: ignore their contact with it for a moment. */
-  private launchGrace = new Map<EntityId, number>();
-  private rolling = new Set<EntityId>();
+  launchGrace = new Map<EntityId, number>();
+  rolling = new Set<EntityId>();
   /** Things the player just threw, and when: they can land in a mouth. */
-  private thrown = new Map<EntityId, number>();
+  thrown = new Map<EntityId, number>();
   /** Water, fixtures, and the property rules. */
   readonly environment: Environment;
   /** What the camera shows, or null (tests, headless): then nothing sleeps. */
-  private focus: { x0: number; x1: number } | null = null;
+  focus: { x0: number; x1: number } | null = null;
   private readonly asleepAreas = new Set<string>();
   /** Entities whose bodies are switched off because their area sleeps. */
   private readonly sleeping = new Set<EntityId>();
@@ -285,15 +291,15 @@ export class Sim {
   /** Changes to bug-pair affinity since the world began, by pair key. Saved. */
   affinity: Record<string, number> = {};
   /** Things in bugs' front legs: item ID to bug ID. Rebuilt from the brains. */
-  private readonly carried = new Map<EntityId, EntityId>();
+  readonly carried = new Map<EntityId, EntityId>();
   /** Loud things this step (crashes, hard landings) that make bugs turn and look. */
   private loud: { x: number; y: number; victim: EntityId | null }[] = [];
   /** What bugs can ask about the world this step, built once per step. */
-  private worldCache: BugWorld | null = null;
+  worldCache: BugWorld | null = null;
   /** The pocket tray's slots. Saved. */
   pocket: PocketState = emptyPocket();
   /** Everything in the pocket, for quick checks. Rebuilt from `pocket`. */
-  private readonly pocketed = new Set<EntityId>();
+  readonly pocketed = new Set<EntityId>();
   /** Running counts kept for the menu: how often the player fed each bug. Saved. */
   counters: WorldCounters = { fed: {} };
   /** Day, night, and weather: the clock, the sundial, the vane, puddles. */
@@ -561,7 +567,7 @@ export class Sim {
       }
   }
 
-  private defExists(kind: EntityKind, defId: string): boolean {
+  defExists(kind: EntityKind, defId: string): boolean {
     return kind === 'bug' ? this.content.bugs.has(defId) : this.content.items.has(defId);
   }
 
@@ -671,231 +677,14 @@ export class Sim {
     for (let i = 0; i < n; i++) this.step();
   }
 
-  private apply(command: Command): void {
-    switch (command.type) {
-      case 'grab': {
-        const id = this.physics.bodyAt(command.x, command.y, 0.2);
-        let entity = id === null ? undefined : this.entities.get(id);
-        if (!entity) return;
-        // Things in the bench's trays stay put while it shakes.
-        if (this.bench.locked(entity.id)) return;
-        const def = entity.kind === 'item' ? this.content.items.get(entity.defId) : null;
-        this.physics.grab(entity.id, command.x, command.y, def?.drag ?? 1);
-        this.bench.taken(entity.id);
-        entity = this.places.grabbed(entity, command.x, command.y);
-        this.bench.pickedUp(entity);
-        this.toys.grabbed(entity, command.x, command.y);
-        if (entity.bug?.pending) this.cast.grabbed(entity);
-        // Grabbed without warning, Whiff lets off a stink cloud.
-        this.puff(entity, false);
-        this.setup.touch(entity.id);
-        this.events.emit('item_grabbed', {
-          id: entity.id,
-          kind: entity.kind,
-          defId: entity.defId,
-          x: command.x,
-          y: command.y,
-        });
-        // Picking up something that glows flashes its light about: the fireflies notice.
-        // (A lamp counts when its click switches it, not when it is picked up.)
-        if (this.glows(entity) && !(entity.kind === 'item' && this.content.items.get(entity.defId).lamp))
-          this.weather.noteLight(command.x, command.y);
-        return;
-      }
-      case 'drag': {
-        // The hand cannot push what it holds through a locked area's wall.
-        const held = this.physics.grabbed;
-        let x = command.x;
-        if (held !== null) {
-          const span = this.barriers.span();
-          const at = this.physics.position(held).x;
-          if (at >= span.x0 && at <= span.x1) x = Math.min(span.x1 - 0.05, Math.max(span.x0 + 0.05, x));
-        }
-        this.physics.moveGrab(x, command.y);
-        return;
-      }
-      case 'release': {
-        const cursor =
-          command.vx !== undefined && command.vy !== undefined ? { x: command.vx, y: command.vy } : undefined;
-        const heldNow = this.physics.grabbed === null ? undefined : this.entities.get(this.physics.grabbed);
-        // A heavy bug cannot be flung hard.
-        const cap = heldNow && this.potions.has(heldNow, 'heavy') ? HEAVY_FLING : MAX_FLING_SPEED;
-        const id = this.physics.release(cap, cursor);
-        const entity = id === null ? undefined : this.entities.get(id);
-        if (!entity) return;
-        // A slingshot pulled back fires instead.
-        const fired = this.toys.released(entity);
-        const s = this.physics.getState(entity.id);
-        const speed = Math.hypot(s.vx, s.vy);
-        const flung = speed >= FLING_SPEED;
-        if (entity.bug) releaseBug(entity.bug, this.content.bugs.get(entity.defId), flung, s.y);
-        if (entity.bug?.pending) this.cast.released(entity);
-        this.places.released(entity);
-        this.setup.touch(entity.id);
-        this.events.emit('item_dropped', {
-          id: entity.id,
-          kind: entity.kind,
-          defId: entity.defId,
-          speed,
-          vx: s.vx,
-          vy: s.vy,
-          flung,
-        });
-        if (entity.bug && flung) this.emitNotice(entity, react(entity.bug, 'fling', this.rng, this.tick), s);
-        if (flung || fired) this.thrown.set(entity.id, this.tick);
-        else {
-          // A gentle drop: the first matching drop target takes it.
-          const target = this.dropTargetFor(entity.id);
-          if (target) this.dropInto(target, entity);
-          else if (entity.bug && this.bench.nearTray(s.x, s.y)) this.bench.refuse(entity);
-        }
-        return;
-      }
-      case 'tickle': {
-        const held = this.physics.grabbed;
-        const entity = held === null ? undefined : this.entities.get(held);
-        if (!entity?.bug) return;
-        const s = this.physics.getState(entity.id);
-        for (const notice of tickleBug(entity.bug, command.on, this.rng, this.tick))
-          this.emitNotice(entity, notice, s);
-        return;
-      }
-      case 'shake': {
-        const held = this.physics.grabbed;
-        const entity = held === null ? undefined : this.entities.get(held);
-        if (!entity) return;
-        const s = this.physics.getState(entity.id);
-        if (entity.bug) shakeBug(entity.bug, this.tick);
-        else this.environment.wring(entity);
-        this.events.emit('item_shaken', {
-          id: entity.id,
-          kind: entity.kind,
-          defId: entity.defId,
-          x: s.x,
-          y: s.y,
-        });
-        // A junk blob shaken in the hand splits back into what went in.
-        if (entity.defId === 'item_junk_blob') this.bench.split(entity);
-        // Something fizzy shaken up launches itself like a rocket, once (section 6, `tag_fizzy`).
-        else if (entity.kind === 'item' && this.hasTag(entity.id, 'tag_fizzy')) this.fizz(entity);
-        return;
-      }
-      case 'set_need': {
-        const brain = this.entities.get(command.id)?.bug;
-        if (brain && NEED_IDS.includes(command.need) && Number.isFinite(command.value))
-          brain.needs[command.need] = Math.min(100, Math.max(0, command.value));
-        return;
-      }
-      case 'poke':
-        this.poke(command.x, command.y);
-        return;
-      case 'spawn':
-        // A debug command: an unknown def or a bad spot is dropped, like a bad `set_tag`.
-        if (!this.defExists(command.kind, command.defId)) return;
-        if (!Number.isFinite(command.x) || !Number.isFinite(command.y)) return;
-        this.spawn(command.kind, command.defId, command.x, command.y);
-        return;
-      case 'focus':
-        if (Number.isFinite(command.x0) && Number.isFinite(command.x1)) {
-          this.focus = { x0: command.x0, x1: command.x1 };
-          this.updateSleep();
-        }
-        return;
-      case 'set_tag': {
-        if (!this.entities.has(command.id) || !TAG_SET.has(command.tag)) return;
-        if (command.on) this.addTag(command.id, command.tag, 'debug', command.seconds);
-        else this.removeTag(command.id, command.tag, 'debug');
-        return;
-      }
-      case 'set_weather': {
-        const wind = Number.isFinite(command.wind) ? command.wind : 0;
-        const weather: WeatherId =
-          command.weather ?? (command.rain ? 'weather_rain' : wind !== 0 ? 'weather_wind' : 'weather_clear');
-        this.weather.force(weather, wind);
-        return;
-      }
-      case 'set_time':
-        this.weather.setTime(command.hour);
-        return;
-      case 'dial_turn':
-        this.weather.turnDial(command.minutes);
-        return;
-      case 'dial_release':
-        this.weather.releaseDial();
-        return;
-      case 'pocket_put': {
-        const held = this.physics.grabbed;
-        const entity = held === null ? undefined : this.entities.get(held);
-        if (!entity || !isPocketSlot(command.slot)) return;
-        // Too big for the pocket (the lattice panel): it is just let go.
-        if (entity.kind === 'item' && this.content.items.get(entity.defId).unpocketable) {
-          this.apply({ type: 'release' });
-          return;
-        }
-        this.putInPocket(entity, command.slot);
-        return;
-      }
-      case 'pocket_take':
-        if (isPocketSlot(command.slot) && Number.isFinite(command.x) && Number.isFinite(command.y))
-          this.takeFromPocket(command.slot, command.x, command.y);
-        return;
-      case 'stage_intro':
-        this.stageIntro();
-        return;
-      case 'wake': {
-        const bug = this.entities.get(command.id);
-        if (!bug?.bug || this.isSleeping(bug.id) || bug.bug.mode !== 'st_sleep') return;
-        const s = this.physics.getState(bug.id);
-        for (const n of wakeBug(bug.bug, false, this.rng, this.tick)) this.emitNotice(bug, n, s);
-        // Wide awake and curious: watch the hand for a while before wandering off.
-        bug.bug.decideIn = Math.max(bug.bug.decideIn, 8 * SIM_HZ);
-        return;
-      }
-      case 'hand':
-        this.hand =
-          command.x !== null && command.y !== null && Number.isFinite(command.x) && Number.isFinite(command.y)
-            ? { x: command.x, y: command.y }
-            : null;
-        return;
-      case 'unlock':
-        if (this.content.areas.has(command.area)) this.barriers.unlock(command.area, this.view0().x0, 5);
-        return;
-      case 'pull_lever':
-        this.bench.pull();
-        return;
-      case 'stir':
-        this.cauldron.stir(command.radians);
-        return;
-      case 'despawn':
-        if (this.entities.has(command.id) && this.physics.grabbed !== command.id) this.remove(command.id);
-        return;
-      case 'give_potion': {
-        const e = this.entities.get(command.id);
-        if (!e || !this.content.potions.has(command.potion)) return;
-        this.potions.give(e, this.brewOf(command.potion), 'debug');
-        return;
-      }
-      case 'beckon': {
-        const bug = this.entities.get(command.id);
-        if (!bug?.bug || this.isSleeping(bug.id) || !Number.isFinite(command.x)) return;
-        const s = this.physics.getState(bug.id);
-        const def = this.content.bugs.get(bug.defId);
-        const x = Math.max(1, Math.min(this.worldWidth - 1, command.x));
-        if (!beckonBug(bug.bug, def, s.x, x)) return;
-        this.events.emit('bug_beckoned', { id: bug.id, defId: bug.defId, x: s.x, y: s.y });
-        return;
-      }
-    }
+  apply(command: Command): void {
+    _apply(this, command);
   }
 
   // --- The pocket tray -------------------------------------------------------
 
-  private pocketable(e: Entity): Pocketable {
-    return {
-      id: e.id,
-      defId: e.defId,
-      stackable: e.kind === 'item' && this.content.items.get(e.defId).tags.includes('tag_stackable'),
-    };
+  pocketable(e: Entity): Pocketable {
+    return _pocketable(this, e);
   }
 
   /** What each pocket slot holds, bottom of the stack first. */
@@ -908,86 +697,25 @@ export class Sim {
 
   /** Could the thing in the hand go in this slot without a swap? */
   pocketFits(slot: number, id: EntityId): boolean {
-    const e = this.entities.get(id);
-    if (!e || !isPocketSlot(slot)) return false;
-    const contents = this.pocket.slots[slot]!.map((i) => this.pocketable(this.entities.get(i)!));
-    return fits(contents, this.pocketable(e));
+    return _pocketFits(this, slot, id);
   }
 
   /**
    * Tuck the held thing into a pocket slot: it leaves the world. A slot that
    * cannot take it swaps, and what was there pops out where the thing was.
    */
-  private putInPocket(entity: Entity, slot: number): void {
-    const id = entity.id;
-    const s = this.physics.getState(id);
-    this.physics.release();
-    const contents = this.pocket.slots[slot]!.map((i) => this.pocketable(this.entities.get(i)!));
-    const out = pocketPut(this.pocket, slot, this.pocketable(entity), contents, this.tick);
-    this.environment.unstickAll(id);
-    this.thrown.delete(id);
-    if (entity.bug) {
-      this.putDown(id);
-      if (this.rolling.delete(id)) this.physics.setRolling(id, false, BUG_RESTITUTION);
-      pocketBug(entity.bug);
-    }
-    this.physics.setVelocity(id, 0, 0);
-    this.physics.setActive(id, false);
-    this.pocketed.add(id);
-    this.worldCache = null;
-    this.linkedCache = null;
-    this.events.emit('pocketed', { id, kind: entity.kind, defId: entity.defId, slot, x: s.x, y: s.y });
-    out.forEach(({ id: other, ticks }, i) => {
-      const e = this.entities.get(other);
-      if (!e) return;
-      const x = s.x + (i - (out.length - 1) / 2) * 0.35;
-      const y = Math.min(s.y, this.surfaceY(x) - this.halfHeightOf(e) - 0.05) - 0.2;
-      this.leavePocket(e, x, y, ticks);
-      this.physics.setVelocity(other, this.rng.range(-1.2, 1.2), -4.5);
-      if (e.bug) releaseBug(e.bug, this.content.bugs.get(e.defId), false, y);
-      this.events.emit('pocket_swapped', { id: other, defId: e.defId, slot, x, y });
-    });
+  putInPocket(entity: Entity, slot: number): void {
+    _putInPocket(this, entity, slot);
   }
 
   /** Pull the top thing out of a slot into the hand at (x, y), kept above the ground. */
-  private takeFromPocket(slot: number, x: number, y: number): void {
-    if (this.physics.grabbed !== null) return;
-    const taken = pocketTake(this.pocket, slot, this.tick);
-    const entity = taken ? this.entities.get(taken.id) : undefined;
-    if (!taken || !entity) return;
-    const half = this.halfHeightOf(entity);
-    const px = Math.max(half + 0.1, Math.min(this.worldWidth - half - 0.1, x));
-    const py = Math.min(y, this.surfaceY(px) - half - 0.04);
-    this.leavePocket(entity, px, py, taken.ticks);
-    // Into the hand, as if just grabbed.
-    if (entity.bug) entity.bug.mode = 'st_idle';
-    this.physics.grab(entity.id, px, py);
-    this.setup.touch(entity.id);
-    this.worldCache = null;
-    this.linkedCache = null;
-    this.events.emit('unpocketed', {
-      id: entity.id,
-      kind: entity.kind,
-      defId: entity.defId,
-      slot,
-      x: px,
-      y: py,
-    });
-    this.events.emit('item_grabbed', { id: entity.id, kind: entity.kind, defId: entity.defId, x: px, y: py });
+  takeFromPocket(slot: number, x: number, y: number): void {
+    _takeFromPocket(this, slot, x, y);
   }
 
   /** Back into the world at (x, y), with its timers moved on past the time it spent in the pocket. */
-  private leavePocket(entity: Entity, x: number, y: number, ticks: number): void {
-    this.pocketed.delete(entity.id);
-    this.physics.place(entity.id, x, y, 0);
-    this.physics.setActive(entity.id, true);
-    if (entity.tags) shiftTags(entity.tags, ticks);
-    this.potions.shift(entity, ticks);
-    if (entity.bug) {
-      shiftBrain(entity.bug, ticks);
-      entity.bug.lastX = x;
-      entity.bug.touchedAt = this.tick;
-    }
+  leavePocket(entity: Entity, x: number, y: number, ticks: number): void {
+    _leavePocket(this, entity, x, y, ticks);
   }
 
   /** Half the height of a bug or an item, upright. */
@@ -995,7 +723,7 @@ export class Sim {
     return this.halfHeightOf(e);
   }
 
-  private halfHeightOf(e: Entity): number {
+  halfHeightOf(e: Entity): number {
     return e.kind === 'bug'
       ? this.bugDef(e).radius
       : halfExtents(this.content.items.get(e.defId).shape, 0).h * this.potions.scaleOf(e);
@@ -1108,7 +836,7 @@ export class Sim {
   }
 
   /** Shaken up, a fizzy thing shoots up out of the hand at 1500 px/s. It only has one fizz in it. */
-  private fizz(e: Entity): void {
+  fizz(e: Entity): void {
     this.physics.release();
     const s = this.physics.getState(e.id);
     this.physics.setVelocity(e.id, s.vx * 0.2, -15);
@@ -1154,139 +882,60 @@ export class Sim {
 
   /** Is this a potion bottle? */
   isPotion(e: Entity): boolean {
-    if (e.kind !== 'item') return false;
-    return !!e.brew || !!this.content.items.get(e.defId).potion || e.defId === 'item_potion_mix';
+    return _isPotion(this, e);
   }
 
   /** The brew in a bottle that never went through the cauldron: its potion, plain. */
   brewOf(potionId: string): Brew {
-    const p = this.content.potions.get(potionId);
-    return {
-      potion: p.id,
-      effects: [p.effect],
-      strength: 1,
-      durationTicks: p.durationTicks,
-      color: p.color,
-      essences: [...p.recipe],
-      ...(p.effect === 'paint' ? { paint: 'paint_red' } : {}),
-    };
+    return _brewOf(this, potionId);
   }
 
-  private bottleBrew(e: Entity): Brew {
-    if (e.brew) return e.brew;
-    const potion = this.content.items.get(e.defId).potion;
-    return this.brewOf(potion ?? 'potion_water');
+  bottleBrew(e: Entity): Brew {
+    return _bottleBrew(this, e);
   }
 
   /** A bug drank a potion. */
-  private drink(bug: Entity, bottle: Entity): void {
-    const s = this.physics.getState(bug.id);
-    const b = this.bottleBrew(bottle);
-    this.remove(bottle.id);
-    this.events.emit('potion_drunk', { id: bug.id, defId: bug.defId, potion: b.potion, x: s.x, y: s.y });
-    this.potions.give(bug, b, 'drink');
+  drink(bug: Entity, bottle: Entity): void {
+    _drink(this, bug, bottle);
   }
 
   /** A bottle hit something hard: it breaks and splashes what it hit (half the time). */
-  private shatterPotion(bottle: Entity, otherId: EntityId | null, x: number, y: number): void {
-    const b = this.bottleBrew(bottle);
-    this.remove(bottle.id);
-    let target = otherId === null ? undefined : this.entities.get(otherId);
-    if (target && (this.isSleeping(target.id) || target.bug?.pending)) target = undefined;
-    // Smashed on the ground right next to a bug still splashes it.
-    if (!target) target = this.nearestBug(x, y, 0.7) ?? undefined;
-    const applied = target ? this.potions.give(target, b, 'splash') : false;
-    if (target?.bug && applied && b.potion !== 'potion_sludge') this.reactBug(target, 'wow');
-    this.events.emit('potion_shattered', {
-      id: bottle.id,
-      targetId: target?.id ?? null,
-      potion: b.potion,
-      color: b.color,
-      applied,
-      x,
-      y,
-    });
+  shatterPotion(bottle: Entity, otherId: EntityId | null, x: number, y: number): void {
+    _shatterPotion(this, bottle, otherId, x, y);
   }
 
   /** Rule R11: a fragile thing knocked hard breaks into pieces. */
-  private shatter(e: Entity, into: string, count: number): void {
-    const s = this.physics.getState(e.id);
-    this.remove(e.id);
-    const pieces: EntityId[] = [];
-    for (let i = 0; i < count; i++) {
-      const a = (i / count) * Math.PI * 2;
-      const piece = this.spawn('item', into, s.x + Math.cos(a) * 0.15, s.y - 0.05 + Math.sin(a) * 0.08);
-      this.physics.setVelocity(piece.id, s.vx * 0.3 + Math.cos(a) * 2, -2 - this.rng.range(0, 1.5));
-      pieces.push(piece.id);
-    }
-    this.events.emit('shattered', { id: e.id, defId: e.defId, into, pieces, x: s.x, y: s.y });
+  shatter(e: Entity, into: string, count: number): void {
+    _shatter(this, e, into, count);
   }
 
   /** Paint a bug from a paint drop let go on it (drop rule 5): the drop is used up. */
-  private paintFromDrop(bugId: EntityId, drop: Entity): void {
-    const bug = this.entities.get(bugId);
-    const paint = this.content.items.get(drop.defId).paint;
-    if (!bug || !paint) return;
-    const s = this.physics.getState(bugId);
-    this.remove(drop.id);
-    this.places.paint(bug, paint, s.x, s.y);
+  paintFromDrop(bugId: EntityId, drop: Entity): void {
+    _paintFromDrop(this, bugId, drop);
   }
 
   /** The drop target took it: in a mouth, a tray, the cauldron, or paint on a bug. */
-  private dropInto(target: DropTarget, entity: Entity): void {
-    switch (target.kind) {
-      case 'mouth':
-        this.feed(target.entityId, entity.id, true);
-        return;
-      case 'tray':
-        this.bench.place(entity.id, -1 - target.entityId);
-        return;
-      case 'cauldron':
-        this.cauldron.add(entity);
-        return;
-      case 'body':
-        this.paintFromDrop(target.entityId, entity);
-        return;
-    }
+  dropInto(target: DropTarget, entity: Entity): void {
+    _dropInto(this, target, entity);
   }
 
   /** An upside-down bug on the porch boards: it hangs with the spider and they share a crumb. */
   upsideDownAt(bug: Entity, x: number, y: number): void {
-    const spider = this.places.fixtures('spider')[0];
-    if (!spider || !this.barriers.isOpen(spider.area.id)) return;
-    if (Math.abs(x - spider.x) < 2 && y < 3.6) this.findSecret('secret_upside_tea', x, y);
-    void bug;
+    _upsideDownAt(this, bug, x, y);
   }
 
   /** A ghost bug drifting through the lattice spooks Whiff, who spooks everyone. */
   ghostAt(bug: Entity, x: number, y: number): void {
-    for (const e of this.entities.ofKind('item')) {
-      if (e.defId !== 'item_lattice_panel') continue;
-      const s = this.physics.getState(e.id);
-      if (Math.abs(s.x - x) > 0.5 || Math.abs(s.y - y) > 3) continue;
-      if (!this.secrets.includes('secret_ghost_lattice')) {
-        this.findSecret('secret_ghost_lattice', x, y);
-        for (const whiff of this.entities.ofKind('bug'))
-          if (this.content.bugs.get(whiff.defId).habits.stinkCloud && !whiff.bug?.pending) this.puff(whiff);
-      }
-    }
-    void bug;
+    _ghostAt(this, bug, x, y);
   }
 
   /** Ghosts pass through the lattice panel. */
-  private ghostThrough(a: EntityId, b: EntityId): boolean {
-    const ea = this.entities.get(a);
-    const eb = this.entities.get(b);
-    if (!ea || !eb) return false;
-    return (
-      (ea.defId === 'item_lattice_panel' && this.isGhost(b)) ||
-      (eb.defId === 'item_lattice_panel' && this.isGhost(a))
-    );
+  ghostThrough(a: EntityId, b: EntityId): boolean {
+    return _ghostThrough(this, a, b);
   }
 
-  private isGhost(id: EntityId): boolean {
-    const e = this.entities.get(id);
-    return !!e?.effects && this.potions.ghostly(e);
+  isGhost(id: EntityId): boolean {
+    return _isGhost(this, id);
   }
 
   /**
@@ -1294,84 +943,12 @@ export class Sim {
    * asleep on the bottle cap with a red berry beside her, a little peckish,
    * so hovering her shows a berry thought.
    */
-  private stageIntro(): void {
-    const dot = this.entities.ofKind('bug').find((b) => b.defId === 'bug_ladybug_dot');
-    if (!dot?.bug) return;
-    const s = this.physics.getState(dot.id);
-    const def = this.content.bugs.get(dot.defId);
-    dot.bug.needs.need_hunger = 22;
-    dot.bug.needs.need_energy = 72;
-    for (const n of napBug(dot.bug, def, s.x)) this.emitNotice(dot, n, s);
-    const berry = this.entities
-      .ofKind('item')
-      .filter((e) => e.defId === 'item_berry_red')
-      .map((e) => ({ e, d: Math.abs(this.physics.getState(e.id).x - s.x) }))
-      .sort((a, b) => a.d - b.d)[0];
-    if (!berry || berry.d > 2) {
-      const x = s.x + 1.1;
-      this.spawn('item', 'item_berry_red', x, this.surfaceY(x) - 0.4);
-    }
+  stageIntro(): void {
+    _stageIntro(this);
   }
 
-  private poke(x: number, y: number): void {
-    const id = this.physics.bodyAt(x, y, 0.2);
-    const entity = id === null ? undefined : this.entities.get(id);
-    // A poke is a click, so whatever the press picked up is let go in place.
-    const held = this.physics.release(MAX_FLING_SPEED, { x: 0, y: 0 });
-    const heldEntity = held === null ? undefined : this.entities.get(held);
-    if (heldEntity?.bug && heldEntity !== entity)
-      releaseBug(
-        heldEntity.bug,
-        this.content.bugs.get(heldEntity.defId),
-        false,
-        this.physics.getState(heldEntity.id).y,
-      );
-    if (!entity) {
-      // Nothing there: maybe a fixture, like the hose tap.
-      this.environment.pokeFixture(x, y);
-      return;
-    }
-    const s = this.physics.getState(entity.id);
-    if (entity.bug?.pending) {
-      // A bug waiting to be found stays in character (Twig stays a twig) unless the poke finds it.
-      this.setup.touch(entity.id);
-      if (this.cast.poked(entity) && entity.bug.pending) {
-        this.physics.setVelocity(entity.id, s.vx, -1.5);
-        this.events.emit('item_poked', { id: entity.id, defId: entity.defId, x: s.x, y: s.y });
-      }
-      return;
-    }
-    if (entity.bug && this.potions.poked(entity)) {
-      // A balloon bug lets its air out, zipping about.
-      this.events.emit('bug_poked', { id: entity.id, defId: entity.defId, x: s.x, y: s.y });
-      return;
-    }
-    if (entity.bug) {
-      const notices = pokedBug(entity.bug, this.bugDef(entity), this.rng, this.tick);
-      if (!notices) return;
-      this.physics.setVelocity(entity.id, 0, -2.2);
-      this.events.emit('bug_poked', { id: entity.id, defId: entity.defId, x: s.x, y: s.y });
-      for (const notice of notices) this.emitNotice(entity, notice, s);
-      this.puff(entity);
-    } else if (this.content.items.get(entity.defId).lamp) {
-      // A light: the click switches it on or off.
-      this.setup.touch(entity.id);
-      const on = !this.hasTag(entity.id, 'tag_glowing');
-      if (on) this.addTag(entity.id, 'tag_glowing', 'player');
-      else this.removeTag(entity.id, 'tag_glowing', 'player');
-      this.events.emit('light_toggled', { id: entity.id, on, x: s.x, y: s.y });
-      this.weather.noteLight(s.x, s.y);
-    } else if (this.toys.poked(entity)) {
-      // A toy did its thing: fired, launched, let its air out.
-      this.setup.touch(entity.id);
-    } else {
-      if (entity.defId === 'item_junk_blob')
-        this.events.emit('blob_squeaked', { id: entity.id, x: s.x, y: s.y });
-      // A poke is a touch: it stays the player's.
-      this.setup.touch(entity.id);
-      this.physics.setVelocity(entity.id, s.vx + this.rng.range(-0.6, 0.6), -3.2);
-      this.events.emit('item_poked', { id: entity.id, defId: entity.defId, x: s.x, y: s.y });
-    }
+  poke(x: number, y: number): void {
+    _poke(this, x, y);
   }
 
   /** Target lookup for the AI: where an entity is and how big it is. */
@@ -1517,53 +1094,8 @@ export class Sim {
    * taken away before physics runs. Flung and curled-up bugs are the
    * player's doing and keep theirs.
    */
-  private capWalkForces(): void {
-    const linked = this.setupLinked();
-    if (linked.size === 0) return;
-    for (const bug of this.entities.ofKind('bug')) {
-      const b = bug.bug;
-      if (!b || this.isSleeping(bug.id) || this.byPlayer(bug)) continue;
-      const s = this.physics.getState(bug.id);
-      let vx = s.vx;
-      let vy = s.vy;
-      let changed = false;
-      for (const c of this.physics.contactsOf(bug.id)) {
-        // The thing in the player's hand is the player's doing; the one in its mouth is its meal.
-        if (!linked.has(c.other) || this.physics.grabbed === c.other || b.mouthful === c.other) continue;
-        if (c.ny > 0.5 && b.mode !== 'st_airborne' && b.mode !== 'st_use' && b.mode !== 'st_swim') {
-          // Standing on the player's things: hop off, clear of them.
-          const o = this.physics.getState(c.other);
-          const boxes = [...linked].map((id) => this.boxOf(id));
-          const free = (d: number): boolean =>
-            !boxes.some((q) => s.x + d * 1.5 > q.x0 - 0.8 && s.x + d * 1.5 < q.x1 + 0.8);
-          const pref = s.x >= o.x ? 1 : -1;
-          if (!free(pref) && !free(-pref)) continue;
-          const dir: 1 | -1 = free(pref) ? pref : (-pref as 1 | -1);
-          b.facing = dir;
-          b.mode = 'st_airborne';
-          b.selfLaunched = true;
-          b.resume = null;
-          b.airPeak = 0;
-          b.airTop = s.y;
-          b.social = null;
-          b.carrying = null;
-          b.targetId = null;
-          b.action = null;
-          vx = dir * 2.6;
-          vy = -5.5;
-          changed = true;
-          this.events.emit('bug_hopped', { id: bug.id, defId: bug.defId, x: s.x, y: s.y });
-          break;
-        }
-        const into = vx * c.nx + vy * c.ny;
-        if (into <= 0) continue;
-        // Standing on top of it: only its weight rests there, no shove.
-        vx -= into * c.nx;
-        vy -= into * c.ny;
-        changed = true;
-      }
-      if (changed) this.physics.setVelocity(bug.id, vx, vy);
-    }
+  capWalkForces(): void {
+    _capWalkForces(this);
   }
 
   /**
@@ -1571,89 +1103,37 @@ export class Sim {
    * on one) slips past it instead of shoving it: the walk-force cap. Standing
    * on top still works, and flung or curled-up bugs hit things for real.
    */
-  private softContact(a: EntityId, b: EntityId, ny: number): boolean {
-    const ea = this.entities.get(a);
-    const eb = this.entities.get(b);
-    const bug = ea?.bug ? ea : eb?.bug ? eb : null;
-    const item = ea?.kind === 'item' ? ea : eb?.kind === 'item' ? eb : null;
-    if (!bug?.bug || !item) return false;
-    // A bug hopping about on its own drops past the player's things; one walking only slides past their sides.
-    const hopping = bug.bug.mode === 'st_airborne' || bug.bug.mode === 'st_use';
-    if (!hopping && Math.abs(ny) > 0.95) return false;
-    if (this.byPlayer(bug)) return false;
-    if (this.physics.grabbed === item.id) return false;
-    return this.setupLinked().has(item.id);
+  softContact(a: EntityId, b: EntityId, ny: number): boolean {
+    return _softContact(this, a, b, ny);
   }
 
   /** Is this bug moving because the player just grabbed, flung, or poked it? Then it hits for real. */
-  private byPlayer(bug: Entity): boolean {
-    const b = bug.bug;
-    if (!b) return false;
-    if (b.mode === 'st_held' || this.physics.grabbed === bug.id) return true;
-    const recent = b.touchedAt >= 0 && this.tick - b.touchedAt < 5 * SIM_HZ;
-    return recent && ((b.mode === 'st_airborne' && !b.selfLaunched) || b.mode === 'st_rolled');
+  byPlayer(bug: Entity): boolean {
+    return _byPlayer(this, bug);
   }
 
   /** Is this thing leaning on a player setup (so pushing it would push the setup)? */
-  private touchesSetup(id: EntityId): boolean {
-    return this.setupLinked().has(id);
+  touchesSetup(id: EntityId): boolean {
+    return _touchesSetup(this, id);
   }
 
-  private linkedCache: { tick: number; ids: Set<EntityId> } | null = null;
+  linkedCache: { tick: number; ids: Set<EntityId> } | null = null;
 
   /**
    * Player setups plus every item touching them, directly or through other
    * items: a bug pushing any of these would push the player's work.
    */
   setupLinked(): Set<EntityId> {
-    if (this.linkedCache?.tick === this.tick) return this.linkedCache.ids;
-    const ids = new Set<EntityId>();
-    for (const e of this.entities.ofKind('item'))
-      // Things out of the world (pocketed, in a mouth) are nobody's obstacle.
-      if (this.setup.has(e.id) && !this.pocketed.has(e.id) && this.physics.isActive(e.id)) ids.add(e.id);
-    if (ids.size > 0) {
-      const pairs = this.physics
-        .touchingPairs()
-        .filter(([a, b]) => this.entities.get(a)?.kind === 'item' && this.entities.get(b)?.kind === 'item');
-      let grew = true;
-      while (grew) {
-        grew = false;
-        for (const [a, b] of pairs) {
-          if (ids.has(a) !== ids.has(b)) {
-            ids.add(a);
-            ids.add(b);
-            grew = true;
-          }
-        }
-      }
-      // Anything about to bump into them counts too: a buffer of a few centimeters.
-      const boxes = [...ids].map((id) => this.boxOf(id));
-      for (const e of this.entities.ofKind('item')) {
-        if (ids.has(e.id) || this.isSleeping(e.id) || !this.physics.isActive(e.id)) continue;
-        const b = this.boxOf(e.id);
-        if (
-          boxes.some(
-            (o) => b.x0 < o.x1 + 0.3 && b.x1 > o.x0 - 0.3 && b.y0 < o.y1 + 0.15 && b.y1 > o.y0 - 0.15,
-          )
-        )
-          ids.add(e.id);
-      }
-    }
-    this.linkedCache = { tick: this.tick, ids };
-    return ids;
+    return _setupLinked(this);
   }
 
-  private boxOf(id: EntityId): { x0: number; x1: number; y0: number; y1: number } {
-    const st = this.physics.getState(id);
-    const ext = halfExtents(this.content.items.get(this.entities.get(id)!.defId).shape, st.angle);
-    return { x0: st.x - ext.w, x1: st.x + ext.w, y0: st.y - ext.h, y1: st.y + ext.h };
+  boxOf(id: EntityId): { x0: number; x1: number; y0: number; y1: number } {
+    return _boxOf(this, id);
   }
 
   /** Is part of a player setup (other than `except`) within `reach` of x? */
-  private setupNearExcept(x: number, reach: number, except: EntityId): boolean {
-    for (const it of this.bugWorld().setups)
-      if (it.id !== except && it.x1 > x - reach && it.x0 < x + reach) return true;
-    return false;
+  setupNearExcept(x: number, reach: number, except: EntityId): boolean {
+    return _setupNearExcept(this, x, reach, except);
   }
 
   private updateBugs(): void {
@@ -1802,120 +1282,11 @@ export class Sim {
   /** Things bugs threw this step, waiting to leave their legs. */
   private readonly pendingThrows = new Map<EntityId, { vx: number; vy: number; to: EntityId }>();
   /** The flat top of each area's highest ground, for Dot's poses. */
-  private summits: Map<string, { x0: number; x1: number; y: number } | null> | null = null;
+  summits: Map<string, { x0: number; x1: number; y: number } | null> | null = null;
 
   /** What the bug AI can ask about the world, built once per step. */
   bugWorld(): BugWorld & { setups: { id: EntityId; x0: number; x1: number; y0: number; y1: number }[] } {
-    const cached = this.worldCache as (BugWorld & { setups: never[] }) | null;
-    if (cached) return cached;
-    const physics = this.physics;
-    const bugs: OtherBug[] = [];
-    for (const e of this.entities.ofKind('bug')) {
-      // Bugs waiting to be found are not part of anyone's day yet.
-      if (this.isSleeping(e.id) || !e.bug || e.bug.pending) continue;
-      const st = physics.getState(e.id);
-      bugs.push({
-        id: e.id,
-        defId: e.defId,
-        def: this.bugDef(e),
-        brain: e.bug,
-        x: st.x,
-        y: st.y,
-        vx: st.vx,
-        vy: st.vy,
-        supported: physics.supportNormal(e.id) !== null || this.environment.skating.has(e.id),
-        held: physics.grabbed === e.id,
-      });
-    }
-    const byId = new Map(bugs.map((b) => [b.id, b]));
-    const setups: { id: EntityId; x0: number; x1: number; y0: number; y1: number }[] = [];
-    // The player's things, and anything leaning on them: pushing one pushes the setup.
-    for (const id of [...this.setupLinked()].sort((a, b) => a - b)) {
-      const e = this.entities.get(id);
-      if (!e || this.isSleeping(id)) continue;
-      const st = physics.getState(id);
-      const ext = halfExtents(this.content.items.get(e.defId).shape, st.angle);
-      setups.push({ id, x0: st.x - ext.w, x1: st.x + ext.w, y0: st.y - ext.h, y1: st.y + ext.h });
-    }
-    // Loose things are worked out the first time a bug asks this step.
-    let loose: LooseItem[] | null = null;
-    const looseItems = (): LooseItem[] => {
-      if (loose) return loose;
-      loose = [];
-      const linked = this.setupLinked();
-      const owners = this.mouthOwners();
-      for (const e of this.entities.ofKind('item')) {
-        if (this.isSleeping(e.id) || linked.has(e.id)) continue;
-        if (physics.grabbed === e.id || this.carried.has(e.id) || owners.has(e.id) || !physics.isActive(e.id))
-          continue;
-        const def = this.content.items.get(e.defId);
-        const st = physics.getState(e.id);
-        const ext = halfExtents(def.shape, st.angle);
-        if (this.environment.overOpenWater(st.x)) continue;
-        // Right beside the player's things: leave it be.
-        if (
-          setups.some(
-            (b) =>
-              st.x + ext.w > b.x0 - 0.9 &&
-              st.x - ext.w < b.x1 + 0.9 &&
-              Math.abs(st.y - (b.y0 + b.y1) / 2) < 1.5,
-          )
-        )
-          continue;
-        loose.push({
-          id: e.id,
-          defId: e.defId,
-          x: st.x,
-          y: st.y,
-          speed: Math.hypot(st.vx, st.vy),
-          edible: def.tags.includes('tag_edible'),
-          catchable: !!def.catchable,
-          halfWidth: ext.w,
-          top: st.y - ext.h,
-        });
-      }
-      return loose;
-    };
-    const slime = this.environment.state.slime;
-    const world = {
-      setups,
-      bugs: () => bugs,
-      bug: (id: EntityId) => byId.get(id) ?? null,
-      setupNear: (x: number, y: number, reach: number, except: EntityId | null = null) =>
-        setups.some(
-          (b) => b.id !== except && b.x1 > x - reach && b.x0 < x + reach && b.y1 > y - 1.1 && b.y0 < y + 1.1,
-        ),
-      setupBetween: (x0: number, x1: number) => setups.some((b) => b.x1 > x0 && b.x0 < x1),
-      loose: looseItems,
-      isSetup: (id: EntityId) => this.setup.has(id),
-      edible: (defId: string) =>
-        this.content.items.has(defId) && this.content.items.get(defId).tags.includes('tag_edible'),
-      affinity: (a: string, b: string) => this.affinityOf(a, b),
-      slimeAt: (x: number, y: number) =>
-        slime.some((t) => x >= t.x0 && x <= t.x1 && Math.abs(y - t.y) < 0.5 && t.until > this.tick),
-      surfaceY: (x: number) => this.terrain.surfaceY(x),
-      view: this.focus,
-      summit: (x: number) => this.summitOf(x),
-      waterEdge: (x: number) => this.waterEdge(x),
-      stage: () => this.places.stage(),
-      isLight: (id: EntityId) => this.hasTag(id, 'tag_light'),
-      cover: (x: number, fromX: number) => {
-        let best: { id: EntityId; x: number } | null = null;
-        for (const e of this.entities.ofKind('item')) {
-          if (this.isSleeping(e.id) || !physics.isActive(e.id) || physics.grabbed === e.id) continue;
-          const def = this.content.items.get(e.defId);
-          const st = physics.getState(e.id);
-          const ext = halfExtents(def.shape, st.angle);
-          if (ext.w < 0.2 || ext.h < 0.07 || Math.abs(st.x - x) > 3.5 || this.environment.waterAt(st.x))
-            continue;
-          if (Math.abs(st.x - fromX) < 0.5) continue;
-          if (!best || Math.abs(st.x - x) < Math.abs(best.x - x)) best = { id: e.id, x: st.x };
-        }
-        return best;
-      },
-    };
-    this.worldCache = world;
-    return world;
+    return _bugWorld(this);
   }
 
   /** How much two bug defs like each other now: the table, plus what play has changed. */
@@ -1935,33 +1306,13 @@ export class Sim {
   }
 
   /** The flat top of the highest ground in the area around x, at least 1.5 m up. */
-  private summitOf(x: number): { x0: number; x1: number; y: number } | null {
-    if (!this.summits) {
-      this.summits = new Map();
-      for (const area of this.content.areas.all) {
-        const pts = area.terrain.map(([px, py]) => [area.xStart + px, py] as const);
-        const top = Math.min(...pts.map((p) => p[1]));
-        const ground = [...pts.map((p) => p[1])].sort((a, b) => a - b)[Math.floor(pts.length / 2)]!;
-        const flat = pts.filter((p) => p[1] - top < 0.02);
-        const x0 = Math.min(...flat.map((p) => p[0])) + 0.4;
-        const x1 = Math.max(...flat.map((p) => p[0])) - 0.4;
-        this.summits.set(area.id, ground - top >= 1.5 && x1 - x0 >= 0.8 ? { x0, x1, y: top } : null);
-      }
-    }
-    return this.summits.get(this.areaOf(x).id) ?? null;
+  summitOf(x: number): { x0: number; x1: number; y: number } | null {
+    return _summitOf(this, x);
   }
 
   /** The dry spot nearest x from which a bug can hop into water, and which way the water lies. */
-  private waterEdge(x: number): { x: number; dir: 1 | -1 } | null {
-    let best: { x: number; dir: 1 | -1 } | null = null;
-    for (const w of this.environment.surfaces()) {
-      for (const edge of [
-        { x: w.left - 0.45, dir: 1 as const },
-        { x: w.right + 0.45, dir: -1 as const },
-      ])
-        if (!best || Math.abs(edge.x - x) < Math.abs(best.x - x)) best = edge;
-    }
-    return best;
+  waterEdge(x: number): { x: number; dir: 1 | -1 } | null {
+    return _waterEdge(this, x);
   }
 
   // --- Carrying ----------------------------------------------------------------
@@ -2158,179 +1509,8 @@ export class Sim {
     }
   }
 
-  private emitNotice(self: Entity, notice: BugNotice, selfState: BodyState): void {
-    // A notice about the partner in some shared moment speaks for that bug.
-    const other = notice.by === undefined ? undefined : this.entities.get(notice.by);
-    const entity = other ?? self;
-    const s = other ? this.physics.getState(other.id) : selfState;
-    const base = { id: entity.id, defId: entity.defId };
-    const partnerDef = (id: EntityId): string => this.entities.get(id)?.defId ?? '';
-    switch (notice.type) {
-      case 'landed':
-        this.events.emit('bug_landed', { ...base, speed: notice.speed, x: s.x, y: s.y });
-        return;
-      case 'dizzy':
-        this.events.emit('bug_dizzy', { ...base, speed: notice.speed, durationTicks: notice.durationTicks });
-        this.noteLoud(s.x, s.y, entity.id);
-        return;
-      case 'recovered':
-        this.events.emit('bug_recovered', base);
-        return;
-      case 'chose':
-        this.events.emit('bug_chose_action', { ...base, action: notice.action, targetId: notice.targetId });
-        return;
-      case 'hopped':
-        this.events.emit('bug_hopped', { ...base, x: s.x, y: s.y });
-        return;
-      case 'reacted':
-        this.events.emit('bug_reacted', { ...base, reaction: notice.reaction, variant: notice.variant });
-        if (notice.reaction === 'land_hard') this.noteLoud(s.x, s.y, entity.id);
-        return;
-      case 'burped': {
-        const m = this.mouthAnchor(entity.id);
-        this.events.emit('bug_burped', { ...base, x: m?.x ?? s.x, y: m?.y ?? s.y });
-        return;
-      }
-      case 'tickled':
-        this.events.emit('bug_tickled', { ...base, level: notice.level });
-        return;
-      case 'swam':
-        this.events.emit('bug_swam', { ...base, x: s.x, y: s.y });
-        return;
-      case 'shook_dry':
-        this.removeTag(entity.id, 'tag_wet', 'shake');
-        // Barty hates baths: outraged for 10 s.
-        if (entity.bug && this.content.bugs.get(entity.defId).habits.rollsBalls)
-          entity.bug.grumpyUntil = this.tick + 10 * SIM_HZ;
-        this.events.emit('bug_shook_dry', { ...base, x: s.x, y: s.y });
-        return;
-      case 'used':
-        this.events.emit('bug_used', { ...base, targetId: notice.targetId, action: notice.action });
-        return;
-      case 'inspected':
-        this.events.emit('bug_inspected', {
-          ...base,
-          itemId: notice.itemId,
-          itemDefId: partnerDef(notice.itemId),
-        });
-        return;
-      case 'social':
-        this.events.emit('bug_socialized', { ...base, partnerId: notice.partnerId, kind: notice.kind });
-        return;
-      case 'social_end':
-        this.events.emit('bug_social_ended', {
-          ...base,
-          partnerId: notice.partnerId,
-          kind: notice.kind,
-          happy: notice.happy,
-        });
-        return;
-      case 'chatted':
-        this.events.emit('bug_chatted', {
-          ...base,
-          partnerId: notice.partnerId,
-          topic: notice.topic,
-          about: notice.about,
-        });
-        return;
-      case 'bumped': {
-        const p = this.entities.has(notice.partnerId) ? this.physics.getState(notice.partnerId) : s;
-        this.events.emit('bug_bumped', {
-          ...base,
-          partnerId: notice.partnerId,
-          x: (s.x + p.x) / 2,
-          y: (s.y + p.y) / 2,
-        });
-        return;
-      }
-      case 'tagged':
-        this.events.emit('bug_tagged', { ...base, partnerId: notice.partnerId, x: s.x, y: s.y });
-        return;
-      case 'shared': {
-        const item = this.entities.get(notice.itemId);
-        const to = this.entities.get(notice.partnerId);
-        if (!item || !to?.bug) return;
-        if (to.bug.carrying === item.id) to.bug.carrying = null;
-        if (to.id !== entity.id)
-          this.events.emit('bug_shared', {
-            ...base,
-            partnerId: to.id,
-            itemId: item.id,
-            itemDefId: item.defId,
-          });
-        this.feed(to.id, item.id, false);
-        return;
-      }
-      case 'snatched':
-        this.events.emit('bug_snatched', {
-          ...base,
-          partnerId: notice.partnerId,
-          itemId: notice.itemId,
-          itemDefId: partnerDef(notice.itemId),
-        });
-        return;
-      case 'comforted':
-        this.events.emit('bug_comforted', { ...base, partnerId: notice.partnerId, x: s.x, y: s.y });
-        return;
-      case 'gawked':
-        this.events.emit('bug_gawked', { ...base, x: notice.x, y: notice.y });
-        return;
-      case 'rode':
-        this.events.emit('bug_rode', { ...base, mountId: notice.mountId, on: notice.on });
-        return;
-      case 'slept':
-        this.events.emit('bug_slept', { ...base, x: s.x, y: s.y });
-        return;
-      case 'woke':
-        this.events.emit('bug_woke', { ...base, early: notice.early });
-        return;
-      case 'posed':
-        this.events.emit('bug_posed', { ...base, x: s.x, y: s.y });
-        return;
-      case 'fidgeted':
-        this.events.emit('bug_fidgeted', { ...base, fidget: notice.fidget });
-        return;
-      case 'slipped':
-        if (entity.bug) entity.bug.needs.need_clean = Math.max(0, entity.bug.needs.need_clean - 5);
-        this.events.emit('bug_slipped', { ...base, x: s.x, y: s.y });
-        if (entity.bug) this.emitNotice(entity, react(entity.bug, 'slip', this.rng, this.tick), s);
-        return;
-      case 'curled':
-        this.events.emit('bug_curled', { ...base, on: notice.on });
-        return;
-      case 'hid':
-        this.events.emit('bug_hid', { ...base, coverId: notice.coverId, on: notice.on });
-        return;
-      case 'affinity':
-        this.nudgeAffinity(entity.defId, partnerDef(notice.partnerId), notice.delta);
-        return;
-      case 'umbrella':
-        this.events.emit('bug_umbrella', { ...base, itemId: notice.itemId, on: notice.on });
-        return;
-      case 'freed': {
-        // Moose pulls his friend free of the gum.
-        if (!this.entities.has(notice.partnerId)) return;
-        this.environment.unstickAll(notice.partnerId);
-        const p = this.physics.getState(notice.partnerId);
-        this.physics.setVelocity(notice.partnerId, entity.bug ? entity.bug.facing * -1.2 : 0, -3);
-        this.events.emit('bug_freed', { ...base, partnerId: notice.partnerId, x: p.x, y: p.y });
-        return;
-      }
-      case 'chopped': {
-        // Hi-yah! Whatever floated by goes flying.
-        const item = this.entities.get(notice.itemId);
-        if (!item) return;
-        const p = this.physics.getState(item.id);
-        const dir = entity.bug?.facing ?? 1;
-        this.physics.setVelocity(item.id, dir * 3.5, -4.5);
-        this.events.emit('bug_chopped', { ...base, itemId: item.id, x: p.x, y: p.y });
-        return;
-      }
-      case 'changed':
-        this.events.emit('bug_changed', { ...base, form: notice.form, x: s.x, y: s.y });
-        if (notice.form === 'butterfly') this.findSecret('secret_munch_butterfly', s.x, s.y);
-        return;
-    }
+  emitNotice(self: Entity, notice: BugNotice, selfState: BodyState): void {
+    _emitNotice(this, self, notice, selfState);
   }
 
   // --- Day, night, and weather -----------------------------------------------
@@ -2423,7 +1603,7 @@ export class Sim {
   }
 
   /** Startled, a stink bug lets off a green cloud (at most every few seconds), then fans it away. */
-  private puff(bug: Entity, react_ = true): void {
+  puff(bug: Entity, react_ = true): void {
     const b = bug.bug;
     if (!b || b.pending || !this.content.bugs.get(bug.defId).habits.stinkCloud) return;
     if (b.puffedAt !== undefined && this.tick - b.puffedAt < STINK_EVERY) return;
@@ -2638,7 +1818,7 @@ export class Sim {
    * things never sleep. Without a focus (tests, headless runs) all areas
    * stay awake.
    */
-  private updateSleep(): void {
+  updateSleep(): void {
     const f = this.focus;
     for (const area of this.content.areas.all) {
       const gap = f ? Math.max(area.xStart - f.x1, f.x0 - area.xEnd, 0) : 0;
@@ -2717,7 +1897,7 @@ export class Sim {
   }
 
   /** The player fed a bug: the food goes in its mouth. */
-  private feed(bugId: EntityId, itemId: EntityId, byPlayer: boolean): void {
+  feed(bugId: EntityId, itemId: EntityId, byPlayer: boolean): void {
     const bug = this.entities.get(bugId);
     const item = this.entities.get(itemId);
     if (!bug?.bug || !item || !canEat(bug.bug)) return;
@@ -2823,123 +2003,21 @@ export class Sim {
     return this.rolling.has(id);
   }
 
-  private handleImpacts(impacts: Impact[]): void {
-    const bonked = new Map<EntityId, number>();
-    const launched = new Set<EntityId>();
-    const breaks = new Map<EntityId, { other: EntityId | null; x: number; y: number }>();
-    for (const impact of impacts) {
-      for (const [self, other, sign] of [
-        [impact.a, impact.b, 1],
-        [impact.b, impact.a, -1],
-      ] as const) {
-        if (self === null) continue;
-        const entity = this.entities.get(self);
-        if (!entity) continue;
-        if (entity.kind === 'bug')
-          this.bugImpacts.set(self, Math.max(this.bugImpacts.get(self) ?? 0, impact.speed));
-        // A bug flung into another bug: they like each other a touch less.
-        const hit = other === null ? undefined : this.entities.get(other);
-        if (
-          sign === 1 &&
-          entity.bug &&
-          hit?.bug &&
-          impact.speed > 3 &&
-          ((entity.bug.mode === 'st_airborne' && !entity.bug.selfLaunched) ||
-            (hit.bug.mode === 'st_airborne' && !hit.bug.selfLaunched))
-        )
-          this.nudgeAffinity(entity.defId, hit.defId, -0.02);
-        if (entity.kind === 'item' && other !== null) this.tryCatch(self, other);
-        if (impact.speed >= BONK_SPEED) bonked.set(self, Math.max(bonked.get(self) ?? 0, impact.speed));
-        const def = entity.kind === 'item' ? this.content.items.get(entity.defId) : null;
-        if (def?.launchSpeed && def.toy !== 'launcher' && other !== null && !launched.has(other))
-          if (this.trySpring(self, def, other, impact, sign)) launched.add(other);
-        // A potion bottle breaks on a hard knock; so does anything fragile (rule R11).
-        if (def && !breaks.has(self) && this.physics.grabbed !== self) {
-          const otherBug = hit?.kind === 'bug';
-          const breaksHere =
-            (this.isPotion(entity) && impact.speed >= SHATTER_SPEED && !this.cauldron.fresh(self)) ||
-            (def.shatters !== undefined &&
-              impact.speed >= def.shatters.speed &&
-              !(otherBug && def.shatters.speed >= 10));
-          if (breaksHere) breaks.set(self, { other, x: impact.px, y: impact.py });
-        }
-      }
-    }
-    for (const [id, speed] of [...bonked].sort((a, b) => a[0] - b[0])) {
-      const entity = this.entities.get(id);
-      if (!entity) continue;
-      const s = this.physics.getState(id);
-      this.events.emit('bonked', { id, kind: entity.kind, defId: entity.defId, speed, x: s.x, y: s.y });
-    }
-    for (const [id, b] of [...breaks].sort((p, q) => p[0] - q[0])) {
-      const e = this.entities.get(id);
-      if (!e) continue;
-      if (this.isPotion(e))
-        this.shatterPotion(e, b.other !== null && this.entities.has(b.other) ? b.other : null, b.x, b.y);
-      else {
-        const sh = this.content.items.get(e.defId).shatters;
-        if (sh) this.shatter(e, sh.into, sh.count);
-      }
-    }
+  handleImpacts(impacts: Impact[]): void {
+    _handleImpacts(this, impacts);
   }
 
   /** A thrown food that hits a bug near its mouth gets eaten: a great shot. */
-  private tryCatch(itemId: EntityId, bugId: EntityId): void {
-    const at = this.thrown.get(itemId);
-    if (at === undefined) return;
-    if (this.tick - at > THROWN_TICKS) {
-      this.thrown.delete(itemId);
-      return;
-    }
-    const target = this.dropTargetFor(itemId);
-    if (target?.kind === 'mouth' && target.entityId === bugId) this.feed(bugId, itemId, true);
+  tryCatch(itemId: EntityId, bugId: EntityId): void {
+    _tryCatch(this, itemId, bugId);
   }
 
   /**
    * A spring launches whatever lands on its top along its axis. `sign` is 1
    * if the spring is body A of the contact (so the normal points away from it).
    */
-  private trySpring(
-    springId: EntityId,
-    def: ItemDef,
-    otherId: EntityId,
-    impact: Impact,
-    sign: number,
-  ): boolean {
-    if (impact.speed < 1 || this.physics.grabbed === otherId || !this.entities.has(otherId)) return false;
-    if (def.shape.type !== 'box') return false;
-    const s = this.physics.getState(springId);
-    const springEntity = this.entities.get(springId)!;
-    const k = this.potions.scaleOf(springEntity);
-    const up = { x: Math.sin(s.angle), y: -Math.cos(s.angle) };
-    const along = (impact.px - s.x) * up.x + (impact.py - s.y) * up.y;
-    const normalAlong = (impact.nx * up.x + impact.ny * up.y) * sign;
-    if (along < (def.shape.height / 2) * k - 0.08 * k || normalAlong < 0.7) return false;
-    const o = this.physics.getState(otherId);
-    const vUp = o.vx * up.x + o.vy * up.y;
-    const tx = (o.vx - vUp * up.x) * 0.6;
-    const ty = (o.vy - vUp * up.y) * 0.6;
-    // A giant spring launches hard enough to throw even a giant bug off the top of the screen.
-    const giantBug =
-      !!this.entities.get(otherId)?.effects && !!this.potions.has(this.entities.get(otherId)!, 'giant');
-    const launch = (def.launchSpeed ?? 0) * (k > 1.2 ? (giantBug ? 2 : 1.4) : 1);
-    if (k > 1.2 && giantBug) this.findSecret('secret_giant_launch', s.x, s.y);
-    // A sideways nudge so nothing lands back on the spring forever. Bugs
-    // bouncing on purpose drift the way they face.
-    const other = this.entities.get(otherId);
-    // The setup rule: a bug out on its own is never fired at the player's things by a spring on its side.
-    if (other?.bug && !this.byPlayer(other) && Math.abs(up.x) > 0.45) {
-      const reach = Math.sign(up.x) * 6;
-      if (this.bugWorld().setupBetween(Math.min(o.x, o.x + reach), Math.max(o.x, o.x + reach))) return false;
-    }
-    const drift = other?.bug ? other.bug.facing * 1.4 : this.rng.range(-1, 1);
-    this.physics.setVelocity(otherId, tx + up.x * launch - up.y * drift, ty + up.y * launch + up.x * drift);
-    this.launchGrace.set(otherId, this.tick + 4);
-    this.bugImpacts.delete(otherId);
-    this.events.emit('spring_bounced', { id: springId, targetId: otherId, x: s.x, y: s.y });
-    if (other?.bug && springLaunched(other.bug, springId, this.tick))
-      this.events.emit('bug_used', { id: otherId, defId: other.defId, targetId: springId, action: 'bounce' });
-    return true;
+  trySpring(springId: EntityId, def: ItemDef, otherId: EntityId, impact: Impact, sign: number): boolean {
+    return _trySpring(this, springId, def, otherId, impact, sign);
   }
 
   /**
@@ -3020,7 +2098,7 @@ export class Sim {
   }
 
   /** Item ID to the bug chewing it. */
-  private mouthOwners(): Map<EntityId, EntityId> {
+  mouthOwners(): Map<EntityId, EntityId> {
     const owners = new Map<EntityId, EntityId>();
     for (const bug of this.entities.ofKind('bug'))
       if (bug.bug && bug.bug.mouthful !== null) owners.set(bug.bug.mouthful, bug.id);
