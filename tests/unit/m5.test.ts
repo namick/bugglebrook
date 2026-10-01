@@ -389,7 +389,7 @@ describe('save migrations from every shipped version', () => {
   const fixture = (v: number): Record<string, unknown> =>
     JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures', `save-v${v}.json`), 'utf8'));
 
-  for (const v of [1, 2, 3, 4, 5, 6, 7]) {
+  for (const v of [1, 2, 3, 4, 5, 6, 7, 8]) {
     it(`loads a real version ${v} save and plays on`, () => {
       const raw = fixture(v);
       expect(raw.version).toBe(v);

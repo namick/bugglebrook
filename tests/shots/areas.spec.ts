@@ -31,8 +31,12 @@ test('areas tour', async () => {
   const bb = await launchApp();
   const { app, page } = bb;
   try {
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1920, 1080));
-    await page.waitForTimeout(400);
+    // A tiling window manager may resize the window mid-tour; put it back before each area.
+    const fit = async (): Promise<void> => {
+      await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1920, 1080));
+      await page.waitForTimeout(400);
+    };
+    await fit();
     await clickSlot(page, 0);
     await page.mouse.move(960, 60);
     // Locked: the barriers, and a peek past each one.
@@ -47,6 +51,7 @@ test('areas tour', async () => {
     await page.waitForTimeout(300);
     let n = 140;
     for (const [, name, x] of AREAS) {
+      await fit();
       for (const [hour, when] of [
         [12, 'day'],
         [19, 'dusk'],

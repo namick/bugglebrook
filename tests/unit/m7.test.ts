@@ -946,6 +946,15 @@ describe('the treehouse arcade', () => {
 });
 
 describe('save version 8', () => {
+  it('loads a real version 8 save with the flowerbed and porch open and the rest still locked', () => {
+    const raw = readFileSync(join(import.meta.dirname, 'fixtures', 'save-v8.json'), 'utf8');
+    const sim = Sim.load(loadSaveFile(raw).world);
+    for (const a of ['area_flowerbed_stage', 'area_under_porch']) expect(sim.barriers.isOpen(a)).toBe(true);
+    for (const a of ['area_compost_lab', 'area_treehouse_arcade']) expect(sim.barriers.isOpen(a)).toBe(false);
+    sim.run(60);
+    expect(sim.barriers.span().x0).toBeLessThan(1);
+  });
+
   it('moves a version 7 world 32 m right for the flowerbed, and builds the four new areas, locked', () => {
     const raw = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures', 'save-v7.json'), 'utf8'));
     const save = loadSaveFile(JSON.stringify(raw));
