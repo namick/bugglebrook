@@ -389,14 +389,14 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_button', x: 21.4 },
       { kind: 'item', defId: 'item_rubber_band', x: 22.05 },
       { kind: 'item', defId: 'item_gum_blob', x: 22.75 },
-      { kind: 'item', defId: 'item_string', x: 23.85 },
+      { kind: 'item', defId: 'item_popcorn_kernel', x: 23.85 },
       { kind: 'item', defId: 'item_tissue', x: 25.05 },
-      { kind: 'item', defId: 'item_cheese_puff', x: 25.85 },
-      { kind: 'item', defId: 'item_popcorn_kernel', x: 26.45 },
-      { kind: 'item', defId: 'item_ant_crumb', x: 27.05 },
-      // The magnet lies away from anything made of metal; past it, the way to the can tunnel
-      // stays clear for rolling things.
-      { kind: 'item', defId: 'item_magnet', x: 27.7 },
+      { kind: 'item', defId: 'item_cheese_puff', x: 25.75 },
+      // The magnet lies away from anything made of metal.
+      { kind: 'item', defId: 'item_magnet', x: 26.55 },
+      { kind: 'item', defId: 'item_ant_crumb', x: 27.25 },
+      // Only light things lie on the way to the can tunnel, so a bowled ball gets through.
+      { kind: 'item', defId: 'item_string', x: 28.1 },
       // The shelf hung from the boards on two strings over the junk pile, with the first blueprint.
       { kind: 'item', defId: 'item_blueprint_slingshot', x: 9.0, y: HANGING_SHELF_TOP },
       { kind: 'item', defId: 'item_toothpick', x: 10.1, y: HANGING_SHELF_TOP },
