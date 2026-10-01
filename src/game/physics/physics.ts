@@ -1,4 +1,4 @@
-import { AABB, Box, Chain, Circle, Edge, MouseJoint, Vec2, WeldJoint, World } from 'planck';
+import { AABB, Box, Chain, Circle, Edge, MouseJoint, RevoluteJoint, Vec2, WeldJoint, World } from 'planck';
 import type { Body, Contact, Joint } from 'planck';
 import type { EntityId } from '../core/entities';
 import type { Terrain } from '../world/terrain';
@@ -85,6 +85,8 @@ export class Physics {
   /** Lily pads, ice sheets: bodies that are part of the world, keyed by name. */
   private platforms = new Map<string, Body>();
   private welds = new Map<number, { joint: Joint; a: EntityId; b: EntityId }>();
+  /** Seesaws and catapults resting on their pivots: a hinge to the world. */
+  private pivots = new Map<EntityId, Joint>();
   private nextWeld = 1;
   private grabTarget: Vec | null = null;
   private lastGrabTarget: Vec | null = null;
@@ -185,6 +187,13 @@ export class Physics {
       angularDamping: options.angularDamping ?? 0.1,
       bullet: false,
     });
+    this.addFixtures(body, shape, material);
+    if (shape.type === 'box') this.halfExtents.set(id, { x: shape.width / 2, y: shape.height / 2 });
+    body.setUserData(id);
+    this.bodies.set(id, body);
+  }
+
+  private addFixtures(body: Body, shape: ShapeSpec, material: MaterialSpec): void {
     if (shape.type === 'box' && shape.parts)
       for (const p of shape.parts)
         body.createFixture(new Box(p.width / 2, p.height / 2, Vec2(p.x, p.y), p.angle), material);
@@ -193,9 +202,79 @@ export class Physics {
         shape.type === 'circle' ? new Circle(shape.radius) : new Box(shape.width / 2, shape.height / 2);
       body.createFixture(planckShape, material);
     }
+  }
+
+  /**
+   * Give a body a new shape and material in place (a potion made it giant,
+   * tiny, or heavy). Its pose, speed, joints, and hand keep going.
+   */
+  reshape(id: EntityId, shape: ShapeSpec, material: MaterialSpec): void {
+    const body = this.requireBody(id);
+    const first = body.getFixtureList();
+    const friction = first?.getFriction() ?? material.friction;
+    const restitution = first?.getRestitution() ?? material.restitution;
+    for (let f = body.getFixtureList(); f;) {
+      const next = f.getNext();
+      body.destroyFixture(f);
+      f = next;
+    }
+    this.addFixtures(body, shape, { ...material, friction, restitution });
     if (shape.type === 'box') this.halfExtents.set(id, { x: shape.width / 2, y: shape.height / 2 });
-    body.setUserData(id);
-    this.bodies.set(id, body);
+    else this.halfExtents.delete(id);
+    body.resetMassData();
+    body.setAwake(true);
+  }
+
+  /** Gravity on this body, times g: 1 normal, 0.15 floaty, -1 falls up. */
+  setGravityScale(id: EntityId, scale: number): void {
+    const body = this.requireBody(id);
+    if (body.getGravityScale() === scale) return;
+    body.setGravityScale(scale);
+    body.setAwake(true);
+  }
+
+  gravityScale(id: EntityId): number {
+    return this.requireBody(id).getGravityScale();
+  }
+
+  /** Change how bouncy a body is. */
+  setRestitution(id: EntityId, restitution: number): void {
+    const body = this.requireBody(id);
+    for (let f = body.getFixtureList(); f; f = f.getNext()) f.setRestitution(restitution);
+    for (let edge = body.getContactList(); edge; edge = edge.next ?? null) edge.contact.resetRestitution();
+  }
+
+  restitution(id: EntityId): number {
+    return this.requireBody(id).getFixtureList()?.getRestitution() ?? 0;
+  }
+
+  /**
+   * Hinge a body to the world at a point (a seesaw on its cork), letting it
+   * turn between `lower` and `upper` radians from its angle now.
+   */
+  setPivot(id: EntityId, x: number, y: number, lower: number, upper: number): void {
+    this.removePivot(id);
+    const body = this.requireBody(id);
+    const joint = this.world.createJoint(
+      new RevoluteJoint(
+        { enableLimit: true, lowerAngle: lower, upperAngle: upper },
+        this.ground,
+        body,
+        Vec2(x, y),
+      ),
+    );
+    if (joint) this.pivots.set(id, joint);
+  }
+
+  removePivot(id: EntityId): void {
+    const joint = this.pivots.get(id);
+    if (!joint) return;
+    this.world.destroyJoint(joint);
+    this.pivots.delete(id);
+  }
+
+  hasPivot(id: EntityId): boolean {
+    return this.pivots.has(id);
   }
 
   removeBody(id: EntityId): void {
@@ -203,6 +282,7 @@ export class Physics {
     if (!body) return;
     if (this.grabbedId === id) this.release();
     for (const [handle, w] of this.welds) if (w.a === id || w.b === id) this.unweld(handle);
+    this.removePivot(id);
     this.world.destroyBody(body);
     this.bodies.delete(id);
     this.halfExtents.delete(id);
@@ -581,11 +661,30 @@ export class Physics {
     body.setAwake(true);
   }
 
+  /** The entity this body stands on (its most upright support), or null for the ground or nothing. */
+  supportBody(id: EntityId): EntityId | null {
+    const body = this.requireBody(id);
+    let best: { id: EntityId; ny: number } | null = null;
+    for (let edge = body.getContactList(); edge; edge = edge.next ?? null) {
+      const contact = edge.contact;
+      if (!contact.isTouching()) continue;
+      const other = edge.other ? (edge.other.getUserData() as EntityId | null) : null;
+      if (other == null) continue;
+      const m = contact.getWorldManifold(null);
+      if (!m) continue;
+      const sign = contact.getFixtureA().getBody() === body ? -1 : 1;
+      const ny = m.normal.y * sign;
+      if (ny < -0.5 && (!best || ny < best.ny)) best = { id: other, ny };
+    }
+    return best?.id ?? null;
+  }
+
   /**
    * The upward normal of whatever the body is standing on, or null if it is
-   * not supported. Picks the most upright contact.
+   * not supported. Picks the most upright contact. With `overhead`, it looks
+   * for what holds an upside-down body up instead, mirrored to read as ground.
    */
-  supportNormal(id: EntityId): Vec | null {
+  supportNormal(id: EntityId, overhead = false): Vec | null {
     const body = this.requireBody(id);
     let best: Vec | null = null;
     for (let edge = body.getContactList(); edge; edge = edge.next ?? null) {
@@ -597,6 +696,8 @@ export class Physics {
       const sign = contact.getFixtureA().getBody() === body ? -1 : 1;
       let nx = manifold.normal.x * sign;
       let ny = manifold.normal.y * sign;
+      // Upside down, what holds it up is overhead: mirror it, so it reads like ground.
+      if (overhead) ny = -ny;
       if (ny >= -0.3) continue;
       // Standing on a small loose thing (a bottle cap, a pebble): treat its top as
       // flat, or gripping would shove it out from underneath. Long things (the

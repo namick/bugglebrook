@@ -6,7 +6,8 @@ import { createRegistry } from './registry';
 // (`sim.secrets`, `secret_found`). M6 brings the ones that hang on the time
 // of day: the sundial, the sun, the knothole, the moonlit teacup, and the
 // fireflies. M7 adds the areas' unlocks, the found bugs, and a few secrets
-// in the new areas.
+// in the new areas. M8 adds the bench's first blob, the cauldron's
+// potions, the bug scope, and what potions get up to.
 export const SECRETS = createRegistry<SecretDef>('secret', [
   {
     id: 'secret_sundial_midnight',
@@ -133,6 +134,61 @@ export const SECRETS = createRegistry<SecretDef>('secret', [
     id: 'secret_domino_chain',
     name: 'Twelve dominoes',
     trigger: { type: 'scripted', area: 'area_treehouse_arcade' },
+    unlocks: [],
+  },
+  // M8: crafting and potions.
+  {
+    id: 'secret_first_blob',
+    name: 'The first junk blob',
+    trigger: { type: 'scripted', area: 'area_under_porch' },
+    unlocks: [],
+  },
+  {
+    id: 'secret_first_potion',
+    name: 'The first potion',
+    trigger: { type: 'scripted', area: 'area_compost_lab' },
+    unlocks: [],
+  },
+  {
+    id: 'secret_sludge_burp',
+    name: 'Sludge burp',
+    trigger: { type: 'scripted', area: 'area_compost_lab' },
+    unlocks: [],
+  },
+  {
+    id: 'secret_triple_potion',
+    name: 'Three-essence fountain',
+    trigger: { type: 'scripted', area: 'area_compost_lab' },
+    unlocks: [],
+  },
+  {
+    id: 'secret_scope_wubbo',
+    name: 'Something tiny in the moss',
+    trigger: { type: 'scripted', area: 'area_compost_lab' },
+    unlocks: [],
+  },
+  {
+    id: 'secret_giant_launch',
+    name: 'Giant launch',
+    trigger: { type: 'scripted', area: 'area_compost_lab' },
+    unlocks: [],
+  },
+  {
+    id: 'secret_upside_tea',
+    name: 'Tea with the spider',
+    trigger: { type: 'scripted', area: 'area_under_porch' },
+    unlocks: [],
+  },
+  {
+    id: 'secret_ghost_lattice',
+    name: 'A ghost in the lattice',
+    trigger: { type: 'scripted', area: 'area_under_porch' },
+    unlocks: [],
+  },
+  {
+    id: 'secret_pond_freeze',
+    name: 'The pond freezes over',
+    trigger: { type: 'scripted', area: 'area_puddle_pond' },
     unlocks: [],
   },
 ]);

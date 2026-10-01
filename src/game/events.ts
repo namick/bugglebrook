@@ -1,5 +1,6 @@
 import type { BugAction, EntityId, EntityKind, SocialKind } from './core/entities';
-import type { AdvertAction } from './data/types';
+import type { AdvertAction, PotionEffect, ToyKind } from './data/types';
+import type { BlobKind } from './systems/crafting';
 import type { PhaseId, WeatherId } from './systems/sky';
 
 /**
@@ -242,7 +243,7 @@ export interface GameEvents {
   stage_lights_changed: { mode: number; x: number; y: number };
   /** A bluebell speaker was clicked quiet or loud. */
   speaker_toggled: { id: string; muted: boolean; x: number; y: number };
-  /** Dipped in a paint puddle. */
+  /** Dipped in a paint puddle, or painted by a paint drop or potion (M8). */
   painted: { id: EntityId; paint: string; x: number; y: number };
   /** A knock on the gnome. `count` quick knocks so far. */
   gnome_knocked: { x: number; y: number; count: number };
@@ -286,6 +287,115 @@ export interface GameEvents {
   bug_chopped: { id: EntityId; defId: string; itemId: EntityId; x: number; y: number };
   /** A hidden bug gave itself away for a moment (Twig's eyes opened). */
   bug_blinked: { id: EntityId; defId: string; x: number; y: number };
+
+  // --- Crafting and potions (M8) -------------------------------------
+  /** Something went into one of the Tinker Bench's three trays, or came out. */
+  tray_filled: { tray: number; id: EntityId; defId: string; x: number; y: number };
+  tray_emptied: { tray: number; id: EntityId; x: number; y: number };
+  /** The bench's lever came down. Bugs close by hammer along; a strong one shakes it harder. */
+  bench_pulled: { empty: boolean; helpers: EntityId[]; strong: boolean; x: number; y: number };
+  /** Ta-da: a recipe came out of the bench. `first` the first time this recipe was made. */
+  crafted: { recipe: string; id: EntityId; defId: string; x: number; y: number; first: boolean };
+  /** A crafted thing went back into its parts, into the trays. */
+  uncrafted: { from: string; parts: EntityId[]; x: number; y: number };
+  /** Not a recipe: a junk blob (or a chomp, if it was all food). */
+  bench_failed: { kind: BlobKind; blobId: EntityId | null; ate: string[]; x: number; y: number };
+  /** One plain thing alone in a tray: nothing to pull apart. It hops back out. */
+  bench_shrugged: { id: EntityId; x: number; y: number };
+  /** A bug was dropped on a tray. It hops out with a suspicious look. */
+  bench_refused: { id: EntityId; x: number; y: number };
+  /** A near miss: the crank wiggles and the missing thing's ghost flickers in the empty tray. */
+  bench_hinted: { recipe: string; tray: number; missing: string; x: number; y: number };
+  /** A tag nudge: the cork board shows the tag a recipe wants. */
+  bench_nudged: { recipe: string; tag: string; x: number; y: number };
+  /** A blueprint scroll was picked up: its card goes on the cork board. */
+  blueprint_found: { id: EntityId; recipe: string; x: number; y: number };
+  /** A bored bug near the bench wishes for something craftable. */
+  bug_wished: { id: EntityId; defId: string; recipe: string; output: string };
+  /** A junk blob was shaken back into its parts. */
+  blob_split: { id: EntityId; parts: EntityId[]; x: number; y: number };
+  /** A poked junk blob squeaks. */
+  blob_squeaked: { id: EntityId; x: number; y: number };
+  /** Something splashed into the cauldron and tinted the brew. */
+  cauldron_added: {
+    defId: string;
+    essence: string | null;
+    color: number;
+    count: number;
+    x: number;
+    y: number;
+  };
+  /** The cauldron already holds three things: this one bounced back out. */
+  cauldron_full: { id: EntityId; x: number; y: number };
+  /** Half a turn of stirring. `turns` counts toward the two that brew. */
+  cauldron_stirred: { turns: number; x: number; y: number };
+  /** Two full turns: it bubbles hard. Bugs close by cheer. */
+  cauldron_bubbled: { color: number; cheer: EntityId[]; x: number; y: number };
+  /** Pop: a corked bottle came out. */
+  potion_brewed: {
+    id: EntityId;
+    potion: string | null;
+    color: number;
+    triple: boolean;
+    x: number;
+    y: number;
+  };
+  /** A click tipped the cauldron: what was in it came back out. */
+  cauldron_tipped: { count: number; x: number; y: number };
+  /** A bug drank a potion. */
+  potion_drunk: { id: EntityId; defId: string; potion: string | null; x: number; y: number };
+  /** A potion bottle broke on something: a splash version at half the time. */
+  potion_shattered: {
+    id: EntityId;
+    targetId: EntityId | null;
+    potion: string | null;
+    color: number;
+    applied: boolean;
+    x: number;
+    y: number;
+  };
+  /** A potion effect began on a bug or a thing. */
+  potion_started: { id: EntityId; effect: PotionEffect; potion: string | null; x: number; y: number };
+  /** A potion effect ran out, washed off in water, was replaced by a third, or was popped. */
+  potion_ended: {
+    id: EntityId;
+    effect: PotionEffect;
+    cause: 'timeout' | 'dunk' | 'replaced' | 'popped';
+    x: number;
+    y: number;
+  };
+  /** A potion that does nothing to things: a puff and a sparkle. */
+  potion_fizzled: { id: EntityId; x: number; y: number };
+  /** A potion's burp: a plain one, a giant bubble, a flame puff, or a sludge cloud. */
+  potion_burped: {
+    id: EntityId;
+    kind: 'burp' | 'bubble' | 'fire' | 'sludge';
+    x: number;
+    y: number;
+    dir: 1 | -1;
+  };
+  /** A giant or heavy bug's step shook the ground. */
+  giant_stomped: { id: EntityId; heavy: boolean; x: number; y: number };
+  /** A frosty bug sneezed snowflakes. */
+  frost_sneezed: { id: EntityId; x: number; y: number };
+  /** A balloon bug was poked: it zips about letting its air out. */
+  balloon_deflated: { id: EntityId; x: number; y: number };
+  /** Something fragile broke into pieces (rule R11). */
+  shattered: { id: EntityId; defId: string; into: string; pieces: EntityId[]; x: number; y: number };
+  /** Food toasted by heat (rule R12). */
+  toasted: { id: EntityId; defId: string; x: number; y: number };
+  /** A musical thing was struck or poked and played its note (rule R20). */
+  note_played: { id: EntityId; defId: string; note: number; x: number; y: number };
+  /** A crafted toy did its thing. */
+  toy_used: {
+    id: EntityId;
+    toy: ToyKind;
+    action: 'fire' | 'launch' | 'inflate' | 'deflate' | 'hang' | 'attach' | 'fling' | 'boing';
+    x: number;
+    y: number;
+  };
+  /** The bug scope showed a thing's hidden tag (or nothing on the dish). */
+  scope_viewed: { defId: string | null; tag: string | null; x: number; y: number };
 }
 
 /** What a chat line is about. The renderer draws it as a pictogram. */
@@ -334,7 +444,10 @@ export type TagCause =
   | 'dew'
   | 'puddle'
   | 'heap'
-  | 'paint';
+  | 'paint'
+  | 'potion'
+  | 'mud'
+  | 'fire';
 
 export type Liking = 'loved' | 'liked' | 'neutral' | 'disliked';
 
@@ -350,6 +463,9 @@ export type Liking = 'loved' | 'liked' | 'neutral' | 'disliked';
  * caught in it), and `wonder` (looking up at a shooting star). M7 adds
  * `join` (a found bug joining the cast), `dance` (on the stage), `puff`
  * (Whiff's embarrassed stink cloud), and `chop` (Prim's karate chop).
+ * M8 adds `drink` (a gulp from a potion bottle), `cheer` (at a bubbling
+ * cauldron or a ta-da at the bench), `huh` (a potion fizzling on a thing, or
+ * a bug put in a tray), `blegh` (sludge), and `wow` (a potion taking hold).
  */
 export type ReactionType =
   | 'grab'
@@ -379,7 +495,12 @@ export type ReactionType =
   | 'join'
   | 'dance'
   | 'puff'
-  | 'chop';
+  | 'chop'
+  | 'drink'
+  | 'cheer'
+  | 'huh'
+  | 'blegh'
+  | 'wow';
 
 export const REACTION_TYPES: readonly ReactionType[] = [
   'grab',
@@ -410,6 +531,11 @@ export const REACTION_TYPES: readonly ReactionType[] = [
   'dance',
   'puff',
   'chop',
+  'drink',
+  'cheer',
+  'huh',
+  'blegh',
+  'wow',
 ];
 
 /** Variants per reaction type. */

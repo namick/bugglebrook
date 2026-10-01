@@ -157,7 +157,12 @@ export type FixtureKind =
   | 'jar_claw'
   | 'claw_button'
   | 'leaf_slide'
-  | 'window';
+  | 'window'
+  // M8: crafting and potions.
+  | 'tinker_bench'
+  | 'bench_lever'
+  | 'cauldron'
+  | 'bug_scope';
 
 /** A fixed part of an area. Positions are area-local x and world y, in meters. */
 export interface FixtureDef {
@@ -372,7 +377,9 @@ export type MaterialId =
   | 'mat_plastic'
   | 'mat_food'
   | 'mat_jelly'
-  | 'mat_shell';
+  | 'mat_shell'
+  /** A failed craft's lumpy blob: it takes its tags from what went into it. */
+  | 'mat_junk';
 
 /** Default physics and tags per material (game design doc, section 6). */
 export interface MaterialDef {
@@ -454,7 +461,53 @@ export type ItemArt =
   | 'funnel'
   | 'domino'
   | 'spinning_top'
-  | 'yo_yo';
+  | 'yo_yo'
+  // M8: materials, paints, potions, and crafted things.
+  | 'string'
+  | 'balloon'
+  | 'balloon_scrap'
+  | 'maple_seed'
+  | 'thimble'
+  | 'comb'
+  | 'glass_bead'
+  | 'paint_drop'
+  | 'ant_crumb'
+  | 'popcorn_kernel'
+  | 'popcorn'
+  | 'hat_mushroom'
+  | 'eggshell_bit'
+  | 'junk_blob'
+  | 'blueprint'
+  | 'potion'
+  | 'sprout'
+  | 'slingshot'
+  | 'spring_launcher'
+  | 'matchbox_racer'
+  | 'parachute'
+  | 'balloon_basket'
+  | 'can_phone'
+  | 'magnet_crane'
+  | 'pinwheel'
+  | 'disco_ball'
+  | 'straw_rocket'
+  | 'seesaw'
+  | 'spoon_catapult'
+  | 'trampoline'
+  | 'hat_propeller'
+  | 'hat_viking'
+  | 'hat_beanie'
+  | 'hat_pirate'
+  | 'googly_glasses'
+  | 'snorkel'
+  | 'headlamp'
+  | 'roller_skates'
+  | 'leaf_cape'
+  | 'foil_crown'
+  | 'backpack'
+  | 'kazoo'
+  | 'band_harp'
+  | 'can_bass'
+  | 'thimble_drum';
 
 /**
  * What a bug can do with an advert (game design doc, section 5). Items offer
@@ -535,22 +588,141 @@ export interface ItemDef {
   drag?: number;
   /** A marble track piece: it snaps onto the pegboard. */
   track?: boolean;
+  /** A paint drop: the color it paints (M8). */
+  paint?: string;
+  /** A potion bottle: the potion inside (M8). */
+  potion?: string;
+  /** A blueprint scroll: the recipe it pins to the Tinker Bench's cork board (M8). */
+  blueprint?: string;
+  /** A wearable's slot (game design doc, section 7.3). Wearing arrives in M11. */
+  wear?: 'head' | 'face' | 'back' | 'feet';
+  /** What a crafted toy does in the world (M8, game design doc, section 7.1). */
+  toy?: ToyKind;
+  /** Floats up: an upward pull in g (a balloon is about 1.3, so it rises with its string). */
+  lift?: number;
+  /** Where a magnet's pull comes from, in meters from the center (the crane's dangling magnet). */
+  magnetAt?: Point2;
+  /** Breaks on a hard knock (rule R11) into `count` of `into`, at `speed` m/s or more. */
+  shatters?: { into: string; count: number; speed: number };
+  /** A musical thing's note, as a scale step (0 is the area's root), for rule R20. */
+  note?: number;
 }
 
+/**
+ * What a crafted toy does (game design doc, section 7.1). The sim gives each
+ * kind its behavior: a trampoline bounces things harder, a slingshot fires
+ * what is pulled back from its fork, a seesaw tips on its cork, and so on.
+ */
+export type ToyKind =
+  | 'trampoline'
+  | 'slingshot'
+  | 'launcher'
+  | 'racer'
+  | 'parachute'
+  | 'basket'
+  | 'phone'
+  | 'crane'
+  | 'pinwheel'
+  | 'disco'
+  | 'rocket'
+  | 'seesaw'
+  | 'catapult'
+  | 'instrument';
+
+/**
+ * One ingredient of a recipe: an item ID, any item with a tag ("any
+ * `tag_glowing`"), or any of a group of items ("any balloon", "any paint").
+ */
+export type RecipeInput = string | { tag: string } | { anyOf: readonly string[]; label: string };
+
+/** A Tinker Bench recipe (game design doc, section 8). Inputs are a set: order never matters. */
 export interface RecipeDef {
   id: string;
-  /** Two item IDs, order-insensitive. */
-  inputs: readonly [string, string];
+  /** Two or three ingredients. */
+  inputs: readonly RecipeInput[];
   output: string;
 }
+
+/** The essences ingredients carry into the cauldron (game design doc, section 9). */
+export type EssenceId =
+  | 'ess_grow'
+  | 'ess_shrink'
+  | 'ess_float'
+  | 'ess_inflate'
+  | 'ess_glow'
+  | 'ess_color'
+  | 'ess_sticky'
+  | 'ess_fizz'
+  | 'ess_soap'
+  | 'ess_hot'
+  | 'ess_cold'
+  | 'ess_heavy'
+  | 'ess_bounce'
+  | 'ess_speed'
+  | 'ess_slow'
+  | 'ess_stink'
+  | 'ess_sleep'
+  | 'ess_sound'
+  | 'ess_moon'
+  | 'ess_mirror'
+  | 'ess_hair'
+  | 'ess_magnet';
+
+/** What a potion does to whoever drinks it (game design doc, section 9, "Potion outcomes"). */
+export type PotionEffect =
+  | 'giant'
+  | 'tiny'
+  | 'floaty'
+  | 'balloon'
+  | 'glow'
+  | 'paint'
+  | 'rainbow'
+  | 'sticky_feet'
+  | 'burp'
+  | 'bubble'
+  | 'bubble_burp'
+  | 'fire_breath'
+  | 'frosty'
+  | 'heavy'
+  | 'bouncy'
+  | 'speedy'
+  | 'slowmo'
+  | 'stinky'
+  | 'sleepy'
+  | 'opera'
+  | 'squeaky'
+  | 'upside_down'
+  | 'copycat'
+  | 'hairy'
+  | 'magnet'
+  | 'ghost'
+  | 'rocket'
+  | 'snowball'
+  | 'wings'
+  | 'jelly'
+  | 'wobble'
+  | 'sludge'
+  | 'water'
+  /** Not a potion: a small bug floating up inside a bubble-burp bubble. */
+  | 'bubbled';
 
 export interface PotionDef {
   id: string;
   name: string;
   color: Color;
-  effect: 'float' | 'grow' | 'shrink' | 'stink' | 'paint';
-  /** Duration in sim ticks. */
+  effect: PotionEffect;
+  /**
+   * The essences that brew it: one for a base potion, two for a special
+   * pair, three for a triple. Empty for the potions that come from a rule
+   * instead (rainbow, wobble, sludge, and plain water).
+   */
+  recipe: readonly EssenceId[];
+  /** How long it lasts on a bug, in sim ticks. */
   durationTicks: number;
+  /** The bottle item it comes in. */
+  bottle: string;
+  /** Shattered on an item, it does something (giant, tiny, glow, ...). Others just fizzle. */
+  onItems: boolean;
 }
 
 export type SecretTrigger =

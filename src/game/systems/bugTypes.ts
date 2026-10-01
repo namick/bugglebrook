@@ -50,6 +50,10 @@ export interface TargetInfo {
   /** Rotation in radians. */
   angle: number;
   held: boolean;
+  /** A potion bottle: drunk, not eaten. */
+  drink?: boolean;
+  /** Toasted food (rule R12). */
+  toasted?: boolean;
 }
 
 /** Another bug, as a bug's AI sees it. `brain` is live: social play updates both sides. */
@@ -167,6 +171,8 @@ export interface BugContext {
   sky?: BugSky;
   /** Where the player's hand is over the world, if it is (Twig freezes when it is near). */
   hand?: { x: number; y: number } | null;
+  /** A sleepy potion is working: it does not wake up rested (M8). */
+  drowsy?: boolean;
 }
 
 export interface Obstacle {

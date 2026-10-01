@@ -1,5 +1,6 @@
 import type { Advert, ItemDef } from './types';
 import { createRegistry } from './registry';
+import { M8_ITEMS } from './items8';
 
 const EAT_FOOD: Advert = { action: 'eat', needs: { need_hunger: 20 } };
 /** Something soft or snug to curl up on for a nap. */
@@ -722,6 +723,8 @@ export const ITEMS = createRegistry<ItemDef>('item', [
     accent: 0xe0cfb0,
     tags: [],
     adverts: [NAP(40)],
+    // Rule R11: a hard knock cracks it into three bits.
+    shatters: { into: 'item_eggshell_bit', count: 3, speed: 7 },
   },
   {
     // A toy battery: sparky, so it electrifies water (R9). Flick's weird favorite.
@@ -841,6 +844,8 @@ export const ITEMS = createRegistry<ItemDef>('item', [
     accent: 0x2ec4b6,
     tags: [],
     adverts: [],
+    // Rule R11: only a very hard knock breaks a jar, into rounded, safe beads.
+    shatters: { into: 'item_glass_bead', count: 4, speed: 12 },
   },
   {
     id: 'item_mushroom_cap',
@@ -1062,4 +1067,5 @@ export const ITEMS = createRegistry<ItemDef>('item', [
     adverts: [],
     catchable: true,
   },
+  ...M8_ITEMS,
 ]);

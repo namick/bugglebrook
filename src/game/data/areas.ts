@@ -150,10 +150,24 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_honey_drop', x: 30.3 },
       { kind: 'item', defId: 'item_bluebell_bloom', x: 30.9 },
       { kind: 'item', defId: 'item_leaf', x: 31.4 },
+      // M8: paint drops by the stage, a balloon on the breeze, a blueprint by the bluebells.
+      { kind: 'item', defId: 'item_paint_red', x: 23.7 },
+      { kind: 'item', defId: 'item_paint_blue', x: 24.15 },
+      { kind: 'item', defId: 'item_paint_yellow', x: 24.6 },
+      { kind: 'item', defId: 'item_paint_white', x: 16.2 },
+      { kind: 'item', defId: 'item_paint_black', x: 21.4 },
+      { kind: 'item', defId: 'item_balloon_blue', x: 10.9 },
+      { kind: 'item', defId: 'item_balloon_red', x: 6.9 },
+      { kind: 'item', defId: 'item_blueprint_disco_ball', x: 13.6 },
     ],
     respawn: [
       { item: 'item_pollen_puff', count: 1 },
       { item: 'item_seed_sunflower', count: 2 },
+      { item: 'item_paint_red', count: 1 },
+      { item: 'item_paint_blue', count: 1 },
+      { item: 'item_paint_yellow', count: 1 },
+      { item: 'item_paint_white', count: 1 },
+      { item: 'item_paint_black', count: 1 },
     ],
     skyTop: 0x9fd8f5,
     skyBottom: 0xfbe6f0,
@@ -375,8 +389,21 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_popsicle_stick', x: 23.8 },
       { kind: 'item', defId: 'item_toothpick', x: 24.6 },
       { kind: 'item', defId: 'item_button', x: 25.3 },
+      // M8: more junk for the Tinker Bench, and its first blueprint.
+      { kind: 'item', defId: 'item_string', x: 8.2 },
+      { kind: 'item', defId: 'item_hat_thimble', x: 14.2 },
+      { kind: 'item', defId: 'item_comb_tooth', x: 21.0 },
+      { kind: 'item', defId: 'item_string', x: 24.0 },
+      { kind: 'item', defId: 'item_popcorn_kernel', x: 26.2 },
+      { kind: 'item', defId: 'item_ant_crumb', x: 26.7 },
+      { kind: 'item', defId: 'item_blueprint_slingshot', x: 27.4 },
     ],
-    respawn: [{ item: 'item_crumb_cookie', count: 1 }],
+    respawn: [
+      { item: 'item_crumb_cookie', count: 1 },
+      { item: 'item_string', count: 1 },
+      { item: 'item_rubber_band', count: 2 },
+      { item: 'item_popsicle_stick', count: 2 },
+    ],
     skyTop: 0x8fd6f2,
     skyBottom: 0xe4f6ee,
     ground: 0x7a6a62,
@@ -389,6 +416,8 @@ export const AREAS = createRegistry<AreaDef>('area', [
     solids: [
       // The porch floorboards overhead: a roof that keeps the rain off.
       { id: 'solid_porch_boards', box: [0.2, 1.9, 32, 2.5] },
+      // The Tinker Bench's table top: the top of a big thread spool.
+      { id: 'solid_bench_top', box: [15, 6.82, 19.4, 7.06] },
       // The cobweb hammock: it sags where things land in it.
       {
         id: 'solid_cobweb',
@@ -425,6 +454,9 @@ export const AREAS = createRegistry<AreaDef>('area', [
       // A cobweb strung between two old flowerpots: a sticky, saggy hammock.
       { id: 'fix_cobweb_hammock', kind: 'cobweb', x: 23.7, y: 6.9, radius: 0.5, w: 2.6 },
       { id: 'fix_spider', kind: 'spider', x: 27.6, y: 4.3, radius: 0.5 },
+      // The Tinker Bench (M8): three bottle-cap trays on the spool table, and its clothespin lever.
+      { id: 'fix_tinker_bench', kind: 'tinker_bench', x: 17.2, y: 6.82, radius: 0.6, w: 4.4 },
+      { id: 'fix_bench_lever', kind: 'bench_lever', x: 19.7, y: 5.75, radius: 0.7 },
       // The tunnel at the bottom of the tin can wall, just a pill bug wide.
       {
         id: 'fix_can_tunnel',
@@ -473,6 +505,9 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_rotten_banana_bit', x: 18.6 },
       { kind: 'item', defId: 'item_moss_tuft', x: 19.8 },
       { kind: 'item', defId: 'item_apple_core', x: 21.2 },
+      // M8: a crane blueprint and a mushroom hat by the bug scope.
+      { kind: 'item', defId: 'item_blueprint_magnet_crane', x: 17.0 },
+      { kind: 'item', defId: 'item_hat_mushroom', x: 22.4 },
     ],
     respawn: [{ item: 'item_apple_core', count: 1 }],
     skyTop: 0xa8d8c8,
@@ -491,6 +526,10 @@ export const AREAS = createRegistry<AreaDef>('area', [
     ],
     fixtures: [
       { id: 'fix_compost_heap', kind: 'compost_heap', x: 5.2, y: 8.2, radius: 1, w: 6 },
+      // The eggshell cauldron sitting in the warm heap (M8). Its y is the brew's surface.
+      { id: 'fix_compost_cauldron', kind: 'cauldron', x: 5.2, y: 6.6, radius: 1.5, w: 3.2, h: 1.7 },
+      // The bug scope's eyepiece; its dish is just to the right.
+      { id: 'fix_bug_scope', kind: 'bug_scope', x: 20.0, y: 5.2, radius: 0.8 },
       { id: 'fix_jar_moss', kind: 'shelf_jar', x: 10.4, y: 7.3, radius: 0.35, item: 'item_moss_tuft' },
       { id: 'fix_jar_pepper', kind: 'shelf_jar', x: 12.1, y: 7.3, radius: 0.35, item: 'item_pepper_hot' },
       { id: 'fix_jar_mushroom', kind: 'shelf_jar', x: 13.8, y: 7.3, radius: 0.35, item: 'item_mushroom_cap' },
@@ -557,6 +596,12 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_marble_track_straight', x: 6.4, y: 2.9, pin: 0.785 },
       { kind: 'item', defId: 'item_marble_track_curve', x: 8, y: 4.4, pin: 0 },
       { kind: 'item', defId: 'item_jelly_bean', x: 29.8 },
+      // M8: maple seeds, beads from the pit, and a blueprint in the corner.
+      { kind: 'item', defId: 'item_maple_seed', x: 25.9 },
+      { kind: 'item', defId: 'item_maple_seed', x: 31.0 },
+      { kind: 'item', defId: 'item_glass_bead', x: 21.2 },
+      { kind: 'item', defId: 'item_glass_bead', x: 25.4 },
+      { kind: 'item', defId: 'item_blueprint_balloon_basket', x: 0.7 },
     ],
     respawn: [{ item: 'item_jelly_bean', count: 2 }],
     skyTop: 0x8fd6f2,

@@ -1,4 +1,5 @@
-import type { AdvertAction, PendingState } from '../data/types';
+import type { AdvertAction, PendingState, PotionEffect } from '../data/types';
+import type { Brew } from '../systems/brewing';
 import type { ReactionType } from '../events';
 import type { TagState } from '../systems/tags';
 
@@ -265,6 +266,69 @@ export interface Entity {
   pinned?: boolean;
   /** Bites taken out of a leaf by a nibbling caterpillar. */
   bites?: number;
+  /** What went into a crafted thing or a junk blob (M8), so it can come apart again. */
+  parts?: SavedPart[];
+  /** A potion bottle's brew (M8). Bottles without one hold their def's potion. */
+  brew?: Brew;
+  /** Potion effects on a bug or a thing (M8), oldest first. */
+  effects?: ActiveEffect[];
+  /** Food toasted by heat (rule R12): a food of its own, darker and steaming. */
+  toasted?: boolean;
+  /** A crafted toy's state (M8): where it pivots, hangs, or whether it is switched off. */
+  toy?: ToyState;
+}
+
+/**
+ * Something tucked inside another thing (M8): a crafted toy's parts, a junk
+ * blob's ingredients, what is in the cauldron. Enough to make it again
+ * exactly as it went in.
+ */
+export interface SavedPart {
+  defId: string;
+  tags?: TagState;
+  paint?: string[];
+  bites?: number;
+  toasted?: boolean;
+  brew?: Brew;
+  parts?: SavedPart[];
+}
+
+/**
+ * A potion working on a bug or a thing (game design doc, section 9). Times
+ * are ticks. Periodic effects (burps, bubbles, stomps) keep their next beat.
+ */
+export interface ActiveEffect {
+  /** The potion that gave it, or null for a mix of two base potions. */
+  potion: string | null;
+  effect: PotionEffect;
+  /** 1 is normal; doubles and triples are stronger, mixes weaker (0.7). */
+  strength: number;
+  since: number;
+  until: number;
+  /** A color: the paint of wings. */
+  paint?: string;
+  /** A wobble flips between these two effects every 2 s. */
+  flip?: [PotionEffect, PotionEffect];
+  /** The next burp, bubble, stomp, or sneeze. */
+  next?: number;
+  /** A snowball's size, growing as it rolls (1 to 1.5). */
+  grown?: number;
+  /** A balloon bug poked flat: zipping about until this tick. */
+  zipUntil?: number;
+  /** A rocket bug has gone up (it goes once, then floats down). */
+  fired?: boolean;
+}
+
+/** A crafted toy's state. */
+export interface ToyState {
+  /** A seesaw or catapult resting on its pivot: the pivot's world point. */
+  pivot?: [number, number];
+  /** A balloon basket letting its air out, or a launcher spent. */
+  off?: boolean;
+  /** A straw rocket in flight. */
+  flying?: boolean;
+  /** A disco ball hung from an overhang at this world point. */
+  hung?: [number, number];
 }
 
 /**

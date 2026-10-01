@@ -19,4 +19,5 @@ export const MATERIALS: Readonly<Record<MaterialId, MaterialDef>> = {
   mat_food: { density: 1, restitution: 0.2, friction: 0.6, tags: ['tag_edible'] },
   mat_jelly: { density: 1, restitution: 0.6, friction: 0.95, tags: ['tag_sticky'] },
   mat_shell: { density: 1.2, restitution: 0.35, friction: 0.5, tags: ['tag_fragile'] },
+  mat_junk: { density: 1, restitution: 0.3, friction: 0.8, tags: [] },
 };

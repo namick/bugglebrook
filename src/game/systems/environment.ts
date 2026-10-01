@@ -5,6 +5,7 @@ import type { AreaDef, FixtureDef } from '../data/types';
 import type { TagCause } from '../events';
 import type { BodyState, Impact, ShapeSpec } from '../physics/physics';
 import type { Sim } from '../sim';
+import { scaleShape } from './potions';
 import type { WaterSurface } from './water';
 import {
   WATER_DRAG,
@@ -33,6 +34,8 @@ export interface Stick {
   x: number;
   y: number;
   since: number;
+  /** Tied on with string (a balloon, a parachute), not stuck: bugs do not wriggle out of it. */
+  tied?: boolean;
 }
 
 /** A strip of Glorp's slime trail on the ground (tag_slimy, 30 s). */
@@ -133,6 +136,9 @@ export const MAGNET_RANGE = 2.5;
 const MAGNET_MAX = 40;
 /** Smells carry this far (150 px). */
 export const STINK_RANGE = 1.5;
+/** Rule R12: food hot for 3 s is toasted. Rule R22: a wet seed in the sun sprouts after 30 s. */
+export const TOAST_TICKS = 3 * SIM_HZ;
+export const SPROUT_TICKS = 30 * SIM_HZ;
 /** Frozen bugs sit in their ice block this long; frozen things 15 s. */
 export const FROZEN_BUG_SECONDS = 4;
 /** Things falling faster than this through the air make a real splash. */
@@ -163,6 +169,9 @@ const CLICKABLE: ReadonlySet<FixtureDef['kind']> = new Set<FixtureDef['kind']>([
   'porch_lamp',
   'spider',
   'claw_button',
+  'bench_lever',
+  'cauldron',
+  'bug_scope',
 ]);
 
 const pairKey = (a: EntityId, b: EntityId): string => (a < b ? `${a}:${b}` : `${b}:${a}`);
@@ -371,6 +380,8 @@ export class Environment {
     this.inWater.delete(id);
     this.skips.delete(id);
     this.inPuddle.delete(id);
+    this.heat.delete(id);
+    this.growth.delete(id);
     for (let i = this.state.sticks.length - 1; i >= 0; i--) {
       const s = this.state.sticks[i]!;
       if (s.a === id || s.b === id) this.unstick(i, false);
@@ -380,8 +391,9 @@ export class Environment {
   // --- Per step ------------------------------------------------------------
 
   private shapeOf(e: Entity): ShapeSpec {
-    if (e.kind === 'item') return this.sim.content.items.get(e.defId).shape;
-    const def = this.sim.content.bugs.get(e.defId);
+    if (e.kind === 'item')
+      return scaleShape(this.sim.content.items.get(e.defId).shape, this.sim.potions.scaleOf(e));
+    const def = this.sim.bugDef(e);
     return def.collider
       ? { type: 'box', width: def.collider.width, height: def.collider.height }
       : { type: 'circle', radius: def.radius };
@@ -573,6 +585,25 @@ export class Environment {
     }
   }
 
+  /**
+   * A frosty bug's step (M8): water just ahead of it freezes into an ice
+   * path, so it walks out across the pond.
+   */
+  frostStep(x: number, y: number): void {
+    const w = this.waterAt(x);
+    if (!w || Math.abs(y - w.level) > 1.6) return;
+    this.freezeSurface(x, w);
+  }
+
+  /** Rule R24: fire breath melts ice sheets within `reach` of x. */
+  meltAt(x: number, reach: number): void {
+    for (let i = this.state.ice.length - 1; i >= 0; i--) {
+      const sheet = this.state.ice[i]!;
+      if (sheet.x1 < x - reach || sheet.x0 > x + reach) continue;
+      sheet.until = this.tick;
+    }
+  }
+
   /** Rule R5: a cold thing touching the water freezes the surface around it. */
   private freezeSurface(x: number, w: WaterSurface): void {
     if (this.state.ice.some((i) => x > i.x0 - 0.8 && x < i.x1 + 0.8)) return;
@@ -597,6 +628,9 @@ export class Environment {
       SIM_DT,
     );
     this.sim.events.emit('ice_formed', { x0, x1, y: w.level });
+    // Three sheets at once make the pond a rink.
+    if (this.state.ice.filter((i) => i.areaId === w.areaId).length >= 3)
+      this.sim.findSecret('secret_pond_freeze', x, w.level);
   }
 
   /** Rule R10: magnets pull magnetic things, and are pulled back just as hard. */
@@ -605,16 +639,21 @@ export class Environment {
     const physics = sim.physics;
     const all = sim.entities.all();
     for (const m of all) {
-      if (m.kind !== 'item') continue;
-      const strength = sim.content.items.get(m.defId).magnet;
+      const def = m.kind === 'item' ? sim.content.items.get(m.defId) : null;
+      // Magnet items, and anything a magnet potion is working on.
+      const strength = (def?.magnet ?? 0) || (m.effects ? sim.potions.magnetOf(m) : 0);
       if (!strength || sim.isSleeping(m.id) || !physics.isActive(m.id)) continue;
       const ms = physics.getState(m.id);
+      // The crane's magnet dangles off the end of its rod.
+      const at = def?.magnetAt;
+      const mx = at ? ms.x + at[0] * Math.cos(ms.angle) - at[1] * Math.sin(ms.angle) : ms.x;
+      const my = at ? ms.y + at[0] * Math.sin(ms.angle) + at[1] * Math.cos(ms.angle) : ms.y;
       for (const o of all) {
         if (o.id === m.id || sim.isSleeping(o.id) || !physics.isActive(o.id)) continue;
         if (!sim.hasTag(o.id, 'tag_magnetic')) continue;
         const os = physics.getState(o.id);
-        const dx = ms.x - os.x;
-        const dy = ms.y - os.y;
+        const dx = mx - os.x;
+        const dy = my - os.y;
         const d = Math.hypot(dx, dy);
         if (d > MAGNET_RANGE || d < 0.05) continue;
         const a = Math.min(MAGNET_MAX, strength / (d * d));
@@ -658,7 +697,7 @@ export class Environment {
       const held = physics.grabbed;
       const hand = held === s.a || held === s.b ? physics.handSpeed : 0;
       const bugStuck =
-        this.sim.entities.get(s.a)?.kind === 'bug' || this.sim.entities.get(s.b)?.kind === 'bug';
+        !s.tied && (this.sim.entities.get(s.a)?.kind === 'bug' || this.sim.entities.get(s.b)?.kind === 'bug');
       if (Math.max(rel, hand) > STICK_BREAK || (bugStuck && age > BUG_STICK_TICKS)) this.unstick(i, true);
     }
   }
@@ -745,6 +784,8 @@ export class Environment {
     sim.addTag(id, 'tag_wet', cause);
     const brain = sim.entities.get(id)?.bug;
     if (brain) brain.needs.need_clean = 100;
+    // A dunk washes every potion off (paint goes with tag_painted, below).
+    sim.potions.dunk(id);
     for (const tag of WASHED)
       if (sim.removeTag(id, tag, 'water', 30) && tag === 'tag_sticky') this.unstickAll(id);
     if (sim.removeTag(id, 'tag_hot', 'water', 30)) {
@@ -773,7 +814,12 @@ export class Environment {
       [b, a],
     ] as const) {
       const e = this.sim.entities.get(m);
-      if (e?.kind !== 'item' || !items.get(e.defId).magnet || !this.sim.hasTag(o, 'tag_magnetic')) continue;
+      if (!e || !this.sim.hasTag(o, 'tag_magnetic')) continue;
+      // A magnet bug (a potion) keeps the metal it catches stuck to it.
+      const bugMagnet = e.kind === 'bug' && !!e.effects && this.sim.potions.magnetOf(e) > 0;
+      if (!bugMagnet && (e.kind !== 'item' || !items.get(e.defId).magnet)) continue;
+      if (bugMagnet && this.state.sticks.filter((s) => s.a === m || s.b === m).length < 4)
+        this.tie(m, o, impact.px, impact.py);
       this.sim.events.emit('magnet_snapped', { id: o, magnetId: m, x: impact.px, y: impact.py });
       return;
     }
@@ -823,6 +869,33 @@ export class Environment {
   /** Is this pair welded? */
   stuckTogether(a: EntityId, b: EntityId): boolean {
     return this.handles.has(pairKey(a, b));
+  }
+
+  /** Tie two things together with string at (x, y): a balloon or a parachute on what it lifts. */
+  tie(a: EntityId, b: EntityId, x: number, y: number): void {
+    const sim = this.sim;
+    const key = pairKey(a, b);
+    if (this.handles.has(key) || a === b) return;
+    this.handles.set(key, sim.physics.weld(a, b, x, y));
+    this.state.sticks.push({ a, b, x, y, since: this.tick, tied: true });
+    sim.events.emit('stuck', { a, b, x, y });
+  }
+
+  /** Everything joined to this thing by welds and ties, itself included, sorted. */
+  tiedGroup(id: EntityId): EntityId[] {
+    const seen = new Set<EntityId>([id]);
+    const todo = [id];
+    while (todo.length > 0) {
+      const at = todo.pop()!;
+      for (const s of this.state.sticks) {
+        const other = s.a === at ? s.b : s.b === at ? s.a : null;
+        if (other !== null && !seen.has(other)) {
+          seen.add(other);
+          todo.push(other);
+        }
+      }
+    }
+    return [...seen].sort((p, q) => p - q);
   }
 
   /**
@@ -899,6 +972,7 @@ export class Environment {
       }
     }
     this.puddleRule();
+    this.cookAndGrow();
     if (sim.weather.dark) {
       this.glowRule();
       this.moonRule();
@@ -1036,6 +1110,71 @@ export class Environment {
     if (has(x, 'tag_sticky')) this.tryStick(x, y);
     // R8: stink soaks into absorbent things.
     if (has(x, 'tag_smelly') && has(y, 'tag_absorbent')) sim.addTag(y, 'tag_smelly', 'stink');
+    // R19: mud gets everywhere.
+    if (has(x, 'tag_muddy') && !has(y, 'tag_wet')) sim.addTag(y, 'tag_muddy', 'mud');
+  }
+
+  /** Ticks each thing has spent hot (food toasts) or wet in the sun (seeds sprout). Not saved. */
+  private readonly heat = new Map<EntityId, number>();
+  private readonly growth = new Map<EntityId, number>();
+
+  /**
+   * Rules about heat and growing (M8): R12, hot food for 3 s is toasted; R13,
+   * a hot popcorn kernel pops; R22, a wet seed in the sun on soil for 30 s
+   * sprouts.
+   */
+  private cookAndGrow(): void {
+    const sim = this.sim;
+    const physics = sim.physics;
+    const sunny = !sim.weather.dark && !this.state.rain;
+    for (const e of sim.entities.ofKind('item')) {
+      if (sim.isSleeping(e.id) || !physics.isActive(e.id) || !sim.entities.has(e.id)) continue;
+      const hot = sim.hasTag(e.id, 'tag_hot');
+      if (hot && e.defId === 'item_popcorn_kernel' && sim.content.items.has('item_popcorn')) {
+        this.transform(e, 'item_popcorn', -5);
+        continue;
+      }
+      if (hot && sim.hasTag(e.id, 'tag_edible') && !e.toasted) {
+        const t = (this.heat.get(e.id) ?? 0) + RULE_TICKS;
+        this.heat.set(e.id, t);
+        if (t >= TOAST_TICKS) {
+          e.toasted = true;
+          this.heat.delete(e.id);
+          const s = physics.getState(e.id);
+          sim.events.emit('toasted', { id: e.id, defId: e.defId, x: s.x, y: s.y });
+        }
+      } else if (!hot) this.heat.delete(e.id);
+      if (sim.hasTag(e.id, 'tag_seed') && e.defId !== 'item_popcorn_kernel') {
+        const s = physics.getState(e.id);
+        const onSoil =
+          sunny &&
+          sim.hasTag(e.id, 'tag_wet') &&
+          sim.outdoors(s.x, s.y) &&
+          Math.abs(s.y + sim.halfHeight(e) - sim.surfaceY(s.x)) < 0.12 &&
+          (this.submerged.get(e.id) ?? 0) === 0;
+        if (!onSoil) {
+          this.growth.delete(e.id);
+          continue;
+        }
+        const t = (this.growth.get(e.id) ?? 0) + RULE_TICKS;
+        this.growth.set(e.id, t);
+        if (t >= SPROUT_TICKS && sim.content.items.has('item_sprout')) this.transform(e, 'item_sprout', 0);
+      }
+    }
+  }
+
+  /** One thing turns into another where it is (a kernel pops, a seed sprouts). */
+  private transform(e: Entity, to: string, vy: number): void {
+    const sim = this.sim;
+    const s = sim.physics.getState(e.id);
+    sim.remove(e.id);
+    this.heat.delete(e.id);
+    this.growth.delete(e.id);
+    const half = sim.halfHeightOfDef(to);
+    const y = vy === 0 ? sim.surfaceY(s.x) - half - 0.02 : s.y;
+    const made = sim.spawn('item', to, s.x, y);
+    if (vy !== 0) sim.physics.setVelocity(made.id, s.vx, vy);
+    sim.events.emit('item_transformed', { id: e.id, newId: made.id, from: e.defId, to, x: s.x, y: s.y });
   }
 
   freeze(id: EntityId): void {

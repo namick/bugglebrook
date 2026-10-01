@@ -12,6 +12,7 @@ import { MATERIALS } from './materials';
 import { VIEW_HEIGHT_M } from '../constants';
 import { TAG_IDS } from '../systems/tags';
 import { AFFINITY, EVERYONE_AFFINITY } from './affinity';
+import { ESSENCE_IDS, ESSENCE_ITEMS, ESSENCE_PAINT, MOON_ITEMS } from './essences';
 import type { AffinityDef } from './affinity';
 
 export * from './types';
@@ -244,17 +245,64 @@ export function validateContent(
   }
 
   const recipeKeys = new Set<string>();
+  const outputs = new Set<string>();
   for (const recipe of content.recipes.all) {
     const where = `recipe ${recipe.id}`;
-    recipe.inputs.forEach((id) => ref(content.items, id, where));
+    if (recipe.inputs.length < 2 || recipe.inputs.length > 3) errors.push(`${where} needs 2 or 3 inputs`);
+    for (const input of recipe.inputs) {
+      if (typeof input === 'string') ref(content.items, input, where);
+      else if ('tag' in input) {
+        if (!tags.has(input.tag)) errors.push(`${where} needs an unknown tag "${input.tag}"`);
+      } else {
+        if (input.anyOf.length < 2) errors.push(`${where} has a group of fewer than two items`);
+        input.anyOf.forEach((id) => ref(content.items, id, where));
+      }
+    }
     ref(content.items, recipe.output, where);
-    const key = [...recipe.inputs].sort().join('+');
+    if (outputs.has(recipe.output)) errors.push(`${where} makes the same thing as another recipe`);
+    outputs.add(recipe.output);
+    const key = recipe.inputs
+      .map((i) => (typeof i === 'string' ? i : 'tag' in i ? `#${i.tag}` : `*${i.label}`))
+      .sort()
+      .join('+');
     if (recipeKeys.has(key)) errors.push(`${where} duplicates the inputs of another recipe`);
     recipeKeys.add(key);
   }
 
+  const essences: ReadonlySet<string> = new Set(ESSENCE_IDS);
+  const brews = new Set<string>();
   for (const potion of content.potions.all) {
-    if (potion.durationTicks <= 0) errors.push(`potion ${potion.id} duration must be positive`);
+    const where = `potion ${potion.id}`;
+    if (potion.durationTicks <= 0) errors.push(`${where} duration must be positive`);
+    if (potion.recipe.length > 3) errors.push(`${where} has more than three essences`);
+    for (const e of potion.recipe)
+      if (!essences.has(e)) errors.push(`${where} uses an unknown essence "${e}"`);
+    if (new Set(potion.recipe).size !== potion.recipe.length) errors.push(`${where} repeats an essence`);
+    if (potion.recipe.length > 0) {
+      const key = [...potion.recipe].sort().join('+');
+      if (brews.has(key)) errors.push(`${where} has the same essences as another potion`);
+      brews.add(key);
+    }
+    ref(content.items, potion.bottle, where);
+    if (content.items.has(potion.bottle) && content.items.get(potion.bottle).potion !== potion.id)
+      errors.push(`${where} bottle ${potion.bottle} does not hold it`);
+  }
+  // Every essence brews a base potion of its own.
+  for (const e of ESSENCE_IDS)
+    if (content.potions.all.length > 0 && !brews.has(e)) errors.push(`essence ${e} has no base potion`);
+  const essenceItems = [...Object.keys(ESSENCE_ITEMS), ...MOON_ITEMS, ...Object.keys(ESSENCE_PAINT)];
+  if (content.potions.all.length > 0) for (const id of essenceItems) ref(content.items, id, 'essence table');
+
+  for (const item of content.items.all) {
+    const where = `item ${item.id}`;
+    if (item.potion !== undefined) ref(content.potions, item.potion, where);
+    if (item.blueprint !== undefined) ref(content.recipes, item.blueprint, where);
+    if (item.shatters) {
+      ref(content.items, item.shatters.into, where);
+      if (!(item.shatters.count > 0 && item.shatters.speed > 0))
+        errors.push(`${where} shatters needs a positive count and speed`);
+    }
+    if (item.lift !== undefined && !(item.lift > 0)) errors.push(`${where} lift must be positive`);
   }
 
   for (const secret of content.secrets.all) {

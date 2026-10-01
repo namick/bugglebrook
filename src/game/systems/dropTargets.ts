@@ -7,7 +7,7 @@ import type { EntityId } from '../core/entities';
  * physics drop. Later milestones add the pocket, containers, heads, paint,
  * hands, and seats to DROP_RULES.
  */
-export type DropTargetKind = 'mouth';
+export type DropTargetKind = 'mouth' | 'tray' | 'cauldron' | 'body';
 
 export interface DropRule {
   kind: DropTargetKind;
@@ -15,13 +15,22 @@ export interface DropRule {
   priority: number;
   /** Snap radius in meters. */
   radius: number;
-  /** The dropped thing needs this tag. */
+  /**
+   * The dropped thing needs this tag. Besides real tags, the sim gives
+   * items `item`, potion bottles `potion`, and paint drops `paint`.
+   */
   tag: string;
 }
 
 export const DROP_RULES: readonly DropRule[] = [
-  // 4: a bug's mouth, for anything edible. 50 px from the mouth anchor.
+  // 2: a container's opening (the bench's trays, the cauldron). 60 px; the cauldron's mouth is wide.
+  { kind: 'tray', priority: 2, radius: 0.6, tag: 'item' },
+  { kind: 'cauldron', priority: 2, radius: 1.1, tag: 'item' },
+  // 4: a bug's mouth, for anything edible or a potion. 50 px from the mouth anchor.
   { kind: 'mouth', priority: 4, radius: 0.5, tag: 'tag_edible' },
+  { kind: 'mouth', priority: 4, radius: 0.5, tag: 'potion' },
+  // 5: a bug's body, for paint. 70 px from its middle.
+  { kind: 'body', priority: 5, radius: 0.7, tag: 'paint' },
 ];
 
 /** A place something could be dropped right now. */
@@ -51,8 +60,8 @@ export function pickDropTarget(
 ): DropTarget | null {
   let best: DropTarget | null = null;
   for (const c of candidates) {
-    const rule = rules.find((r) => r.kind === c.kind);
-    if (!rule || !tags.includes(rule.tag)) continue;
+    const rule = rules.find((r) => r.kind === c.kind && tags.includes(r.tag));
+    if (!rule) continue;
     const distance = Math.hypot(c.x - x, c.y - y);
     if (distance > rule.radius) continue;
     const better =

@@ -70,6 +70,12 @@ export type Command =
    */
   | { type: 'hand'; x: number | null; y: number | null }
   /** Debug and tests: open a locked area as if its barrier had been solved. */
-  | { type: 'unlock'; area: string };
+  | { type: 'unlock'; area: string }
+  /** The player pulled the Tinker Bench's clothespin lever down (M8). */
+  | { type: 'pull_lever' }
+  /** The player stirred the cauldron with the ladle, by this many radians around its middle. */
+  | { type: 'stir'; radians: number }
+  /** Debug and tests: put a potion's effect on a bug or thing, as if it drank it. */
+  | { type: 'give_potion'; id: number; potion: string };
 
 export type CommandType = Command['type'];

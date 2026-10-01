@@ -279,7 +279,10 @@ export class Barriers {
   /** How round and how big: a circle item, or a bug curled into a ball. Null if not round. */
   private roundRadius(e: Entity): number | null {
     const sim = this.sim;
-    if (e.kind === 'bug') return sim.isRolling(e.id) ? sim.content.bugs.get(e.defId).radius : null;
+    if (e.kind === 'bug')
+      return sim.isRolling(e.id) || sim.potions.has(e, 'snowball') || sim.potions.has(e, 'tiny')
+        ? sim.bugDef(e).radius
+        : null;
     const shape = sim.content.items.get(e.defId).shape;
     return shape.type === 'circle' ? shape.radius : null;
   }

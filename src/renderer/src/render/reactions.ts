@@ -327,6 +327,119 @@ const WONDER: Triple = three(
   { eyes: 'wide', mouth: 'whee', pictos: ['star', 'star'], emotion: 'whee', move: 'hop', seconds: 1.6 },
 );
 
+// M8, shared by everyone: a gulp from a potion bottle, a cheer at the bench
+// or the bubbling cauldron, a puzzled "huh?", sludge's "blegh", and the
+// "whoa!" of a potion taking hold.
+const DRINK: Triple = three(
+  { eyes: 'happy', mouth: 'lick', blush: true, pictos: ['yum'], emotion: 'yum', move: 'nod', seconds: 1.2 },
+  { eyes: 'squint', mouth: 'aah', pictos: ['drop', 'star'], emotion: 'happy', move: 'wiggle', seconds: 1.2 },
+  {
+    eyes: 'wide',
+    mouth: 'o',
+    pictos: ['exclaim'],
+    emotion: 'ooh',
+    move: 'hop',
+    fx: 'sparkles',
+    seconds: 1.2,
+  },
+);
+const CHEER: Triple = three(
+  {
+    eyes: 'happy',
+    mouth: 'whee',
+    blush: true,
+    pictos: ['star', 'exclaim'],
+    emotion: 'whee',
+    move: 'hop',
+    seconds: 1.4,
+  },
+  { eyes: 'wide', mouth: 'grin', pictos: ['thumbs_up'], emotion: 'happy', move: 'wiggle', seconds: 1.4 },
+  {
+    eyes: 'happy',
+    mouth: 'grin',
+    pictos: ['star', 'star'],
+    emotion: 'giggle',
+    move: 'spin',
+    fx: 'sparkles',
+    seconds: 1.4,
+  },
+);
+const HUH: Triple = three(
+  { eyes: 'squint', mouth: 'flat', pictos: ['question'], emotion: 'question', move: 'shrug', seconds: 1.2 },
+  {
+    eyes: 'worried',
+    mouth: 'o',
+    pictos: ['question', 'dots'],
+    emotion: 'question',
+    move: 'shake_head',
+    seconds: 1.2,
+  },
+  { eyes: 'open', mouth: 'frown', pictos: ['dots'], emotion: 'meh', move: 'nod', seconds: 1.2 },
+);
+const BLEGH: Triple = three(
+  {
+    eyes: 'x',
+    mouth: 'tongue',
+    tint: 'green',
+    pictos: ['yuck', 'stink'],
+    emotion: 'yuck',
+    move: 'shiver',
+    fx: 'stink',
+    seconds: 1.8,
+  },
+  {
+    eyes: 'spiral',
+    mouth: 'wobble',
+    tint: 'green',
+    pictos: ['yuck'],
+    emotion: 'yuck',
+    move: 'shake_head',
+    fx: 'stink',
+    seconds: 1.8,
+  },
+  {
+    eyes: 'squint',
+    mouth: 'tongue',
+    tint: 'green',
+    pictos: ['stink', 'sweat'],
+    emotion: 'yuck',
+    move: 'shake_off',
+    fx: 'stink',
+    seconds: 1.8,
+  },
+);
+const WOW: Triple = three(
+  {
+    eyes: 'wide',
+    mouth: 'o',
+    pictos: ['exclaim', 'star'],
+    emotion: 'ooh',
+    move: 'shiver',
+    fx: 'sparkles',
+    seconds: 1.5,
+  },
+  {
+    eyes: 'wide',
+    mouth: 'whee',
+    blush: true,
+    pictos: ['exclaim'],
+    emotion: 'whee',
+    move: 'spin',
+    fx: 'sparkles',
+    seconds: 1.5,
+  },
+  {
+    eyes: 'heart',
+    mouth: 'grin',
+    blush: true,
+    pictos: ['star', 'heart'],
+    emotion: 'love',
+    move: 'hop',
+    fx: 'confetti',
+    seconds: 1.5,
+  },
+);
+
 /** Show-off poses for bugs that are not Dot: a little star turn. */
 const POSE: Triple = three(
   { eyes: 'happy', mouth: 'grin', blush: true, pictos: ['star'], emotion: 'happy', move: 'pose', seconds: 2 },
@@ -2320,11 +2433,21 @@ export function reactionLook(art: BugArt, type: ReactionType, variant: number): 
                             ? PUFF
                             : type === 'chop'
                               ? CHOP
-                              : CLASSIC.has(type)
-                                ? PERSONAL[art][type as Classic]
-                                : EVERYDAY.has(type)
-                                  ? EVERYDAY_LOOKS[art][type as Everyday]
-                                  : FED[type as keyof typeof FED];
+                              : type === 'drink'
+                                ? DRINK
+                                : type === 'cheer'
+                                  ? CHEER
+                                  : type === 'huh'
+                                    ? HUH
+                                    : type === 'blegh'
+                                      ? BLEGH
+                                      : type === 'wow'
+                                        ? WOW
+                                        : CLASSIC.has(type)
+                                          ? PERSONAL[art][type as Classic]
+                                          : EVERYDAY.has(type)
+                                            ? EVERYDAY_LOOKS[art][type as Everyday]
+                                            : FED[type as keyof typeof FED];
   return set[((variant % 3) + 3) % 3]!;
 }
 
@@ -2355,9 +2478,14 @@ const SHOWS_IN: Readonly<Record<ReactionType, readonly BugMode[]>> = {
   rain_gloom: ['st_react', 'st_idle', 'st_wander'],
   wonder: ['st_react', 'st_idle'],
   join: ['st_react', 'st_idle', 'st_airborne', 'st_landing', 'st_wander'],
-  dance: ['st_perform'],
+  dance: ['st_perform', 'st_react'],
   puff: ['st_react', 'st_idle', 'st_wander', 'st_held', 'st_airborne'],
   chop: ['st_react', 'st_idle'],
+  drink: ['st_react', 'st_idle', 'st_wander'],
+  cheer: ['st_react', 'st_idle'],
+  huh: ['st_react', 'st_idle', 'st_airborne', 'st_landing'],
+  blegh: ['st_react', 'st_idle', 'st_wander', 'st_airborne'],
+  wow: ['st_react', 'st_idle', 'st_wander', 'st_airborne', 'st_landing', 'st_sleep'],
 };
 
 /** Is a reaction that started `ageSeconds` ago still showing in `mode`? */

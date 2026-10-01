@@ -325,8 +325,10 @@ describe('save round trip (M5 acceptance)', () => {
     sim.send({ type: 'set_weather', wind: 1.5, rain: false });
     const gumAt = sim.view(pebbles[2]!)!;
     sim.spawn('item', 'item_gum_blob', gumAt.x, gumAt.y - 0.5);
+    // A fresh pebble on open ground, so a grab at its middle picks it and nothing else.
+    const loose = sim.spawn('item', 'item_pebble', PLAZA_X + 28, 6).id;
     sim.run(60);
-    pocket(sim, pebbles[3]!, 0);
+    pocket(sim, loose, 0);
     const moreA = sim.spawn('item', 'item_pebble', PLAZA_X + 30, 6).id;
     sim.run(90);
     pocket(sim, moreA, 0);

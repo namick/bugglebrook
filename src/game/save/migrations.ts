@@ -244,6 +244,13 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
       },
     };
   },
+  /**
+   * Version 9 (M8, crafting and potions) adds `world.bench` and
+   * `world.cauldron`, and entity `parts`, `brew`, `effects`, `toasted`, and
+   * `toy`, all optional. Loading gives an older world the bench, the
+   * cauldron, and M8's new things in their areas.
+   */
+  8: (save) => ({ ...save, version: 9 }),
 };
 
 export class SaveError extends Error {

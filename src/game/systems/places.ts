@@ -2,10 +2,11 @@ import type { Entity, EntityId } from '../core/entities';
 import { SIM_HZ } from '../core/loop';
 import { Rng } from '../core/rng';
 import type { RngState } from '../core/rng';
-import type { AreaDef, FixtureDef, PaintId } from '../data/types';
+import type { AreaDef, FixtureDef } from '../data/types';
 import { PAINT_IDS } from '../data/types';
 import type { Sim } from '../sim';
 import { DAY, MINUTE, isDaylight } from './sky';
+import { mixPaint } from './paint';
 
 /**
  * The fixtures of M7's areas (game design doc, section 3): the flowerbed's
@@ -61,6 +62,8 @@ export interface PlaceState {
   falls: number[];
   /** When the band last played. */
   band: number;
+  /** Clicks on the bug scope's eyepiece, to show the next tag each time (M8). */
+  scope?: number;
   rng: RngState;
 }
 
@@ -74,8 +77,19 @@ export const JAR_REFILL = 5 * MINUTE;
 /** Floor gaps drop something every 30 to 90 s, while the porch is open and awake. */
 export const GAP_EVERY: readonly [number, number] = [30 * SIM_HZ, 90 * SIM_HZ];
 const GAP_CAP = 10;
-const GAP_POOL_DAY: readonly string[] = ['item_crumb_cookie', 'item_button', 'item_cheese_puff'];
-const GAP_POOL_NIGHT: readonly string[] = ['item_crumb_cookie', 'item_button', 'item_seed_sunflower'];
+const GAP_POOL_DAY: readonly string[] = [
+  'item_crumb_cookie',
+  'item_button',
+  'item_cheese_puff',
+  'item_popcorn_kernel',
+  'item_ant_crumb',
+];
+const GAP_POOL_NIGHT: readonly string[] = [
+  'item_crumb_cookie',
+  'item_button',
+  'item_seed_sunflower',
+  'item_popcorn_kernel',
+];
 /** Knock on the gnome three times within 3 s at night, and it knocks back 1 s later. */
 export const KNOCKS = 3;
 const KNOCK_WINDOW = 3 * SIM_HZ;
@@ -272,6 +286,15 @@ export class Places {
         return true;
       case 'claw_button':
         return this.pressClaw();
+      case 'bench_lever':
+        sim.bench.pull();
+        return true;
+      case 'cauldron':
+        sim.cauldron.tip();
+        return true;
+      case 'bug_scope':
+        this.scope(f.x, f.y);
+        return true;
       case 'munch_leaf':
         sim.events.emit('hideout_stirred', { fixture: f.id, x: f.x, y: f.y });
         sim.cast.find('bug_caterpillar_munch', f.x, f.y - 0.3);
@@ -290,6 +313,39 @@ export class Places {
       default:
         return false;
     }
+  }
+
+  /**
+   * The bug scope (section 3, `fix_bug_scope`): a click on the eyepiece shows
+   * a zoomed view of whatever sits on the dish, and one of its tags as a
+   * pictogram. Each click shows the next tag. The moss tuft at night shows
+   * something else entirely.
+   */
+  private scope(x: number, y: number): void {
+    const sim = this.sim;
+    const dish = { x: x + 1.1, y: sim.surfaceY(x + 1.1) };
+    let found: Entity | null = null;
+    for (const e of sim.entities.ofKind('item')) {
+      if (sim.isSleeping(e.id) || sim.physics.grabbed === e.id) continue;
+      const s = sim.physics.getState(e.id);
+      if (Math.abs(s.x - dish.x) <= 1 && s.y > dish.y - 1.2 && s.y < dish.y + 0.2) {
+        found = e;
+        break;
+      }
+    }
+    if (!found) {
+      sim.events.emit('scope_viewed', { defId: null, tag: null, x, y });
+      return;
+    }
+    if (found.defId === 'item_moss_tuft' && sim.weather.dark) {
+      sim.events.emit('scope_viewed', { defId: found.defId, tag: 'wubbo', x, y });
+      sim.findSecret('secret_scope_wubbo', x, y);
+      return;
+    }
+    const tags = scopeTags(sim.tagsOf(found.id));
+    const i = (this.state.scope ?? 0) % Math.max(1, tags.length);
+    this.state.scope = (this.state.scope ?? 0) + 1;
+    sim.events.emit('scope_viewed', { defId: found.defId, tag: tags[i] ?? null, x, y });
   }
 
   /** Knock, knock. Three quick knocks at night, and something inside knocks back. */
@@ -360,18 +416,29 @@ export class Places {
     sim.events.emit('track_snapped', { id: e.id, on: true, x, y, angle });
   }
 
-  /** Paint from a puddle: items keep the last color, bugs collect patches of each. */
-  paint(e: Entity, paint: PaintId, x: number, y: number): void {
+  /**
+   * Paint from a puddle, a paint drop, or a potion: a thing mixes the new
+   * color into what it had (rule R23), a bug collects patches of each.
+   * `patches` paints that many of a bug's patches at once (a paint potion
+   * covers it all over).
+   */
+  paint(e: Entity, paint: string, x: number, y: number, patches = 1): void {
     const sim = this.sim;
     const had = e.paint ?? [];
     let next: string[];
-    if (e.kind === 'bug') next = had.includes(paint) ? had : [...had, paint].slice(-PAINT_SLOTS);
-    else next = [paint];
+    if (e.kind === 'bug')
+      next =
+        patches > 1
+          ? new Array<string>(Math.min(PAINT_SLOTS, patches)).fill(paint)
+          : had.includes(paint)
+            ? had
+            : [...had, paint].slice(-PAINT_SLOTS);
+    else next = [had.length > 0 ? mixPaint(had[had.length - 1]!, paint) : paint];
     const changed = next.length !== had.length || next.some((p, i) => p !== had[i]);
     e.paint = next;
     sim.addTag(e.id, 'tag_painted', 'paint');
     if (!changed) return;
-    sim.events.emit('painted', { id: e.id, paint, x, y });
+    sim.events.emit('painted', { id: e.id, paint: next[next.length - 1]!, x, y });
     if (e.kind === 'bug' && PAINT_IDS.every((p) => next.includes(p)))
       sim.findSecret('secret_paint_all_five', x, y);
   }
@@ -813,4 +880,37 @@ export function snapAngle(a: number): number {
   if (s > Math.PI / 2) s -= Math.PI;
   if (s < -Math.PI / 2) s += Math.PI;
   return Math.abs(s) < 1e-9 ? 0 : s;
+}
+
+/** Tags worth showing under the bug scope, most telling first. */
+const SCOPE_ORDER: readonly string[] = [
+  'tag_glowing',
+  'tag_magnetic',
+  'tag_sticky',
+  'tag_smelly',
+  'tag_hot',
+  'tag_cold',
+  'tag_frozen',
+  'tag_fizzy',
+  'tag_sparky',
+  'tag_soapy',
+  'tag_slimy',
+  'tag_fragile',
+  'tag_musical',
+  'tag_bouncy',
+  'tag_lifty',
+  'tag_seed',
+  'tag_absorbent',
+  'tag_wet',
+  'tag_floaty',
+  'tag_heavy',
+  'tag_light',
+  'tag_leafy',
+  'tag_edible',
+  'tag_painted',
+];
+
+/** A thing's tags in the order the scope shows them. */
+export function scopeTags(tags: readonly string[]): string[] {
+  return SCOPE_ORDER.filter((t) => tags.includes(t));
 }

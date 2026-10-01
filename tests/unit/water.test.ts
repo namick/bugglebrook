@@ -77,10 +77,15 @@ const effectiveDensity = (id: string): number => {
 
 describe('buoyancy (M3 acceptance)', () => {
   // Cold things freeze the surface instead (rule R5, tested with the rules).
+  // Balloons and the balloon basket float in the air instead (rule R17, tested with the toys).
   const floaters = ITEMS.all
     // The lattice panel is taller than the pond is deep.
     .filter(
-      (d) => effectiveDensity(d.id) < 1 && !d.tags.includes('tag_cold') && d.id !== 'item_lattice_panel',
+      (d) =>
+        effectiveDensity(d.id) < 1 &&
+        !d.tags.includes('tag_cold') &&
+        !d.tags.includes('tag_lifty') &&
+        d.id !== 'item_lattice_panel',
     )
     .map((d) => d.id);
   const sinkers = ITEMS.all.filter((d) => d.density > 1).map((d) => d.id);

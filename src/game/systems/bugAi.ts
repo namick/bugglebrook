@@ -5,7 +5,7 @@ import type { Rng } from '../core/rng';
 import { DIZZY_SPEED } from '../constants';
 import type { AdvertAction, BugDef, NeedId } from '../data/types';
 import { NEED_IDS } from '../data/types';
-import type { Fidget, Liking } from '../events';
+import type { Fidget, Liking, ReactionType } from '../events';
 import type { AdvertCandidate, BugContext, BugDecision, BugNotice, OtherBug } from './bugTypes';
 import { EMPTY_WORLD, SPOT_CAMERA, SPOT_SLEEP_HERE, SPOT_STAGE, SPOT_TOP, SPOT_WATER } from './bugTypes';
 import {
@@ -235,16 +235,53 @@ function isAirborne(brain: BugBrain): boolean {
  * into the mouth. Used both when the bug picks food up itself and when the
  * player drops food on its mouth.
  */
-export function feedBug(brain: BugBrain, def: BugDef, itemId: EntityId, itemDefId: string): Liking {
-  const liking = likingOf(def, itemDefId);
+export function feedBug(
+  brain: BugBrain,
+  def: BugDef,
+  itemId: EntityId,
+  itemDefId: string,
+  drink = false,
+  toasted = false,
+): Liking {
+  // A potion goes down in a couple of gulps, and everyone is game to try one.
+  const plain = likingOf(def, itemDefId);
+  const liking = drink ? 'liked' : toasted ? toastedLiking(plain) : plain;
   if (brain.carrying === itemId) brain.carrying = null;
-  enter(brain, 'st_eat', CHEW_TICKS[liking]);
+  enter(brain, 'st_eat', drink ? DRINK_TICKS : CHEW_TICKS[liking]);
   brain.mouthful = itemId;
   brain.targetId = itemId;
   brain.action = 'eat';
   brain.tickle = 0;
   brain.gliding = false;
   return liking;
+}
+
+/** Stopping to cheer or stare lasts about a second and a half. */
+const NOTICE_TICKS = 84;
+/** Gulping a potion takes this long. */
+export const DRINK_TICKS = 45;
+
+/** Modes a bug drops to stop and react to something (a cheer, a "huh?"). */
+const STOPPABLE: ReadonlySet<BugMode> = new Set<BugMode>([
+  'st_idle',
+  'st_wander',
+  'st_seek',
+  'st_landing',
+  'st_recover',
+  'st_react',
+  'st_use',
+]);
+
+/**
+ * Something happened that this bug reacts to (M8: a cheer at the bubbling
+ * cauldron, a suspicious look at the bench). It stops for a moment if it was
+ * only pottering about; busy, held, or sleeping bugs do not.
+ */
+export function reactBug(brain: BugBrain, type: ReactionType, rng: Rng, tick: number): BugNotice[] {
+  if (!STOPPABLE.has(brain.mode) || brain.pending || brain.social) return [];
+  enter(brain, 'st_react', NOTICE_TICKS);
+  clearIntent(brain);
+  return [react(brain, type, rng, tick)];
 }
 
 /** Can this bug take food in its mouth right now? */
@@ -308,6 +345,14 @@ export function smellBug(
   brain.targetX = Math.min(worldWidth - margin, Math.max(margin, x + away * STINK_FLEE));
   brain.facing = away;
   return [react(brain, 'stink', rng, tick)];
+}
+
+/**
+ * Toasted food (rule R12) is a food of its own: toasting makes a meh snack
+ * tasty and a yucky one bearable. Loved food stays loved.
+ */
+export function toastedLiking(liking: Liking): Liking {
+  return liking === 'disliked' ? 'neutral' : liking === 'neutral' ? 'liked' : liking;
 }
 
 export function likingOf(def: BugDef, itemDefId: string): Liking {
@@ -1291,7 +1336,8 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
       }
       if (ctx.impact > WAKE_IMPACT) out.notices.push(...wakeBug(brain, true, rng, ctx.tick));
       // Rested, it wakes on its own; but never in the middle of its night.
-      else if (brain.needs.need_energy >= RESTED && !ctx.sky?.bedtime)
+      // A sleepy potion keeps it asleep until it wears off.
+      else if (brain.needs.need_energy >= RESTED && !ctx.sky?.bedtime && !ctx.drowsy)
         out.notices.push(...wakeBug(brain, false, rng, ctx.tick));
       return out;
 
@@ -1382,7 +1428,16 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
         return out;
       }
       if (--brain.timer > 0) return out;
-      const liking = likingOf(def, food.defId);
+      if (food.drink) {
+        // Glug, glug, ahh: the sim pours the potion in.
+        brain.mouthful = null;
+        out.eat = { itemId, liking: 'liked' };
+        enter(brain, 'st_react', FED_REACT_TICKS.liked);
+        clearIntent(brain);
+        out.notices.push(react(brain, 'drink', rng, ctx.tick));
+        return out;
+      }
+      const liking = food.toasted ? toastedLiking(likingOf(def, food.defId)) : likingOf(def, food.defId);
       brain.mouthful = null;
       recordUse(brain, itemId, ctx.tick);
       if (liking === 'disliked') {

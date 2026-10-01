@@ -308,6 +308,12 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
     if (e.paint !== undefined && !isStrings(e.paint)) errors.push(`${at}.paint is invalid`);
     if (e.pinned !== undefined && typeof e.pinned !== 'boolean') errors.push(`${at}.pinned is invalid`);
     if (e.bites !== undefined && !isNum(e.bites)) errors.push(`${at}.bites must be a number`);
+    if (e.parts !== undefined && !isParts(e.parts)) errors.push(`${at}.parts is invalid`);
+    if (e.brew !== undefined && !isBrew(e.brew)) errors.push(`${at}.brew is invalid`);
+    if (e.effects !== undefined && !(Array.isArray(e.effects) && e.effects.every(isEffect)))
+      errors.push(`${at}.effects is invalid`);
+    if (e.toasted !== undefined && typeof e.toasted !== 'boolean') errors.push(`${at}.toasted is invalid`);
+    if (e.toy !== undefined && !isObj(e.toy)) errors.push(`${at}.toy is invalid`);
     return undefined;
   });
   if (world.env !== undefined) {
@@ -340,6 +346,15 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
     if (problems.length > 0) errors.push(`world.places is invalid: ${problems.join(', ')}`);
   }
   if (world.built !== undefined && !isStrings(world.built)) errors.push('world.built is invalid');
+  if (world.bench !== undefined) {
+    const problems = benchProblems(world.bench);
+    if (problems.length > 0) errors.push(`world.bench is invalid: ${problems.join(', ')}`);
+  }
+  if (world.cauldron !== undefined) {
+    const c = world.cauldron;
+    if (!(isObj(c) && isParts(c.contents) && isNum(c.stir) && isNum(c.brewAt) && isNum(c.brewed)))
+      errors.push('world.cauldron is invalid');
+  }
   const meta = save.meta;
   if (
     !isObj(meta) ||
@@ -347,6 +362,56 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
     !(meta.thumb === null || typeof meta.thumb === 'string')
   )
     errors.push('meta is invalid');
+  return errors;
+}
+
+/** Things tucked inside other things (M8): each has an item ID and maybe more parts. */
+function isParts(v: unknown): boolean {
+  return (
+    Array.isArray(v) &&
+    v.every(
+      (p) =>
+        isObj(p) &&
+        typeof p.defId === 'string' &&
+        (p.tags === undefined || isNumMap(p.tags)) &&
+        (p.paint === undefined || isStrings(p.paint)) &&
+        (p.parts === undefined || isParts(p.parts)) &&
+        (p.brew === undefined || isBrew(p.brew)),
+    )
+  );
+}
+
+function isBrew(v: unknown): boolean {
+  return (
+    isObj(v) &&
+    (v.potion === null || typeof v.potion === 'string') &&
+    isStrings(v.effects) &&
+    isNum(v.strength) &&
+    isNum(v.durationTicks) &&
+    isNum(v.color)
+  );
+}
+
+function isEffect(v: unknown): boolean {
+  return (
+    isObj(v) &&
+    typeof v.effect === 'string' &&
+    (v.potion === null || typeof v.potion === 'string') &&
+    isNum(v.strength) &&
+    isNum(v.since) &&
+    isNum(v.until)
+  );
+}
+
+function benchProblems(b: unknown): string[] {
+  if (!isObj(b)) return ['is not an object'];
+  const errors: string[] = [];
+  if (!(Array.isArray(b.trays) && b.trays.length === 3 && b.trays.every(isIdOrNull)))
+    errors.push('trays must be three IDs or nulls');
+  if (!isNum(b.busyUntil)) errors.push('busyUntil must be a number');
+  for (const k of ['made', 'hinted', 'nudged'] as const) if (!isStrings(b[k])) errors.push(`${k} is invalid`);
+  if (!isNumMap(b.wished)) errors.push('wished is invalid');
+  if (!Array.isArray(b.rng) || b.rng.length !== 4 || !b.rng.every(isNum)) errors.push('rng is invalid');
   return errors;
 }
 
