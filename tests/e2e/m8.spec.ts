@@ -5,8 +5,8 @@ import {
   entities,
   entity,
   frames,
-  framesUntil,
   glideFrames,
+  holdNearMouth,
   launchApp,
   jumpTo,
   openFrozen,
@@ -33,17 +33,9 @@ const points = async (page: Page): Promise<Points> => (await page.evaluate(() =>
 async function stage(page: Page, defId: string, x: number, y: number): Promise<number> {
   const before = new Set((await entities(page)).map((e) => e.id));
   await send(page, { type: 'spawn', kind: 'item', defId, x, y });
-  await frames(page, 2);
+  // Dropped from just above the ground, it settles within half a second.
+  await frames(page, 30);
   const id = (await entities(page)).find((e) => !before.has(e.id) && e.defId === defId)!.id;
-  await framesUntil(
-    page,
-    async () => {
-      const e = await entity(page, id);
-      return !!e && Math.hypot(e.vx, e.vy) < 0.2;
-    },
-    240,
-    20,
-  );
   return id;
 }
 
@@ -53,11 +45,11 @@ async function stage(page: Page, defId: string, x: number, y: number): Promise<n
  */
 async function carryTo(page: Page, from: { x: number; y: number }, x: number, y: number): Promise<void> {
   const up = await toClient(page, x, y - 1.2);
-  const at = await glideFrames(page, from, 0, up.y - from.y, 4, 4);
-  const over = await glideFrames(page, at, up.x - at.x, 0, 5, 4);
+  const at = await glideFrames(page, from, 0, up.y - from.y, 3, 3);
+  const over = await glideFrames(page, at, up.x - at.x, 0, 4, 3);
   const to = await toClient(page, x, y);
-  await glideFrames(page, over, to.x - over.x, to.y - over.y, 3, 4);
-  await frames(page, 30);
+  await glideFrames(page, over, to.x - over.x, to.y - over.y, 2, 3);
+  await frames(page, 12);
   await page.waitForTimeout(150);
   await page.mouse.up();
   await frames(page, 2);
@@ -109,7 +101,7 @@ test('two things dropped in the Tinker Bench’s trays and a pull of the lever m
   }
 });
 
-test('a mushroom stirred in the cauldron brews a giant potion, and a bug who drinks it grows', async () => {
+test('a mushroom dropped in the cauldron and stirred round twice brews a giant potion', async () => {
   const bb = await launchApp();
   const { page } = bb;
   try {
@@ -117,60 +109,64 @@ test('a mushroom stirred in the cauldron brews a giant potion, and a bug who dri
     for (const area of ['area_under_porch', 'area_compost_lab'] as const)
       await send(page, { type: 'unlock', area });
     await frames(page, 2);
-    await calm(page);
     const p = await points(page);
     await jumpTo(page, COMPOST_X - 1);
-    const cap = await stage(page, 'item_mushroom_cap', p.cauldron.x - 3.4, 8);
-    await carryTo(page, await pressFrozen(page, cap), p.cauldron.x, p.cauldron.y - 0.5);
-    await expect
-      .poll(() => page.evaluate(() => window.__bb!.cauldron().contents))
-      .toEqual(['item_mushroom_cap']);
-    // Stir: two and a bit turns of the ladle round the pot, by hand.
+    // A mushroom cap on the heap beside the pot: in it goes, by hand.
+    const cap = await stage(page, 'item_mushroom_cap', p.cauldron.x - 2.2, 7.2);
+    const from = await pressFrozen(page, cap);
+    const over = await toClient(page, p.cauldron.x, p.cauldron.y - 0.5);
+    await glideFrames(page, from, 0, over.y - from.y, 2, 2);
+    await glideFrames(page, { x: from.x, y: over.y }, over.x - from.x, 0, 3, 2);
+    await frames(page, 12);
+    await page.waitForTimeout(150);
+    await page.mouse.up();
+    await frames(page, 2);
+    expect((await page.evaluate(() => window.__bb!.cauldron())).contents).toEqual(['item_mushroom_cap']);
+    // Stir: the ladle round the pot, two and a bit turns, an eighth of a turn at a time.
     const mid = await toClient(page, p.cauldron.x, p.cauldron.y);
-    // About 0.9 m across and half that up and down: well inside the pot.
     const rx = (await toClient(page, p.cauldron.x + 0.9, p.cauldron.y)).x - mid.x;
-    const ry = rx / 2;
     await page.mouse.move(mid.x + rx, mid.y);
     await page.mouse.down();
     await frames(page, 1);
-    for (let i = 1; i <= 30; i++) {
-      const a = (i / 12) * Math.PI * 2;
-      await page.mouse.move(mid.x + Math.cos(a) * rx, mid.y + Math.sin(a) * ry);
+    for (let i = 1; i <= 18; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      await page.mouse.move(mid.x + Math.cos(a) * rx, mid.y + (Math.sin(a) * rx) / 2);
       await frames(page, 1);
     }
     await page.mouse.up();
     await frames(page, 2);
-    expect(await page.evaluate(() => window.__bb!.cauldron().bubbling)).toBe(true);
-    expect(
-      await framesUntil(
-        page,
-        async () => (await entities(page)).some((e) => e.defId === 'item_potion_giant'),
-        120,
-        10,
-      ),
-    ).toBe(true);
-    const bottle = (await entities(page)).find((e) => e.defId === 'item_potion_giant')!;
+    expect((await page.evaluate(() => window.__bb!.cauldron())).bubbling).toBe(true);
+    await frames(page, 64);
+    expect((await entities(page)).some((e) => e.defId === 'item_potion_giant')).toBe(true);
     expect(await page.evaluate(() => window.__bb!.secrets())).toContain('secret_first_potion');
-    // A bug comes over to try it: give it to her at the mouth.
-    await framesUntil(page, async () => Math.abs((await entity(page, bottle.id))!.vy) < 0.1, 200, 20);
+  } finally {
+    await bb.close();
+  }
+});
+
+test('a potion let go at a bug\u2019s mouth is drunk, and a giant potion makes the bug giant', async () => {
+  const bb = await launchApp();
+  const { page } = bb;
+  try {
+    await openFrozen(page, 1);
+    // A ladybug on cleared open ground, with a bottle beside her.
+    await jumpTo(page, PLAZA_X + 18);
+    for (const e of await entities(page))
+      if (Math.abs(e.x - (PLAZA_X + 30)) < 3.5 && !e.bug?.pending)
+        await send(page, { type: 'despawn', id: e.id });
     const before = new Set((await entities(page)).map((e) => e.id));
-    await send(page, { type: 'spawn', kind: 'bug', defId: 'bug_ladybug_dot', x: p.cauldron.x + 6.5, y: 7.5 });
-    await frames(page, 30);
-    const dot = (await entities(page)).find((e) => !before.has(e.id) && e.defId === 'bug_ladybug_dot')!;
+    await send(page, { type: 'spawn', kind: 'bug', defId: 'bug_ladybug_dot', x: PLAZA_X + 30, y: 8.4 });
+    await frames(page, 2);
+    const glorp = (await entities(page)).find((e) => !before.has(e.id) && e.kind === 'bug')!;
     await calm(page);
-    await frames(page, 30);
-    const mouth = (await page.evaluate((id) => window.__bb!.mouthOf(id), dot.id))!;
-    await carryTo(page, await pressFrozen(page, bottle.id), mouth.x, mouth.y - 0.05);
-    expect(
-      await framesUntil(
-        page,
-        async () => ((await entity(page, dot.id))!.effects ?? []).some((e) => e.effect === 'giant'),
-        180,
-        10,
-      ),
-    ).toBe(true);
-    await frames(page, 40);
-    expect((await entity(page, dot.id))!.scale).toBe(2);
+    const bottle = await stage(page, 'item_potion_giant', PLAZA_X + 28.6, 8.6);
+    await holdNearMouth(page, bottle, glorp.id, 0.2, -0.2, true);
+    await page.mouse.up();
+    await frames(page, 60);
+    const g = (await entity(page, glorp.id))!;
+    expect((g.effects ?? []).map((e) => e.effect)).toContain('giant');
+    expect(g.scale).toBe(2);
+    expect(await entity(page, bottle)).toBeNull();
   } finally {
     await bb.close();
   }
@@ -199,12 +195,7 @@ test('a failed combo makes a junk blob, and shaking it in the hand splits it bac
     expect(blob.parts).toBe(2);
     expect(await page.evaluate(() => window.__bb!.secrets())).toContain('secret_first_blob');
     // Shake it: three quick strokes back and forth.
-    await framesUntil(
-      page,
-      async () => Math.hypot((await entity(page, blob.id))!.vx, (await entity(page, blob.id))!.vy) < 0.2,
-      200,
-      20,
-    );
+    await frames(page, 30);
     const at = await pressFrozen(page, blob.id);
     let x = at.x;
     for (let i = 0; i < 4; i++) {
@@ -219,7 +210,6 @@ test('a failed combo makes a junk blob, and shaking it in the hand splits it bac
     expect(await entity(page, blob.id)).toBeNull();
     const back = (await entities(page)).filter((e) => e.defId === 'item_cork' || e.defId === 'item_pebble');
     expect(back.map((e) => e.defId)).toEqual(expect.arrayContaining(['item_cork', 'item_pebble']));
-    void PLAZA_X;
   } finally {
     await bb.close();
   }

@@ -1504,8 +1504,8 @@ export class Sim {
       let vy = s.vy;
       let changed = false;
       for (const c of this.physics.contactsOf(bug.id)) {
-        // The thing in the player's hand is the player's doing.
-        if (!linked.has(c.other) || this.physics.grabbed === c.other) continue;
+        // The thing in the player's hand is the player's doing; the one in its mouth is its meal.
+        if (!linked.has(c.other) || this.physics.grabbed === c.other || b.mouthful === c.other) continue;
         if (c.ny > 0.5 && b.mode !== 'st_airborne' && b.mode !== 'st_use' && b.mode !== 'st_swim') {
           // Standing on the player's things: hop off, clear of them.
           const o = this.physics.getState(c.other);
@@ -1585,7 +1585,8 @@ export class Sim {
     if (this.linkedCache?.tick === this.tick) return this.linkedCache.ids;
     const ids = new Set<EntityId>();
     for (const e of this.entities.ofKind('item'))
-      if (this.setup.has(e.id) && !this.pocketed.has(e.id)) ids.add(e.id);
+      // Things out of the world (pocketed, in a mouth) are nobody's obstacle.
+      if (this.setup.has(e.id) && !this.pocketed.has(e.id) && this.physics.isActive(e.id)) ids.add(e.id);
     if (ids.size > 0) {
       const pairs = this.physics
         .touchingPairs()
@@ -2682,6 +2683,7 @@ export class Sim {
     if (!item) return;
     this.environment.unstickAll(itemId);
     this.physics.setActive(itemId, false);
+    this.linkedCache = null;
     this.thrown.delete(itemId);
     this.placeMouthful(bug, itemId);
     this.events.emit('bug_fed', {
