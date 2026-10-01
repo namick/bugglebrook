@@ -157,6 +157,8 @@ export interface TestHook {
     glow: number;
     rain: number;
   };
+  /** Set an entity's bites or paint directly, to show those looks (test mode only). */
+  debugEntity(id: number, fields: { bites?: number; paint?: string[] }): void;
   /** Rain drops, leaves, and light sprites being drawn now (particle budgets). */
   weatherStats(): { drops: number; leaves: number; lights: number };
 }
@@ -361,6 +363,12 @@ export function installTestHook(game: Game): void {
       };
     },
     weatherStats: () => game.session?.view.weather.stats() ?? { drops: 0, leaves: 0, lights: 0 },
+    debugEntity: (id, fields) => {
+      const e = game.session?.sim.entities.get(id);
+      if (!e) return;
+      if (fields.bites !== undefined) e.bites = fields.bites;
+      if (fields.paint !== undefined) e.paint = [...fields.paint];
+    },
     clearLogs: () => {
       game.sfx.log.length = 0;
       game.voices.log.length = 0;

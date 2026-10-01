@@ -3,6 +3,16 @@ import { PIXELS_PER_METER } from '../../../../game/constants';
 import type { ItemDef } from '../../../../game/data/types';
 import { OUTLINE, darken, lighten, mix, stroke } from '../palette';
 import { hash01 } from '../bugPose';
+import { drawItemArt7, outlineItemArt7 } from './itemArt7';
+
+/** The paint puddle colors, by paint ID. */
+const PAINT_COLORS: Readonly<Record<string, number>> = {
+  paint_red: 0xe8453c,
+  paint_blue: 0x4d7cff,
+  paint_yellow: 0xffd23f,
+  paint_white: 0xffffff,
+  paint_black: 0x2b2438,
+};
 
 /**
  * A physics prop drawn from its item definition. The root sits at the body
@@ -32,7 +42,7 @@ export class ItemSprite extends Container {
 
   constructor(
     readonly def: ItemDef,
-    seed = 0,
+    private readonly seed = 0,
   ) {
     super();
     this.addChild(this.stretchA);
@@ -131,6 +141,8 @@ export class ItemSprite extends Container {
       case 'moon_pebble':
         this.moonPebble(w / 2, seed);
         break;
+      default:
+        drawItemArt7(this.g, def, w, h, seed);
     }
     this.outline(this.rim, w, h);
     this.rim.stroke({ width: 16, color: 0xffffff, join: 'round', cap: 'round' });
@@ -198,7 +210,8 @@ export class ItemSprite extends Container {
           .lineTo(w / 2, h / 2);
         return;
       default:
-        g.roundRect(-w / 2, -h / 2, w, h, Math.min(8, h / 2));
+        if (!outlineItemArt7(g, this.def, w, h, this.seed))
+          g.roundRect(-w / 2, -h / 2, w, h, Math.min(8, h / 2));
     }
   }
 
@@ -843,6 +856,164 @@ export class ItemSprite extends Container {
       });
   }
 
+  /** Bites cut out of the edge, as last drawn. */
+  private bites = 0;
+  /** The holes (an inverse mask on the art) and their outlined edges. */
+  private biteHoles: Graphics | null = null;
+  private biteEdge: Graphics | null = null;
+  /** The paint on it, as last drawn. */
+  private paintId: string | undefined;
+  private paintLayer: Graphics | null = null;
+
+  /** The size of the drawing (not the collider), in art space. */
+  private drawnBounds(): { x0: number; y0: number; x1: number; y1: number } {
+    const b = this.g.getLocalBounds();
+    return { x0: b.minX, y0: b.minY, x1: b.maxX, y1: b.maxY };
+  }
+
+  /** Where a vertical line at x first meets the drawing, from the top (dir 1) or the bottom (dir -1). */
+  private edgeAt(x: number, dir: 1 | -1): number | null {
+    const { y0, y1 } = this.drawnBounds();
+    const p = { x, y: 0 };
+    for (let k = 0; k <= y1 - y0; k += 1) {
+      p.y = dir === 1 ? y0 + k : y1 - k;
+      if (this.g.containsPoint(p)) return p.y;
+    }
+    return null;
+  }
+
+  /**
+   * Show `n` bites a caterpillar took out of it (only the first two show): round
+   * notches cut from the top and bottom edges, outlined like the rest of it.
+   */
+  setBites(n: number): void {
+    const k = Math.min(2, Math.max(0, Math.floor(n)));
+    if (k === this.bites) return;
+    this.bites = k;
+    if (!this.biteHoles) {
+      // The holes live beside the art (a mask inside what it masks is unreliable) and squash with it.
+      this.biteHoles = new Graphics();
+      this.biteEdge = new Graphics();
+      this.spin.addChild(this.biteHoles);
+      this.art.addChild(this.biteEdge);
+    }
+    const holes = this.biteHoles.clear();
+    const edge = this.biteEdge!.clear();
+    if (k === 0) {
+      this.art.mask = null;
+      return;
+    }
+    const { x0, y0, x1, y1 } = this.drawnBounds();
+    const bw = x1 - x0;
+    const r = Math.max(5, Math.min(12, Math.min(bw, y1 - y0) * 0.28));
+    const circles: [number, number, number][] = [];
+    const spots: [number, 1 | -1][] = [
+      [x0 + bw * 0.66, 1],
+      [x0 + bw * 0.32, -1],
+    ];
+    for (const [x, dir] of spots.slice(0, k)) {
+      const y = this.edgeAt(x, dir);
+      if (y === null) continue;
+      const cy = y - dir * r * 0.2;
+      // One big chomp with two smaller tooth marks beside it.
+      circles.push(
+        [x, cy, r],
+        [x - r * 0.85, cy + dir * r * 0.05, r * 0.55],
+        [x + r * 0.85, cy + dir * r * 0.05, r * 0.55],
+      );
+    }
+    for (const [x, y, cr] of circles) holes.circle(x, y, cr).fill(0xffffff);
+    // Outline the bitten edge: the parts of each circle that lie on the item and outside the other holes.
+    const p = { x: 0, y: 0 };
+    const steps = 48;
+    for (const [i, [cx, cy, cr]] of circles.entries()) {
+      let run: [number, number][] = [];
+      const flush = (): void => {
+        if (run.length > 1) {
+          run.forEach(([x, y], j) => (j === 0 ? edge.moveTo(x, y) : edge.lineTo(x, y)));
+          edge.stroke({ width: 9, color: OUTLINE, cap: 'round', join: 'round' });
+        }
+        run = [];
+      };
+      for (let s = 0; s <= steps; s++) {
+        const a = (s / steps) * Math.PI * 2;
+        // Test just outside the hole, where the visible half of the outline falls.
+        p.x = cx + Math.cos(a) * (cr + 3);
+        p.y = cy + Math.sin(a) * (cr + 3);
+        const onItem = this.g.containsPoint(p);
+        p.x = cx + Math.cos(a) * cr;
+        p.y = cy + Math.sin(a) * cr;
+        const inOther = circles.some(
+          ([ox, oy, or], j) => j !== i && Math.hypot(p.x - ox, p.y - oy) < or - 0.5,
+        );
+        if (onItem && !inOther) run.push([p.x, p.y]);
+        else flush();
+      }
+      flush();
+    }
+    this.art.setMask({ mask: holes, inverse: true });
+  }
+
+  private drawnW(): number {
+    const s = this.def.shape;
+    return (s.type === 'circle' ? s.radius * 2 : s.width) * PIXELS_PER_METER;
+  }
+
+  private drawnH(): number {
+    const s = this.def.shape;
+    return (s.type === 'circle' ? s.radius * 2 : s.height) * PIXELS_PER_METER;
+  }
+
+  /**
+   * Show the paint on it (items keep the last color they were dipped in): the
+   * silhouette washed with the color, a wet shine, and a couple of drips.
+   */
+  setPaint(paint: readonly string[] | undefined): void {
+    const id = paint && paint.length > 0 ? paint[paint.length - 1] : undefined;
+    if (id === this.paintId) return;
+    this.paintId = id;
+    if (!this.paintLayer) {
+      this.paintLayer = new Graphics();
+      // Above the drawing, under the bite edges.
+      this.art.addChildAt(this.paintLayer, this.art.getChildIndex(this.g) + (this.coil ? 2 : 1));
+    }
+    const g = this.paintLayer.clear();
+    const color = id === undefined ? undefined : PAINT_COLORS[id];
+    if (color === undefined) return;
+    const w = this.drawnW();
+    const h = this.drawnH();
+    this.outline(g, w, h);
+    g.fill({ color, alpha: 0.62 });
+    const { x0, x1, y0 } = this.drawnBounds();
+    const bw = x1 - x0;
+    // Drips running off the bottom edge.
+    for (const [t, len] of [
+      [0.3, 14],
+      [0.68, 4],
+    ] as const) {
+      const x = x0 + bw * t;
+      const y = this.edgeAt(x, -1);
+      if (y === null) continue;
+      const l = len * Math.min(1.3, Math.max(0.7, bw / 50));
+      g.moveTo(x, y - 4)
+        .lineTo(x, y + l)
+        .stroke({ width: 7, color: OUTLINE, cap: 'round' });
+      g.circle(x, y + l + 1, 5).fill(OUTLINE);
+      g.moveTo(x, y - 5)
+        .lineTo(x, y + l)
+        .stroke({ width: 3, color, cap: 'round' });
+      g.circle(x, y + l + 1, 3).fill(color);
+      g.circle(x - 1.2, y + l, 1).fill({ color: 0xffffff, alpha: 0.8 });
+    }
+    this.outline(g, w, h);
+    g.stroke(stroke(4));
+    // A wet shine near the top.
+    const top = this.edgeAt(x0 + bw * 0.38, 1) ?? y0;
+    g.moveTo(x0 + bw * 0.26, top + 5)
+      .lineTo(x0 + bw * 0.42, top + 4)
+      .stroke({ width: 3, color: 0xffffff, alpha: 0.75, cap: 'round' });
+  }
+
   /** Show the stink lines and fly, or hide them. */
   setStink(on: boolean): void {
     if (on === this.stink) return;
@@ -885,6 +1056,7 @@ export class ItemSprite extends Container {
     this.stretchC.rotation = -stretchAngle;
     this.spin.rotation = angle;
     this.art.scale.set(sx, sy);
+    this.biteHoles?.scale.set(sx, sy);
   }
 
   private drawnCompress = 0;
