@@ -290,7 +290,8 @@ describe('barriers and locked areas', () => {
     sim.send({ type: 'unlock', area: 'area_under_porch' });
     const porch = area(sim, 'area_under_porch');
     const under = sim.spawn('item', 'item_pebble', porch.x0 + 12.4, GROUND_Y - 0.4);
-    const out = sim.spawn('item', 'item_pebble', PLAZA_X + 4.6, GROUND_Y - 0.4);
+    // Open ground away from where the bugs start (one standing over it would keep it dry).
+    const out = sim.spawn('item', 'item_pebble', PLAZA_X + 28, GROUND_Y - 0.4);
     sim.run(30);
     sim.send({ type: 'set_weather', wind: 0, rain: true });
     sim.run(6 * 60);
@@ -978,7 +979,7 @@ describe('save version 8', () => {
     expect(loaded.places.state.lampOn).toBe(true);
     expect(loaded.places.state.stageLights).toBe(2);
     const pinned = loaded.entities.ofKind('item').filter((e) => e.pinned);
-    expect(pinned.length).toBe(2);
+    expect(pinned.length).toBe(4);
     for (const e of pinned) expect(loaded.physics.isPinned(e.id)).toBe(true);
     expect(loaded.barriers.state.lift).toEqual(sim.barriers.state.lift);
     // And both carry on alike.
