@@ -295,6 +295,14 @@ export function drawTreehouseUnder(area: AreaDef, terrain: Terrain, rng: Rng): C
   const g = new Graphics();
   const x0 = area.xStart * PPM;
   const x1 = area.xEnd * PPM;
+  // Branches the house sits on, drawn first so the leaves cover them and they
+  // only show through the gaps (drawn over the leaves, they read as a stray stroke).
+  g.moveTo(x0 - 30, 900)
+    .bezierCurveTo(x0 + 400, 820, x0 + 900, 860, x0 + 1400, 760)
+    .stroke({ width: 60, color: 0x7a5238, cap: 'round' });
+  g.moveTo(x0 + 2400, 1100)
+    .bezierCurveTo(x0 + 2300, 900, x0 + 2600, 800, x0 + 3000, 740)
+    .stroke({ width: 50, color: 0x7a5238, cap: 'round' });
   // The canopy below: leaves all the way down.
   for (let x = x0 - 40; x < x1 + 40; x += rng.range(60, 120))
     for (let y = 760; y < 1140; y += rng.range(80, 140))
@@ -308,13 +316,6 @@ export function drawTreehouseUnder(area: AreaDef, terrain: Terrain, rng: Rng): C
         4,
         0.35,
       );
-  // Branches and the trunk the house sits on.
-  g.moveTo(x0 - 30, 900)
-    .bezierCurveTo(x0 + 400, 820, x0 + 900, 860, x0 + 1400, 760)
-    .stroke({ width: 60, color: 0x7a5238, cap: 'round' });
-  g.moveTo(x0 + 2400, 1100)
-    .bezierCurveTo(x0 + 2300, 900, x0 + 2600, 800, x0 + 3000, 740)
-    .stroke({ width: 50, color: 0x7a5238, cap: 'round' });
   // Joists under the floor.
   for (let x = x0 + 80; x < x1; x += 360)
     g.rect(x, FLOOR_PX + 40, 44, 70)
