@@ -69,6 +69,8 @@ export async function clickSlot(page: Page, slot: number): Promise<void> {
   await waitForScene(page, 'menu');
   for (let attempt = 0; attempt < 3; attempt++) {
     const pos = await page.evaluate((s) => window.__bb!.slotButtonClient(s), slot);
+    // The signs are gone once the menu is on its way out: the last click took.
+    if (pos === null && attempt > 0) break;
     expect(pos).not.toBeNull();
     await page.mouse.click(pos!.x, pos!.y);
     try {
