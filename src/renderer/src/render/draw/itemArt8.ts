@@ -1483,28 +1483,31 @@ function spoonCatapult(g: Graphics, def: ItemDef): void {
     3,
     0.6,
   );
-  // The spoon: a thick handle, then the bowl's cup between its two lips.
-  g.roundRect(handle.x, handle.y, handle.w, handle.h, handle.h / 2)
+  // The spoon: a thick handle that runs on under the cup, then the cup between its two lips.
+  const neck = (lipL.x + lipR.x + lipR.w) / 2;
+  const hw = handle.x + handle.w - neck;
+  g.roundRect(neck, handle.y, hw, handle.h, handle.h / 2)
     .fill(darken(def.color, 0.2))
     .stroke(stroke(5));
-  g.roundRect(handle.x + 3, handle.y + 3, handle.w - 6, handle.h * 0.55, handle.h * 0.3).fill(def.color);
+  g.roundRect(neck + 3, handle.y + 3, hw - 6, handle.h * 0.55, handle.h * 0.3).fill(def.color);
+  // The cup: a deep round bowl seen a little from above, its rim an oval.
   const left = lipL.x;
   const right = lipR.x + lipR.w;
-  const bottom = bowl.y + bowl.h;
-  g.moveTo(left, lipL.y)
-    .bezierCurveTo(left, bottom + 4, right, bottom + 4, right, lipR.y)
-    .quadraticCurveTo((left + right) / 2, (lipL.y + lipR.y) / 2 + 10, left, lipL.y)
+  const cx = (left + right) / 2;
+  const rx = (right - left) / 2;
+  const top = Math.min(lipL.y, lipR.y) + 4;
+  const bottom = bowl.y + bowl.h + 2;
+  const rimY = top + 6;
+  g.moveTo(left, rimY)
+    .bezierCurveTo(left, bottom + 6, right, bottom + 6, right, rimY)
     .closePath()
     .fill(def.color)
     .stroke(stroke(5));
-  // The hollow of the bowl, tilted toward us.
-  g.moveTo(left + 6, lipL.y + 5)
-    .quadraticCurveTo((left + right) / 2, (lipL.y + lipR.y) / 2 + 14, right - 6, lipR.y + 3)
-    .quadraticCurveTo((left + right) / 2, bottom - 2, left + 6, lipL.y + 5)
-    .fill(darken(def.color, 0.22));
-  g.moveTo(left + 7, lipL.y + 9)
-    .quadraticCurveTo(left + 9, bottom - 4, left + bowl.w * 0.35, bottom - 2)
-    .stroke({ width: 3, color: 0xffffff, alpha: 0.85, cap: 'round' });
+  g.ellipse(cx, rimY, rx, 9).fill(darken(def.color, 0.3)).stroke(stroke(4));
+  g.ellipse(cx + 3, rimY + 2, rx - 9, 5).fill(darken(def.color, 0.42));
+  g.moveTo(left + 8, rimY + 12)
+    .quadraticCurveTo(left + 12, bottom - 6, cx - rx * 0.2, bottom - 3)
+    .stroke({ width: 3.5, color: 0xffffff, alpha: 0.85, cap: 'round' });
   shine(
     g,
     [
