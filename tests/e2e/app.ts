@@ -69,6 +69,8 @@ export async function clickSlot(page: Page, slot: number): Promise<void> {
   await waitForScene(page, 'menu');
   for (let attempt = 0; attempt < 3; attempt++) {
     const pos = await page.evaluate((s) => window.__bb!.slotButtonClient(s), slot);
+    // No slot card: the earlier click took and the menu is on its way out while the world loads.
+    if (pos === null && attempt > 0) break;
     expect(pos).not.toBeNull();
     await page.mouse.click(pos!.x, pos!.y);
     try {
@@ -78,7 +80,8 @@ export async function clickSlot(page: Page, slot: number): Promise<void> {
       // Not in yet: the click may have landed while the menu was still settling.
     }
   }
-  await waitForScene(page, 'world');
+  // A busy machine can take a while to build the world.
+  await expect.poll(() => page.evaluate(() => window.__bb!.scene()), { timeout: 60_000 }).toBe('world');
 }
 
 export const entities = (page: Page): Promise<EntityView[]> => page.evaluate(() => window.__bb!.entities());
