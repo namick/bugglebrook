@@ -487,7 +487,7 @@ export const AREAS = createRegistry<AreaDef>('area', [
     start: [
       { kind: 'item', defId: 'item_jar_glass', x: 1.3 },
       { kind: 'item', defId: 'item_dung_ball', x: 6.6 },
-      { kind: 'bug', defId: 'bug_dungbeetle_barty', x: 4.6, pending: 'aloof' },
+      { kind: 'bug', defId: 'bug_dungbeetle_barty', x: 8.4, pending: 'aloof' },
       { kind: 'item', defId: 'item_apple_core', x: 9.0 },
       // Jars on the popsicle-stick shelves, each with its ingredient in front.
       { kind: 'item', defId: 'item_moss_tuft', x: 10.4, y: 7.3 },
@@ -601,7 +601,7 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_maple_seed', x: 31.0 },
       { kind: 'item', defId: 'item_glass_bead', x: 21.2 },
       { kind: 'item', defId: 'item_glass_bead', x: 25.4 },
-      { kind: 'item', defId: 'item_blueprint_balloon_basket', x: 0.7 },
+      { kind: 'item', defId: 'item_blueprint_balloon_basket', x: 31.6 },
     ],
     respawn: [{ item: 'item_jelly_bean', count: 2 }],
     skyTop: 0x8fd6f2,

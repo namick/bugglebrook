@@ -76,6 +76,8 @@ export type Command =
   /** The player stirred the cauldron with the ladle, by this many radians around its middle. */
   | { type: 'stir'; radians: number }
   /** Debug and tests: put a potion's effect on a bug or thing, as if it drank it. */
-  | { type: 'give_potion'; id: number; potion: string };
+  | { type: 'give_potion'; id: number; potion: string }
+  /** Debug and shots: take a thing out of the world. */
+  | { type: 'despawn'; id: number };
 
 export type CommandType = Command['type'];

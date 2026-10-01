@@ -775,7 +775,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
       p.bottle,
       {
         name: p.name,
-        shape: box(0.32, 0.44),
+        shape: box(0.4, 0.54),
         material: 'mat_glass',
         density: 1.3,
         friction: 0.4,
@@ -789,7 +789,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
   ),
   item('item_potion_mix', {
     name: 'Mixed potion',
-    shape: box(0.32, 0.44),
+    shape: box(0.4, 0.54),
     material: 'mat_glass',
     density: 1.3,
     friction: 0.4,

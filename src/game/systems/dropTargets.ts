@@ -4,8 +4,8 @@ import type { EntityId } from '../core/entities';
  * Drop targets (game design doc, section 2). When the player lets go of
  * something, or a thrown thing hits a bug, the first matching target by
  * priority wins; ties go to the nearest. If nothing matches, it is a plain
- * physics drop. Later milestones add the pocket, containers, heads, paint,
- * hands, and seats to DROP_RULES.
+ * physics drop. M8 adds containers (the bench's trays, the cauldron),
+ * potions at a mouth, and paint on a bug. Heads, hands, and seats come later.
  */
 export type DropTargetKind = 'mouth' | 'tray' | 'cauldron' | 'body';
 

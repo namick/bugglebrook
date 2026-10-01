@@ -325,12 +325,14 @@ export class Places {
     const sim = this.sim;
     const dish = { x: x + 1.1, y: sim.surfaceY(x + 1.1) };
     let found: Entity | null = null;
+    let best = Infinity;
     for (const e of sim.entities.ofKind('item')) {
       if (sim.isSleeping(e.id) || sim.physics.grabbed === e.id) continue;
       const s = sim.physics.getState(e.id);
-      if (Math.abs(s.x - dish.x) <= 1 && s.y > dish.y - 1.2 && s.y < dish.y + 0.2) {
+      const d = Math.abs(s.x - dish.x);
+      if (d <= 1 && s.y > dish.y - 1.2 && s.y < dish.y + 0.2 && d < best) {
         found = e;
-        break;
+        best = d;
       }
     }
     if (!found) {

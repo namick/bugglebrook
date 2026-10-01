@@ -503,10 +503,11 @@ describe('potion effects (M8 acceptance)', () => {
     const log2 = record(s2);
     const rollo = bug(s2, 'bug_pillbug_rollo');
     s2.send({ type: 'give_potion', id: d2.id, potion: 'potion_bubble_burp' });
-    for (let i = 0; i < 30 && named(log2, 'potion_burped').length === 0; i++) {
+    // Keep Rollo just in front of Dot, whichever way she turns, until she burps.
+    for (let i = 0; i < 400 && named(log2, 'potion_burped').length === 0; i++) {
       const v = s2.view(d2.id)!;
-      s2.physics.place(rollo.id, v.x + v.bug!.facing * 1.1, GROUND_Y - 0.5, 0);
-      s2.run(20);
+      s2.physics.place(rollo.id, v.x + v.bug!.facing * 1.1, v.y, 0);
+      s2.step();
     }
     expect(named(log2, 'potion_burped')[0]!.kind).toBe('bubble');
     expect(effectsOf(s2, rollo.id)).toContain('bubbled');

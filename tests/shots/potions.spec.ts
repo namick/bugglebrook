@@ -203,13 +203,17 @@ test('crafting and potions tour', async () => {
       'bug_grasshopper_boing',
       'bug_stinkbug_whiff',
     ];
+    // The plaza's own bugs step out of the way, so the gallery shows only the ones with potions.
+    for (const e of await page.evaluate(() => window.__bb!.entities()))
+      if (e.kind === 'bug' && e.x > PLAZA_X && e.x < PLAZA_X + 38 && !e.bug?.pending)
+        await send(page, { type: 'despawn', id: e.id });
     let n = 220;
     for (let i = 0; i < ALL.length; i += 5) {
-      await lookAt(page, PLAZA_X + 20);
+      await lookAt(page, PLAZA_X + 19.2);
       const group = ALL.slice(i, i + 5);
       const ids: number[] = [];
       for (const [k, p] of group.entries()) {
-        const id = await spawn(page, 'bug', BUGS[k]!, PLAZA_X + 22.5 + k * 3.4, 8);
+        const id = await spawn(page, 'bug', BUGS[k]!, PLAZA_X + 26.6 + k * 2.6, 8);
         ids.push(id);
         await frames(page, 20);
         await send(page, { type: 'give_potion', id, potion: p });
@@ -219,52 +223,35 @@ test('crafting and potions tour', async () => {
       await shot(page, `${n}-potions-${group.map((p) => p.replace('potion_', '')).join('-')}`);
       await frames(page, 50);
       await shot(page, `${n + 1}-potions-later`);
-      // Carry them off to the pond: a dunk washes their potions off, out of the next shot.
-      for (const id of ids) {
-        const e = await page.evaluate((x) => window.__bb!.entity(x), id);
-        if (!e) continue;
-        await send(page, { type: 'grab', x: e.x, y: e.y });
-        await frames(page, 1);
-        for (let k = 0; k < 40; k++) {
-          await send(page, { type: 'drag', x: 48, y: 7 });
-          await frames(page, 2);
-        }
-        await page.evaluate((x) => {
-          const b = window.__bb!.entity(x);
-          if (b?.held) window.__bb!.send({ type: 'release', vx: 0, vy: 0 });
-        }, id);
-        await frames(page, 1);
-      }
+      for (const id of ids) await send(page, { type: 'despawn', id });
+      await frames(page, 1);
       n += 2;
     }
 
     // --- The crafted toys at play ----------------------------------------------
-    await lookAt(page, PLAZA_X + 20);
-    const TOYS = [
-      'item_trampoline',
-      'item_slingshot_twig',
-      'item_spring_launcher',
-      'item_popsicle_seesaw',
-      'item_spoon_catapult',
-      'item_matchbox_racer',
-      'item_straw_rocket',
-      'item_pinwheel',
+    await lookAt(page, PLAZA_X + 19.2);
+    // Each batch on clear ground, then carried off to the pond before the next.
+    const clear = async (ids: number[]): Promise<void> => {
+      for (const id of ids) await send(page, { type: 'despawn', id });
+      await frames(page, 1);
+    };
+    const batches: readonly (readonly string[])[] = [
+      ['item_trampoline', 'item_slingshot_twig', 'item_spring_launcher', 'item_popsicle_seesaw'],
+      ['item_spoon_catapult', 'item_matchbox_racer', 'item_straw_rocket', 'item_pinwheel'],
+      ['item_balloon_basket', 'item_balloon_red', 'item_parachute', 'item_magnet_crane'],
     ];
-    for (const [k, t] of TOYS.entries()) await spawn(page, 'item', t, PLAZA_X + 21.5 + k * 2.3, 7);
-    await frames(page, 120);
-    await shot(page, '240-toys');
-    const air = [
-      'item_balloon_basket',
-      'item_balloon_red',
-      'item_parachute',
-      'item_disco_ball',
-      'item_magnet_crane',
-    ];
-    for (const [k, t] of air.entries()) await spawn(page, 'item', t, PLAZA_X + 22 + k * 3.4, 5);
-    await frames(page, 60);
-    await shot(page, '241-toys-air');
-    await frames(page, 240);
-    await shot(page, '242-toys-later');
+    let t = 240;
+    for (const batch of batches) {
+      const ids: number[] = [];
+      for (const [k, toy] of batch.entries())
+        ids.push(await spawn(page, 'item', toy, PLAZA_X + 26.5 + k * 3.2, 5.5));
+      await frames(page, 90);
+      await shot(page, `${t}-toys`);
+      await frames(page, 180);
+      await shot(page, `${t + 1}-toys-later`);
+      await clear(ids);
+      t += 2;
+    }
     await freeze(page, false);
   } finally {
     await bb.close();

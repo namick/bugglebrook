@@ -488,12 +488,41 @@ describe('M8 secrets', () => {
   });
 });
 
+describe('debug commands', () => {
+  it('despawn takes a thing out of the world, but not one in the hand', () => {
+    const sim = world('despawn');
+    const a = put(sim, 'item_pebble', OPEN);
+    const b = put(sim, 'item_pebble', OPEN + 2);
+    sim.run(20);
+    sim.send({ type: 'despawn', id: a.id });
+    const bv = v(sim, b);
+    sim.send({ type: 'grab', x: bv.x, y: bv.y });
+    sim.step();
+    sim.send({ type: 'despawn', id: b.id });
+    sim.step();
+    expect(sim.entities.has(a.id)).toBe(false);
+    expect(sim.entities.has(b.id)).toBe(true);
+  });
+});
+
 describe('save version 9', () => {
   it('migrates a version 8 save by bumping the version', () => {
     const v8 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures', 'save-v8.json'), 'utf8'));
     const migrated = MIGRATIONS[8]!(v8);
     expect(migrated.version).toBe(9);
     expect(SAVE_VERSION).toBe(9);
+  });
+
+  it('loads a real version 9 save with its crafted things, blob, cauldron, and a giant bug', () => {
+    const raw = readFileSync(join(import.meta.dirname, 'fixtures', 'save-v9.json'), 'utf8');
+    const sim = Sim.load(loadSaveFile(raw).world);
+    expect(sim.bench.state.made).toEqual(['recipe_slingshot']);
+    expect(sim.entities.ofKind('item').find((e) => e.defId === 'item_junk_blob')?.parts).toHaveLength(2);
+    expect(sim.cauldron.state.contents.map((p) => p.defId)).toEqual(['item_feather']);
+    const dot = sim.entities.ofKind('bug').find((e) => e.defId === 'bug_ladybug_dot')!;
+    expect(sim.potions.scaleOf(dot)).toBe(2);
+    sim.run(600);
+    expect(sim.rescues).toBe(0);
   });
 
   it('gives a version 8 world the bench, the cauldron, and M8’s new things', () => {

@@ -842,6 +842,9 @@ export class Sim {
       case 'stir':
         this.cauldron.stir(command.radians);
         return;
+      case 'despawn':
+        if (this.entities.has(command.id) && this.physics.grabbed !== command.id) this.remove(command.id);
+        return;
       case 'give_potion': {
         const e = this.entities.get(command.id);
         if (!e || !this.content.potions.has(command.potion)) return;
