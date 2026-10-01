@@ -89,7 +89,7 @@ export class WebAudioBackend implements AudioBackend {
       sfx.gain.value = this.volumes.sfx;
       const voice = ctx.createGain();
       voice.gain.value = this.volumes.voice;
-      // Generative music (M9) plays through this bus.
+      // M9's background music (Suno stems, docs/05-music-brief.md) plays through this bus.
       const music = ctx.createGain();
       music.gain.value = this.volumes.music;
       sfx.connect(master);

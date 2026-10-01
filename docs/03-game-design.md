@@ -1640,7 +1640,7 @@ All sounds are synthesized (section 16). Every sound gets ±8 percent random pit
 
 ## 16. Audio design
 
-All audio is WebAudio, synthesized at runtime. No samples. One `AudioContext`, with a master bus split into three groups, each with its own volume setting: `bus_music`, `bus_sfx`, `bus_voices`. A soft limiter (a compressor at ratio 12, threshold −6 dB) sits on the master.
+All audio is WebAudio. Sound effects, voices, and music toys are synthesized at runtime; background music is the owner's Suno stems (see "Generative music" below and `05-music-brief.md`). One `AudioContext`, with a master bus split into three groups, each with its own volume setting: `bus_music`, `bus_sfx`, `bus_voices`. A soft limiter (a compressor at ratio 12, threshold −6 dB) sits on the master.
 
 ### Synth building blocks
 
@@ -1672,6 +1672,8 @@ Synth nodes are pooled. At most 32 simultaneous voices. When over, the quietest 
 | Gnome Hollow | Very soft pad | `syn_bell`, high, sparse | None | Twinkles |
 
 ### Generative music
+
+> Superseded on 2026-10-01. Background music now comes from the owner's Suno tracks, layered and mixed from their stems (the Audio row in `00-decisions.md`, and `05-music-brief.md`, which wins wherever the two disagree). The layer and mix rules below are kept as the intent the stems should follow. Sound effects, bug voices, and the music toys are still synthesized.
 
 Each area's music is built live from layers that follow the music clock and the area's key and progression.
 
@@ -1883,7 +1885,7 @@ Each milestone is a vertical slice that runs, ships as a build, and has automate
 - A giant bug's mass is 4× its base.
 
 ### M9. Music
-**Features.** Music clock, per-area keys and progressions, generative music with time-of-day and rain mixes, instruments, bugs playing instruments and forming bands, mushroom sequencer with row mutes, A and B patterns, clear and double speed, bluebell speakers. Buzzby and Fiddle, plus Luma and Flick via night triggers.
+**Features.** Music clock, per-area keys and progressions, adaptive music built from the Suno stems with time-of-day and rain mixes (`05-music-brief.md`), instruments, bugs playing instruments and forming bands, mushroom sequencer with row mutes, A and B patterns, clear and double speed, bluebell speakers. Buzzby and Fiddle, plus Luma and Flick via night triggers.
 **Acceptance.**
 - Every pitched note emitted in an area is a member of that area's scale (audio event log check over 5 minutes of play with random instrument use).
 - Player notes start on a 16th-note boundary of the music clock.
