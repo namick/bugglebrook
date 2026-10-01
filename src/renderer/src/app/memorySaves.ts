@@ -51,6 +51,8 @@ export function memoryApi(): BugglebrookApi {
         return { ...settings };
       },
     },
+    // No disk in the browser: the photo is saved nowhere, and the polaroid shows its red x.
+    photos: { save: () => Promise.reject(new Error('No Pictures folder in the browser')) },
     quit: () => window.close(),
     onFlushRequest: () => undefined,
   };

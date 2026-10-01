@@ -2,6 +2,7 @@ import { BrowserWindow, app, ipcMain, shell } from 'electron';
 import { join } from 'node:path';
 import { IPC } from '../shared/ipc';
 import { DEFAULT_SETTINGS } from '../shared/settings';
+import { PhotoStore } from './photoStore';
 import { SaveStore } from './saveStore';
 import { SettingsStore } from './settingsStore';
 import { startAutoUpdates } from './updater';
@@ -23,6 +24,12 @@ const settings = new SettingsStore(join(app.getPath('userData'), 'settings.json'
   ...DEFAULT_SETTINGS,
   fullscreen: !testMode,
 });
+// Photos go to <Pictures>/Bugglebrook/. Tests point them at a temp dir instead.
+const photos = new PhotoStore(
+  testMode && process.env.BUGGLEBROOK_PICTURES
+    ? process.env.BUGGLEBROOK_PICTURES
+    : join(app.getPath('pictures'), 'Bugglebrook'),
+);
 let mainWindow: BrowserWindow | null = null;
 
 function registerIpc(): void {
@@ -41,6 +48,7 @@ function registerIpc(): void {
     if (win && win.isFullScreen() !== next.fullscreen) win.setFullScreen(next.fullscreen);
     return next;
   });
+  ipcMain.handle(IPC.photosSave, (_e, png: unknown) => photos.save(png));
   ipcMain.on(IPC.quit, (e) => BrowserWindow.fromWebContents(e.sender)?.close());
 }
 

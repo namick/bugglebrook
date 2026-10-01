@@ -25,6 +25,9 @@ const api: BugglebrookApi = {
     get: () => ipcRenderer.invoke(IPC.settingsGet),
     set: (settings) => ipcRenderer.invoke(IPC.settingsSet, settings),
   },
+  photos: {
+    save: (png) => ipcRenderer.invoke(IPC.photosSave, png),
+  },
   quit: () => ipcRenderer.send(IPC.quit),
   onFlushRequest(handler) {
     flushHandler = handler;

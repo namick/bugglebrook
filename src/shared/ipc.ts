@@ -10,6 +10,8 @@ export const IPC = {
   savesRecover: 'saves:recover',
   settingsGet: 'settings:get',
   settingsSet: 'settings:set',
+  /** renderer -> main: write a photo (a PNG data URL) to the Pictures folder. Resolves to its path. */
+  photosSave: 'photos:save',
   /** renderer -> main: the quit door on the menu. */
   quit: 'app:quit',
   /** main -> renderer: save now, the app is closing. */
@@ -49,6 +51,11 @@ export interface BugglebrookApi {
     get(): Promise<Settings>;
     /** Store a change and apply what main controls (fullscreen). Returns the stored settings. */
     set(settings: Partial<Settings>): Promise<Settings>;
+  };
+  /** Photo mode (game design doc, section 14). */
+  readonly photos: {
+    /** Write a 1920x1080 PNG (as a data URL) to `<Pictures>/Bugglebrook/`. Resolves to the file's path. */
+    save(png: string): Promise<string>;
   };
   /** Close the app (saving first, like any close). */
   quit(): void;
