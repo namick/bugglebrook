@@ -21,7 +21,8 @@ export class HoldArm {
   /** It acted during this press (it waits for a fresh press to act again). */
   private fired = false;
 
-  constructor(readonly seconds: number = HOLD.seconds) {}
+  /** Seconds of holding before it acts (screenshots slow it down to catch the ring). */
+  constructor(public seconds: number = HOLD.seconds) {}
 
   press(): void {
     this.pressed = true;

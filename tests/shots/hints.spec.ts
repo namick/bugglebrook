@@ -154,11 +154,13 @@ test('hints tour', async () => {
     await jump(page, POND_X + 14);
     const home = await uiAt(page, 'home');
     await page.mouse.move(home.x, home.y, { steps: 3 });
+    // Slowed right down, so the slow full-size screenshot catches the ring half full.
+    await page.evaluate(() => window.__bb!.setHomeHold(8));
     await page.mouse.down();
-    await page.waitForTimeout(220);
+    await page.waitForTimeout(3000);
     await page.screenshot({
       path: join(DIR, 'hints-21-home-hold.png'),
-      clip: { x: home.x - 200, y: home.y - 160, width: 260, height: 220 },
+      clip: { x: home.x - 90, y: home.y - 90, width: 180, height: 180 },
     });
     await page.mouse.up();
   } finally {

@@ -234,6 +234,8 @@ export interface TestHook {
   setGhostIdle(seconds: number, cooldown?: number): void;
   /** Screenshots only: show the ghost's demo of `kind` held still `t` seconds in (null hides it). False if it cannot be staged here. */
   pinGhost(kind: string | null, t?: number): boolean;
+  /** Screenshots only: how long the home stump must be held. */
+  setHomeHold(seconds: number): void;
   /** The discovery stamps: those on the strip (newest last), how many in all, how many landed, its opacity. */
   stamps(): {
     stamps: { kind: string; ref: string }[];
@@ -559,6 +561,10 @@ export function installTestHook(game: Game): void {
       if (cooldown !== undefined) s.hints.ghost.cooldown = cooldown;
     },
     stamps: () => game.session?.stamps.info() ?? null,
+    setHomeHold: (seconds) => {
+      const arm = game.session?.home.arm;
+      if (arm) arm.seconds = seconds;
+    },
     pinGhost: (kind, t) => game.session?.hints.pin(kind as DemoKind | null, t) ?? false,
     debugEntity: (id, fields) => {
       const e = game.session?.sim.entities.get(id);
