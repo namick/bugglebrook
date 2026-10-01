@@ -431,7 +431,11 @@ export class Game {
     this.sfx.attach(sim.events, materialOf, (defId) =>
       sim.content.items.has(defId) ? sim.content.items.get(defId).tags : [],
     );
-    this.voices.attach(sim.events, (id) => sim.view(id)?.bug?.mood);
+    this.voices.attach(
+      sim.events,
+      (id) => sim.view(id)?.bug?.mood,
+      (id) => sim.view(id)?.effects,
+    );
     this.frameTimes.length = 0;
     this.updateTimes.length = 0;
     this.eventLog.length = 0;

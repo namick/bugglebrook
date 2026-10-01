@@ -1,5 +1,6 @@
 import type { EventBus } from '../../../game/core/events';
 import type { GameEvents } from '../../../game/events';
+import { craftTones, noteTones, type CraftSfx } from './craftSfx';
 import type { AudioBackend, Tone } from './synth';
 
 export type Material = 'wood' | 'metal' | 'rubber' | 'stone' | 'glass' | 'leaf' | 'food' | 'bug';
@@ -118,9 +119,10 @@ export type SfxName =
   | 'scratch'
   | 'tulip_hum'
   | 'peek_twig'
-  // M8: the bench's lever and the cauldron's ladle (gestures).
+  // M8: the bench's lever and the cauldron's ladle (gestures), and crafting and potions.
   | 'lever'
-  | 'stir';
+  | 'stir'
+  | CraftSfx;
 
 /**
  * The impact sound for a material. Soft materials (cloth, paper) thud like
@@ -135,6 +137,7 @@ export function soundMaterial(material: string): Material {
     case 'mat_plastic':
       return 'rubber';
     case 'mat_jelly':
+    case 'mat_junk':
       return 'food';
     case 'mat_shell':
       return 'stone';
@@ -165,6 +168,50 @@ const GRAB_PITCH: Readonly<Record<Material, number>> = {
   food: 450,
   bug: 900,
 };
+
+/** What a failed craft sounds like, by the junk it made. */
+const FAIL_SOUND: Readonly<Record<GameEvents['bench_failed']['kind'], SfxName>> = {
+  sticky: 'slurp',
+  smelly: 'fail_raspberry',
+  bouncy: 'fail_boing',
+  food: 'chomp_burp',
+  plain: 'sad_squeak',
+};
+
+const BURP_SOUND: Readonly<Record<GameEvents['potion_burped']['kind'], SfxName>> = {
+  burp: 'burp',
+  fire: 'flame',
+  bubble: 'bubble_burp',
+  sludge: 'sludge_burp',
+};
+
+const TOY_SOUND: Readonly<Record<GameEvents['toy_used']['action'], SfxName>> = {
+  fire: 'twang',
+  launch: 'toy_whoosh',
+  boing: 'boing',
+  inflate: 'air_hiss',
+  deflate: 'air_hiss',
+  hang: 'tinkle',
+  attach: 'tie_zip',
+  fling: 'thwack',
+};
+
+/** The sound of a potion taking hold. */
+export function startSound(effect: GameEvents['potion_started']['effect']): SfxName {
+  switch (effect) {
+    case 'giant':
+      return 'grow';
+    case 'tiny':
+      return 'shrink';
+    case 'floaty':
+    case 'balloon':
+      return 'float_up';
+    case 'glow':
+      return 'potion_twinkle';
+    default:
+      return 'potion_whoosh';
+  }
+}
 
 /**
  * Maps game events to synthesized sound effects (game design doc, section
@@ -317,6 +364,46 @@ export class Sfx {
       bus.on('bug_changed', (e) => this.play(e.form === 'cocoon' ? 'cocoon' : 'twinkle', 1)),
       bus.on('bug_chopped', () => this.play('chop')),
       bus.on('bug_blinked', () => this.play('peek_twig')),
+      // M8: the Tinker Bench, the cauldron, potions, and crafted toys.
+      bus.on('tray_filled', () => this.limited('tray_clink', 80)),
+      bus.on('tray_emptied', () => this.limited('tray_out', 80)),
+      bus.on('bench_pulled', (e) =>
+        e.empty ? this.play('bench_clunk') : this.play('hammer', e.strong ? 1 : 0.4),
+      ),
+      bus.on('crafted', (e) => this.play('craft_tada', e.first ? 1 : 0.6)),
+      bus.on('uncrafted', () => this.play('uncraft')),
+      bus.on('bench_failed', (e) => this.play(FAIL_SOUND[e.kind])),
+      bus.on('bench_shrugged', () => this.play('shrug')),
+      bus.on('bench_refused', () => this.play('refuse')),
+      bus.on('bench_hinted', () => this.limited('shimmer', 400)),
+      bus.on('bench_nudged', () => this.limited('nudge', 400)),
+      bus.on('blueprint_found', () => this.play('blueprint')),
+      bus.on('bug_wished', () => this.limited('wish', 1500, 0.7)),
+      bus.on('blob_split', () => this.play('blob_split')),
+      bus.on('blob_squeaked', () => this.limited('blob_squeak', 120)),
+      bus.on('cauldron_added', (e) => this.play('cauldron_plop', e.count)),
+      bus.on('cauldron_full', () => this.limited('cauldron_full', 200)),
+      bus.on('cauldron_stirred', () => this.limited('slosh', 150)),
+      bus.on('cauldron_bubbled', () => this.play('brew_bubble')),
+      bus.on('potion_brewed', (e) => {
+        this.play('cork_pop');
+        if (e.triple) this.play('fanfare');
+      }),
+      bus.on('cauldron_tipped', () => this.play('pour')),
+      bus.on('potion_drunk', () => this.play('gulp')),
+      bus.on('potion_shattered', () => this.play('smash')),
+      bus.on('potion_started', (e) => this.limited(startSound(e.effect), 120)),
+      bus.on('potion_ended', () => this.limited('poof', 120, 0.7)),
+      bus.on('potion_fizzled', () => this.play('fizzle')),
+      bus.on('potion_burped', (e) => this.play(BURP_SOUND[e.kind])),
+      bus.on('giant_stomped', (e) => this.limited('stomp', 180, e.heavy ? 1 : 0.6)),
+      bus.on('frost_sneezed', () => this.limited('achoo', 300)),
+      bus.on('balloon_deflated', () => this.play('deflate')),
+      bus.on('shattered', () => this.limited('shatter', 100)),
+      bus.on('toasted', () => this.limited('sizzle', 250)),
+      bus.on('note_played', (e) => this.playNote(e.defId, e.note)),
+      bus.on('toy_used', (e) => this.limited(TOY_SOUND[e.action], 100)),
+      bus.on('scope_viewed', () => this.play('scope')),
     ];
   }
 
@@ -1232,8 +1319,25 @@ export class Sfx {
             { freq: 3000 * j, dur: 0.02, wave: 'noise', q: 8, gain: 0.08 },
             { freq: 140 * j, dur: 0.15, wave: 'sine', gain: 0.08, delay: 0.05 },
           ];
+        default:
+          return craftTones(name, j, intensity, this.random);
       }
     })();
+    this.emit(name, tones, v, log);
+  }
+
+  /** A musical thing's note: `step` on a pentatonic scale, in its instrument's voice. */
+  playNote(defId: string, step: number): void {
+    const t = this.now();
+    // A pile of notes landing at once plays as a chord, not a flood.
+    if (t - this.lastNote < 30) return;
+    this.lastNote = t;
+    this.emit('note', noteTones(defId, step, this.jitter()), 10 ** ((this.random() * 2 - 1) * 0.05), true);
+  }
+
+  private lastNote = -Infinity;
+
+  private emit(name: SfxName, tones: readonly Tone[], v: number, log: boolean): void {
     for (const tone of tones) this.backend.play({ ...tone, gain: (tone.gain ?? 0.3) * v, bus: 'sfx' });
     if (!log) return;
     this.log.push(name);
