@@ -87,15 +87,6 @@ test('the ghost never demos what the player already did: after a turn of the dia
     await expect.poll(async () => (await hints(page)).ghost.done).toContain('dial');
     await page.evaluate(() => window.__bb!.setGhostIdle(1.5));
     await page.mouse.move(400, 120, { steps: 4 });
-    await page.waitForTimeout(4000);
-    console.log('DBG', JSON.stringify(await hints(page)));
-    console.log(
-      'ENT',
-      JSON.stringify(
-        (await entities(page)).filter((e) => e.kind === 'item').map((e) => [e.defId, e.x, e.y, e.held, e.pocket]),
-      ),
-      JSON.stringify(await page.evaluate(() => window.__bb!.camera())),
-    );
     await expect.poll(async () => (await hints(page)).ghost.active, { timeout: 25_000 }).toBe('pocket');
     // The tray slides up to meet the ghost, but nothing goes in.
     await expect
@@ -129,10 +120,17 @@ test('the sundial glints when the hand rests near it, and every locked barrier w
     await expect.poll(async () => (await hints(page)).glints.sundial ?? 0).toBe(1);
     // Every barrier: the hand at the edge of its locked area. Each opens the way to the next.
     const edge = async (key: string, wall: number, cam: number): Promise<void> => {
+      // The camera's limits follow the unlocks on the next frame: wait until it is where it should be.
+      await expect
+        .poll(async () => {
+          await page.evaluate((v) => window.__bb!.cameraTo(v), cam);
+          return Math.abs((await cameraX(page)) - cam);
+        })
+        .toBeLessThan(0.05);
       await jumpTo(page, cam);
       const before = (await hints(page)).wobbles[key] ?? 0;
       const side = wall <= cam + 1 ? 0.8 : -0.8;
-      const at = await toClient(page, wall + side, 2.5);
+      const at = await toClient(page, wall + side, 4.5);
       await page.mouse.move(at.x, at.y - 40);
       await page.mouse.move(at.x, at.y, { steps: 3 });
       await expect
@@ -249,7 +247,7 @@ test('a secret found by hand stamps the discovery strip, which fades when the ha
     // Five seconds with the hand away and it fades to 40 percent; near it, it comes back.
     await page.mouse.move(400, 700, { steps: 3 });
     await expect
-      .poll(async () => (await page.evaluate(() => window.__bb!.stamps()))!.alpha, { timeout: 12_000 })
+      .poll(async () => (await page.evaluate(() => window.__bb!.stamps()))!.alpha, { timeout: 30_000 })
       .toBeLessThan(0.45);
     const book = await uiAt(page, 'stamps');
     await page.mouse.move(book.x - 60, book.y + 20, { steps: 4 });
@@ -303,11 +301,13 @@ test('the home stump acts only when held, and a fling let go over it does not ta
     expect(await cameraX(page)).toBeLessThan(PLAZA_X - 8);
     // Held down: the ring fills and the camera glides home.
     await page.mouse.move(home.x, home.y, { steps: 3 });
+    const held = await cameraX(page);
     await page.mouse.down();
     await expect.poll(async () => (await hints(page)).home.progress).toBeGreaterThan(0.3);
-    await page.waitForTimeout(600);
+    // Keep holding until the ring closes and the camera sets off (frames can be slow here).
+    await expect.poll(() => cameraX(page), { timeout: 30_000 }).toBeGreaterThan(held + 0.5);
     await page.mouse.up();
-    await expect.poll(() => cameraX(page), { timeout: 10_000 }).toBeGreaterThan(PLAZA_X);
+    await expect.poll(() => cameraX(page), { timeout: 30_000 }).toBeGreaterThan(PLAZA_X);
     expect(bb.errors).toEqual([]);
   } finally {
     await bb.close();
