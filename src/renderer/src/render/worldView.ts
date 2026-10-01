@@ -1046,15 +1046,20 @@ export class WorldView extends Container {
   private potionBug(sprite: BugSprite, view: EntityView, j: Juice, look: PotionLook, dt: number): void {
     const size = Math.max(0.2, j.size.value);
     const wob = look.wobble > 0 ? Math.sin(this.time * 16) * 0.07 * look.wobble : 0;
+    // Heavy squashes flat (feet kept on the ground); bouncy boings on the spot.
+    const boing = look.boing > 0 ? Math.max(0, Math.sin(this.time * 9)) * 0.1 * look.boing : 0;
+    const flat = look.squash - boing;
     sprite.scale.set(
-      size * (1 + 0.35 * look.round + wob),
-      size * (1 + 0.5 * look.round - wob) * (look.flipY ? -1 : 1),
+      size * (1 + 0.35 * look.round + wob) * (1 + flat),
+      size * (1 + 0.5 * look.round - wob) * (1 - flat) * (look.flipY ? -1 : 1),
     );
+    const radius = this.sim.content.bugs.get(view.defId).radius * PPM * size;
+    if (flat !== 0) sprite.position.y += radius * flat * (look.flipY ? -1 : 1);
     sprite.alpha = look.alpha;
     if (look.tint !== null)
       sprite.tint = sprite.tint === 0xffffff ? look.tint : mix(sprite.tint as number, look.tint, 0.5);
-    if (look.extras.size === 0 && !look.trail && !look.glow) return;
-    const r = this.sim.content.bugs.get(view.defId).radius * PPM * size;
+    if (look.extras.size === 0 && !look.trail && !look.glow && look.notes === null) return;
+    const r = radius;
     const d = {
       x: view.x * PPM,
       y: view.y * PPM,
