@@ -134,6 +134,60 @@ export function moodVoice(mood: Mood | undefined): MoodVoice {
 }
 
 /**
+ * How potions change a voice: pitch and tempo multipliers, and whether the
+ * bug sings (opera). Effects stack: a tiny, speedy bug chatters high and fast.
+ */
+export interface PotionVoice {
+  pitch: number;
+  rate: number;
+  sung: boolean;
+}
+
+export function potionVoice(effects: readonly { effect: string }[] | undefined): PotionVoice {
+  let pitch = 1;
+  let rate = 1;
+  let sung = false;
+  for (const { effect } of effects ?? []) {
+    switch (effect) {
+      case 'giant':
+        pitch *= 0.5;
+        rate *= 0.75;
+        break;
+      case 'tiny':
+        pitch *= 2;
+        break;
+      case 'squeaky':
+        pitch *= 2 ** 1.5;
+        break;
+      case 'opera':
+        sung = true;
+        break;
+      case 'slowmo':
+        pitch *= 0.6;
+        rate *= 0.4;
+        break;
+      case 'speedy':
+        rate *= 1.8;
+        break;
+    }
+  }
+  return { pitch: Math.min(4, Math.max(0.25, pitch)), rate: Math.min(3, Math.max(0.25, rate)), sung };
+}
+
+/** Semitones of the major scale an opera bug sings on. */
+const MAJOR = [0, 2, 4, 5, 7, 9, 11, 12] as const;
+
+/** Snap a frequency to the nearest note of C major. */
+export function onScale(freq: number): number {
+  const semis = 12 * Math.log2(freq / 261.63);
+  const octave = Math.floor(semis / 12);
+  const within = semis - octave * 12;
+  let best = 0;
+  for (const st of MAJOR) if (Math.abs(st - within) < Math.abs(best - within)) best = st;
+  return 261.63 * 2 ** ((octave * 12 + best) / 12);
+}
+
+/**
  * A species' quirk on top of its voice profile: Barty's pompous huffs,
  * Twig's dry clicks and low "hm", Whiff's muffled, trembly apologies.
  */
@@ -176,21 +230,27 @@ export function voiceLine(
   rng: Rng,
   mood?: Mood,
   accent?: VoiceAccent,
+  potion: PotionVoice = { pitch: 1, rate: 1, sung: false },
 ): Tone[] {
   const shape = SHAPES[emotion];
-  const m = moodVoice(mood);
+  const mv = moodVoice(mood);
+  const m = { pitch: mv.pitch * potion.pitch, rate: mv.rate * potion.rate, glide: mv.glide };
   const count = rng.int(shape.count[0], shape.count[1]);
-  const syllable = 1 / (voice.syllablesPerSecond * shape.rate * m.rate);
+  // An opera singer holds each syllable.
+  const syllable = (potion.sung ? 2.4 : 1) / (voice.syllablesPerSecond * shape.rate * m.rate);
+  const longest = potion.sung || m.rate < 0.6 ? 1.6 : 0.9;
   const span = voice.high - voice.low;
   const tones: Tone[] = [];
   let at = 0;
   for (let i = 0; i < count; i++) {
     const t = count === 1 ? 1 : i / (count - 1);
     const p = Math.min(1.1, Math.max(0, shape.pitch(t, i, rng)));
-    const freq = (voice.low + span * p) * m.pitch;
-    const to = (voice.low + span * Math.max(0, p + shape.glide + m.glide)) * m.pitch;
+    const raw = (voice.low + span * p) * m.pitch;
+    // Sung lines hold a note of the scale instead of gliding.
+    const freq = potion.sung ? onScale(raw) : raw;
+    const to = potion.sung ? freq : (voice.low + span * Math.max(0, p + shape.glide + m.glide)) * m.pitch;
     const vowel = rng.pick(VOWELS);
-    const dur = Math.max(0.06, Math.min(0.9, syllable * rng.range(0.75, 1.1)));
+    const dur = Math.max(0.06, Math.min(longest, syllable * rng.range(0.75, 1.1)));
     if (rng.chance(0.5)) {
       tones.push(
         accent === 'click'
@@ -227,9 +287,10 @@ export function voiceLine(
       delay: at + 0.012,
       attack: 0.02,
       formants: [vowel[0] * voice.formantShift, vowel[1] * voice.formantShift * muffle],
-      vibrato:
-        voice.vibratoDepth > 0 || emotion === 'scared' || emotion === 'love'
-          ? { rate: voice.vibratoHz || 11, depth }
+      vibrato: potion.sung
+        ? { rate: 5.5, depth: freq * 0.05 }
+        : voice.vibratoDepth > 0 || emotion === 'scared' || emotion === 'love'
+          ? { rate: voice.vibratoHz || 11, depth: depth * potion.pitch }
           : undefined,
       bus: 'voice',
     });
@@ -263,6 +324,7 @@ export class BugVoices {
   private lines = new Map<number, number>();
   private offs: Array<() => void> = [];
   private moodOf: (id: number) => Mood | undefined = () => undefined;
+  private effectsOf: (id: number) => readonly { effect: string }[] | undefined = () => undefined;
   /** Called with every line spoken: which bug, the emotion, and its length in seconds. */
   onLine: ((id: number, emotion: Emotion, seconds: number) => void) | null = null;
 
@@ -274,11 +336,17 @@ export class BugVoices {
 
   /**
    * Listen to the sim. `moodOf` tells each line what mood its bug is in, so a
-   * grumpy bug grumbles lower and slower than a happy one.
+   * grumpy bug grumbles lower and slower than a happy one. `effectsOf` gives
+   * its potion effects, so a giant booms and a tiny bug squeaks.
    */
-  attach(bus: EventBus<GameEvents>, moodOf: (id: number) => Mood | undefined = () => undefined): void {
+  attach(
+    bus: EventBus<GameEvents>,
+    moodOf: (id: number) => Mood | undefined = () => undefined,
+    effectsOf: (id: number) => readonly { effect: string }[] | undefined = () => undefined,
+  ): void {
     this.detach();
     this.moodOf = moodOf;
+    this.effectsOf = effectsOf;
     const def = (id: string): BugDef => this.bugs.get(id);
     this.offs = [
       // Grabs, pokes, flings, landings, meals, and tickles: the reaction's own voice.
@@ -340,7 +408,14 @@ export class BugVoices {
     const n = (this.lines.get(id) ?? 0) + 1;
     this.lines.set(id, n);
     const def = this.bugs.get(defId);
-    const tones = voiceLine(def.voice, emotion, new Rng(`${id}:${n}`), this.moodOf(id), accentFor(def.art));
+    const tones = voiceLine(
+      def.voice,
+      emotion,
+      new Rng(`${id}:${n}`),
+      this.moodOf(id),
+      accentFor(def.art),
+      potionVoice(this.effectsOf(id)),
+    );
     const length = Math.max(...tones.map((tn) => (tn.delay ?? 0) + tn.dur));
     this.busyUntil.set(id, t + length * 1000 + 150);
     for (const tone of tones) this.backend.play(tone);
