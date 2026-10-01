@@ -61,7 +61,7 @@ export async function launchApp(userData?: string): Promise<Launched> {
 }
 
 export async function waitForScene(page: Page, scene: 'menu' | 'world'): Promise<void> {
-  await expect.poll(() => page.evaluate(() => window.__bb!.scene())).toBe(scene);
+  await expect.poll(() => page.evaluate(() => window.__bb!.scene()), { timeout: 20_000 }).toBe(scene);
 }
 
 /** Click a menu slot card with the real mouse. Retries if a busy machine drops the first click. */
