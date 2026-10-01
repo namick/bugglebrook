@@ -78,6 +78,16 @@ export type Command =
   /** Debug and tests: put a potion's effect on a bug or thing, as if it drank it. */
   | { type: 'give_potion'; id: number; potion: string }
   /** Debug and shots: take a thing out of the world. */
-  | { type: 'despawn'; id: number };
+  | { type: 'despawn'; id: number }
+  /**
+   * The camera came out (photo mode, game design doc, section 14) or went
+   * away. Open, bugs in view react for 0.8 s, then the world holds still
+   * until it closes.
+   */
+  | { type: 'photo_mode'; open: boolean }
+  /** The shutter fired: what the photo was of, for the event log and the journal. */
+  | { type: 'photo_taken'; frame: string; filter: string; stickers: number; zoom: number; bugs: string[] }
+  /** The photo's file was written (or not), after `photo_taken`. */
+  | { type: 'photo_saved'; ok: boolean };
 
 export type CommandType = Command['type'];

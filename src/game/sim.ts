@@ -60,6 +60,8 @@ import { leanAgainst, stackTop } from './world/startLayout';
 import { Bench } from './systems/bench';
 import { Cauldron } from './systems/cauldron';
 import { Bounds } from './systems/bounds';
+import type { PhotoState } from './systems/photo';
+import { PHOTO_MOMENT_TICKS, TOTEM_TICKS, findTotem, inFrame } from './systems/photo';
 import { BUG_RESTITUTION, halfExtents } from './simShared';
 import {
   pocketable as _pocketable,
@@ -331,6 +333,10 @@ export class Sim {
   hand: { x: number; y: number } | null = null;
   /** Areas whose starting things are in the world. Saved, so areas added later get theirs on load. */
   built: string[] = [];
+  /** Photo mode (M11): the camera is out. Not saved. */
+  photo: PhotoState | null = null;
+  /** Ticks four bugs have stood stacked, for the totem secret. */
+  private totemTicks = 0;
 
   private constructor(seed: string, content: Content) {
     this.seed = seed;
@@ -654,12 +660,20 @@ export class Sim {
   /** Advance the world by one fixed step. */
   step(): void {
     for (const command of this.commands.drain()) this.apply(command);
+    // Photo mode: after the camera moment the world holds still. Commands
+    // still land (the shutter, the camera going away), but nothing moves and
+    // the clock stops, so no timer runs out while the player frames a shot.
+    if (this.photo) {
+      if (!this.photo.frozen && this.tick - this.photo.at >= PHOTO_MOMENT_TICKS) this.photo.frozen = true;
+      if (this.photo.frozen) return;
+    }
     this.weather.update();
     this.barriers.update();
     this.places.update();
     this.bench.update();
     this.cauldron.update();
     if (this.tick % 15 === 0) this.updateSleep();
+    if (this.tick % 15 === 0) this.totem();
     this.offscreen.update();
     this.cast.update();
     this.worldCache = null;
@@ -1571,6 +1585,41 @@ export class Sim {
     const s = this.physics.getState(e.id);
     const half = this.halfHeightOf(e);
     return this.physics.coveredAbove(e.id, s.x, s.y - half * 0.6, SHELTER_REACH);
+  }
+
+  /** The camera came out or went away (photo mode). Bugs in frame react by personality. */
+  setPhotoMode(open: boolean): void {
+    if (open === (this.photo !== null)) return;
+    if (!open) {
+      this.photo = null;
+      this.events.emit('photo_mode_closed', {});
+      return;
+    }
+    this.photo = { at: this.tick, frozen: false };
+    const view = this.view0();
+    for (const bug of this.entities.ofKind('bug')) {
+      const b = bug.bug;
+      if (!b || b.pending || this.isSleeping(bug.id) || b.mode === 'st_sleep') continue;
+      if (!inFrame(this.physics.getState(bug.id).x, view)) continue;
+      this.reactBug(bug, 'camera');
+    }
+    this.events.emit('photo_mode_opened', { x0: view.x0, x1: view.x1 });
+  }
+
+  /** Four bugs stacked and still for two seconds strike a pose: the totem secret (checked every 15 ticks). */
+  private totem(): void {
+    const bugs = this.bugWorld().bugs();
+    const stack = findTotem(bugs);
+    this.totemTicks = stack ? this.totemTicks + 15 : 0;
+    if (!stack || this.totemTicks < TOTEM_TICKS) return;
+    this.totemTicks = -TOTEM_TICKS * 4;
+    const top = bugs.find((b) => b.id === stack[stack.length - 1])!;
+    for (const id of stack) {
+      const bug = this.entities.get(id);
+      if (bug) this.reactBug(bug, 'camera');
+    }
+    this.events.emit('totem_made', { ids: stack, x: top.x, y: top.y });
+    this.findSecret('secret_bug_totem', top.x, top.y);
   }
 
   /** A secret was found: the first time, it is logged and announced. */

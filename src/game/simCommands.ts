@@ -226,6 +226,21 @@ export function apply(sim: Sim, command: Command): void {
       sim.potions.give(e, sim.brewOf(command.potion), 'debug');
       return;
     }
+    case 'photo_mode':
+      sim.setPhotoMode(command.open === true);
+      return;
+    case 'photo_taken':
+      sim.events.emit('photo_taken', {
+        frame: String(command.frame),
+        filter: String(command.filter),
+        stickers: Math.max(0, Math.floor(Number(command.stickers) || 0)),
+        zoom: Number.isFinite(command.zoom) ? command.zoom : 1,
+        bugs: Array.isArray(command.bugs) ? command.bugs.map(String) : [],
+      });
+      return;
+    case 'photo_saved':
+      sim.events.emit('photo_saved', { ok: command.ok === true });
+      return;
     case 'beckon': {
       const bug = sim.entities.get(command.id);
       if (!bug?.bug || sim.isSleeping(bug.id) || !Number.isFinite(command.x)) return;

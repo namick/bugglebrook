@@ -185,6 +185,13 @@ export const SECRETS = createRegistry<SecretDef>('secret', [
     trigger: { type: 'scripted', area: 'area_under_porch' },
     unlocks: [],
   },
+  // M11: photo mode.
+  {
+    id: 'secret_bug_totem',
+    name: 'Bug totem',
+    trigger: { type: 'scripted', area: 'area_stump_plaza' },
+    unlocks: [],
+  },
   {
     id: 'secret_pond_freeze',
     name: 'The pond freezes over',

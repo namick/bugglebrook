@@ -13,7 +13,7 @@ import type { Brew } from '../systems/brewing';
 import type { ActiveEffect, SavedPart, ToyState } from '../core/entities';
 
 /** Bump when the save shape changes, and add a migration in migrations.ts. */
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 
 export interface SavedEntity {
   id: number;
@@ -86,12 +86,29 @@ export interface WorldCounters {
   fed: Record<string, number>;
 }
 
+/** One photo the player took (game design doc, section 14), newest last in `SaveMeta.photos`. */
+export interface PhotoRecord {
+  /** When the shutter fired (ISO time, from the caller). */
+  at: string;
+  /** A 320x180 picture of the photo, as an image data URL. */
+  thumb: string;
+  /** Where the full PNG went, or null if writing it failed. */
+  file: string | null;
+  frame: string;
+  filter: string;
+}
+
+/** The most photos a save keeps (game design doc, section 13). */
+export const PHOTO_KEEP = 60;
+
 /** What the menu shows for a slot. The sim never reads this. */
 export interface SaveMeta {
   /** When the slot was first saved (ISO time, from the caller). */
   createdAt: string;
   /** A 320x180 picture of the camera view at the last save, as an image data URL, or null. */
   thumb: string | null;
+  /** The player's last photos, oldest first. Absent in saves before version 12. */
+  photos?: PhotoRecord[];
 }
 
 /** Render-side state that should persist (camera position, etc.). */

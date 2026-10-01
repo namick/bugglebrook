@@ -237,6 +237,17 @@ export interface GameEvents {
   /** A secret was found for the first time in this world. */
   secret_found: { id: string; x: number; y: number };
 
+  // --- Photo mode (M11) --------------------------------------------------
+  /** The camera came out: bugs in view (x0 to x1) react, then the world freezes. */
+  photo_mode_opened: { x0: number; x1: number };
+  photo_mode_closed: Record<string, never>;
+  /** The shutter fired. `bugs` are the def IDs in the frame, `stickers` how many were stuck on. */
+  photo_taken: { frame: string; filter: string; stickers: number; zoom: number; bugs: string[] };
+  /** The photo's file landed on disk, or did not (`ok` false: the polaroid shows a red x). */
+  photo_saved: { ok: boolean };
+  /** Four bugs stood stacked and still for two seconds: a bug totem. */
+  totem_made: { ids: EntityId[]; x: number; y: number };
+
   // --- More areas and unlocks (M7) ----------------------------------------
   /** A barrier opened for good: `areaId` is open to bugs and the camera now. */
   area_unlocked: { areaId: string; barrierId: string; x: number; y: number };
@@ -477,6 +488,7 @@ export type Liking = 'loved' | 'liked' | 'neutral' | 'disliked';
  * a bug put in a tray), `blegh` (sludge), and `wow` (a potion taking hold).
  * After M8: `later` (a busy bug glancing at food held out to it: "in a
  * minute") and `whee` (riding the leaf slide, wading in the bead pit).
+ * M11 adds `camera` (the camera comes out: posing, photobombing, hiding).
  */
 export type ReactionType =
   | 'grab'
@@ -513,7 +525,8 @@ export type ReactionType =
   | 'blegh'
   | 'wow'
   | 'later'
-  | 'whee';
+  | 'whee'
+  | 'camera';
 
 export const REACTION_TYPES: readonly ReactionType[] = [
   'grab',
@@ -551,6 +564,7 @@ export const REACTION_TYPES: readonly ReactionType[] = [
   'wow',
   'later',
   'whee',
+  'camera',
 ];
 
 /** Variants per reaction type. */

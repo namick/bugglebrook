@@ -475,6 +475,179 @@ const WOW: Triple = three(
   },
 );
 
+/**
+ * The camera moment (M11, game design doc, section 14): for 0.8 s after
+ * the camera comes out, each bug in frame reacts its own way. Dot, Skeet,
+ * and Prim pose; Boing photobombs with a hop; Whiff and Twig hide or
+ * freeze; Glorp slowly turns to look; the rest do what suits them.
+ */
+const CAMERA: Record<BugArt, Triple> = {
+  ladybug: three(
+    {
+      eyes: 'happy',
+      mouth: 'grin',
+      blush: true,
+      pictos: ['star'],
+      emotion: 'happy',
+      move: 'pose',
+      seconds: 2.4,
+    },
+    {
+      eyes: 'open',
+      mouth: 'smile',
+      blush: true,
+      pictos: ['heart'],
+      emotion: 'giggle',
+      move: 'bow',
+      seconds: 2.4,
+    },
+    { eyes: 'wide', mouth: 'whee', pictos: ['star', 'exclaim'], emotion: 'whee', move: 'hop', seconds: 2.4 },
+  ),
+  pillbug: three(
+    {
+      eyes: 'worried',
+      mouth: 'o',
+      pictos: ['question'],
+      emotion: 'gasp',
+      form: 'curled',
+      move: 'cower',
+      seconds: 2.4,
+    },
+    { eyes: 'open', mouth: 'wobble', pictos: ['sweat'], emotion: 'scared', move: 'shiver', seconds: 2.4 },
+    {
+      eyes: 'squint',
+      mouth: 'smile',
+      blush: true,
+      pictos: ['dots'],
+      emotion: 'meh',
+      move: 'shrug',
+      seconds: 2.4,
+    },
+  ),
+  snail: three(
+    { eyes: 'open', mouth: 'o', pictos: ['dots'], emotion: 'ooh', move: 'nod', seconds: 3 },
+    { eyes: 'sleepy', mouth: 'smile', pictos: ['question'], emotion: 'sleepy', move: 'none', seconds: 3 },
+    { eyes: 'wide', mouth: 'aah', pictos: ['exclaim', 'dots'], emotion: 'ooh', move: 'wiggle', seconds: 3 },
+  ),
+  strider: three(
+    { eyes: 'squint', mouth: 'grin', pictos: ['star'], emotion: 'happy', move: 'pose', seconds: 2.4 },
+    { eyes: 'happy', mouth: 'smile', pictos: ['thumbs_up'], emotion: 'happy', move: 'bow', seconds: 2.4 },
+    { eyes: 'open', mouth: 'whee', pictos: ['star', 'heart'], emotion: 'whee', move: 'spin', seconds: 2.4 },
+  ),
+  grasshopper: three(
+    { eyes: 'wide', mouth: 'whee', pictos: ['exclaim'], emotion: 'whee', move: 'hop', seconds: 2.4 },
+    {
+      eyes: 'happy',
+      mouth: 'grin',
+      blush: true,
+      pictos: ['star'],
+      emotion: 'giggle',
+      move: 'hop',
+      seconds: 2.4,
+    },
+    {
+      eyes: 'open',
+      mouth: 'aah',
+      pictos: ['laugh', 'star'],
+      emotion: 'whee',
+      move: 'spin',
+      fx: 'confetti',
+      seconds: 2.4,
+    },
+  ),
+  firefly: three(
+    {
+      eyes: 'happy',
+      mouth: 'smile',
+      pictos: ['star'],
+      emotion: 'happy',
+      move: 'wiggle',
+      fx: 'sparkles',
+      seconds: 2.4,
+    },
+    { eyes: 'open', mouth: 'o', pictos: ['question'], emotion: 'question', move: 'nod', seconds: 2.4 },
+    {
+      eyes: 'wide',
+      mouth: 'grin',
+      blush: true,
+      pictos: ['heart', 'star'],
+      emotion: 'love',
+      move: 'pose',
+      seconds: 2.4,
+    },
+  ),
+  stinkbug: three(
+    { eyes: 'worried', mouth: 'wobble', pictos: ['sweat'], emotion: 'scared', move: 'cower', seconds: 2.6 },
+    { eyes: 'squint', mouth: 'flat', pictos: ['dots'], emotion: 'gasp', move: 'shiver', seconds: 2.6 },
+    {
+      eyes: 'x',
+      mouth: 'puff',
+      tint: 'green',
+      pictos: ['stink', 'sweat'],
+      emotion: 'yuck',
+      move: 'cower',
+      fx: 'stink',
+      seconds: 2.6,
+    },
+  ),
+  stagbeetle: three(
+    { eyes: 'open', mouth: 'grin', pictos: ['thumbs_up'], emotion: 'happy', move: 'stomp', seconds: 2.4 },
+    { eyes: 'squint', mouth: 'smile', pictos: ['star'], emotion: 'ooh', move: 'pose', seconds: 2.4 },
+    { eyes: 'happy', mouth: 'teeth', pictos: ['up', 'star'], emotion: 'whee', move: 'nod', seconds: 2.4 },
+  ),
+  dungbeetle: three(
+    { eyes: 'squint', mouth: 'flat', pictos: ['dots'], emotion: 'meh', move: 'shake_head', seconds: 2.4 },
+    { eyes: 'sleepy', mouth: 'frown', pictos: ['question'], emotion: 'grumpy', move: 'shrug', seconds: 2.4 },
+    {
+      eyes: 'open',
+      mouth: 'smile',
+      pictos: ['thumbs_down', 'dots'],
+      emotion: 'meh',
+      move: 'none',
+      seconds: 2.4,
+    },
+  ),
+  caterpillar: three(
+    { eyes: 'wide', mouth: 'chew', pictos: ['question'], emotion: 'question', move: 'none', seconds: 2.4 },
+    {
+      eyes: 'happy',
+      mouth: 'grin',
+      blush: true,
+      pictos: ['heart'],
+      emotion: 'giggle',
+      move: 'wiggle',
+      seconds: 2.4,
+    },
+    { eyes: 'open', mouth: 'o', pictos: ['exclaim', 'food'], emotion: 'ooh', move: 'nod', seconds: 2.4 },
+  ),
+  mantis: three(
+    { eyes: 'squint', mouth: 'smile', pictos: ['star'], emotion: 'ooh', move: 'pose', seconds: 2.6 },
+    {
+      eyes: 'happy',
+      mouth: 'grin',
+      blush: true,
+      pictos: ['heart', 'star'],
+      emotion: 'love',
+      move: 'bow',
+      fx: 'sparkles',
+      seconds: 2.6,
+    },
+    { eyes: 'open', mouth: 'flat', pictos: ['thumbs_up'], emotion: 'meh', move: 'pose', seconds: 2.6 },
+  ),
+  stickinsect: three(
+    { eyes: 'wide', mouth: 'flat', pictos: ['dots'], emotion: 'gasp', move: 'none', seconds: 3 },
+    { eyes: 'worried', mouth: 'wobble', pictos: ['sweat'], emotion: 'scared', move: 'shiver', seconds: 3 },
+    {
+      eyes: 'squint',
+      mouth: 'o',
+      pictos: ['question', 'dots'],
+      emotion: 'question',
+      move: 'cower',
+      seconds: 3,
+    },
+  ),
+};
+
 /** Show-off poses for bugs that are not Dot: a little star turn. */
 const POSE: Triple = three(
   { eyes: 'happy', mouth: 'grin', blush: true, pictos: ['star'], emotion: 'happy', move: 'pose', seconds: 2 },
@@ -2482,11 +2655,13 @@ export function reactionLook(art: BugArt, type: ReactionType, variant: number): 
                                           ? LATER
                                           : type === 'whee'
                                             ? WHEE
-                                            : CLASSIC.has(type)
-                                              ? PERSONAL[art][type as Classic]
-                                              : EVERYDAY.has(type)
-                                                ? EVERYDAY_LOOKS[art][type as Everyday]
-                                                : FED[type as keyof typeof FED];
+                                            : type === 'camera'
+                                              ? CAMERA[art]
+                                              : CLASSIC.has(type)
+                                                ? PERSONAL[art][type as Classic]
+                                                : EVERYDAY.has(type)
+                                                  ? EVERYDAY_LOOKS[art][type as Everyday]
+                                                  : FED[type as keyof typeof FED];
   return set[((variant % 3) + 3) % 3]!;
 }
 
@@ -2537,6 +2712,7 @@ const SHOWS_IN: Readonly<Record<ReactionType, readonly BugMode[]>> = {
     'st_react',
   ],
   whee: ['st_use', 'st_airborne', 'st_landing', 'st_react', 'st_idle'],
+  camera: ['st_react', 'st_idle', 'st_wander', 'st_seek', 'st_use', 'st_social', 'st_perform', 'st_hide'],
 };
 
 /** Is a reaction that started `ageSeconds` ago still showing in `mode`? */

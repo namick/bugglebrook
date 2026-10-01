@@ -311,6 +311,11 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     const relaid = addTreehouseRun({ ...typed, world: relayPorch(typed.world) });
     return { ...(relaid as unknown as Record<string, unknown>), version: 11 };
   },
+  /**
+   * Version 12 (M11, photo mode) adds `meta.photos`, the player's last
+   * photos. A world without any has none to add: the version moves on.
+   */
+  11: (save) => ({ ...save, version: 12 }),
 };
 
 export class SaveError extends Error {

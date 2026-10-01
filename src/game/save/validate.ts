@@ -362,7 +362,24 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
     !(meta.thumb === null || typeof meta.thumb === 'string')
   )
     errors.push('meta is invalid');
+  else if (meta.photos !== undefined && !isPhotos(meta.photos)) errors.push('meta.photos is invalid');
   return errors;
+}
+
+/** The photos a save keeps (M11): each a time, a picture, and maybe a file. */
+function isPhotos(v: unknown): boolean {
+  return (
+    Array.isArray(v) &&
+    v.every(
+      (p) =>
+        isObj(p) &&
+        typeof p.at === 'string' &&
+        typeof p.thumb === 'string' &&
+        (p.file === null || typeof p.file === 'string') &&
+        typeof p.frame === 'string' &&
+        typeof p.filter === 'string',
+    )
+  );
 }
 
 /** Things tucked inside other things (M8): each has an item ID and maybe more parts. */
