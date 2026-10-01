@@ -157,13 +157,16 @@ export function stepToward(
     if (brain.mode === 'st_wander' && Math.abs(dx) < def.radius * 2 + 0.3) return 'blocked';
     const landX = state.x + brain.facing * (def.radius * 2 + 0.3);
     if (!clearLanding(ctx, landX)) return 'blocked';
-    // Never hop a pebble only to come down on someone (Dot asleep on her bottle cap).
-    if (
-      world
-        .bugs()
-        .some((o) => Math.abs(o.x - landX) < o.def.radius + def.radius && Math.abs(o.y - state.y) < 1.2)
-    )
-      return 'blocked';
+    // Never hop a pebble only to come down on someone, and never by a sleeper (Dot on her bottle cap).
+    const onSomeone = world.bugs().some((o) => {
+      const reach = o.def.radius + def.radius;
+      const d = Math.abs(o.x - landX);
+      // The friend it is going to play with is fair to land beside.
+      const partner = o.id === brain.social?.partner && o.brain.mode !== 'st_sleep';
+      if (partner || Math.abs(o.y - state.y) > 1.2) return false;
+      return d < reach * 0.6 || (o.brain.mode === 'st_sleep' && d < reach + 0.3);
+    });
+    if (onSomeone) return 'blocked';
     const rise = Math.max(0.1, bottom - ob.top + 0.12);
     const up = Math.sqrt(2 * GRAVITY * rise);
     // Far enough forward to clear it, not land on it.
