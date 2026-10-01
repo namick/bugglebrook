@@ -14,7 +14,7 @@ These were set by the project owner before the unattended build. Do not change t
 | Characters | A fixed cast of about 12–16 named bugs with personalities. Some are hidden until found. Hats and accessories fit any bug. Paint and potions change bugs. |
 | Physics | Real 2D physics engine. Objects stack, roll, bounce, and float. Ramps, springs, and marble runs work. |
 | Text | Nearly wordless. Icons, gibberish bug voices, emoji/pictogram speech bubbles. The journal is pictures plus short labels. |
-| Audio | Procedural: WebAudio-synthesized sound effects and bug voices, plus generative music per area. No sample assets. |
+| Audio | Background music is owner-supplied: tracks made in Suno, with stems, in `assets/music/` (see `docs/05-music-brief.md`). It is layered and adaptive, built from the stems. Everything else is synthesized in code with WebAudio: sound effects, bug voices, and the music toys, which lock to the current track's key and tempo. *(Amended by the owner on 2026-10-01. Originally: all procedural, no sample assets.)* |
 | Input | Mouse / trackpad only (drag, drop, fling, click, scroll). |
 | Saves | Autosave with 3 slots. The world persists exactly as it was left. |
 | Performance | Mid-range PC at 60fps. |

@@ -8,3 +8,10 @@ test-results/
 .vscode/*
 !.vscode/extensions.json
 .claude/worktrees/
+
+# Raw Suno music (see docs/05-music-brief.md section 7.10)
+assets/music/**/*.wav
+assets/music/**/*.mp3
+assets/music/**/*.flac
+assets/music/**/*.zip
+assets/music/import-report.txt
