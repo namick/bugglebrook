@@ -176,6 +176,16 @@ export function validateContent(
         errors.push(`${where} solid ${solid.id} has a non-positive size`);
       if (solid.until !== undefined) ref(content.areas, solid.until, `${where} solid ${solid.id}`);
     }
+    area.start.forEach((s, i) => {
+      if ((s.lean !== undefined || s.stack) && (s.kind !== 'item' || s.onWater || s.pin !== undefined))
+        errors.push(`${where} start ${s.defId} stacks or leans but is not a plain item`);
+      if (s.lean !== undefined) {
+        const prev = area.start[i - 1];
+        if (!prev || prev.kind !== 'item') errors.push(`${where} start ${s.defId} leans on nothing`);
+        if (content.items.has(s.defId) && content.items.get(s.defId).shape.type !== 'box')
+          errors.push(`${where} start ${s.defId} leans but is not a stick`);
+      }
+    });
     for (const s of area.start) {
       if (s.pending) {
         if (s.kind !== 'bug') errors.push(`${where} start ${s.defId} is pending but not a bug`);

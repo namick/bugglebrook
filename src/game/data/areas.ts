@@ -2,6 +2,11 @@ import type { AreaDef, Point2 } from './types';
 import { createRegistry } from './registry';
 
 const GROUND = 9;
+/** The tops of the porch's two shelves (world y): a plank on bricks, and one hung from the boards. */
+const SHELF_TOP = 7.0;
+const HANGING_SHELF_TOP = 5.9;
+/** The jar lid of buttons on the porch floor (area-local x): drawn, not solid, so bugs walk over it. */
+export const PORCH_LID = { x0: 19.85, x1: 21.75 } as const;
 const STUMP_TOP = 4;
 
 /** A shallow dip in the ground, where rain puddles form (`fix_puddle_*`). */
@@ -354,49 +359,48 @@ export const AREAS = createRegistry<AreaDef>('area', [
     start: [
       // The loose lattice panel leaning across the way in. Heavy, but it moves.
       { kind: 'item', defId: 'item_lattice_panel', x: 2.55 },
-      { kind: 'item', defId: 'item_popsicle_stick', x: 5.9 },
-      { kind: 'item', defId: 'item_button', x: 6.5 },
-      { kind: 'item', defId: 'item_paperclip', x: 6.9 },
-      { kind: 'item', defId: 'item_rubber_band', x: 7.4 },
-      { kind: 'item', defId: 'item_tin_can', x: 7.9 },
-      { kind: 'item', defId: 'item_toothpick', x: 8.6 },
-      { kind: 'item', defId: 'item_foil_ball', x: 9.0 },
-      { kind: 'item', defId: 'item_button', x: 9.4 },
-      { kind: 'item', defId: 'item_straw', x: 9.8 },
-      { kind: 'item', defId: 'item_matchbox', x: 10.4 },
-      { kind: 'item', defId: 'item_paper_scrap', x: 10.9 },
-      { kind: 'item', defId: 'item_paperclip', x: 11.3 },
-      { kind: 'item', defId: 'item_eggshell', x: 11.7 },
-      { kind: 'item', defId: 'item_bottle_cap', x: 12.2 },
-      { kind: 'item', defId: 'item_rubber_band', x: 12.8 },
-      { kind: 'item', defId: 'item_thread_spool', x: 13.3 },
-      { kind: 'item', defId: 'item_popsicle_stick', x: 13.9 },
-      { kind: 'item', defId: 'item_toothpick', x: 14.4 },
-      { kind: 'item', defId: 'item_magnet', x: 14.9 },
-      { kind: 'item', defId: 'item_gum_blob', x: 15.6 },
-      { kind: 'item', defId: 'item_tissue', x: 16.2 },
-      { kind: 'item', defId: 'item_crumb_cookie', x: 16.8 },
-      { kind: 'item', defId: 'item_cheese_puff', x: 17.3 },
-      { kind: 'item', defId: 'item_button', x: 17.9 },
-      { kind: 'item', defId: 'item_battery_toy', x: 18.4 },
-      { kind: 'item', defId: 'item_paper_scrap', x: 19.0 },
-      { kind: 'item', defId: 'item_crumb_cookie', x: 19.6 },
-      { kind: 'item', defId: 'item_straw', x: 20.3 },
-      { kind: 'item', defId: 'item_rubber_band', x: 20.9 },
-      { kind: 'item', defId: 'item_paperclip', x: 21.5 },
-      { kind: 'item', defId: 'item_tin_can', x: 22.2 },
-      { kind: 'item', defId: 'item_bottle_cap', x: 23.0 },
-      { kind: 'item', defId: 'item_popsicle_stick', x: 23.8 },
-      { kind: 'item', defId: 'item_toothpick', x: 24.6 },
-      { kind: 'item', defId: 'item_button', x: 25.3 },
-      // M8: more junk for the Tinker Bench, and its first blueprint.
-      { kind: 'item', defId: 'item_string', x: 8.2 },
-      { kind: 'item', defId: 'item_hat_thimble', x: 14.2 },
-      { kind: 'item', defId: 'item_comb_tooth', x: 21.0 },
-      { kind: 'item', defId: 'item_string', x: 24.0 },
-      { kind: 'item', defId: 'item_popcorn_kernel', x: 26.2 },
-      { kind: 'item', defId: 'item_ant_crumb', x: 26.7 },
-      { kind: 'item', defId: 'item_blueprint_slingshot', x: 27.4 },
+      // The junk, in the places it gathered (R02): a few loose things on the floor, a pile of
+      // cans by the way in, a plank shelf on bricks, a jar lid of buttons under the lamp, and
+      // a shelf hung from the boards. Grabbable things sit at least 0.6 m apart unless stacked.
+      { kind: 'item', defId: 'item_crumb_cookie', x: 5.9 },
+      { kind: 'item', defId: 'item_battery_toy', x: 8.3 },
+      // The junk pile: two tin cans, a stick and a straw leaning on them, a matchbox
+      // bridging their tops, and a bottle cap on that.
+      { kind: 'item', defId: 'item_tin_can', x: 10.1 },
+      { kind: 'item', defId: 'item_popsicle_stick', x: 9.5, lean: 1 },
+      { kind: 'item', defId: 'item_tin_can', x: 10.9 },
+      { kind: 'item', defId: 'item_straw', x: 11.5, lean: -1 },
+      { kind: 'item', defId: 'item_matchbox', x: 10.5, stack: true },
+      { kind: 'item', defId: 'item_bottle_cap', x: 10.5, stack: true },
+      // The plank shelf on bricks, and what fell under it.
+      { kind: 'item', defId: 'item_thread_spool', x: 12.25, y: SHELF_TOP },
+      { kind: 'item', defId: 'item_hat_thimble', x: 13.0, y: SHELF_TOP },
+      { kind: 'item', defId: 'item_comb_tooth', x: 13.75, y: SHELF_TOP },
+      { kind: 'item', defId: 'item_paper_scrap', x: 12.95 },
+      { kind: 'item', defId: 'item_foil_ball', x: 13.75 },
+      { kind: 'item', defId: 'item_bottle_cap', x: 14.55 },
+      { kind: 'item', defId: 'item_paperclip', x: 15.45 },
+      { kind: 'item', defId: 'item_popsicle_stick', x: 16.9 },
+      { kind: 'item', defId: 'item_toothpick', x: 18.45 },
+      { kind: 'item', defId: 'item_rubber_band', x: 19.45 },
+      // A jar lid of buttons under the lamp.
+      { kind: 'item', defId: 'item_button', x: 20.2 },
+      { kind: 'item', defId: 'item_button', x: 20.8 },
+      { kind: 'item', defId: 'item_button', x: 21.4 },
+      { kind: 'item', defId: 'item_rubber_band', x: 22.05 },
+      { kind: 'item', defId: 'item_gum_blob', x: 22.75 },
+      { kind: 'item', defId: 'item_string', x: 23.85 },
+      { kind: 'item', defId: 'item_tissue', x: 25.05 },
+      { kind: 'item', defId: 'item_cheese_puff', x: 25.85 },
+      { kind: 'item', defId: 'item_popcorn_kernel', x: 26.45 },
+      { kind: 'item', defId: 'item_ant_crumb', x: 27.05 },
+      // The magnet lies away from anything made of metal; past it, the way to the can tunnel
+      // stays clear for rolling things.
+      { kind: 'item', defId: 'item_magnet', x: 27.7 },
+      // The shelf hung from the boards on two strings over the junk pile, with the first blueprint.
+      { kind: 'item', defId: 'item_blueprint_slingshot', x: 9.0, y: HANGING_SHELF_TOP },
+      { kind: 'item', defId: 'item_toothpick', x: 10.1, y: HANGING_SHELF_TOP },
+      { kind: 'item', defId: 'item_eggshell', x: 11.2, y: HANGING_SHELF_TOP },
     ],
     respawn: [
       { item: 'item_crumb_cookie', count: 1 },
@@ -406,16 +410,20 @@ export const AREAS = createRegistry<AreaDef>('area', [
     ],
     skyTop: 0x8fd6f2,
     skyBottom: 0xe4f6ee,
-    ground: 0x7a6a62,
-    groundDark: 0x4a3d3a,
-    dirt: 0x3d3140,
-    dirtDark: 0x2a2438,
+    ground: 0x94796a,
+    groundDark: 0x5c4644,
+    dirt: 0x4a3540,
+    dirtDark: 0x2e2232,
     unlockedByDefault: false,
     mood: 'porch',
     roof: { x0: 0.2, x1: 32, y: 2.5, top: 1.9 },
     solids: [
       // The porch floorboards overhead: a roof that keeps the rain off.
       { id: 'solid_porch_boards', box: [0.2, 1.9, 32, 2.5] },
+      // A plank laid across two stacks of bricks, high enough for bugs to walk under.
+      { id: 'solid_porch_shelf', box: [11.7, SHELF_TOP, 14.2, SHELF_TOP + 0.16] },
+      // A shelf hung from the boards on two strings, over the junk pile.
+      { id: 'solid_hanging_shelf', box: [8.5, HANGING_SHELF_TOP, 11.7, HANGING_SHELF_TOP + 0.14] },
       // The Tinker Bench's table top: the top of a big thread spool.
       { id: 'solid_bench_top', box: [15, 6.82, 19.4, 7.06] },
       // The cobweb hammock: it sags where things land in it.

@@ -353,6 +353,8 @@ describe('the Tinker Bench', () => {
       sim.physics.place(dot.id, at.x - 1.5, GROUND_Y - 0.6, 0);
       dot.bug!.mode = 'st_idle';
       dot.bug!.timer = 600;
+      // Bored, with nothing new nearby to go and look at (the porch's junk is all round the bench).
+      dot.bug!.inspected = sim.entities.ofKind('item').map((e) => e.id);
       sim.send({ type: 'set_need', id: dot.id, need: 'need_fun', value: 20 });
       sim.run(120);
     }
