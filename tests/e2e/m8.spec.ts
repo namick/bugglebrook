@@ -39,6 +39,17 @@ async function stage(page: Page, defId: string, x: number, y: number): Promise<n
 }
 
 /**
+ * A spot on the bench's table top past its left or right tray, to lay a
+ * thing ready for the trays. (The floor beside the bench is under the
+ * porch's plank shelf and the bench top, which a thing lifted from there
+ * would bump.)
+ */
+const onTable = (p: Points, side: -1 | 1): [number, number] => [
+  side < 0 ? p.trays[0]!.x - 0.62 : p.trays[2]!.x + 0.62,
+  p.trays[0]!.y - 0.35,
+];
+
+/**
  * With the sim frozen: carry what the mouse holds up over the bench top or
  * the cauldron's rim, across to world (x, y), and let go gently.
  */
@@ -72,8 +83,8 @@ test('two things dropped in the Tinker Bench’s trays and a pull of the lever m
     await calm(page);
     const p = await points(page);
     await jumpTo(page, PORCH_X + 9.4);
-    const twig = await stage(page, 'item_twig', p.trays[0]!.x - 1.5, 8);
-    const band = await stage(page, 'item_rubber_band', p.trays[0]!.x - 3.2, 8);
+    const twig = await stage(page, 'item_twig', ...onTable(p, -1));
+    const band = await stage(page, 'item_rubber_band', ...onTable(p, 1));
     // Into the trays, by hand.
     await carryTo(page, await pressFrozen(page, twig), p.trays[0]!.x, p.trays[0]!.y - 0.4);
     await carryTo(page, await pressFrozen(page, band), p.trays[1]!.x, p.trays[1]!.y - 0.4);
@@ -95,6 +106,82 @@ test('two things dropped in the Tinker Bench’s trays and a pull of the lever m
     expect((await page.evaluate(() => window.__bb!.bench())).made).toEqual(['recipe_slingshot']);
     const sounds = await page.evaluate(() => window.__bb!.sfxLog());
     expect(sounds).toEqual(expect.arrayContaining(['lever']));
+  } finally {
+    await bb.close();
+  }
+});
+
+test('empty trays light up as a held thing comes near, and a craft crouches, rattles, holds, and pops while a bug gawks', async () => {
+  // Three things carried by hand and a whole craft: longer than most.
+  test.setTimeout(240_000);
+  const bb = await launchApp();
+  const { page } = bb;
+  const look = async (): Promise<{ trays: number[]; phase: string; cards: string[] }> =>
+    (await page.evaluate(() => window.__bb!.benchLook()))!;
+  try {
+    await openFrozen(page, 0);
+    await send(page, { type: 'unlock', area: 'area_under_porch' });
+    await frames(page, 2);
+    await calm(page);
+    const p = await points(page);
+    await jumpTo(page, PORCH_X + 9.4);
+    // Before anything is found, the cork board has a how-to card and a faded hint.
+    expect((await look()).cards).toEqual(['how', 'hint']);
+    // A bug idling a few steps off, to gawk at the pop.
+    await send(page, { type: 'spawn', kind: 'bug', defId: 'bug_snail_glorp', x: p.trays[2]!.x + 4.5, y: 8 });
+    await frames(page, 2);
+    await calm(page);
+    const box = await stage(page, 'item_matchbox', ...onTable(p, -1));
+    expect((await look()).trays).toEqual([0, 0, 0]);
+    // Picked up and brought near, the empty trays start to glow; right over one, it glows brightest.
+    const from = await pressFrozen(page, box);
+    const near = await toClient(page, p.trays[0]!.x - 1.6, p.trays[0]!.y - 1.4);
+    await glideFrames(page, from, near.x - from.x, near.y - from.y, 4, 3);
+    await frames(page, 20);
+    // The glow eases on the screen's clock: let it get there.
+    await expect.poll(async () => (await look()).trays[0]).toBeGreaterThan(0.3);
+    expect((await look()).trays[0]).toBeLessThan(0.9);
+    await page.mouse.up();
+    await frames(page, 30);
+    await carryTo(page, await pressFrozen(page, box), p.trays[0]!.x, p.trays[0]!.y - 0.4);
+    // In the tray now: that tray has nothing left to ask for.
+    await expect.poll(async () => (await look()).trays[0]).toBe(0);
+    for (const tray of [1, 2]) {
+      const button = await stage(page, 'item_button', ...onTable(p, 1));
+      const held = await pressFrozen(page, button);
+      const over = await toClient(page, p.trays[tray]!.x, p.trays[tray]!.y - 0.5);
+      const up = await toClient(page, p.trays[tray]!.x, p.trays[tray]!.y - 1.6);
+      await glideFrames(page, held, up.x - held.x, up.y - held.y, 4, 3);
+      await glideFrames(page, up, over.x - up.x, over.y - up.y, 3, 3);
+      await frames(page, 20);
+      await expect.poll(async () => (await look()).trays[tray]).toBeGreaterThan(0.9);
+      await page.mouse.up();
+      await frames(page, 4);
+    }
+    expect((await page.evaluate(() => window.__bb!.bench())).trays.every((t) => t !== null)).toBe(true);
+    // Pull the lever: it crouches, rattles, holds still for the hit-stop, then pops.
+    const knob = await toClient(page, p.lever.x, p.lever.y);
+    await page.mouse.move(knob.x, knob.y);
+    await page.mouse.down();
+    await frames(page, 1);
+    await glideFrames(page, knob, 20, 110, 8, 1);
+    await page.mouse.up();
+    const phases: string[] = [];
+    for (let i = 0; i < 90; i += 2) {
+      await frames(page, 2);
+      phases.push((await look()).phase);
+    }
+    const order = phases.filter((ph, i) => ph !== phases[i - 1]);
+    expect(order).toEqual(expect.arrayContaining(['rattle', 'hold', 'idle']));
+    expect(order.indexOf('rattle')).toBeLessThan(order.indexOf('hold'));
+    expect(order.lastIndexOf('hold')).toBeLessThan(order.lastIndexOf('idle'));
+    expect((await entities(page)).filter((e) => e.defId === 'item_matchbox_racer')).toHaveLength(1);
+    const names = (await page.evaluate(() => window.__bb!.events())).map((e) => e.name);
+    expect(names).toContain('bug_gawked');
+    const sounds = await page.evaluate(() => window.__bb!.sfxLog());
+    expect(sounds).toEqual(expect.arrayContaining(['bench_rattle', 'craft_pop', 'craft_tada']));
+    // Made, the hint card gives way.
+    expect((await look()).cards).toEqual(['how']);
   } finally {
     await bb.close();
   }
@@ -181,8 +268,8 @@ test('a failed combo makes a junk blob, and shaking it in the hand splits it bac
     await calm(page);
     const p = await points(page);
     await jumpTo(page, PORCH_X + 9.4);
-    const cork = await stage(page, 'item_cork', p.trays[0]!.x - 1.5, 8);
-    const pebble = await stage(page, 'item_pebble', p.trays[0]!.x - 3, 8);
+    const cork = await stage(page, 'item_cork', ...onTable(p, -1));
+    const pebble = await stage(page, 'item_pebble', ...onTable(p, 1));
     await carryTo(page, await pressFrozen(page, cork), p.trays[0]!.x, p.trays[0]!.y - 0.4);
     await carryTo(page, await pressFrozen(page, pebble), p.trays[1]!.x, p.trays[1]!.y - 0.4);
     // A click on the lever pulls it too.

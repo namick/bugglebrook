@@ -368,10 +368,15 @@ export class Sfx {
       // M8: the Tinker Bench, the cauldron, potions, and crafted toys.
       bus.on('tray_filled', () => this.limited('tray_clink', 80)),
       bus.on('tray_emptied', () => this.limited('tray_out', 80)),
-      bus.on('bench_pulled', (e) =>
-        e.empty ? this.play('bench_clunk') : this.play('hammer', e.strong ? 1 : 0.4),
-      ),
-      bus.on('crafted', (e) => this.play('craft_tada', e.first ? 1 : 0.6)),
+      bus.on('bench_pulled', (e) => {
+        if (e.empty) return this.play('bench_clunk');
+        this.play('hammer', e.strong ? 1 : 0.4);
+        this.play('bench_rattle', e.strong ? 1 : 0.4);
+      }),
+      bus.on('crafted', (e) => {
+        this.play('craft_pop');
+        this.play('craft_tada', e.first ? 1 : 0.6);
+      }),
       bus.on('uncrafted', () => this.play('uncraft')),
       bus.on('bench_failed', (e) => this.play(FAIL_SOUND[e.kind])),
       bus.on('bench_shrugged', () => this.play('shrug')),
