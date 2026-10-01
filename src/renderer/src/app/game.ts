@@ -126,6 +126,12 @@ export class Game {
   /** Why the sim is not stepping: the window is hidden, the test hook froze it. */
   private hidden = false;
   private frozen = false;
+  /**
+   * While a test has the sim frozen, pointer events are stamped with this
+   * clock, which `stepFrames` moves on 1/60 s a frame. Fling speeds and
+   * poke timing then depend on frames, not on how slow the machine is.
+   */
+  private frameClock: number | null = null;
   /** Covers scene switches with a quick fade. */
   private readonly curtain = new Graphics();
   private curtainAlpha = 0;
@@ -247,9 +253,9 @@ export class Game {
         const view = { x: e.global.x, y: e.global.y };
         const slot = s.pocket.slotAt(view.x, view.y);
         if (slot !== null && s.sim.pocket.slots[slot]!.length > 0 && s.sim.physics.grabbed === null) {
-          s.input.takeFromPocket(slot, view, eventTime(e));
+          s.input.takeFromPocket(slot, view, this.eventTime(e));
           s.pocket.bump(slot);
-        } else s.input.down(view, eventTime(e));
+        } else s.input.down(view, this.eventTime(e));
       }
       this.refreshCursor();
     });
@@ -268,9 +274,9 @@ export class Game {
           for (const c of merged) {
             const p = new Point();
             this.app.renderer.events.mapPositionToPoint(p, c.clientX, c.clientY);
-            input.move({ x: p.x, y: p.y }, dt, c.timeStamp);
+            input.move({ x: p.x, y: p.y }, dt, this.frameClock ?? c.timeStamp);
           }
-        } else input.move({ x: e.global.x, y: e.global.y }, dt, eventTime(e));
+        } else input.move({ x: e.global.x, y: e.global.y }, dt, this.eventTime(e));
       }
       this.refreshCursor();
     });
@@ -278,7 +284,7 @@ export class Game {
       const s = this.session;
       if (s) {
         const slot = s.input.mode === 'hold' ? s.pocket.slotAt(e.global.x, e.global.y) : null;
-        s.input.up(eventTime(e), { x: e.global.x, y: e.global.y });
+        s.input.up(this.eventTime(e), { x: e.global.x, y: e.global.y });
         if (slot !== null) s.pocket.bump(slot);
       }
       this.refreshCursor();
@@ -388,7 +394,12 @@ export class Game {
       camera.set(rest - INTRO.slideFrom);
       camera.glideTo(rest, INTRO.slideSeconds);
     }
-    const input = new PointerController(sim, camera, VIEW_WIDTH_PX);
+    const input = new PointerController(
+      sim,
+      camera,
+      VIEW_WIDTH_PX,
+      () => this.frameClock ?? performance.now(),
+    );
     const view = new WorldView(sim, input, this.app.renderer);
     const root = new Container();
     const ui = new Container();
@@ -474,6 +485,7 @@ export class Game {
     if (this.freezeNextWorld) {
       this.freezeNextWorld = false;
       this.frozen = true;
+      this.frameClock = performance.now();
     }
     this.scene = 'world';
     // The first save runs in the background: the picture can take a moment on slow GPUs.
@@ -583,11 +595,17 @@ export class Game {
     return this.saving;
   }
 
+  /** When a pointer event happened: on the frame clock while a test has the sim frozen. */
+  private eventTime(e: FederatedPointerEvent): number {
+    return this.frameClock ?? eventTime(e);
+  }
+
   /** Freeze or unfreeze the sim (test hook). Freezing saves, like any pause. */
   setPaused(paused: boolean): void {
     if (paused === this.frozen) return;
     const was = this.paused;
     this.frozen = paused;
+    this.frameClock = paused ? performance.now() : null;
     this.stepper.reset();
     if (!was && this.paused) void this.saveNow();
   }
@@ -616,6 +634,7 @@ export class Game {
     const s = this.session;
     if (!s) return;
     for (let i = 0; i < n; i++) {
+      if (this.frameClock !== null) this.frameClock += 1000 / 60;
       s.input.frame(1 / 60);
       this.sendHand(s);
       s.sim.step();
