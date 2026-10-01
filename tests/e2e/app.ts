@@ -68,6 +68,8 @@ export async function waitForScene(page: Page, scene: 'menu' | 'world'): Promise
 export async function clickSlot(page: Page, slot: number): Promise<void> {
   await waitForScene(page, 'menu');
   for (let attempt = 0; attempt < 3; attempt++) {
+    // A slow load may finish after the poll below gave up: then the click did land.
+    if ((await page.evaluate(() => window.__bb!.scene())) !== 'menu') break;
     const pos = await page.evaluate((s) => window.__bb!.slotButtonClient(s), slot);
     expect(pos).not.toBeNull();
     await page.mouse.click(pos!.x, pos!.y);
