@@ -319,6 +319,9 @@ describe('drinking and shattering', () => {
     const { sim, dot } = dotWorld('splash');
     const log = record(sim);
     const d = sim.view(dot.id)!;
+    // Clear the flight path of whatever lies on it.
+    for (const v of sim.views())
+      if (v.id !== dot.id && v.x > d.x - 2.6 && v.x < d.x && Math.abs(v.y - d.y) < 0.9) sim.remove(v.id);
     const bottle = sim.spawn('item', 'item_potion_tiny', d.x - 2, d.y - 0.1);
     sim.physics.setVelocity(bottle.id, 12, 0);
     sim.run(30);

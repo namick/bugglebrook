@@ -588,6 +588,13 @@ export interface ItemDef {
   drag?: number;
   /** A marble track piece: it snaps onto the pegboard. */
   track?: boolean;
+  /** Its size is a rule (or a fixture's fit): `growItem` leaves it as written. */
+  fixedSize?: boolean;
+  /**
+   * The body's mass. `growItem` sets it to the weight a thing had at the size
+   * it was written with; the body's density is then this over the shape's area.
+   */
+  mass?: number;
   /** A paint drop: the color it paints (M8). */
   paint?: string;
   /** A potion bottle: the potion inside (M8). */

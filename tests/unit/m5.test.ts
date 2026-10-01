@@ -409,7 +409,11 @@ describe('save migrations from every shipped version', () => {
       for (const view of sim.views()) {
         expect(Number.isFinite(view.x) && Number.isFinite(view.y)).toBe(true);
         for (const n of Object.values(view.bug?.needs ?? {})) expect(n).toBeGreaterThanOrEqual(0);
+        // Things the save wrote at their old, smaller sizes come back grown, never inside the ground.
+        if (view.pocket === undefined && view.inMouthOf === undefined && view.carriedBy === undefined)
+          expect(view.y, view.defId).toBeLessThan(sim.surfaceY(view.x));
       }
+      expect(sim.rescues).toBe(0);
       // It saves again as the current version.
       expect(loadSaveFile(JSON.stringify(saveOf(sim))).version).toBe(SAVE_VERSION);
     });

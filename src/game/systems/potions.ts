@@ -2,6 +2,7 @@ import type { ActiveEffect, Entity, EntityId } from '../core/entities';
 import { SIM_HZ } from '../core/loop';
 import type { Rng } from '../core/rng';
 import type { BugDef, ItemShape, PotionEffect } from '../data/types';
+import { bodyDensity } from '../data/itemSize';
 import type { Sim } from '../sim';
 import type { Brew } from './brewing';
 import { napBug, wakeBug } from './bugAi';
@@ -511,7 +512,12 @@ export class Potions {
     const sim = this.sim;
     if (e.kind === 'item') {
       const def = sim.content.items.get(e.defId);
-      return { shape: def.shape, density: def.density, friction: def.friction, restitution: def.restitution };
+      return {
+        shape: def.shape,
+        density: bodyDensity(def),
+        friction: def.friction,
+        restitution: def.restitution,
+      };
     }
     const def = sim.content.bugs.get(e.defId);
     const shape: ItemShape = def.collider
