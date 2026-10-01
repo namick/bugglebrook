@@ -134,11 +134,49 @@ export function moodVoice(mood: Mood | undefined): MoodVoice {
 }
 
 /**
+ * A species' quirk on top of its voice profile: Barty's pompous huffs,
+ * Twig's dry clicks and low "hm", Whiff's muffled, trembly apologies.
+ */
+export type VoiceAccent = 'huff' | 'click' | 'tremble';
+
+export function accentFor(art: BugDef['art']): VoiceAccent | undefined {
+  switch (art) {
+    case 'dungbeetle':
+      return 'huff';
+    case 'stickinsect':
+      return 'click';
+    case 'stinkbug':
+      return 'tremble';
+    default:
+      return undefined;
+  }
+}
+
+/** A breathy noise burst: a huff through the nose. */
+const huff = (at: number, gain: number): Tone => ({
+  freq: 1100,
+  to: 280,
+  dur: 0.13,
+  wave: 'noise',
+  q: 0.8,
+  gain,
+  delay: at,
+  attack: 0.01,
+  bus: 'voice',
+});
+
+/**
  * Build one line of gibberish for a bug: 1 to 6 syllables, each a formant
  * filtered note, some with a noise consonant. Pure and seeded, so tests can
  * check it with a null backend.
  */
-export function voiceLine(voice: VoiceProfile, emotion: Emotion, rng: Rng, mood?: Mood): Tone[] {
+export function voiceLine(
+  voice: VoiceProfile,
+  emotion: Emotion,
+  rng: Rng,
+  mood?: Mood,
+  accent?: VoiceAccent,
+): Tone[] {
   const shape = SHAPES[emotion];
   const m = moodVoice(mood);
   const count = rng.int(shape.count[0], shape.count[1]);
@@ -154,34 +192,62 @@ export function voiceLine(voice: VoiceProfile, emotion: Emotion, rng: Rng, mood?
     const vowel = rng.pick(VOWELS);
     const dur = Math.max(0.06, Math.min(0.9, syllable * rng.range(0.75, 1.1)));
     if (rng.chance(0.5)) {
-      tones.push({
-        freq: 3000,
-        to: 1800,
-        dur: 0.02,
-        wave: 'noise',
-        q: 1,
-        gain: shape.gain * 0.5,
-        delay: at,
-        bus: 'voice',
-      });
+      tones.push(
+        accent === 'click'
+          ? // A dry click, like a twig snapping very politely.
+            { freq: 3000, to: 3000, dur: 0.012, wave: 'noise', q: 6, gain: 0.32, delay: at, bus: 'voice' }
+          : {
+              freq: 3000,
+              to: 1800,
+              dur: 0.02,
+              wave: 'noise',
+              q: 1,
+              gain: shape.gain * 0.5,
+              delay: at,
+              bus: 'voice',
+            },
+      );
     }
+    if (accent === 'huff' && i > 0 && rng.chance(0.3)) {
+      tones.push(huff(at, shape.gain * 0.45));
+      at += 0.1;
+    }
+    // Whiff speaks through his hand: muffled, and shakier when nervous.
+    const muffle = accent === 'tremble' ? 0.75 : 1;
+    const shaky =
+      accent === 'tremble' && (emotion === 'scared' || emotion === 'gasp' || emotion === 'question');
+    const depth = (voice.vibratoDepth || span * 0.05) * (shaky ? 1.7 : 1);
     tones.push({
       freq,
       to,
       dur,
       wave: voice.wave,
-      gain: shape.gain,
+      // Twig hardly says anything out loud.
+      gain: shape.gain * (accent === 'click' ? 0.55 : 1),
       delay: at + 0.012,
       attack: 0.02,
-      formants: [vowel[0] * voice.formantShift, vowel[1] * voice.formantShift],
+      formants: [vowel[0] * voice.formantShift, vowel[1] * voice.formantShift * muffle],
       vibrato:
         voice.vibratoDepth > 0 || emotion === 'scared' || emotion === 'love'
-          ? { rate: voice.vibratoHz || 11, depth: voice.vibratoDepth || span * 0.05 }
+          ? { rate: voice.vibratoHz || 11, depth }
           : undefined,
       bus: 'voice',
     });
     at += dur * 0.92;
   }
+  // Barty finishes with a pompous huff; Twig sometimes with a low "hm".
+  if (accent === 'huff') tones.push(huff(at + 0.04, shape.gain * 0.6));
+  if (accent === 'click' && rng.chance(0.5))
+    tones.push({
+      freq: 140,
+      to: 128,
+      dur: 0.28,
+      wave: 'sine',
+      gain: 0.2,
+      delay: at + 0.05,
+      attack: 0.04,
+      bus: 'voice',
+    });
   return tones;
 }
 
@@ -273,7 +339,8 @@ export class BugVoices {
     if (mine === undefined && this.busyUntil.size >= 3) return false;
     const n = (this.lines.get(id) ?? 0) + 1;
     this.lines.set(id, n);
-    const tones = voiceLine(this.bugs.get(defId).voice, emotion, new Rng(`${id}:${n}`), this.moodOf(id));
+    const def = this.bugs.get(defId);
+    const tones = voiceLine(def.voice, emotion, new Rng(`${id}:${n}`), this.moodOf(id), accentFor(def.art));
     const length = Math.max(...tones.map((tn) => (tn.delay ?? 0) + tn.dur));
     this.busyUntil.set(id, t + length * 1000 + 150);
     for (const tone of tones) this.backend.play(tone);

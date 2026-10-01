@@ -1,6 +1,6 @@
 import { Container, Graphics } from 'pixi.js';
 import { PIXELS_PER_METER } from '../../../../game/constants';
-import type { BugDef } from '../../../../game/data/types';
+import type { BugDef, PendingState } from '../../../../game/data/types';
 import type { BugMode } from '../../../../game/core/entities';
 import type { BugFace } from '../bugFace';
 import { bugFace } from '../bugFace';
@@ -10,6 +10,10 @@ import { CHEEK, OUTLINE, STAR, darken, lighten, stroke } from '../palette';
 import type { MovePose } from '../reactions';
 import type { Look } from './face';
 import { drawEye, drawMouth, spiral } from './face';
+import { drawPaintPatches, paintColors } from './paint';
+import type { Box, SpeciesPainter } from './species/common';
+import { AntennaSpring, TINTS } from './species/common';
+import { makePainter } from './species';
 
 /** Everything a bug sprite needs to draw one frame. */
 export interface BugFrame {
@@ -47,35 +51,31 @@ export interface BugFrame {
   carrying?: boolean;
   /** Mid-hop on purpose (Boing): back legs kicked straight out. */
   hopping?: boolean;
+  /** What the bug is doing in the sim, for poses the face does not cover. */
+  mode?: BugMode;
+  /** Waiting to be found: stuck on its back, aloof, or disguised as a twig. */
+  pending?: PendingState;
+  /** Twig's tiny eyes, open for a peek while disguised. */
+  peeking?: boolean;
+  /** Munch as a cocoon or a butterfly. */
+  morph?: 'cocoon' | 'butterfly';
+  /** Holding what it carries up over its head (Moose). */
+  overhead?: boolean;
+  /** Rolling what it carries behind it, walking backward (Barty). */
+  rolling?: boolean;
+  /** Paint IDs on it, oldest first. */
+  paint?: readonly string[];
+  /** A dramatic pose (Prim's karate): how far into it (0 to 1), seconds since it began, and whether it is a chop. */
+  karate?: { k: number; t: number; chop: boolean };
 }
 
 /** Beetles built the same way: Dot, and Flick the firefly. */
 const BEETLES: ReadonlySet<string> = new Set(['ladybug', 'firefly']);
 
-const TINTS = { green: { color: 0x8fd14f, alpha: 0.6 }, red: { color: 0xff3b2f, alpha: 0.45 } } as const;
-
 interface Hip {
   x: number;
   y: number;
   far: boolean;
-}
-
-/** Wobbly antenna tip: a damped spring kicked by the body's acceleration. */
-class AntennaSpring {
-  x = 0;
-  y = 0;
-  private vx = 0;
-  private vy = 0;
-
-  update(ax: number, ay: number, dt: number): void {
-    const k = 160;
-    const d = 9;
-    const h = Math.min(dt, 1 / 30);
-    this.vx += (-k * this.x - d * this.vx - ax * 2.2) * h;
-    this.vy += (-k * this.y - d * this.vy - ay * 2.2) * h;
-    this.x = Math.max(-18, Math.min(18, this.x + this.vx * h));
-    this.y = Math.max(-18, Math.min(18, this.y + this.vy * h));
-  }
 }
 
 /**
@@ -101,13 +101,38 @@ export class BugSprite extends Container {
   private readonly antennae = new Graphics();
   private readonly ball = new Graphics();
   private readonly fx = new Graphics();
+  /** Paint patches over the lower body, clipped to `paintMask`. */
+  private readonly paintG = new Graphics();
+  private readonly paintMask = new Graphics();
   private readonly springs = [new AntennaSpring(), new AntennaSpring()];
   private lastV = { x: 0, y: 0 };
   private form: BugFace['form'] | null = null;
+  /** The species painter for bugs drawn in their own module (M7 and later), or null. */
+  private readonly painter: SpeciesPainter | null;
+  /** Pixels from the root down to the ground: the radius, or half a box collider's height. */
+  readonly foot: number;
+  private staticKey = '';
+  private paintKey = '';
 
   constructor(readonly def: BugDef) {
     super();
     this.r = def.radius * PIXELS_PER_METER;
+    this.painter = makePainter({
+      def,
+      r: this.r,
+      layers: {
+        rim: this.rim,
+        legsBack: this.legsBack,
+        wings: this.wings,
+        body: this.body,
+        shell: this.shell,
+        legsFront: this.legsFront,
+        antennae: this.antennae,
+        face: this.faceG,
+        ball: this.ball,
+      },
+    });
+    this.foot = this.painter?.foot ?? this.r;
     this.addChild(this.stretchA, this.fx);
     this.stretchA.addChild(this.stretchB);
     this.stretchB.addChild(this.stretchC);
@@ -121,10 +146,22 @@ export class BugSprite extends Container {
       this.body,
       this.shell,
       this.legsFront,
+      this.paintMask,
+      this.paintG,
       this.antennae,
       this.faceG,
     );
-    this.squash.position.set(0, this.r);
+    this.paintG.label = 'paint';
+    this.paintMask.label = 'paintMask';
+    this.paintG.visible = false;
+    this.paintMask.visible = false;
+    this.squash.position.set(0, this.foot);
+    if (this.painter) {
+      this.faceG.context.batchMode = 'no-batch';
+      this.spinLayer.visible = true;
+      this.ball.visible = false;
+      return;
+    }
     this.drawBall();
     this.setForm('normal');
   }
@@ -975,15 +1012,18 @@ export class BugSprite extends Container {
     }
   }
 
-  private drawStars(frame: BugFrame): void {
+  /** Steam and dizzy stars; `crown` (rig space) is where they circle, for painted species. */
+  private drawStars(frame: BugFrame, crown?: { x: number; y: number }): void {
     const g = this.fx.clear();
     const { r } = this;
     if (frame.face.steam) {
       // Two puffs of steam rising off an annoyed head.
       for (let i = 0; i < 2; i++) {
         const u = (frame.time * 0.9 + i * 0.5) % 1;
-        const x = frame.facing * r * (0.5 + i * 0.5) + Math.sin(u * 8 + i) * 4;
-        const y = -r * 1.1 - u * r * 0.9;
+        const x = crown
+          ? frame.facing * (crown.x + (i - 0.5) * r * 0.5) + Math.sin(u * 8 + i) * 4
+          : frame.facing * r * (0.5 + i * 0.5) + Math.sin(u * 8 + i) * 4;
+        const y = crown ? crown.y + r * 0.25 - u * r * 0.9 : -r * 1.1 - u * r * 0.9;
         const pr = r * (0.12 + u * 0.14);
         g.circle(x, y, pr)
           .fill({ color: 0xffffff, alpha: 0.9 * (1 - u) })
@@ -991,11 +1031,12 @@ export class BugSprite extends Container {
       }
     }
     if (frame.stars <= 0) return;
-    const cy = -r * 1.35;
+    const cy = crown ? crown.y : -r * 1.35;
+    const cx = crown ? crown.x * frame.facing : 0;
     for (let i = 0; i < frame.stars; i++) {
       const a = frame.time * 4.2 + (i * Math.PI * 2) / frame.stars;
       const depth = Math.sin(a);
-      const x = Math.cos(a) * r * 1.25;
+      const x = cx + Math.cos(a) * r * 1.25;
       const y = cy + depth * r * 0.3;
       const size = Math.max(12, r * 0.24) * (1 + depth * 0.2);
       g.star(x, y, 5, size, size * 0.48, a * 0.5)
@@ -1005,6 +1046,10 @@ export class BugSprite extends Container {
   }
 
   update(frame: BugFrame): void {
+    if (this.painter) {
+      this.updatePainted(frame, this.painter);
+      return;
+    }
     const { r } = this;
     this.setForm(frame.face.form);
     const { pose } = frame;
@@ -1038,6 +1083,174 @@ export class BugSprite extends Container {
     this.drawAntennae(frame);
     this.drawFace(frame);
     this.drawStars(frame);
+    this.drawPaint(frame, frame.paint, () => `${this.form}`);
+  }
+
+  /** A bug drawn by its species painter: the same rig, with the painter filling in the art. */
+  private updatePainted(frame: BugFrame, p: SpeciesPainter): void {
+    const key = p.key(frame);
+    if (key !== this.staticKey) {
+      this.staticKey = key;
+      for (const g of [this.rim, this.body, this.shell, this.wings, this.ball]) g.clear();
+      this.shell.rotation = 0;
+      this.shell.pivot.set(0, 0);
+      this.shell.position.set(0, 0);
+      p.drawStatic(frame);
+    }
+    this.form = frame.face.form;
+    const curled = p.curls && frame.face.form === 'curled';
+    this.spinLayer.visible = !curled;
+    this.ball.visible = curled;
+
+    const dt = Math.max(1e-3, frame.dt);
+    const ax = ((frame.vx - this.lastV.x) / dt) * frame.facing;
+    const ay = (frame.vy - this.lastV.y) / dt;
+    this.lastV = { x: frame.vx, y: frame.vy };
+    for (const s of this.springs)
+      s.update(Math.max(-60, Math.min(60, ax)), Math.max(-60, Math.min(60, ay)), frame.dt);
+
+    this.stretchA.rotation = frame.stretchAngle;
+    this.stretchB.scale.set(frame.stretch, 1 / frame.stretch);
+    this.stretchC.rotation = -frame.stretchAngle;
+    this.spinLayer.rotation = frame.spin;
+    this.ball.rotation = frame.angle;
+    this.ball.scale.set(frame.squashX, frame.squashY);
+
+    this.legsBack.clear();
+    this.legsFront.clear();
+    this.antennae.clear();
+    this.faceG.clear();
+    const adj = p.update(frame, this.springs);
+    const rest = { bob: 0, tilt: 0, sx: 1, sy: 1, flip: 1 };
+    const move = adj.still ? rest : (frame.move ?? rest);
+    const pose = adj.still ? { sx: 1, sy: 1, tilt: 0, bob: 0 } : frame.pose;
+    this.squash.scale.set(pose.sx * frame.squashX * move.sx, pose.sy * frame.squashY * move.sy);
+    this.squash.rotation = pose.tilt + (move.tilt + adj.tilt) * frame.facing;
+    this.rig.position.set(0, -this.foot + pose.bob + move.bob + adj.bob);
+    this.rig.scale.x =
+      frame.facing * (Math.abs(move.flip) < 0.08 ? Math.sign(move.flip || 1) * 0.08 : move.flip);
+    this.rim.visible = (frame.rim ?? 0) > 0;
+    this.rim.alpha = frame.rim ?? 0;
+    this.drawStars(frame, p.crown(frame));
+    if (p.paintsItself(frame)) this.drawPaint(frame, [], () => '');
+    else
+      this.drawPaint(
+        frame,
+        frame.paint,
+        () => key,
+        (g) => p.mask(g, frame),
+        p.paintBox(frame),
+      );
+  }
+
+  /**
+   * Paint patches on the lower half of the body, clipped to its silhouette.
+   * Redrawn only when the paint or the body's shape changes.
+   */
+  private drawPaint(
+    frame: BugFrame,
+    ids: readonly string[] | undefined,
+    shapeKey: () => string,
+    mask: (g: Graphics) => void = (g) => this.paintSilhouette(g),
+    box: Box | null = this.paintBox(),
+  ): void {
+    const colors = paintColors(ids);
+    const on = colors.length > 0 && box !== null && this.form !== 'curled';
+    if (!on) {
+      if (this.paintG.visible) {
+        this.paintG.visible = false;
+        this.paintMask.visible = false;
+        this.paintG.mask = null;
+        this.paintKey = '';
+      }
+      return;
+    }
+    const key = `${colors.join(',')}|${shapeKey()}|${frame.facing}`;
+    if (key === this.paintKey) return;
+    this.paintKey = key;
+    this.paintG.clear();
+    this.paintMask.clear();
+    mask(this.paintMask);
+    // Shrink the mask a few pixels toward its middle, so the body's outline stays on top of the paint.
+    const bounds = this.paintMask.getLocalBounds();
+    const cx = bounds.x + bounds.width / 2;
+    const cy = bounds.y + bounds.height / 2;
+    this.paintMask.pivot.set(cx, cy);
+    this.paintMask.position.set(cx, cy);
+    this.paintMask.scale.set(
+      Math.max(0.5, 1 - 7 / Math.max(1, bounds.width)),
+      Math.max(0.5, 1 - 7 / Math.max(1, bounds.height)),
+    );
+    drawPaintPatches(this.paintG, colors, box, Math.round(this.r) + this.def.id.length);
+    this.paintMask.visible = true;
+    this.paintG.visible = true;
+    this.paintG.mask = this.paintMask;
+  }
+
+  /** The body (not the head) of the first five bugs, filled, to clip paint to. */
+  private paintSilhouette(g: Graphics): void {
+    const { r } = this;
+    switch (this.def.art) {
+      case 'ladybug':
+        g.poly(this.dome(-r * 0.15, r * 0.34, r * 1.02, r * 1.14)).fill(0xffffff);
+        g.ellipse(-r * 0.1, r * 0.42, r * 0.95, r * 0.34).fill(0xffffff);
+        return;
+      case 'firefly':
+        g.poly(this.dome(-r * 0.2, r * 0.36, r * 0.86, r * 0.98)).fill(0xffffff);
+        g.ellipse(-r * 0.05, r * 0.44, r * 0.85, r * 0.3).fill(0xffffff);
+        g.ellipse(-r * 0.95, r * 0.28, r * 0.5, r * 0.38).fill(0xffffff);
+        return;
+      case 'pillbug':
+        g.poly(this.dome(-r * 0.05, r * 0.52, r * 1.28, r * 1.08)).fill(0xffffff);
+        g.ellipse(-r * 0.05, r * 0.6, r * 1.2, r * 0.2).fill(0xffffff);
+        return;
+      case 'snail':
+        if (this.form === 'in_shell') {
+          g.circle(0, 0, r * 0.98).fill(0xffffff);
+          return;
+        }
+        g.circle(-r * 0.35, -r * 0.08, r * 0.86).fill(0xffffff);
+        g.moveTo(-r * 1.6, r * 0.93)
+          .lineTo(r * 0.9, r * 1.0)
+          .bezierCurveTo(r * 1.35, r * 1.0, r * 1.5, r * 0.6, r * 1.46, r * 0.12)
+          .lineTo(r * 0.3, r * 0.5)
+          .lineTo(-r * 1.0, r * 0.56)
+          .bezierCurveTo(-r * 1.32, r * 0.6, -r * 1.52, r * 0.74, -r * 1.6, r * 0.93)
+          .closePath()
+          .fill(0xffffff);
+        return;
+      case 'strider':
+        g.poly(this.striderBody()).fill(0xffffff);
+        return;
+      case 'grasshopper':
+        g.poly(this.hopperBody()).fill(0xffffff);
+        return;
+      default:
+        return;
+    }
+  }
+
+  /** The lower half of the first five bugs' bodies, where paint goes. */
+  private paintBox(): Box | null {
+    const { r } = this;
+    switch (this.def.art) {
+      case 'ladybug':
+        return { x0: -r * 1.17, x1: r * 0.87, y0: -r * 0.2, y1: r * 0.76 };
+      case 'firefly':
+        return { x0: -r * 1.45, x1: r * 0.66, y0: -r * 0.15, y1: r * 0.74 };
+      case 'pillbug':
+        return { x0: -r * 1.33, x1: r * 1.23, y0: -r * 0.02, y1: r * 0.8 };
+      case 'snail':
+        return this.form === 'in_shell'
+          ? { x0: -r, x1: r, y0: 0, y1: r }
+          : { x0: -r * 1.6, x1: r * 1.2, y0: r * 0.15, y1: r * 1.0 };
+      case 'strider':
+        return { x0: -r * 1.17, x1: r * 0.67, y0: -r * 0.22, y1: r * 0.1 };
+      case 'grasshopper':
+        return { x0: -r * 1.35, x1: r * 0.75, y0: r * 0.12, y1: r * 0.56 };
+      default:
+        return null;
+    }
   }
 }
 
@@ -1048,11 +1261,13 @@ export function standaloneFrame(
   dt: number,
   phase: number,
   art: BugDef['art'] = 'ladybug',
+  morph?: 'cocoon' | 'butterfly',
 ): BugFrame {
   const needs = { need_hunger: 90, need_fun: 90, need_energy: 90, need_social: 80, need_clean: 90 };
   return {
     pose: bugPose({ mode, vx: mode === 'st_wander' ? 1 : 0, vy: 0, time, phase, walkSpeed: 1 }),
-    face: { ...bugFace({ art, mode, needs, time, likesFlinging: true }), form: 'normal' },
+    face: { ...bugFace({ art, mode, needs, time, likesFlinging: true, morph }), form: 'normal' },
+    ...(morph ? { morph } : {}),
     facing: 1,
     time,
     dt,

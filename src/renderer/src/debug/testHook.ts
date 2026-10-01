@@ -1,6 +1,7 @@
 import type { Container } from 'pixi.js';
 import { VIEW_WIDTH_PX } from '../../../game/constants';
 import type { Command, EntityView } from '../../../game';
+import type { ReactionType } from '../../../game/events';
 import type { SlotInfo } from '../../../shared/ipc';
 import type { Settings } from '../../../shared/settings';
 import type { Game, SceneName } from '../app/game';
@@ -167,6 +168,25 @@ export interface TestHook {
   debugEntity(id: number, fields: { bites?: number; paint?: string[] }): void;
   /** Rain drops, leaves, and light sprites being drawn now (particle budgets). */
   weatherStats(): { drops: number; leaves: number; lights: number };
+  /**
+   * Screenshots only: patch a bug's brain and paint directly, to stage a look
+   * the AI would take a long time to reach. `null` clears a field;
+   * `peekTicks` opens Twig's eyes for that many ticks; `carrying` with
+   * `overhead` or `rolling` makes it hold an item.
+   */
+  debugBug(id: number, patch: DebugBugPatch): void;
+}
+
+export interface DebugBugPatch {
+  pending?: 'stuck' | 'aloof' | 'disguised' | null;
+  form?: 'cocoon' | 'butterfly' | null;
+  carrying?: number | null;
+  overhead?: boolean;
+  rolling?: boolean;
+  peekTicks?: number;
+  paint?: string[] | null;
+  /** Start a reaction now (and stand still in `st_react` while it shows). */
+  reaction?: { type: ReactionType; variant: number };
 }
 
 declare global {
@@ -395,6 +415,39 @@ export function installTestHook(game: Game): void {
       if (!e) return;
       if (fields.bites !== undefined) e.bites = fields.bites;
       if (fields.paint !== undefined) e.paint = [...fields.paint];
+    },
+    debugBug: (id, patch) => {
+      const sim = game.session?.sim;
+      const e = sim?.entities.get(id);
+      if (!sim || !e?.bug) return;
+      const b = e.bug;
+      if (patch.pending !== undefined) {
+        if (patch.pending === null) delete b.pending;
+        else b.pending = patch.pending;
+      }
+      if (patch.form !== undefined) {
+        if (patch.form === null) delete b.form;
+        else b.form = patch.form;
+      }
+      if (patch.carrying !== undefined) b.carrying = patch.carrying;
+      if (patch.overhead !== undefined) b.overhead = patch.overhead;
+      if (patch.rolling !== undefined) b.rolling = patch.rolling;
+      if (patch.carrying && (patch.overhead || patch.rolling)) {
+        // Stand ready to set off with it (things held up stay held only in everyday modes).
+        b.mode = 'st_idle';
+        b.timer = 1;
+        b.action = null;
+      }
+      if (patch.peekTicks !== undefined) b.eyesUntil = sim.tick + patch.peekTicks;
+      if (patch.paint !== undefined) {
+        if (patch.paint === null) delete e.paint;
+        else e.paint = [...patch.paint];
+      }
+      if (patch.reaction) {
+        b.reaction = { ...patch.reaction, tick: sim.tick };
+        b.mode = 'st_react';
+        b.timer = 150;
+      }
     },
     clearLogs: () => {
       game.sfx.log.length = 0;

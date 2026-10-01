@@ -21,6 +21,7 @@ import { bugFace } from './bugFace';
 import { bugPose } from './bugPose';
 import type { Camera, Point } from './camera';
 import { BugSprite } from './draw/bug';
+import type { BugFrame } from './draw/bug';
 import type { Look } from './draw/face';
 import { ItemSprite } from './draw/item';
 import { SquashSpring, approach, shakeOffset, stretchFor } from './juice';
@@ -867,7 +868,11 @@ export class WorldView extends Container {
   private sizeOf(id: EntityId): number {
     const e = this.sim.entities.get(id);
     if (!e) return 20;
-    if (e.kind === 'bug') return this.sim.content.bugs.get(e.defId).radius * PPM;
+    if (e.kind === 'bug') {
+      // A box-shaped bug (Twig) is as tall as its box, like the item it pretends to be.
+      const def = this.sim.content.bugs.get(e.defId);
+      return def.collider ? (def.collider.height / 2) * PPM : def.radius * PPM;
+    }
     const s = this.sim.content.items.get(e.defId).shape;
     return (s.type === 'circle' ? s.radius : s.height / 2) * PPM;
   }
@@ -1202,6 +1207,8 @@ export class WorldView extends Container {
       gliding: bug.gliding,
       talking: j.talk > 0,
       sniffing: bug.mode === 'st_use' && bug.action === 'inspect',
+      pending: bug.pending,
+      morph: bug.form,
     });
     if (j.hot > 0 && face.form === 'normal') face.tint = 'red';
     // Disliked food offered: shake the head no.
@@ -1248,6 +1255,12 @@ export class WorldView extends Container {
     }
     const stretchMax = flying ? 1.4 : 1.3;
     const stretch = flying || held ? stretchFor(speed, stretchMax) : 1;
+    // Striking a pose or chopping (Prim's karate): eases in, holds, and eases out with the reaction.
+    let karate: BugFrame['karate'];
+    if (look && bug.reaction && (look.move === 'pose' || bug.reaction.type === 'chop')) {
+      const k = Math.min(1, age / 0.18, (look.seconds - age) / (look.seconds * 0.25));
+      if (k > 0) karate = { k, t: age, chop: bug.reaction.type === 'chop' };
+    }
     sprite.zIndex = view.id + (held ? 10000 : 0);
     sprite.update({
       pose,
@@ -1271,6 +1284,14 @@ export class WorldView extends Container {
       chute: def.glidesWhenFlung && bug.mode === 'st_airborne' && !bug.selfLaunched && view.vy > 0.5,
       carrying: bug.carrying !== null,
       hopping: bug.mode === 'st_airborne' && bug.selfLaunched,
+      mode: bug.mode,
+      pending: bug.pending,
+      peeking: bug.peeking,
+      morph: bug.form,
+      overhead: bug.overhead,
+      rolling: bug.rolling,
+      paint: view.paint ?? bug.paint,
+      karate,
     });
     // Snoring: a "Z" drifts up every second and a half.
     if (bug.mode === 'st_sleep') {
@@ -1594,8 +1615,8 @@ export class WorldView extends Container {
   private drawShadow(g: Graphics, view: EntityView): void {
     const ground = this.sim.surfaceY(view.x);
     const size = this.sizeOf(view.id);
-    const width =
-      view.kind === 'bug' ? this.sim.content.bugs.get(view.defId).radius * PPM * 1.3 : size * 1.6 + 8;
+    const bugDef = view.kind === 'bug' ? this.sim.content.bugs.get(view.defId) : null;
+    const width = bugDef && !bugDef.collider ? bugDef.radius * PPM * 1.3 : size * 1.6 + 8;
     const height = ground - view.y - size / PPM;
     const k = Math.max(0, 1 - height / 5);
     if (k <= 0) return;

@@ -1,5 +1,5 @@
 import type { BugMode, Needs } from '../../../game/core/entities';
-import type { BugArt } from '../../../game/data/types';
+import type { BugArt, PendingState } from '../../../game/data/types';
 import type { Liking, Mood } from '../../../game/events';
 
 export type EyeShape =
@@ -80,7 +80,14 @@ export interface BugFaceInput {
   talking?: boolean;
   /** Sniffing something new (`st_use` with `inspect`). */
   sniffing?: boolean;
+  /** Waiting to be found (M7): stuck on its back, aloof, or disguised. */
+  pending?: PendingState;
+  /** Munch as a cocoon or a butterfly. */
+  morph?: 'cocoon' | 'butterfly';
 }
+
+/** Bugs that tuck into a rolling ball when flung (Rollo, Barty). */
+const CURLERS: ReadonlySet<BugArt> = new Set(['pillbug', 'dungbeetle']);
 
 /**
  * Pick an expression and body form from what the bug is doing. Every state
@@ -100,6 +107,11 @@ export function bugFace(input: BugFaceInput): BugFace {
   ): BugFace => ({ eyes, mouth, form, blush, tint, steam });
 
   if (input.frozen) return face('wide', 'o', input.art === 'snail' ? 'in_shell' : 'normal', true);
+  if (input.morph === 'cocoon') {
+    // Wrapped up and fast asleep, whatever happens to the cocoon.
+    const snore = Math.sin(input.time * 1.4) > 0.3;
+    return face('sleepy', snore ? 'o' : 'smile');
+  }
   if (mode === 'st_dizzy') return face('spiral', 'wobble');
   if (mode === 'st_sleep') {
     // Snoozing: eyes shut (the pose closes them), a little open mouth for snores.
@@ -107,7 +119,7 @@ export function bugFace(input: BugFaceInput): BugFace {
     const form = input.art === 'snail' ? 'in_shell' : input.art === 'pillbug' ? 'curled' : 'normal';
     return face('sleepy', snore ? 'o' : 'smile', form);
   }
-  if (mode === 'st_rolled') return face('squint', 'o', input.art === 'pillbug' ? 'curled' : 'normal');
+  if (mode === 'st_rolled') return face('squint', 'o', CURLERS.has(input.art) ? 'curled' : 'normal');
   if (input.woozy)
     return input.dizzyProof ? face('wide', 'o', 'in_shell') : face('spiral', 'wobble', 'normal', true);
   if (mode === 'st_held' && (input.tickle ?? 0) > 0) {
@@ -179,6 +191,14 @@ function stateFace(input: BugFaceInput, face: Make): BugFace {
   const { art, mode, needs } = input;
   // Skeet is cool: half-closed eyes, even when happy.
   const cool = art === 'strider';
+  // Twig is deadpan: heavy lids and a flat mouth, whatever he feels.
+  const deadpan = art === 'stickinsect';
+  const loose = mode === 'st_held' || mode === 'st_airborne';
+  // Moose on his back, legs waving: worried, mouth going "oh... oh..."
+  if (input.pending === 'stuck' && !loose)
+    return face('worried', Math.sin(input.time * 2.6) > 0 ? 'o' : 'wobble');
+  // Barty rolling his ball, nose in the air: far too grand for anyone.
+  if (input.pending === 'aloof' && !loose) return face('sleepy', 'smile');
   switch (mode) {
     case 'st_swim':
       // Rollo holds his breath, Glorp floats shell-up, Dot sputters.
@@ -186,6 +206,7 @@ function stateFace(input: BugFaceInput, face: Make): BugFace {
       if (art === 'snail') return face('sleepy', 'smile', 'in_shell');
       return Math.sin(input.time * 5) > 0.3 ? face('squint', 'wobble') : face('wide', 'o');
     case 'st_held':
+      if (deadpan) return face('open', 'flat');
       if (input.likesFlinging) return face('happy', 'grin', 'normal', true);
       if (art === 'snail') return face('wide', 'o');
       if (cool) return face('sleepy', 'flat');
@@ -194,9 +215,11 @@ function stateFace(input: BugFaceInput, face: Make): BugFace {
       if (input.gliding) return face('happy', 'whee', 'flying', true);
       if (input.selfLaunched)
         return face(art === 'grasshopper' ? 'happy' : 'open', art === 'grasshopper' ? 'whee' : 'o');
-      if (art === 'pillbug') return face('squint', 'o', 'curled');
+      if (CURLERS.has(art)) return face('squint', 'o', 'curled');
       if (art === 'snail') return face('wide', 'o', 'in_shell');
       if (cool) return face('wide', 'whee', 'normal', true);
+      // Thrown like a stick: rigid, eyes shut tight.
+      if (deadpan) return face('sleepy', 'flat');
       return face('wide', 'whee', input.likesFlinging ? 'flying' : 'normal', input.likesFlinging);
     case 'st_use':
       // Sniffing something new is curious; otherwise it is a spring hop.
@@ -213,6 +236,7 @@ function stateFace(input: BugFaceInput, face: Make): BugFace {
       return face('happy', 'whee', 'normal', true);
     case 'st_social':
       if (input.mood === 'mood_grumpy') break;
+      if (deadpan) return face('sleepy', 'smile', 'normal', true);
       return art === 'pillbug'
         ? face('worried', 'smile', 'normal', true)
         : face(cool ? 'sleepy' : 'happy', 'grin', 'normal', true);
@@ -239,9 +263,11 @@ function stateFace(input: BugFaceInput, face: Make): BugFace {
     case 'mood_bored':
       return face('sleepy', 'flat');
     case 'mood_happy':
+      if (deadpan) return face('sleepy', 'smile');
       if (cool) return face('sleepy', 'grin');
       return art === 'pillbug' ? face('worried', 'smile') : face('open', 'grin');
     case 'mood_content':
+      if (deadpan) return face('sleepy', 'flat');
       if (cool) return face('sleepy', 'smile');
       return art === 'pillbug' ? face('worried', 'flat') : face('open', 'smile');
     default:
@@ -252,6 +278,7 @@ function stateFace(input: BugFaceInput, face: Make): BugFace {
   if (needs.need_hunger < 25) return face(art === 'pillbug' ? 'worried' : 'open', 'frown');
   if (needs.need_fun < 25) return face('sleepy', 'flat');
   const happy = (needs.need_hunger + needs.need_fun + needs.need_energy) / 3 >= 65;
+  if (deadpan) return face('sleepy', happy ? 'smile' : 'flat');
   if (art === 'pillbug') return face('worried', happy ? 'smile' : 'flat');
   return face('open', happy ? 'grin' : 'smile');
 }

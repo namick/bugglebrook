@@ -2,6 +2,7 @@ import { Container, Graphics } from 'pixi.js';
 import type { Sim } from '../../../game';
 import { POCKET_SLOTS } from '../../../game/systems/pocket';
 import { BugSprite, standaloneFrame } from '../render/draw/bug';
+import { bugSpan } from '../render/draw/species';
 import { ItemSprite } from '../render/draw/item';
 import { OUTLINE, lighten, stroke } from '../render/palette';
 import { markUi } from './button';
@@ -176,7 +177,7 @@ export class PocketTray extends Container {
         if (slot.kind === 'bug') {
           const def = this.sim.content.bugs.get(slot.defId);
           sprite = new BugSprite(def);
-          size = def.radius * 200;
+          size = bugSpan(def);
         } else {
           const def = this.sim.content.items.get(slot.defId);
           sprite = new ItemSprite(def, slot.ids[slot.ids.length - 1]!);
@@ -223,6 +224,7 @@ export class PocketTray extends Container {
     this.visible = this.open > 0 || this.hasContents;
     const over = holding !== null && pointer ? this.slotAt(pointer.x, pointer.y) : null;
     const glow = this.glow.clear();
+    const contents = this.sim.pocketSlots();
     this.slots.forEach((s, i) => {
       s.lift += ((over === i ? 1 : 0) - s.lift) * Math.min(1, dt * 16);
       s.pop = Math.max(0, s.pop - dt * 3);
@@ -231,7 +233,10 @@ export class PocketTray extends Container {
       holder.scale.set(k);
       if (s.sprite instanceof BugSprite) {
         const art = s.sprite.def.art;
-        s.sprite.update(standaloneFrame('st_idle', this.time + i * 1.7, dt, i * 2.3, art));
+        // Munch keeps his form in the pocket: a cocoon or a butterfly.
+        const top = contents[i]?.ids.at(-1);
+        const morph = top === undefined ? undefined : this.sim.view(top)?.bug?.form;
+        s.sprite.update(standaloneFrame('st_idle', this.time + i * 1.7, dt, i * 2.3, art, morph));
       } else if (s.sprite) {
         s.sprite.rotation = Math.sin(this.time * 1.5 + i) * 0.06;
         s.sprite.update(dt);

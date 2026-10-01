@@ -349,6 +349,7 @@ export function drawPicto(g: Graphics, picto: Picto, x: number, y: number, s: nu
  * the bug's colors with its eyes and one telling feature.
  */
 export function drawFriend(g: Graphics, def: BugDef, x: number, y: number, s: number): void {
+  if (drawFoundFriend(g, def, x, y, s)) return;
   const h = s / 2;
   const st = stroke(LINE);
   const head =
@@ -388,4 +389,196 @@ export function drawFriend(g: Graphics, def: BugDef, x: number, y: number, s: nu
     .quadraticCurveTo(x + h * 0.12, y + h * (cool ? 0.38 : 0.5), x + h * 0.36, y + h * 0.3)
     .stroke(stroke(2.5));
   g.circle(x + h * 0.52, y + h * 0.25, h * 0.08).fill({ color: 0xff8fab, alpha: 0.9 });
+}
+
+/** Two round eyes looking a little right, for the friend faces below. */
+function friendEyes(g: Graphics, x: number, y: number, h: number, size = 0.18, gap = 0.44): void {
+  for (const dx of [-gap / 2, gap / 2]) {
+    g.circle(x + h * dx, y, h * size)
+      .fill(0xffffff)
+      .stroke(stroke(2));
+    g.circle(x + h * dx + h * size * 0.22, y + h * size * 0.1, h * size * 0.45).fill(OUTLINE);
+  }
+}
+
+/**
+ * Friend faces for the bugs found in M7. Returns false for the others,
+ * which `drawFriend` draws itself.
+ */
+function drawFoundFriend(g: Graphics, def: BugDef, x: number, y: number, s: number): boolean {
+  const h = s / 2;
+  const st = stroke(LINE);
+  const cheek = { color: 0xff8fab, alpha: 0.9 };
+  const smile = (cx: number, cy: number, w: number, deep: number): void => {
+    g.moveTo(cx - w, cy)
+      .quadraticCurveTo(cx, cy + deep, cx + w, cy)
+      .stroke(stroke(2.5));
+  };
+  switch (def.art) {
+    case 'stinkbug': {
+      // The olive shield over his little head, dotted with orange.
+      g.moveTo(x - h * 1.05, y + h * 0.15)
+        .quadraticCurveTo(x - h * 0.95, y - h * 0.85, x + h * 0.2, y - h * 0.8)
+        .lineTo(x + h * 0.35, y - h * 0.2)
+        .closePath()
+        .fill(def.body)
+        .stroke(st);
+      for (const [dx, dy] of [
+        [-0.8, -0.05],
+        [-0.6, -0.42],
+        [-0.25, -0.62],
+      ])
+        g.circle(x + h * dx!, y + h * dy!, h * 0.09).fill(def.accent);
+      g.circle(x + h * 0.15, y + h * 0.12, h * 0.55)
+        .fill(lighten(def.body, 0.16))
+        .stroke(st);
+      friendEyes(g, x + h * 0.15, y + h * 0.05, h, 0.16);
+      // Apologetic brows.
+      g.moveTo(x - h * 0.15, y - h * 0.18)
+        .lineTo(x + h * 0.02, y - h * 0.28)
+        .stroke(stroke(2.5));
+      g.moveTo(x + h * 0.28, y - h * 0.28)
+        .lineTo(x + h * 0.45, y - h * 0.18)
+        .stroke(stroke(2.5));
+      smile(x + h * 0.15, y + h * 0.35, h * 0.14, h * 0.1);
+      g.circle(x + h * 0.55, y + h * 0.3, h * 0.09).fill(cheek);
+      return true;
+    }
+    case 'stagbeetle': {
+      // Antlers.
+      for (const side of [-1, 1]) {
+        g.moveTo(x + side * h * 0.35, y - h * 0.3)
+          .quadraticCurveTo(x + side * h * 0.95, y - h * 0.55, x + side * h * 0.6, y - h * 1.05)
+          .stroke({ width: h * 0.24, color: OUTLINE, cap: 'round' });
+        g.moveTo(x + side * h * 0.35, y - h * 0.3)
+          .quadraticCurveTo(x + side * h * 0.95, y - h * 0.55, x + side * h * 0.6, y - h * 1.05)
+          .stroke({ width: h * 0.24 - 5, color: def.belly, cap: 'round' });
+        g.moveTo(x + side * h * 0.78, y - h * 0.62)
+          .lineTo(x + side * h * 1.02, y - h * 0.82)
+          .stroke({ width: 4, color: OUTLINE, cap: 'round' });
+      }
+      g.circle(x, y + h * 0.1, h * 0.62)
+        .fill(lighten(def.body, 0.12))
+        .stroke(st);
+      g.circle(x - h * 0.3, y - h * 0.22, h * 0.08).fill({ color: 0xffffff, alpha: 0.6 });
+      friendEyes(g, x, y + h * 0.02, h, 0.13, 0.5);
+      g.moveTo(x - h * 0.16, y + h * 0.32)
+        .quadraticCurveTo(x, y + h * 0.44, x + h * 0.16, y + h * 0.32)
+        .stroke(stroke(2.5, 0xffd0b8));
+      g.circle(x + h * 0.42, y + h * 0.3, h * 0.08).fill(cheek);
+      return true;
+    }
+    case 'dungbeetle': {
+      // The round, shimmering shell behind, and the shovel head.
+      g.circle(x - h * 0.45, y - h * 0.3, h * 0.6)
+        .fill(def.body)
+        .stroke(st);
+      g.arc(x - h * 0.45, y - h * 0.3, h * 0.38, Math.PI * 1.05, Math.PI * 1.7).stroke({
+        width: h * 0.18,
+        color: def.belly,
+        cap: 'round',
+      });
+      g.circle(x - h * 0.62, y - h * 0.52, h * 0.08).fill({ color: 0xffffff, alpha: 0.8 });
+      g.moveTo(x - h * 0.45, y + h * 0.1)
+        .quadraticCurveTo(x + h * 0.15, y - h * 0.65, x + h * 0.75, y + h * 0.05)
+        .lineTo(x + h * 0.82, y + h * 0.32)
+        .lineTo(x + h * 0.66, y + h * 0.4)
+        .lineTo(x + h * 0.74, y + h * 0.55)
+        .quadraticCurveTo(x + h * 0.1, y + h * 0.75, x - h * 0.45, y + h * 0.5)
+        .closePath()
+        .fill(0x2a6f66)
+        .stroke(st);
+      friendEyes(g, x + h * 0.15, y - h * 0.02, h, 0.15);
+      // Nose in the air: a smug little smile.
+      g.moveTo(x + h * 0.05, y + h * 0.33)
+        .quadraticCurveTo(x + h * 0.22, y + h * 0.4, x + h * 0.38, y + h * 0.28)
+        .stroke(stroke(2.5, 0xd8f5ee));
+      return true;
+    }
+    case 'caterpillar': {
+      for (const [dx, dy, r] of [
+        [-0.95, 0.35, 0.34],
+        [-0.55, 0.3, 0.4],
+      ])
+        g.circle(x + h * dx!, y + h * dy!, h * r!)
+          .fill(def.body)
+          .stroke(st);
+      g.circle(x - h * 0.6, y + h * 0.28, h * 0.12).fill(def.belly);
+      for (const dx of [-0.15, 0.35]) {
+        g.moveTo(x + h * dx, y - h * 0.45)
+          .lineTo(x + h * (dx + 0.05), y - h * 0.85)
+          .stroke(stroke(3));
+        g.circle(x + h * (dx + 0.05), y - h * 0.88, h * 0.11)
+          .fill(def.accent)
+          .stroke(stroke(2));
+      }
+      g.circle(x + h * 0.1, y + h * 0.05, h * 0.6)
+        .fill(lighten(def.body, 0.12))
+        .stroke(st);
+      friendEyes(g, x + h * 0.1, y - h * 0.08, h, 0.17);
+      // A massive smile.
+      g.moveTo(x - h * 0.22, y + h * 0.18)
+        .quadraticCurveTo(x + h * 0.1, y + h * 0.65, x + h * 0.42, y + h * 0.18)
+        .closePath()
+        .fill(MOUTH)
+        .stroke(stroke(2.5));
+      g.circle(x + h * 0.55, y + h * 0.18, h * 0.09).fill(cheek);
+      g.circle(x - h * 0.35, y + h * 0.18, h * 0.08).fill(cheek);
+      return true;
+    }
+    case 'mantis': {
+      for (const dx of [-0.15, 0.2])
+        g.moveTo(x + h * dx, y - h * 0.5)
+          .quadraticCurveTo(x + h * (dx - 0.2), y - h * 1.1, x + h * (dx - 0.6), y - h * 1.15)
+          .stroke({ width: 2.5, color: OUTLINE, cap: 'round' });
+      // A triangle head with huge eyes at its corners.
+      g.moveTo(x - h * 0.75, y - h * 0.45)
+        .quadraticCurveTo(x, y - h * 0.7, x + h * 0.75, y - h * 0.45)
+        .quadraticCurveTo(x + h * 0.4, y + h * 0.3, x + h * 0.05, y + h * 0.7)
+        .quadraticCurveTo(x - h * 0.4, y + h * 0.3, x - h * 0.75, y - h * 0.45)
+        .closePath()
+        .fill(lighten(def.body, 0.1))
+        .stroke(st);
+      for (const dx of [-0.48, 0.48]) {
+        g.circle(x + h * dx, y - h * 0.35, h * 0.27)
+          .fill(0xffffff)
+          .stroke(stroke(2));
+        g.circle(x + h * dx + h * 0.06, y - h * 0.32, h * 0.13).fill(OUTLINE);
+        g.circle(x + h * dx, y - h * 0.4, h * 0.05).fill(0xffffff);
+      }
+      smile(x + h * 0.04, y + h * 0.3, h * 0.12, h * 0.08);
+      g.circle(x + h * 0.35, y + h * 0.1, h * 0.08).fill(cheek);
+      return true;
+    }
+    case 'stickinsect': {
+      // A twig. With eyes. Deadpan.
+      g.roundRect(x - h * 1.1, y - h * 0.2, h * 2.2, h * 0.42, h * 0.21)
+        .fill(def.body)
+        .stroke(st);
+      g.moveTo(x - h * 0.4, y - h * 0.18)
+        .lineTo(x - h * 0.58, y - h * 0.5)
+        .stroke({ width: 6, color: OUTLINE, cap: 'round' });
+      g.moveTo(x - h * 0.4, y - h * 0.18)
+        .lineTo(x - h * 0.58, y - h * 0.5)
+        .stroke({ width: 2.5, color: def.body, cap: 'round' });
+      g.ellipse(x + h * 0.95, y, h * 0.08, h * 0.12).fill(def.belly);
+      for (const dx of [0.28, 0.62]) {
+        g.circle(x + h * dx, y - h * 0.02, h * 0.12)
+          .fill(0xffffff)
+          .stroke(stroke(1.5));
+        g.circle(x + h * dx + h * 0.03, y, h * 0.06).fill(OUTLINE);
+        // Heavy lids.
+        g.rect(x + h * (dx - 0.13), y - h * 0.15, h * 0.26, h * 0.1).fill(def.body);
+        g.moveTo(x + h * (dx - 0.12), y - h * 0.05)
+          .lineTo(x + h * (dx + 0.12), y - h * 0.05)
+          .stroke(stroke(1.5));
+      }
+      g.moveTo(x + h * 0.36, y + h * 0.12)
+        .lineTo(x + h * 0.56, y + h * 0.12)
+        .stroke(stroke(1.5));
+      return true;
+    }
+    default:
+      return false;
+  }
 }
