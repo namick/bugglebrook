@@ -126,7 +126,8 @@ for (const sheet of [0, 1])
     const { page } = bb;
     try {
       const left = await page.evaluate(() => window.__bb!.camera().x);
-      const cols = 9;
+      // Six columns stay clear of the stump on the right.
+      const cols = 6;
       const first = sheet * PER_SHEET;
       const spots = ALL.slice(first, first + PER_SHEET).map((look, i) => ({
         look,
@@ -206,6 +207,148 @@ test('M7 lattice, track pieces, and marbles', async () => {
     await page.evaluate(() => window.__bb!.frames(140));
     await page.waitForTimeout(300);
     await shot(page, 'pieces-ground');
+  } finally {
+    await bb.close();
+  }
+});
+
+// --- M8 ---------------------------------------------------------------------
+
+const M8_SHEETS: string[][] = [
+  [
+    'item_string',
+    'item_balloon_red',
+    'item_balloon_blue',
+    'item_balloon_scrap',
+    'item_maple_seed',
+    'item_hat_thimble',
+    'item_comb_tooth',
+    'item_glass_bead',
+    'item_ant_crumb',
+    'item_paint_red',
+    'item_paint_blue',
+    'item_paint_yellow',
+    'item_paint_white',
+    'item_paint_black',
+    'item_paint_glow',
+    'item_popcorn_kernel',
+    'item_popcorn',
+    'item_eggshell_bit',
+    'item_hat_mushroom',
+    'item_junk_blob',
+    'item_junk_blob',
+    'item_sprout',
+    'item_blueprint_slingshot',
+    'item_blueprint_magnet_crane',
+    'item_blueprint_balloon_basket',
+    'item_blueprint_disco_ball',
+    'item_disco_ball',
+  ],
+  [
+    'item_hat_propeller',
+    'item_hat_viking',
+    'item_hat_yarn_beanie',
+    'item_hat_pirate',
+    'item_acc_googly_glasses',
+    'item_acc_snorkel',
+    'item_acc_headlamp',
+    'item_acc_roller_skates',
+    'item_acc_cape_leaf',
+    'item_acc_crown_foil',
+    'item_acc_backpack_matchbox',
+    'item_inst_comb_kazoo',
+    'item_inst_rubber_band_harp',
+    'item_inst_can_bass',
+    'item_inst_thimble_drum',
+    'item_pinwheel',
+    'item_straw_rocket',
+    'item_spring_launcher',
+    'item_potion_giant',
+    'item_potion_tiny',
+    'item_potion_glow',
+    'item_potion_fire_breath',
+    'item_potion_sleepy',
+    'item_potion_ghost',
+    'item_potion_magnet',
+    'item_potion_opera',
+    'item_potion_mix',
+  ],
+];
+
+/** Spawn a list before a single step, so everything hangs where it was put. */
+async function spawnAll(page: Page, list: { defId: string; x: number; y: number }[]): Promise<void> {
+  await page.evaluate((l) => {
+    for (const s of l) window.__bb!.send({ type: 'spawn', kind: 'item', defId: s.defId, x: s.x, y: s.y });
+    window.__bb!.frames(1);
+  }, list);
+  await page.waitForTimeout(300);
+}
+
+for (const [sheet, ids] of M8_SHEETS.entries())
+  test(`M8 item sheet ${sheet + 1}`, async () => {
+    const bb = await open();
+    const { page } = bb;
+    try {
+      const left = await page.evaluate(() => window.__bb!.camera().x);
+      // Six columns stay clear of the stump on the right.
+      const cols = 6;
+      const spots = ids.map((defId, i) => ({
+        defId,
+        x: left + 1.2 + (i % cols) * 2.1,
+        y: 1.3 + Math.floor(i / cols) * 1.35,
+      }));
+      await spawnAll(page, spots);
+      await shot(page, `m8-sheet${sheet + 1}`);
+      for (const [i, s] of spots.entries())
+        await closeUp(
+          page,
+          `m8-close-${sheet + 1}-${String(i).padStart(2, '0')}-${s.defId.slice(5)}`,
+          s.x,
+          s.y,
+        );
+      await page.evaluate(() => {
+        window.__bb!.send({ type: 'set_time', hour: 22 });
+        window.__bb!.frames(2);
+      });
+      await page.waitForTimeout(400);
+      await shot(page, `m8-sheet${sheet + 1}-night`);
+      await page.evaluate(() => {
+        window.__bb!.send({ type: 'set_time', hour: 12 });
+        window.__bb!.frames(150);
+      });
+      await page.waitForTimeout(300);
+      await shot(page, `m8-sheet${sheet + 1}-ground`);
+    } finally {
+      await bb.close();
+    }
+  });
+
+test('M8 big toys', async () => {
+  const bb = await open();
+  const { page } = bb;
+  try {
+    const left = await page.evaluate(() => window.__bb!.camera().x);
+    const toys: [string, number, number, number, number][] = [
+      ['item_slingshot_twig', 1.5, 1.6, 2, 1.6],
+      ['item_matchbox_racer', 4, 1.6, 2, 1.2],
+      ['item_parachute', 6.5, 1.6, 2, 1.2],
+      ['item_tin_can_phone', 9.4, 1.6, 3, 1.2],
+      ['item_balloon_basket', 12.5, 2.4, 2.4, 3],
+      ['item_trampoline', 16.3, 1.4, 3, 1.2],
+      ['item_magnet_crane', 2.5, 4.8, 3.4, 1.8],
+      ['item_popsicle_seesaw', 7, 4.8, 3.6, 1.2],
+      ['item_spoon_catapult', 10.6, 4.8, 2.6, 1.2],
+    ];
+    await spawnAll(
+      page,
+      toys.map(([defId, x, y]) => ({ defId, x: left + x, y })),
+    );
+    await shot(page, 'm8-toys');
+    for (const [defId, x, y, w, h] of toys)
+      await closeUp(page, `m8-toy-${defId.slice(5)}`, left + x, y, w, h);
+    await page.evaluate(() => window.__bb!.frames(150));
+    await page.waitForTimeout(300);
+    await shot(page, 'm8-toys-ground');
   } finally {
     await bb.close();
   }

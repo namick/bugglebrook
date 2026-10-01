@@ -4,6 +4,14 @@ import type { ItemDef } from '../../../../game/data/types';
 import { OUTLINE, darken, lighten, mix, stroke } from '../palette';
 import { hash01 } from '../bugPose';
 import { drawItemArt7, outlineItemArt7 } from './itemArt7';
+import {
+  drawItemArt8,
+  drawPinwheelStick,
+  drawPinwheelWheel,
+  drawPotion,
+  outlineItemArt8,
+  pinwheelHub,
+} from './itemArt8';
 
 /** The paint puddle colors, by paint ID. */
 const PAINT_COLORS: Readonly<Record<string, number>> = {
@@ -35,6 +43,8 @@ export class ItemSprite extends Container {
   /** How soggy a paper thing is, 0 to 1, as last drawn. */
   private soggy = 0;
   private readonly coil: Graphics | null = null;
+  /** A pinwheel's blades, turning slowly on their pin. */
+  private wheel: Graphics | null = null;
   private time = Math.random() * 10;
   /** Spring compression, 0 to 1, set when something bounces off it. */
   compress = 0;
@@ -141,8 +151,22 @@ export class ItemSprite extends Container {
       case 'moon_pebble':
         this.moonPebble(w / 2, seed);
         break;
+      case 'potion':
+        drawPotion(this.g, def, w, h, def.color);
+        this.onLiquid = (color) => drawPotion(this.g.clear(), def, w, h, color);
+        break;
+      case 'pinwheel': {
+        drawPinwheelStick(this.g, w, h);
+        const hub = pinwheelHub(w, h);
+        this.wheel = new Graphics();
+        this.wheel.position.set(hub.x, hub.y);
+        this.wheel.rotation = hash01(seed, 5) * Math.PI;
+        drawPinwheelWheel(this.wheel, def, hub.r);
+        this.art.addChild(this.wheel);
+        break;
+      }
       default:
-        drawItemArt7(this.g, def, w, h, seed);
+        if (!drawItemArt7(this.g, def, w, h, seed)) drawItemArt8(this.g, def, w, h, seed);
     }
     this.outline(this.rim, w, h);
     this.rim.stroke({ width: 16, color: 0xffffff, join: 'round', cap: 'round' });
@@ -210,7 +234,7 @@ export class ItemSprite extends Container {
           .lineTo(w / 2, h / 2);
         return;
       default:
-        if (!outlineItemArt7(g, this.def, w, h, this.seed))
+        if (!outlineItemArt7(g, this.def, w, h, this.seed) && !outlineItemArt8(g, this.def, w, h, this.seed))
           g.roundRect(-w / 2, -h / 2, w, h, Math.min(8, h / 2));
     }
   }
@@ -1077,6 +1101,7 @@ export class ItemSprite extends Container {
   update(dt: number): void {
     this.time += dt;
     if (this.stink) this.drawStink();
+    if (this.wheel) this.wheel.rotation += dt * 1.6;
     if (!this.coil) return;
     // Damped spring back to rest, with a little overshoot for a boing.
     this.compressV += (-220 * this.compress - 10 * this.compressV) * Math.min(dt, 0.05);
