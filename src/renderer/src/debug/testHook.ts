@@ -147,6 +147,12 @@ export interface TestHook {
   };
   /** Secrets found in this world, in order. */
   secrets(): string[];
+  /** M7: the areas that are open, the walkable span, and the camera's open stretch. */
+  unlocked(): { open: string[]; span: { x0: number; x1: number } };
+  /** M7: the bugs that have joined the cast (hidden ones waiting to be found are not in it). */
+  cast(): string[];
+  /** M7: the new areas' fixtures: stage lights mode, the porch lamp, quiet speakers, the bucket lift. */
+  places(): { stageLights: number; lampOn: boolean; muted: string[]; lift: string; liftY: number };
   /** How the scene is graded right now: tints per depth, stars, glow, and how much weather shows. */
   look(): {
     near: number;
@@ -349,6 +355,27 @@ export function installTestHook(game: Game): void {
       };
     },
     secrets: () => [...(game.session?.sim.secrets ?? [])],
+    unlocked: () => {
+      const sim = game.session?.sim;
+      if (!sim) return { open: [], span: { x0: 0, x1: 0 } };
+      return {
+        open: sim.content.areas.all.filter((a) => sim.barriers.isOpen(a.id)).map((a) => a.id),
+        span: sim.barriers.span(),
+      };
+    },
+    cast: () => game.session?.sim.cast.members().sort() ?? [],
+    places: () => {
+      const sim = game.session?.sim;
+      if (!sim) return { stageLights: 0, lampOn: false, muted: [], lift: '', liftY: 0 };
+      const p = sim.places.state;
+      return {
+        stageLights: p.stageLights,
+        lampOn: p.lampOn,
+        muted: [...p.muted],
+        lift: sim.barriers.state.lift.phase,
+        liftY: sim.barriers.state.lift.y,
+      };
+    },
     look: () => {
       const view = game.session?.view;
       const l = view?.look;

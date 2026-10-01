@@ -66,6 +66,8 @@ interface WorldSession {
   thumb: string | null;
   /** Where the hand was last reported to the sim. */
   handSent: { x: number; y: number } | null;
+  /** A camera glide asked for by the world (the lift's first trip), done once the limits catch up. */
+  follow: number | null;
 }
 
 /** The native moves the browser merged into this one, oldest first, if it can tell us. */
@@ -442,6 +444,7 @@ export class Game {
       panned: false,
       thumb: save?.meta.thumb ?? null,
       handSent: null,
+      follow: null,
     };
     input.onGesture = (gesture, strength) => {
       if (gesture === 'pan' || gesture === 'scroll' || gesture === 'edge') session.panned = true;
@@ -456,6 +459,12 @@ export class Game {
     });
     sim.events.on('item_grabbed', (e) => {
       if (e.kind === 'bug') session.grabbedBug = true;
+    });
+    // The bucket lift's first trip: the camera follows it up into the treehouse.
+    sim.events.on('lift_moved', (e) => {
+      if (e.phase !== 'top' || !e.first) return;
+      const house = sim.content.areas.tryGet('area_treehouse_arcade');
+      if (house) session.follow = house.xStart - 6;
     });
     this.session = session;
     this.applySettings(this.settings.get());
@@ -694,6 +703,10 @@ export class Game {
     // Locked areas: the camera may look past a barrier, and springs back when let go.
     const open = s.sim.barriers.span();
     s.camera.setLimits(open.x0, open.x1);
+    if (s.follow !== null) {
+      s.camera.glideTo(s.follow, 1.6);
+      s.follow = null;
+    }
     s.camera.holding = s.input.mode === 'pan' || s.input.mode === 'hold';
     s.camera.update(dt);
     this.sendFocus(s);
