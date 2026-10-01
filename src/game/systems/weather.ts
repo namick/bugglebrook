@@ -358,7 +358,7 @@ export class Weather {
           : tick + Math.max(MIN_RUN, this.rng.int(CHANGE_MIN, CHANGE_MAX));
     }
     this.syncEnv();
-    if (from !== weather) this.sim.events.emit('weather_changed', { weather, from });
+    if (from !== weather) this.sim.events.emit('weather_changed', { weather, from, forced: !natural });
   }
 
   /** Tell the environment how hard the wind blows and whether it rains. */

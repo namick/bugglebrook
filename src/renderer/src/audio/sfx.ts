@@ -276,6 +276,7 @@ export class Sfx {
       bus.on('item_shaken', () => this.play('shake')),
       bus.on('bug_hopped', () => this.play('hop')),
       bus.on('item_respawned', () => this.play('whistle')),
+      bus.on('entity_returned', () => this.play('whistle')),
       // Water and property rules.
       bus.on('splashed', (e) =>
         e.speed > 1.5 || e.size > 0.25

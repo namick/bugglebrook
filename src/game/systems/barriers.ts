@@ -127,7 +127,9 @@ export class Barriers {
   /** Walls and the lift's buckets. Call once the sim's physics exists. */
   build(): void {
     const physics = this.sim.physics;
-    for (const b of this.list) if (this.closed(b)) physics.addWall(`wall_${b.id}`, b.wall);
+    const mid = this.middle();
+    for (const b of this.list)
+      if (this.closed(b)) physics.addWall(`wall_${b.id}`, b.wall, b.wall < mid ? -1 : 1);
     const lift = this.barrier('bucket_lift');
     if (lift) {
       physics.addKinematic('bucket_bottom', lift.x, this.state.lift.y + 0.06, BUCKET_PARTS);
@@ -149,8 +151,7 @@ export class Barriers {
 
   /** The walkable stretch of the world around the plaza: between the nearest shut barriers. */
   span(): { x0: number; x1: number } {
-    const plaza = this.sim.content.areas.tryGet('area_stump_plaza');
-    const mid = plaza ? (plaza.xStart + plaza.xEnd) / 2 : this.sim.worldWidth / 2;
+    const mid = this.middle();
     let x0 = 0;
     let x1 = this.sim.worldWidth;
     for (const b of this.list) {
@@ -159,6 +160,12 @@ export class Barriers {
       else x1 = Math.min(x1, b.wall);
     }
     return { x0, x1 };
+  }
+
+  /** The plaza's middle: every locked area lies to one side of it. */
+  private middle(): number {
+    const plaza = this.sim.content.areas.tryGet('area_stump_plaza');
+    return plaza ? (plaza.xStart + plaza.xEnd) / 2 : this.sim.worldWidth / 2;
   }
 
   /** Open an area for good: its wall comes down, and its secret (if any) is found. */

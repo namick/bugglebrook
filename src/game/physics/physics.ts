@@ -1,7 +1,20 @@
-import { AABB, Box, Chain, Circle, Edge, MouseJoint, RevoluteJoint, Vec2, WeldJoint, World } from 'planck';
+import {
+  AABB,
+  Box,
+  Chain,
+  Circle,
+  MouseJoint,
+  RevoluteJoint,
+  Settings,
+  Transform,
+  Vec2,
+  WeldJoint,
+  World,
+} from 'planck';
 import type { Body, Contact, Joint } from 'planck';
 import type { EntityId } from '../core/entities';
 import type { Terrain } from '../world/terrain';
+import { MAX_BODY_SPEED, WORLD_CEILING_Y } from '../constants';
 
 export interface BoxPartSpec {
   x: number;
@@ -69,6 +82,10 @@ export function wrapAngle(a: number): number {
 
 const VELOCITY_ITERATIONS = 8;
 const POSITION_ITERATIONS = 3;
+/** How thick the world's end walls and ceiling are: thick enough that nothing is ever pushed through. */
+const BOUNDARY_THICKNESS = 3;
+/** How thick a locked barrier's wall is, on its locked side. */
+const BARRIER_THICKNESS = 0.3;
 
 /**
  * Thin wrapper over planck.js. The rest of the sim talks to bodies by entity
@@ -95,11 +112,15 @@ export class Physics {
   /** How fast the hand moved its target during the last step, m/s. */
   handSpeed = 0;
 
+  /** The lowest point of the terrain, plus a meter. */
+  readonly bottom: number;
+
   constructor(
     gravity: number,
     readonly width: number,
     readonly terrain: Terrain,
   ) {
+    this.bottom = Math.max(...terrain.points.map((p) => p[1])) + 1;
     this.world = new World({ gravity: { x: 0, y: gravity } });
     this.ground = this.world.createBody({ type: 'static' });
     const pts = terrain.points.map(([x, y]) => Vec2(x, y));
@@ -109,13 +130,20 @@ export class Physics {
     pts.unshift(Vec2(first.x - 2, first.y));
     pts.push(Vec2(last.x + 2, last.y));
     this.ground.createFixture(new Chain(pts, false), { friction: 0.8 });
-    const wallTop = -60;
-    const wallBottom = Math.max(...terrain.points.map((p) => p[1])) + 1;
-    this.ground.createFixture(new Edge(Vec2(0, wallTop), Vec2(0, wallBottom)), { friction: 0.3 });
-    this.ground.createFixture(new Edge(Vec2(width, wallTop), Vec2(width, wallBottom)), { friction: 0.3 });
+    // Solid end walls up to a ceiling: a closed box. Thick boxes, not edges,
+    // so a body squeezed against them is pushed back in, never out.
+    const T = BOUNDARY_THICKNESS;
+    const top = WORLD_CEILING_Y;
+    const bottom = this.bottom + 2;
+    const box = (x0: number, y0: number, x1: number, y1: number): Box =>
+      new Box((x1 - x0) / 2, (y1 - y0) / 2, Vec2((x0 + x1) / 2, (y0 + y1) / 2), 0);
+    this.ground.createFixture(box(-T, top - T, 0, bottom), { friction: 0.3 });
+    this.ground.createFixture(box(width, top - T, width + T, bottom), { friction: 0.3 });
+    this.ground.createFixture(box(-T, top - T, width + T, top), { friction: 0.3 });
 
+    this.selectiveContinuous();
     this.world.on('begin-contact', (contact: Contact) => this.recordImpact(contact));
-    this.world.on('pre-solve', (contact: Contact) => {
+    this.preSolve = (contact: Contact) => {
       const ba = contact.getFixtureA().getBody();
       const bb = contact.getFixtureB().getBody();
       const a = ba.getUserData() as EntityId | null;
@@ -131,7 +159,23 @@ export class Physics {
       if (a == null || b == null) return;
       const m = contact.getWorldManifold(null);
       if (m && filter(a, b, m.normal.x, m.normal.y)) contact.setEnabled(false);
-    });
+    };
+    this.world.on('pre-solve', this.preSolve);
+  }
+
+  private readonly preSolve: (contact: Contact) => void;
+  private filtering = true;
+
+  /**
+   * Whether any contact might need filtering this step (`passThrough`,
+   * `platformPass`). The sim says no when there are no setups, ghosts, or
+   * things in the cobweb, and planck then skips the per-contact callback.
+   */
+  set filterContacts(on: boolean) {
+    if (on === this.filtering) return;
+    this.filtering = on;
+    if (on) this.world.on('pre-solve', this.preSolve);
+    else this.world.off('pre-solve', this.preSolve);
   }
 
   /**
@@ -188,6 +232,9 @@ export class Physics {
       bullet: false,
     });
     this.addFixtures(body, shape, material);
+    // Adding fixtures moves the center of mass, and planck shifts the velocity to match a spin
+    // about the old one; put back the velocity it was given, so a loaded world moves on exactly.
+    body.setLinearVelocity(Vec2(state.vx, state.vy));
     if (shape.type === 'box') this.halfExtents.set(id, { x: shape.width / 2, y: shape.height / 2 });
     body.setUserData(id);
     this.bodies.set(id, body);
@@ -223,6 +270,7 @@ export class Physics {
     else this.halfExtents.delete(id);
     body.resetMassData();
     body.setAwake(true);
+    this.sizes.delete(body);
   }
 
   /** Gravity on this body, times g: 1 normal, 0.15 floaty, -1 falls up. */
@@ -284,6 +332,7 @@ export class Physics {
     for (const [handle, w] of this.welds) if (w.a === id || w.b === id) this.unweld(handle);
     this.removePivot(id);
     this.world.destroyBody(body);
+    this.sizes.delete(body);
     this.bodies.delete(id);
     this.halfExtents.delete(id);
   }
@@ -306,8 +355,44 @@ export class Physics {
     };
   }
 
+  /** Is the body moving at all? planck puts bodies that have been still for half a second to sleep. */
+  isAwake(id: EntityId): boolean {
+    const body = this.requireBody(id);
+    return body.isAwake() && body.isActive();
+  }
+
+  /** How fast a body moves. The returned vector is live and read-only: copy it to keep it. */
+  velocity(id: EntityId): Readonly<Vec> {
+    return this.requireBody(id).getLinearVelocity();
+  }
+
+  /** Where a body is. The returned point is live and read-only: copy it to keep it. */
+  position(id: EntityId): Readonly<Vec> {
+    return this.requireBody(id).getPosition();
+  }
+
+  /**
+   * Is any fixed part of the world (not the ground, not an entity) within
+   * `r` of (x, y)? Used to find a clear spot to drop something into.
+   */
+  solidNear(x: number, y: number, r: number): boolean {
+    let hit = false;
+    const box = new AABB(Vec2(x - r, y - r), Vec2(x + r, y + r));
+    this.world.queryAABB(box, (fixture) => {
+      const body = fixture.getBody();
+      if (body === this.ground || body.isDynamic()) return true;
+      // The tree's boxes are padded; check the fixture's own.
+      for (let i = 0; i < fixture.getShape().getChildCount(); i++)
+        if (AABB.testOverlap(box, fixture.getAABB(i))) hit = true;
+      return !hit;
+    });
+    return hit;
+  }
+
   setVelocity(id: EntityId, vx: number, vy: number): void {
     const body = this.requireBody(id);
+    // Asking a sleeping body to keep still changes nothing: let it (and what it touches) sleep on.
+    if (vx === 0 && vy === 0 && !body.isAwake()) return;
     body.setLinearVelocity(Vec2(vx, vy));
     body.setAwake(true);
   }
@@ -340,6 +425,7 @@ export class Physics {
     body.setTransform(Vec2(x, y), angle);
     body.setLinearVelocity(Vec2(0, 0));
     body.setAngularVelocity(0);
+    body.setAwake(true);
   }
 
   /** Push a body at its center of mass for the next step (N). */
@@ -393,6 +479,7 @@ export class Physics {
     const body = this.platforms.get(key);
     if (!body) return;
     this.world.destroyBody(body);
+    this.sizes.delete(body);
     this.platforms.delete(key);
     this.platformKeys.delete(body);
   }
@@ -450,12 +537,24 @@ export class Physics {
     this.platforms.set(key, body);
   }
 
-  /** An invisible wall from high above down into the ground at x (a locked barrier). */
-  addWall(key: string, x: number): void {
+  /**
+   * An invisible wall from the ceiling down into the ground at x (a locked
+   * barrier). Its face is at x; it is a little thick on the `side` it keeps
+   * shut (-1 left, 1 right), so nothing pushed hard against it squeezes through.
+   */
+  addWall(key: string, x: number, side: 1 | -1 = 1): void {
     if (this.platforms.has(key)) return;
     const body = this.world.createBody({ type: 'static' });
-    const bottom = Math.max(...this.terrain.points.map((p) => p[1])) + 1;
-    body.createFixture(new Edge(Vec2(x, -60), Vec2(x, bottom)), { friction: 0.3 });
+    const x0 = side > 0 ? x : x - BARRIER_THICKNESS;
+    body.createFixture(
+      new Box(
+        BARRIER_THICKNESS / 2,
+        (this.bottom - WORLD_CEILING_Y) / 2,
+        Vec2(x0 + BARRIER_THICKNESS / 2, (this.bottom + WORLD_CEILING_Y) / 2),
+        0,
+      ),
+      { friction: 0.3 },
+    );
     this.platforms.set(key, body);
   }
 
@@ -754,38 +853,70 @@ export class Physics {
     return hit;
   }
 
-  /** Topmost (highest ID) dynamic body containing the point, or null. */
+  /**
+   * The body under a point: the topmost (highest ID) one whose shape holds
+   * it, or else the nearest one within `pad` (ties go to the topmost). So a
+   * click right on a small thing grabs it, not a bigger neighbor whose
+   * padded edge reaches over it (R02 of the post-M8 review).
+   */
   bodyAt(x: number, y: number, pad = 0.05): EntityId | null {
     const point = Vec2(x, y);
-    let best: EntityId | null = null;
+    let inside: EntityId | null = null;
+    let near: EntityId | null = null;
+    let nearest = Infinity;
     this.world.queryAABB(new AABB(Vec2(x - pad, y - pad), Vec2(x + pad, y + pad)), (fixture) => {
       const id = fixture.getBody().getUserData() as EntityId | null;
       if (id == null) return true;
-      if (fixture.testPoint(point) || this.nearFixture(fixture.getBody(), point, pad)) {
-        if (best === null || id > best) best = id;
+      if (fixture.testPoint(point) || this.withinBounds(id, fixture.getBody(), point)) {
+        if (inside === null || id > inside) inside = id;
+        return true;
+      }
+      const d = this.distanceTo(fixture.getBody(), point);
+      if (d <= pad && (d < nearest - 1e-9 || (Math.abs(d - nearest) <= 1e-9 && near !== null && id > near))) {
+        nearest = d;
+        near = id;
       }
       return true;
     });
-    return best;
+    return inside ?? near;
   }
 
-  private nearFixture(body: Body, point: Vec2, pad: number): boolean {
+  /** Inside a box body's overall bounds: a hollow thing (a bottle cap, a cup) counts as under the hand. */
+  private withinBounds(id: EntityId, body: Body, point: Vec2): boolean {
+    const half = this.halfExtents.get(id);
+    if (!half) return false;
+    const local = body.getLocalPoint(point);
+    return Math.abs(local.x) <= half.x && Math.abs(local.y) <= half.y;
+  }
+
+  /** How far a point is from a body's shapes (0 inside). */
+  private distanceTo(body: Body, point: Vec2): number {
+    let best = Infinity;
     for (let f = body.getFixtureList(); f; f = f.getNext()) {
       const shape = f.getShape();
       if (shape instanceof Circle) {
         const c = body.getWorldPoint(shape.getCenter());
-        if (Vec2.distance(c, point) <= shape.getRadius() + pad) return true;
-      } else {
-        // Boxes: distance from the point to the box in its local frame.
-        const half = this.halfExtents.get(body.getUserData() as EntityId);
-        if (!half) continue;
+        best = Math.min(best, Math.max(0, Vec2.distance(c, point) - shape.getRadius()));
+      } else if (shape instanceof Box) {
+        // Boxes, and the parts of compound ones (a tilted part counts by its bounds).
         const local = body.getLocalPoint(point);
-        const dx = Math.max(0, Math.abs(local.x) - half.x);
-        const dy = Math.max(0, Math.abs(local.y) - half.y);
-        if (Math.hypot(dx, dy) <= pad) return true;
+        const v = shape.m_vertices;
+        let x0 = Infinity;
+        let x1 = -Infinity;
+        let y0 = Infinity;
+        let y1 = -Infinity;
+        for (const p of v) {
+          x0 = Math.min(x0, p.x);
+          x1 = Math.max(x1, p.x);
+          y0 = Math.min(y0, p.y);
+          y1 = Math.max(y1, p.y);
+        }
+        const dx = Math.max(0, x0 - local.x, local.x - x1);
+        const dy = Math.max(0, y0 - local.y, local.y - y1);
+        best = Math.min(best, Math.hypot(dx, dy));
       }
     }
-    return false;
+    return best;
   }
 
   /** Attach a soft "hand" joint to a body at a world point. */
@@ -830,6 +961,10 @@ export class Physics {
     this.handSpeed = 0;
     if (id !== null && this.bodies.has(id)) {
       const body = this.requireBody(id);
+      // The hand's joint is to the ground body, so while held a thing passes through the
+      // ground (dragging never scrapes). Letting go, its ground contacts must come back
+      // now: otherwise something already resting there sinks through until it moves on.
+      for (let f = body.getFixtureList(); f; f = f.getNext()) f.refilter();
       if (velocity) body.setLinearVelocity(Vec2(velocity.x, velocity.y));
       const v = body.getLinearVelocity();
       const speed = v.length();
@@ -860,7 +995,84 @@ export class Physics {
   }
 
   step(dt: number): void {
+    // planck caps each body's move per step; this makes that cap our speed limit.
+    // Any velocity above it, from any cause, is scaled down as the step integrates.
+    Settings.maxTranslation = MAX_BODY_SPEED * dt;
     this.world.step(dt, VELOCITY_ITERATIONS, POSITION_ITERATIONS);
+  }
+
+  /**
+   * Each body's thinnest half-size (m: moving more than this in a step could
+   * carry it through the ground) and its reach from its center (m: how far a
+   * turn swings its ends).
+   */
+  private readonly sizes = new Map<Body, { thin: number; reach: number }>();
+
+  private sizeOf(body: Body): { thin: number; reach: number } {
+    let size = this.sizes.get(body);
+    if (!size) {
+      let thin = Infinity;
+      let reach = 0;
+      const local = body.getLocalCenter();
+      for (let f = body.getFixtureList(); f; f = f.getNext()) {
+        const sh = f.getShape();
+        const aabb = new AABB();
+        sh.computeAABB(aabb, Transform.identity(), 0);
+        const lo = aabb.lowerBound;
+        const hi = aabb.upperBound;
+        thin = Math.min(thin, (hi.x - lo.x) / 2, (hi.y - lo.y) / 2);
+        const dx = Math.max(Math.abs(lo.x - local.x), Math.abs(hi.x - local.x));
+        const dy = Math.max(Math.abs(lo.y - local.y), Math.abs(hi.y - local.y));
+        reach = Math.max(reach, Math.hypot(dx, dy));
+      }
+      size = { thin, reach };
+      this.sizes.set(body, size);
+    }
+    return size;
+  }
+
+  /**
+   * Continuous collision only for bodies that need it. planck checks every
+   * awake body against the ground for tunneling each step, and that check
+   * cost most of a busy step (R12 of the post-M8 review). A body moving less
+   * than half its thinnest size in a step cannot pass through anything, so
+   * while the time-of-impact pass runs, slow bodies' fixtures are marked as
+   * sensors, which the pass skips. No fast body, no pass at all.
+   */
+  private selectiveContinuous(): void {
+    type Fx = { m_isSensor: boolean };
+    const solver = (this.world as unknown as { m_solver: { solveWorldTOI(step: { dt: number }): void } })
+      .m_solver;
+    const toi = solver.solveWorldTOI.bind(solver);
+    const hidden: Fx[] = [];
+    solver.solveWorldTOI = (step) => {
+      let fast = false;
+      for (let b = this.world.getBodyList(); b; b = b.getNext()) {
+        if (!b.isDynamic() || !b.isAwake() || !b.isActive()) continue;
+        // How far it moved this step (the solve has already moved it), and how far it would go next.
+        const sw = (b as unknown as { m_sweep: { c0: Vec; c: Vec; a0: number; a: number } }).m_sweep;
+        const v = b.getLinearVelocity();
+        const size = this.sizeOf(b);
+        const moved = Math.hypot(sw.c.x - sw.c0.x, sw.c.y - sw.c0.y) + Math.abs(sw.a - sw.a0) * size.reach;
+        const next = (Math.hypot(v.x, v.y) + Math.abs(b.getAngularVelocity()) * size.reach) * step.dt;
+        if (Math.max(moved, next) > size.thin * 0.5) {
+          fast = true;
+          continue;
+        }
+        for (let f = b.getFixtureList(); f; f = f.getNext()) {
+          const fx = f as unknown as Fx;
+          if (fx.m_isSensor) continue;
+          fx.m_isSensor = true;
+          hidden.push(fx);
+        }
+      }
+      try {
+        if (fast) toi(step);
+      } finally {
+        for (const fx of hidden) fx.m_isSensor = false;
+        hidden.length = 0;
+      }
+    };
   }
 
   /** Impacts recorded since the last call. */

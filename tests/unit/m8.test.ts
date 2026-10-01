@@ -510,7 +510,7 @@ describe('save version 9', () => {
     const v8 = JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures', 'save-v8.json'), 'utf8'));
     const migrated = MIGRATIONS[8]!(v8);
     expect(migrated.version).toBe(9);
-    expect(SAVE_VERSION).toBe(9);
+    expect(SAVE_VERSION).toBeGreaterThanOrEqual(9);
   });
 
   it('loads a real version 9 save with its crafted things, blob, cauldron, and a giant bug', () => {

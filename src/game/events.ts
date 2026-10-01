@@ -24,6 +24,12 @@ export interface GameEvents {
   };
   /** A quick click on an item made it hop. */
   item_poked: { id: EntityId; defId: string; x: number; y: number };
+  /**
+   * Something got out of the world (past an end wall, over the lid, or
+   * through the ground) and dropped back in from the sky at (x, y), over the
+   * open stretch nearest to `fromX`.
+   */
+  entity_returned: { id: EntityId; kind: EntityKind; defId: string; fromX: number; x: number; y: number };
   /** A consumable dropped back into the area. */
   item_respawned: { id: EntityId; defId: string; x: number; y: number };
   /** Something hit something hard. `id` is the entity that got bonked. */
@@ -204,7 +210,8 @@ export interface GameEvents {
   // --- Day, night, and weather (M6) --------------------------------------
   /** The clock passed into dawn, day, dusk, or night. `clock` is game time in clock ticks. */
   phase_changed: { phase: PhaseId; clock: number };
-  weather_changed: { weather: WeatherId; from: WeatherId };
+  /** `forced` is a debug or test change (`set_weather`), not the sky's own. */
+  weather_changed: { weather: WeatherId; from: WeatherId; forced: boolean };
   /** The sundial finished fast-forwarding, from one clock to another. */
   time_skipped: { from: number; to: number };
   /** The weather vane was clicked and spun round; its rooster now faces `facing`. */

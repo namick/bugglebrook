@@ -2,6 +2,7 @@ import type { LightFn } from './areaArt/live';
 import { Container, Graphics, Sprite } from 'pixi.js';
 import { PIXELS_PER_METER, VIEW_HEIGHT_PX, VIEW_WIDTH_PX } from '../../../game/constants';
 import type { EntityView, Sim } from '../../../game/sim';
+import type { AreaDef } from '../../../game/data/types';
 import { HOUR, timeOfDay } from '../../../game/systems/sky';
 import { MUSHROOMS } from './background';
 import type { Camera } from './camera';
@@ -61,6 +62,15 @@ interface Firefly {
 export function mistAt(hour: number, rain: number): number {
   const dawn = hour >= 4.5 && hour < 8 ? Math.sin(((hour - 4.5) / 3.5) * Math.PI) : 0;
   return Math.max(0, Math.min(1, dawn * 0.9 + rain * 0.25));
+}
+
+/** The top of a roof over world pixel x (the porch boards, the treehouse roof), in pixels, or null. Pure. */
+export function roofTopAt(areas: readonly AreaDef[], x: number): number | null {
+  for (const area of areas) {
+    const r = area.roof;
+    if (r && x >= (area.xStart + r.x0) * PPM && x <= (area.xStart + r.x1) * PPM) return r.top * PPM;
+  }
+  return null;
 }
 
 /** How many rain drops to draw for a rain amount, within the budget. Pure. */
@@ -158,11 +168,7 @@ export class WeatherView {
 
   /** The top of a roof over world pixel x (the porch boards, the treehouse roof), or null. */
   private roofTop(x: number): number | null {
-    for (const area of this.sim.content.areas.all) {
-      const r = area.roof;
-      if (r && x >= (area.xStart + r.x0) * PPM && x <= (area.xStart + r.x1) * PPM) return r.top * PPM;
-    }
-    return null;
+    return roofTopAt(this.sim.content.areas.all, x);
   }
 
   private firefly(x: number, y: number): Firefly {
@@ -269,6 +275,8 @@ export class WeatherView {
         d.x = Math.random() * (VIEW_WIDTH_PX + 400) - 200;
         continue;
       }
+      // Indoors (the porch, the treehouse) the far rain is outside the walls too: none falls in the room.
+      if (this.roofTop(left + d.x) !== null) continue;
       farG.moveTo(d.x, d.y).lineTo(d.x + (slant * 0.6 * d.len) / 1000, d.y + d.len);
     }
     if (this.far.length > 0) farG.stroke({ width: 1.6, color: 0xdce8f7, alpha: 0.35, cap: 'round' });

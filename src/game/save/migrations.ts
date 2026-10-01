@@ -251,6 +251,51 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
    * cauldron, and M8's new things in their areas.
    */
   8: (save) => ({ ...save, version: 9 }),
+  /**
+   * Version 10 (the post-M8 fixes) closes the world: a speed limit, solid
+   * end walls, and a lid, and nothing in a save is outside it. Before, a
+   * fast drag could launch things over the end walls for good. This brings
+   * anything outside version 9's world (195.2 m wide, a lid at -30, the
+   * lowest ground at 10.4) back to the plaza, which is always open: a row
+   * of drops from the sky at plaza x 7 onward. Loading then lets them fall.
+   */
+  9: (save) => {
+    const WIDTH = 195.2;
+    const LID = -30;
+    const BELOW = 10.4 + 1.2;
+    const DROP_X = 64 + 7;
+    const world = save.world as Record<string, unknown>;
+    let k = 0;
+    const entities = (world.entities as Record<string, unknown>[]).map((e) => {
+      const body = e.body as Record<string, unknown>;
+      const x = body.x as number;
+      const y = body.y as number;
+      const inside =
+        Number.isFinite(x) && Number.isFinite(y) && x >= 0 && x <= WIDTH && y >= LID && y <= BELOW;
+      if (inside) return e;
+      const back: Record<string, unknown> = {
+        ...e,
+        body: {
+          ...body,
+          x: DROP_X + 0.7 * (k % 20),
+          y: -1 - 0.8 * Math.floor(k / 20),
+          angle: 0,
+          vx: 0,
+          vy: 0,
+          av: 0,
+        },
+      };
+      k++;
+      delete back.pinned;
+      if (back.toy) {
+        const { pivot: _pivot, ...toy } = back.toy as Record<string, unknown>;
+        back.toy = toy;
+      }
+      if (e.kind === 'bug') back.bug = { ...(e.bug as Record<string, unknown>), mode: 'st_airborne' };
+      return back;
+    });
+    return { ...save, version: 10, world: { ...world, entities } };
+  },
 };
 
 export class SaveError extends Error {

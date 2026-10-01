@@ -13,7 +13,7 @@ import type { Brew } from '../systems/brewing';
 import type { ActiveEffect, SavedPart, ToyState } from '../core/entities';
 
 /** Bump when the save shape changes, and add a migration in migrations.ts. */
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 
 export interface SavedEntity {
   id: number;

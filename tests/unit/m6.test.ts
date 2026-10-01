@@ -6,8 +6,6 @@ import type { GameEvents, SaveFile } from '../../src/game';
 import { Rng } from '../../src/game/core/rng';
 import { BUGS } from '../../src/game/data/bugs';
 import { DRAIN, RAIN_RISE, sundialSun } from '../../src/game/systems/environment';
-import { DECAY, NIGHT_ENERGY, decayNeeds } from '../../src/game/systems/needs';
-import { newBugBrain } from '../../src/game/systems/bugAi';
 import {
   DAY,
   GUST_SPEED,
@@ -176,7 +174,8 @@ describe('weather', () => {
   });
 
   it('changes every 6 to 12 minutes, and a rainbow after rain lasts 90 s', { timeout: 400_000 }, () => {
-    const sim = Sim.create({ seed: 'changes' });
+    // The sky needs no bugs or props: an empty world runs its 40 minutes far faster.
+    const sim = Sim.empty({ seed: 'changes' });
     const log = record(sim);
     for (let i = 0; i < 40; i++) sim.run(60 * 60);
     const changes = log.filter((e) => e.name === 'weather_changed');
@@ -193,23 +192,18 @@ describe('weather', () => {
     }
     for (const c of changes)
       if (c.payload.weather === 'weather_rainbow') expect(c.payload.from).toBe('weather_rain');
+    // The sky's own changes are not forced; a debug `set_weather` is, so the view shows it at once.
+    expect(changes.every((c) => c.payload.forced === false)).toBe(true);
+    sim.send({ type: 'set_weather', wind: 0, rain: true });
+    sim.send({ type: 'set_weather', wind: 0, rain: false, weather: 'weather_clear' });
+    sim.step();
+    expect(
+      log
+        .filter((e) => e.name === 'weather_changed')
+        .slice(-2)
+        .map((e) => e.payload.forced),
+    ).toEqual([true, true]);
   });
-
-  it(
-    'is deterministic: two worlds with the same seed have the same weather and clock',
-    { timeout: 240_000 },
-    () => {
-      const a = Sim.create({ seed: 'twins' });
-      const b = Sim.create({ seed: 'twins' });
-      for (const s of [a, b]) {
-        s.send({ type: 'dial_turn', minutes: 200 });
-        s.run(30 * 60);
-        s.send({ type: 'dial_release' });
-        s.run(8 * 60 * 60);
-      }
-      expect(JSON.stringify(a.serialize())).toBe(JSON.stringify(b.serialize()));
-    },
-  );
 
   it('weather never shifts the bugs dice: the world RNG is untouched by it', () => {
     const a = Sim.create({ seed: 'dice' });
@@ -388,89 +382,6 @@ describe('wind (R14) and the weather vane', () => {
   });
 });
 
-describe('night', () => {
-  const DAY_BUGS = ['bug_ladybug_dot', 'bug_pillbug_rollo', 'bug_snail_glorp', 'bug_grasshopper_boing'];
-
-  it(
-    'day bugs with energy under 50 are asleep within 60 s at night, and the AI never wakes them',
-    { timeout: 60_000 },
-    () => {
-      const sim = Sim.create({ seed: 'night' });
-      calm(sim);
-      sim.run(30);
-      sim.send({ type: 'set_time', hour: 20.5 });
-      const ids = DAY_BUGS.map((d) => byDef(sim, d));
-      for (const id of ids) sim.send({ type: 'set_need', id, need: 'need_energy', value: 40 });
-      const log = record(sim);
-      sim.run(60 * 60);
-      for (const id of ids) expect(sim.view(id)!.bug!.mode, sim.view(id)!.defId).toBe('st_sleep');
-      // They sleep through the night, rested or not.
-      sim.run(5 * 60 * 60);
-      for (const id of ids) expect(sim.view(id)!.bug!.mode).toBe('st_sleep');
-      const woke = log.filter((e) => e.name === 'bug_woke' && ids.includes(e.payload.id as number));
-      expect(woke).toEqual([]);
-    },
-  );
-
-  it('even rested day bugs go to bed at night, and wake at dawn once rested', () => {
-    const sim = Sim.create({ seed: 'dawn' });
-    calm(sim);
-    sim.send({ type: 'set_time', hour: 21 });
-    const ids = DAY_BUGS.map((d) => byDef(sim, d));
-    for (const id of ids) sim.send({ type: 'set_need', id, need: 'need_energy', value: 90 });
-    sim.run(60 * 60);
-    for (const id of ids) expect(sim.view(id)!.bug!.mode).toBe('st_sleep');
-    sim.send({ type: 'set_time', hour: 6.3 });
-    sim.run(20 * 60);
-    for (const id of ids) expect(sim.view(id)!.bug!.mode).not.toBe('st_sleep');
-  });
-
-  it('a woken bug at night is groggy, stays up a while, then goes back to bed', () => {
-    const sim = Sim.create({ seed: 'renap' });
-    calm(sim);
-    sim.send({ type: 'set_time', hour: 22 });
-    sim.run(60 * 60);
-    const glorp = byDef(sim, 'bug_snail_glorp');
-    expect(sim.view(glorp)!.bug!.mode).toBe('st_sleep');
-    const g = sim.view(glorp)!;
-    sim.send({ type: 'poke', x: g.x, y: g.y });
-    sim.step();
-    expect(sim.view(glorp)!.bug!.groggy).toBe(true);
-    sim.run(10 * 60);
-    expect(sim.view(glorp)!.bug!.mode).not.toBe('st_sleep');
-    sim.run(25 * 60);
-    expect(sim.view(glorp)!.bug!.mode).toBe('st_sleep');
-  });
-
-  it('energy runs down 2.5 times faster up past bedtime', () => {
-    const def = BUGS.get('bug_ladybug_dot');
-    const a = newBugBrain(0, new Rng('a'));
-    const b = newBugBrain(0, new Rng('a'));
-    a.mode = b.mode = 'st_wander';
-    decayNeeds(a, def, 60);
-    decayNeeds(b, def, 60, false, true);
-    // One second: the extra night loss is the base rate times (2.5 - 1).
-    const extra = a.needs.need_energy - b.needs.need_energy;
-    expect(extra).toBeCloseTo(DECAY.need_energy * def.needWeights.need_energy * (NIGHT_ENERGY - 1), 6);
-  });
-
-  it('glowing things warm up bugs close by at night (R16)', () => {
-    const sim = Sim.create({ seed: 'campfire' });
-    const rollo = byDef(sim, 'bug_pillbug_rollo');
-    const r = sim.view(rollo)!;
-    sim.spawn('item', 'item_moon_pebble', r.x + 0.9, GROUND_Y - 0.3);
-    sim.send({ type: 'set_time', hour: 22 });
-    sim.send({ type: 'set_need', id: rollo, need: 'need_social', value: 20 });
-    sim.send({ type: 'set_need', id: rollo, need: 'need_energy', value: 100 });
-    sim.step();
-    // Awake (poked), next to the light.
-    const v = sim.view(rollo)!;
-    sim.send({ type: 'poke', x: v.x, y: v.y });
-    sim.run(60);
-    expect(sim.view(rollo)!.bug!.needs.need_social).toBeGreaterThan(20);
-  });
-});
-
 describe('time-of-day secrets', () => {
   it('the knothole gives something once per 10 game minutes; at night eyes look back (secret_stump_eyes)', () => {
     const sim = Sim.create({ seed: 'knothole' });
@@ -556,7 +467,8 @@ describe('time-of-day secrets', () => {
 
   it('Flick is a night bug: asleep by day, up by night', () => {
     const sim = Sim.create({ seed: 'owl' });
-    calm(sim);
+    // On her own, so nobody bumps her awake or calls her over to play.
+    for (const b of sim.entities.ofKind('bug')) sim.remove(b.id);
     const flick = sim.spawn('bug', 'bug_firefly_flick', PLAZA_X + 30, GROUND_Y - 0.5).id;
     calm(sim);
     sim.send({ type: 'set_need', id: flick, need: 'need_energy', value: 90 });

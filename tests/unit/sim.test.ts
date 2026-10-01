@@ -452,3 +452,58 @@ describe('determinism', () => {
     expect(a.serialize()).not.toEqual(b.serialize());
   });
 });
+
+describe('debug commands', () => {
+  it('drops a spawn with an unknown def or a bad spot instead of throwing (R33)', () => {
+    const sim = Sim.empty();
+    const before = sim.entities.size;
+    sim.send({ type: 'spawn', kind: 'item', defId: 'item_no_such_thing', x: PLAZA_X + 7, y: 3 });
+    sim.send({ type: 'spawn', kind: 'bug', defId: 'bug_nobody', x: PLAZA_X + 7, y: 3 });
+    sim.send({ type: 'spawn', kind: 'item', defId: 'item_pebble', x: Number.NaN, y: 3 });
+    expect(() => sim.step()).not.toThrow();
+    expect(sim.entities.size).toBe(before);
+    sim.send({ type: 'spawn', kind: 'item', defId: 'item_pebble', x: PLAZA_X + 7, y: 3 });
+    sim.step();
+    expect(sim.entities.size).toBe(before + 1);
+  });
+});
+
+describe('grab targeting', () => {
+  it('grabs the thing whose shape is under the hand, not a newer neighbor whose padded edge reaches it (R02)', () => {
+    const sim = Sim.empty();
+    const button = sim.spawn('item', 'item_button', PLAZA_X + 7, GROUND_Y - 0.14);
+    // Newer (drawn on top), lying 5 cm to the right of the button's edge: within the 0.2 m grab pad of its center.
+    const clip = sim.spawn('item', 'item_paperclip', PLAZA_X + 7 + 0.13 + 0.05 + 0.22, GROUND_Y - 0.06);
+    sim.run(60);
+    const b = sim.view(button.id)!;
+    expect(sim.physics.bodyAt(b.x, b.y, 0.2)).toBe(button.id);
+    // Between the two, nearer the clip: the clip.
+    const c = sim.view(clip.id)!;
+    expect(sim.physics.bodyAt(c.x - 0.22 - 0.01, c.y, 0.2)).toBe(clip.id);
+    // Off both but within the pad of the button only: the button.
+    expect(sim.physics.bodyAt(b.x - 0.13 - 0.1, b.y, 0.2)).toBe(button.id);
+    // Where one lies on another, the one on top (the newer) wins, as drawn.
+    const pebble = sim.spawn('item', 'item_pebble', b.x, b.y - 0.5);
+    sim.run(60);
+    const p = sim.view(pebble.id)!;
+    expect(sim.physics.bodyAt(p.x, p.y, 0.2)).toBe(pebble.id);
+  });
+});
+
+describe('letting go', () => {
+  it('a thing picked up and let go at the bottom of a stack stays on the ground, not in it', () => {
+    const sim = Sim.empty();
+    const x = PLAZA_X + 6.3;
+    const caps = [0, 1, 2].map((i) => sim.spawn('item', 'item_bottle_cap', x, GROUND_Y - 0.09 - i * 0.17).id);
+    sim.run(60);
+    const before = caps.map((id) => sim.view(id)!.y);
+    const s = sim.view(caps[0]!)!;
+    sim.send({ type: 'grab', x: s.x, y: s.y });
+    sim.step();
+    expect(sim.physics.grabbed).toBe(caps[0]);
+    sim.send({ type: 'release', vx: 0, vy: 0 });
+    sim.run(120);
+    caps.forEach((id, i) => expect(sim.view(id)!.y).toBeCloseTo(before[i]!, 1));
+    expect(sim.rescues).toBe(0);
+  });
+});

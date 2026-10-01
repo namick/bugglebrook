@@ -494,7 +494,7 @@ export class Places {
 
   /**
    * The warm compost heap: things resting on it for 10 s get hot, and food
-   * left there for a minute turns into compost goo.
+   * left there for a minute turns into compost goo (rule R21).
    */
   private heapRule(): void {
     const sim = this.sim;
@@ -516,6 +516,7 @@ export class Places {
         s.heap[key] = t;
         if (t >= HEAP_WARM) sim.addTag(e.id, 'tag_hot', 'heap');
         const def = sim.content.items.get(e.defId);
+        // R21: food left on the heap for a minute becomes compost goo.
         if (t >= HEAP_GOO && def.tags.includes('tag_edible') && e.defId !== 'item_compost_goo') {
           sim.remove(e.id);
           delete s.heap[key];

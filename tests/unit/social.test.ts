@@ -331,15 +331,20 @@ describe('signature behaviors', () => {
     const pebbles = [2.2, 8.5, 9.6].map(
       (x) => sim.spawn('item', 'item_pebble', PLAZA_X + x, GROUND_Y - 0.21).id,
     );
-    sim.run(3 * 60 * 60);
-    const b = brainOf(sim, ids[0]!);
-    const x0 = b.restX + BUGS.get('bug_pillbug_rollo').radius + 0.4;
-    const inRow = pebbles.filter((p) => {
-      const x = sim.view(p)!.x;
-      const k = Math.round((x - x0) / 0.55);
-      return k >= 0 && Math.abs(x - (x0 + k * 0.55)) < 0.22;
-    });
-    expect(inRow.length).toBeGreaterThanOrEqual(2);
+    // Checked every few seconds: he may get up and wander off afterwards.
+    let best = 0;
+    for (let t = 0; t < 3 * 60; t += 5) {
+      sim.run(5 * 60);
+      const b = brainOf(sim, ids[0]!);
+      const x0 = b.restX + BUGS.get('bug_pillbug_rollo').radius + 0.4;
+      const inRow = pebbles.filter((p) => {
+        const x = sim.view(p)!.x;
+        const k = Math.round((x - x0) / 0.55);
+        return k >= 0 && Math.abs(x - (x0 + k * 0.55)) < 0.22;
+      });
+      best = Math.max(best, inRow.length);
+    }
+    expect(best).toBeGreaterThanOrEqual(2);
   });
 
   it('Dot climbs to the top of the stump, poses, and glides down with her wings open', () => {

@@ -389,6 +389,16 @@ export class WorldView extends Container {
       ev.on('item_dropped', (e) => {
         if (e.flung) this.juiceFor(e.id).flying = 3;
       }),
+      // A forced change (tests, debugging) shows at once: no rain left falling from before.
+      ev.on('weather_changed', (e) => {
+        if (e.forced) this.weatherMix = weatherTarget(e.weather);
+      }),
+      // Something lost out of the world drops back in from the sky: a puff where it appears.
+      ev.on('entity_returned', (e) => {
+        const y = px(Math.max(e.y, 0.4));
+        this.particles.puff(px(e.x), y, 0xffffff, 7, 0, 30, 22);
+        this.particles.sparkles(px(e.x), y, 5);
+      }),
       ev.on('bonked', (e) => {
         const j = this.juiceFor(e.id);
         if (e.kind === 'item') j.squash.land(e.speed * 0.6);

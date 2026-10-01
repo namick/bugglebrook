@@ -30,3 +30,16 @@ export const DIZZY_SPEED = 9;
 
 /** Impacts above this speed (m/s) count as a bonk. */
 export const BONK_SPEED = 6;
+
+/**
+ * No body ever moves faster than this (m/s), whatever pushes it: a fling,
+ * a spring, a solver kick from a fast drag. It sits above every launch in
+ * the game (the fling cap is 26), and keeps a throw's peak under 23 m.
+ */
+export const MAX_BODY_SPEED = 30;
+
+/**
+ * The world's lid, in meters (y is down, the top of the screen is 0). Solid
+ * end walls rise to it and a ceiling spans it, so nothing can leave.
+ */
+export const WORLD_CEILING_Y = -30;

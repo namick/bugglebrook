@@ -73,6 +73,7 @@ import { pickDropTarget } from './systems/dropTargets';
 import { Terrain } from './world/terrain';
 import { Bench } from './systems/bench';
 import { Cauldron } from './systems/cauldron';
+import { Bounds } from './systems/bounds';
 import { Potions, SHATTER_SPEED, SKY_TOP, scaleShape } from './systems/potions';
 import { Toys } from './systems/toys';
 import type { Brew } from './systems/brewing';
@@ -85,6 +86,7 @@ const ROLLED_RESTITUTION = 0.6;
 export const RESPAWN_TICKS = 45 * SIM_HZ;
 /** Anything this far below the surface is pulled back up. */
 const BURIED_DEPTH = 0.25;
+const NO_TAGS: readonly string[] = [];
 /** A thrown thing can land in a mouth for this long after it leaves the hand. */
 const THROWN_TICKS = 90;
 /** Spat food leaves the mouth this fast, forward and up (m/s). */
@@ -312,6 +314,8 @@ export class Sim {
   readonly potions: Potions;
   /** Crafted toys and balloons (M8). */
   readonly toys: Toys;
+  /** Brings back anything that leaves the world. */
+  readonly bounds: Bounds;
   /** Where the player's hand is over the world, or null. Sent by the renderer (`hand`). */
   hand: { x: number; y: number } | null = null;
   /** Areas whose starting things are in the world. Saved, so areas added later get theirs on load. */
@@ -335,6 +339,7 @@ export class Sim {
     this.cauldron = new Cauldron(this);
     this.potions = new Potions(this);
     this.toys = new Toys(this);
+    this.bounds = new Bounds(this);
     this.buildFixtures();
     this.buildSolids();
     this.barriers.build();
@@ -515,6 +520,8 @@ export class Sim {
     sim.toys.restore();
     for (const e of sim.entities.all()) if (e.effects) sim.potions.sync(e);
     sim.refreshFriction();
+    // Anything a save left outside the world (R01) drops back in.
+    sim.bounds.sweep();
     return sim;
   }
 
@@ -639,6 +646,10 @@ export class Sim {
     this.physics.measureHand(SIM_DT);
     this.toys.beforePhysics();
     this.environment.beforePhysics();
+    this.physics.filterContacts =
+      this.setupLinked().size > 0 ||
+      Object.keys(this.places.state.web).length > 0 ||
+      this.entities.all().some((e) => !!e.effects && this.potions.ghostly(e));
     this.physics.step(SIM_DT);
     this.placeMouthfuls();
     this.placeCarried();
@@ -650,6 +661,7 @@ export class Sim {
     this.setup.update();
     this.gawk();
     this.rescueBuried();
+    this.bounds.update();
     if (this.tick > 0 && this.tick % RESPAWN_TICKS === 0) this.respawn();
     this.tick++;
   }
@@ -690,9 +702,18 @@ export class Sim {
           this.weather.noteLight(command.x, command.y);
         return;
       }
-      case 'drag':
-        this.physics.moveGrab(command.x, command.y);
+      case 'drag': {
+        // The hand cannot push what it holds through a locked area's wall.
+        const held = this.physics.grabbed;
+        let x = command.x;
+        if (held !== null) {
+          const span = this.barriers.span();
+          const at = this.physics.position(held).x;
+          if (at >= span.x0 && at <= span.x1) x = Math.min(span.x1 - 0.05, Math.max(span.x0 + 0.05, x));
+        }
+        this.physics.moveGrab(x, command.y);
         return;
+      }
       case 'release': {
         const cursor =
           command.vx !== undefined && command.vy !== undefined ? { x: command.vx, y: command.vy } : undefined;
@@ -769,6 +790,9 @@ export class Sim {
         this.poke(command.x, command.y);
         return;
       case 'spawn':
+        // A debug command: an unknown def or a bad spot is dropped, like a bad `set_tag`.
+        if (!this.defExists(command.kind, command.defId)) return;
+        if (!Number.isFinite(command.x) || !Number.isFinite(command.y)) return;
         this.spawn(command.kind, command.defId, command.x, command.y);
         return;
       case 'focus':
@@ -1654,6 +1678,7 @@ export class Sim {
       const ride = this.rideVelocity(entity.id);
       if (ride.aloft && this.physics.grabbed !== entity.id) continue;
       const world = this.bugWorld();
+      const support = inGrace ? null : this.supportFor(entity, state, def, onWater);
       const decision = updateBug(entity, {
         tick: this.tick,
         id: entity.id,
@@ -1662,7 +1687,7 @@ export class Sim {
         def,
         state,
         held: held === entity.id,
-        support: inGrace ? null : this.supportFor(entity, state, def, onWater),
+        support,
         submerged: this.environment.submerged.get(entity.id) ?? 0,
         overWater: (x) => this.environment.overOpenWater(x),
         shore: this.environment.shoreFrom(state.x),
@@ -1691,7 +1716,18 @@ export class Sim {
         },
       });
       const v = decision.velocity;
-      if (v && Number.isFinite(v.x) && Number.isFinite(v.y)) {
+      // Standing still on flat ground, a bug is left to rest, so it (and what it leans on) can sleep.
+      const resting =
+        v !== null &&
+        !ride.moving &&
+        Math.abs(v.x) < 1e-6 &&
+        Math.abs(v.y) <= 0.11 &&
+        Math.abs(state.vx) < 0.05 &&
+        Math.abs(state.vy) < 0.05 &&
+        support !== null &&
+        Math.abs(support.x) < 0.02 &&
+        !onWater;
+      if (v && !resting && Number.isFinite(v.x) && Number.isFinite(v.y)) {
         // Standing on a moving toy (the balloon basket, a racer, a seesaw), it goes along with it.
         // Riding a toy, it just stands: no push into the floor that would drag the toy down.
         const stand = ride.moving && Math.abs(v.y) < 0.15 ? 0 : v.y;
@@ -1793,44 +1829,53 @@ export class Sim {
     }
     const byId = new Map(bugs.map((b) => [b.id, b]));
     const setups: { id: EntityId; x0: number; x1: number; y0: number; y1: number }[] = [];
-    const linked = this.setupLinked();
-    const loose: LooseItem[] = [];
-    const owners = this.mouthOwners();
-    for (const e of this.entities.ofKind('item')) {
-      if (this.isSleeping(e.id)) continue;
-      const def = this.content.items.get(e.defId);
-      const st = physics.getState(e.id);
-      const ext = halfExtents(def.shape, st.angle);
-      if (linked.has(e.id)) {
-        // The player's things, and anything leaning on them: pushing one pushes the setup.
-        setups.push({ id: e.id, x0: st.x - ext.w, x1: st.x + ext.w, y0: st.y - ext.h, y1: st.y + ext.h });
-        continue;
-      }
-      if (physics.grabbed === e.id || this.carried.has(e.id) || owners.has(e.id) || !physics.isActive(e.id))
-        continue;
-      if (this.environment.overOpenWater(st.x)) continue;
-      // Right beside the player's things: leave it be.
-      if (
-        setups.some(
-          (b) =>
-            st.x + ext.w > b.x0 - 0.9 &&
-            st.x - ext.w < b.x1 + 0.9 &&
-            Math.abs(st.y - (b.y0 + b.y1) / 2) < 1.5,
-        )
-      )
-        continue;
-      loose.push({
-        id: e.id,
-        defId: e.defId,
-        x: st.x,
-        y: st.y,
-        speed: Math.hypot(st.vx, st.vy),
-        edible: def.tags.includes('tag_edible'),
-        catchable: !!def.catchable,
-        halfWidth: ext.w,
-        top: st.y - ext.h,
-      });
+    // The player's things, and anything leaning on them: pushing one pushes the setup.
+    for (const id of [...this.setupLinked()].sort((a, b) => a - b)) {
+      const e = this.entities.get(id);
+      if (!e || this.isSleeping(id)) continue;
+      const st = physics.getState(id);
+      const ext = halfExtents(this.content.items.get(e.defId).shape, st.angle);
+      setups.push({ id, x0: st.x - ext.w, x1: st.x + ext.w, y0: st.y - ext.h, y1: st.y + ext.h });
     }
+    // Loose things are worked out the first time a bug asks this step.
+    let loose: LooseItem[] | null = null;
+    const looseItems = (): LooseItem[] => {
+      if (loose) return loose;
+      loose = [];
+      const linked = this.setupLinked();
+      const owners = this.mouthOwners();
+      for (const e of this.entities.ofKind('item')) {
+        if (this.isSleeping(e.id) || linked.has(e.id)) continue;
+        if (physics.grabbed === e.id || this.carried.has(e.id) || owners.has(e.id) || !physics.isActive(e.id))
+          continue;
+        const def = this.content.items.get(e.defId);
+        const st = physics.getState(e.id);
+        const ext = halfExtents(def.shape, st.angle);
+        if (this.environment.overOpenWater(st.x)) continue;
+        // Right beside the player's things: leave it be.
+        if (
+          setups.some(
+            (b) =>
+              st.x + ext.w > b.x0 - 0.9 &&
+              st.x - ext.w < b.x1 + 0.9 &&
+              Math.abs(st.y - (b.y0 + b.y1) / 2) < 1.5,
+          )
+        )
+          continue;
+        loose.push({
+          id: e.id,
+          defId: e.defId,
+          x: st.x,
+          y: st.y,
+          speed: Math.hypot(st.vx, st.vy),
+          edible: def.tags.includes('tag_edible'),
+          catchable: !!def.catchable,
+          halfWidth: ext.w,
+          top: st.y - ext.h,
+        });
+      }
+      return loose;
+    };
     const slime = this.environment.state.slime;
     const world = {
       setups,
@@ -1841,7 +1886,7 @@ export class Sim {
           (b) => b.id !== except && b.x1 > x - reach && b.x0 < x + reach && b.y1 > y - 1.1 && b.y0 < y + 1.1,
         ),
       setupBetween: (x0: number, x1: number) => setups.some((b) => b.x1 > x0 && b.x0 < x1),
-      loose: () => loose,
+      loose: looseItems,
       isSetup: (id: EntityId) => this.setup.has(id),
       edible: (defId: string) =>
         this.content.items.has(defId) && this.content.items.get(defId).tags.includes('tag_edible'),
@@ -2411,11 +2456,19 @@ export class Sim {
 
   /** An entity's default tags: its item def's plus its material's. Bugs have none. */
   defaultTags(entity: Entity): readonly string[] {
-    if (entity.kind === 'bug') return [];
-    const def = this.content.items.get(entity.defId);
-    const mat = MATERIALS[def.material]?.tags ?? [];
-    return mat.length === 0 ? def.tags : [...new Set([...def.tags, ...mat])];
+    if (entity.kind === 'bug') return NO_TAGS;
+    let tags = this.defaultTagCache.get(entity.defId);
+    if (!tags) {
+      const def = this.content.items.get(entity.defId);
+      const mat = MATERIALS[def.material]?.tags ?? [];
+      tags = mat.length === 0 ? def.tags : [...new Set([...def.tags, ...mat])];
+      this.defaultTagCache.set(entity.defId, tags);
+    }
+    return tags;
   }
+
+  /** Each item def's tags with its material's, worked out once. */
+  private readonly defaultTagCache = new Map<string, readonly string[]>();
 
   hasTag(id: EntityId, tag: string): boolean {
     const e = this.entities.get(id);
@@ -2874,6 +2927,11 @@ export class Sim {
     // A sideways nudge so nothing lands back on the spring forever. Bugs
     // bouncing on purpose drift the way they face.
     const other = this.entities.get(otherId);
+    // The setup rule: a bug out on its own is never fired at the player's things by a spring on its side.
+    if (other?.bug && !this.byPlayer(other) && Math.abs(up.x) > 0.45) {
+      const reach = Math.sign(up.x) * 6;
+      if (this.bugWorld().setupBetween(Math.min(o.x, o.x + reach), Math.max(o.x, o.x + reach))) return false;
+    }
     const drift = other?.bug ? other.bug.facing * 1.4 : this.rng.range(-1, 1);
     this.physics.setVelocity(otherId, tx + up.x * launch - up.y * drift, ty + up.y * launch + up.x * drift);
     this.launchGrace.set(otherId, this.tick + 4);
@@ -2884,14 +2942,45 @@ export class Sim {
     return true;
   }
 
+  /**
+   * Put something that left the world back at (x, y), still, as if it had
+   * just been let go there: unstuck, set down, a bug falling onto its feet.
+   */
+  bringBack(entity: Entity, x: number, y: number): void {
+    const id = entity.id;
+    this.environment.unstickAll(id);
+    this.thrown.delete(id);
+    if (entity.pinned) {
+      entity.pinned = false;
+      this.physics.setPinned(id, false);
+    }
+    this.physics.removePivot(id);
+    if (entity.toy?.pivot) delete entity.toy.pivot;
+    if (entity.bug) {
+      this.putDown(id);
+      if (this.rolling.delete(id)) this.physics.setRolling(id, false, BUG_RESTITUTION);
+    }
+    this.physics.place(id, x, y, 0);
+    this.physics.setVelocity(id, 0, 1);
+    if (this.sleeping.delete(id)) this.physics.setActive(id, true);
+    if (entity.bug) {
+      releaseBug(entity.bug, this.content.bugs.get(entity.defId), false, y);
+      entity.bug.selfLaunched = true;
+      entity.bug.lastX = x;
+    }
+    this.worldCache = null;
+    this.linkedCache = null;
+  }
+
   /** Safety net: anything that ends up inside the ground is lifted back out. */
   private rescueBuried(): void {
     for (const entity of this.entities.all()) {
       // Things in a mouth or in front legs go where their bug puts them.
-      if (this.isSleeping(entity.id) || !this.physics.isActive(entity.id)) continue;
-      const s = this.physics.getState(entity.id);
-      const floor = this.terrain.surfaceY(s.x);
-      if (s.y > floor + BURIED_DEPTH) {
+      if (this.isSleeping(entity.id) || !this.physics.isAwake(entity.id)) continue;
+      const p = this.physics.position(entity.id);
+      const floor = this.terrain.surfaceY(p.x);
+      if (p.y > floor + BURIED_DEPTH) {
+        const s = this.physics.getState(entity.id);
         this.physics.setPosition(entity.id, s.x, floor - 0.6);
         this.physics.setVelocity(entity.id, s.vx, Math.min(0, s.vy));
         this.rescues++;

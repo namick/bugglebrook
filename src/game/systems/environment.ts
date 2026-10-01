@@ -424,8 +424,11 @@ export class Environment {
     this.updateIce();
     const sim = this.sim;
     const physics = sim.physics;
+    const windy = this.state.wind !== 0;
     for (const e of sim.entities.all()) {
       if (sim.isSleeping(e.id) || !physics.isActive(e.id)) continue;
+      // A thing at rest out of the water feels nothing here but the wind.
+      if (e.kind === 'item' && !windy && !this.inWater.has(e.id) && !physics.isAwake(e.id)) continue;
       const s = physics.getState(e.id);
       const held = physics.grabbed === e.id;
       const mass = physics.mass(e.id);
@@ -709,6 +712,15 @@ export class Environment {
     const physics = sim.physics;
     for (const e of sim.entities.all()) {
       if (sim.isSleeping(e.id)) continue;
+      // A thing at rest out of the water stays out of it.
+      if (
+        e.kind === 'item' &&
+        e.soak === undefined &&
+        !this.inWater.has(e.id) &&
+        physics.isActive(e.id) &&
+        !physics.isAwake(e.id)
+      )
+        continue;
       const frac = this.fractionOf(e);
       this.submerged.set(e.id, frac);
       const was = this.inWater.has(e.id);
