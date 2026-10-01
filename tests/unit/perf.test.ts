@@ -5,8 +5,8 @@ import { PLAZA_X } from './world';
 /**
  * R12 of the post-M8 review: M12 asks for 16 bugs and 150 items at 60 fps.
  * This is that scene, crowded into the plaza with the camera on it, and a
- * step must stay well inside a frame. On a quiet desktop it averages about
- * 2.5 ms with a 99th percentile near 5 ms. CI runners are slower and
+ * step must stay well inside a frame. On CI's runner it takes about 3 ms of
+ * CPU on average, 9 ms at the 99th percentile. Runners vary and are
  * shared, so the bar here is generous; it catches a step that has become
  * several times slower, not a few percent. It times this process's CPU,
  * not the clock, so other test files running beside it do not count.

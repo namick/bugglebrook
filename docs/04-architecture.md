@@ -53,8 +53,10 @@ src/
     core/               rng.ts, loop.ts (FixedStepper), events.ts (EventBus),
                         commandQueue.ts, entities.ts (EntityStore)
     physics/physics.ts  The only planck import. Bodies are addressed by entity ID.
-    systems/            Per-tick behavior. bugAi.ts is the bug state machine, choosing, and
-                        reactions; bugMove.ts walking, hopping, and memory; bugSocial.ts
+    systems/            Per-tick behavior. bugAi.ts is the bug state machine (`updateBug`)
+                        and reactions, bugStates.ts one function per mode, bugChoose.ts
+                        scoring adverts and starting what wins, bugTuning.ts the AI's
+                        timings and weights; bugMove.ts walking, hopping, and memory; bugSocial.ts
                         play between bugs; bugTypes.ts the AI's inputs and outputs;
                         needs.ts the five needs and moods; setup.ts the setup rule;
                         offscreen.ts the coarse model for sleeping areas.
@@ -82,7 +84,13 @@ src/
                         dial_release, pocket_put, pocket_take, stage_intro, wake, beckon
     events.ts           GameEvents: every event name and payload
     constants.ts        Units, gravity, logical resolution
-    sim.ts              The Sim class that ties it together
+    sim.ts              The Sim class that ties it together. Big parts of it live
+                        beside it as functions that take the sim (Sim keeps a one-line
+                        method for each): simCommands.ts (applying commands),
+                        simBugWorld.ts (the AI's view of the world), simNotices.ts
+                        (the AI's notices), simImpacts.ts (contacts), simPocket.ts,
+                        simPotions.ts, simSetupGuard.ts (the setup rule's physics), and
+                        simShared.ts (values they share, so none imports sim.ts).
     index.ts            Public exports for the renderer
   shared/ipc.ts         IPC channel names, BugglebrookApi, SlotInfo. Types and constants only.
   shared/settings.ts    The Settings type, defaults, and normalizeSettings (pure, used by both sides)
@@ -99,7 +107,8 @@ src/
       render/           camera.ts, viewport.ts, bugPose.ts, bugFace.ts, juice.ts,
                         reactions.ts, thoughts.ts, tagLooks.ts, waveSurface.ts,
                         skyLook.ts (all pure), weatherView.ts, fixtureArt.ts, lightTextures.ts,
-                        background.ts, pondArt.ts, water.ts, worldView.ts, particles.ts,
+                        background.ts, pondArt.ts, water.ts, worldView.ts (and
+                        worldViewEvents.ts, what it does on each sim event), particles.ts,
                         areaArt/ (each M7 area's static art and live view, the barriers,
                         and the locked-area preview),
                         soapBubbles.ts, bubbles.ts, palette.ts,
@@ -147,7 +156,7 @@ build/icon.png          App icon source for electron-builder
 3. Every 2 s, run the coarse off-screen tick for bugs in sleeping areas.
 4. Run bug AI. Each bug reads its body state, what it stands on, how deep it is in water, last step's impacts, and the `BugWorld` (other bugs, loose things, player setups), and returns a velocity plus notices that become events. Then the setup rule's walk-force cap takes away any velocity into a player setup, things move into and out of bugs' front legs, and throws in a game of catch are caught.
 5. `Environment.beforePhysics`: raise or drain the water, move lily pads and ice sheets, and apply buoyancy, water drag, the current, Skeet's surface stance, parachute drag, wind, magnet pulls, and the hose's push. Then tear any weld pulled too fast.
-6. Step physics with 8 velocity and 3 position iterations. Two things keep a busy step cheap (R12 of the post-M8 review). planck's continuous collision pass checks every awake body against the ground each step; `Physics` runs it only for bodies that moved (or will move) more than half their thinnest size this step, counting spin, and marks the rest as sensors while it runs. And a bug standing still on flat ground is left to rest instead of being handed a zero velocity, so planck can put it (and the pile it leans on) to sleep. The pre-solve callback that filters contacts is switched off while there are no setups, ghosts, or things in the cobweb. A crowded plaza (150 extra items and 16 extra bugs, `tests/unit/perf.test.ts`) steps in about 2.5 ms on a quiet desktop.
+6. Step physics with 8 velocity and 3 position iterations. Two things keep a busy step cheap (R12 of the post-M8 review). planck's continuous collision pass checks every awake body against the ground each step; `Physics` runs it only for bodies that moved (or will move) more than half their thinnest size this step, counting spin, and marks the rest as sensors while it runs. And a bug standing still on flat ground is left to rest instead of being handed a zero velocity, so planck can put it (and the pile it leans on) to sleep. The pre-solve callback that filters contacts is switched off while there are no setups, ghosts, or things in the cobweb. A crowded plaza (150 extra items and 16 extra bugs, `tests/unit/perf.test.ts`) costs about 3 ms of CPU a step on CI's runner (9 ms at the 99th percentile), most of it planck solving the item piles that walking bugs keep awake.
 7. Handle new contacts. Contacts above 6 m/s become `bonked` events. Anything landing on a spring's top gets launched along the spring's axis. Impacts on bugs are kept for the next AI tick.
 8. `Environment.afterPhysics`: measure how submerged each thing is, announce splashes and skips, weld sticky contacts, and every 15 ticks run the property rules.
 9. Every 15 ticks, find structures for the setup rule. Then idle bugs near anything loud this step (a crash, a hard landing, a stack falling) turn to look.
