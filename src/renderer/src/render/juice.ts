@@ -90,3 +90,19 @@ export function shakeOffset(
 export function approach(current: number, target: number, rate: number, dt: number): number {
   return target + (current - target) * Math.exp(-rate * dt);
 }
+
+/**
+ * The hover rim light's opacity (game design doc, section 2): it pulses
+ * between 60 and 100 percent twice a second.
+ */
+export function rimPulse(time: number): number {
+  return 0.8 + 0.2 * Math.sin(time * Math.PI * 4);
+}
+
+/** A hovered loose thing is drawn this much bigger, as if it lifts toward the hand. */
+export const HOVER_LIFT = 0.1;
+
+/** Ease the hover lift (0 to `HOVER_LIFT`) in quickly, and out a little slower. */
+export function hoverLift(current: number, hovered: boolean, dt: number): number {
+  return hovered ? approach(current, HOVER_LIFT, 22, dt) : approach(current, 0, 14, dt);
+}

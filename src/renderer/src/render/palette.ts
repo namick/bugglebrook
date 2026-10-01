@@ -25,3 +25,13 @@ export function mix(a: number, b: number, t: number): number {
 
 export const lighten = (c: number, t: number): number => mix(c, 0xffffff, t);
 export const darken = (c: number, t: number): number => mix(c, OUTLINE, t);
+
+/**
+ * The hover rim light (game design doc, section 2), stroked along a thing's
+ * silhouette behind its art: a soft white glow, then a crisp white rim that
+ * shows about 3 px past the dark outline, on small things and dark ground alike.
+ */
+export const RIM_STYLES = [
+  { width: OUTLINE_WIDTH + 22, color: 0xffffff, alpha: 0.3, join: 'round', cap: 'round' },
+  { width: OUTLINE_WIDTH + 8, color: 0xffffff, alpha: 1, join: 'round', cap: 'round' },
+] as const;

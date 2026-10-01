@@ -26,7 +26,7 @@ import { BugSprite } from './draw/bug';
 import type { BugFrame } from './draw/bug';
 import type { Look } from './draw/face';
 import { ItemSprite } from './draw/item';
-import { SquashSpring, approach, shakeOffset, stretchFor } from './juice';
+import { SquashSpring, approach, hoverLift, rimPulse as pulseAt, shakeOffset, stretchFor } from './juice';
 import { OUTLINE, mix } from './palette';
 import { Particles } from './particles';
 import type { Move, Picto, ReactionLook } from './reactions';
@@ -106,6 +106,8 @@ interface Juice {
   clock: number;
   /** Seconds until the next potion trail puff. */
   trailIn: number;
+  /** How far a hovered loose thing has lifted toward the hand (0 to `HOVER_LIFT`). */
+  lift: number;
   /** Glancing around (a fidget): seconds left. */
   glance: number;
 }
@@ -337,6 +339,7 @@ export class WorldView extends Container {
         size: { value: 1, v: 0 },
         clock: Math.random() * 10,
         trailIn: 0,
+        lift: 0,
       };
       j.squash.amount = this.reduced ? SQUASH_REDUCED : 1;
       this.juice.set(id, j);
@@ -613,7 +616,7 @@ export class WorldView extends Container {
     }
     const offer = this.offering(views);
     this.drawGlows(offer);
-    const rimPulse = 0.8 + 0.2 * Math.sin(this.time * Math.PI * 4);
+    const rimPulse = pulseAt(this.time);
     const seen = new Set<EntityId>();
     for (const view of views) {
       seen.add(view.id);
@@ -659,6 +662,9 @@ export class WorldView extends Container {
         const potion = view.effects ? potionLook(view.effects, view.scale ?? 1, this.time) : null;
         j.size = easeScale(j.size, view.scale ?? 1, dt);
         k *= Math.max(0.2, j.size.value);
+        // Hovered, it lifts a little toward the hand.
+        j.lift = hoverLift(j.lift, rim > 0, dt);
+        k *= 1 + j.lift;
         if (potion?.tint) sprite.tint = potion.tint;
         // Toasted food (rule R12): browned, and it steams a little.
         if (view.toasted) {
