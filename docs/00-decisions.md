@@ -7,7 +7,7 @@ These were set by the project owner before the unattended build. Do not change t
 | Name | **Bugglebrook**. Public GitHub repo `namick/bugglebrook` |
 | Audience | About 13 years old. No playing house, no dating, no teen-drama themes. |
 | Premise | Tiny cute bug characters living in a backyard world, with lots of toys to play with. Bugs move around on their own (autonomous AI). Everything can be moved and manipulated. |
-| Art | Flat vector, Toca-like: bold shapes, thick outlines, bright colors, squash-and-stretch. All art is generated in code (PixiJS / Canvas). No external art assets. |
+| Art | Flat vector, Toca-like: bold shapes, thick outlines, bright colors, squash-and-stretch. All art is drawn in code (PixiJS) by default. Hand-drawn art from the owner's daughter (Krita, `.ora` files, see `docs/06-art-guide.md`) can replace any bug, item, or background, one asset at a time. The code still animates her art, and the code-drawn version remains the fallback for anything she hasn't drawn. Her art keeps its own license, separate from the code. *(Amended by the owner on 2026-10-01. Originally: all art in code, no external assets.)* |
 | World | One connected, side-scrolling garden world with several areas (e.g., backyard → pond → under the porch → treehouse → compost lab). Bugs and toys can be carried between areas. |
 | Structure | Sandbox + secrets. No failing, no timers. Hidden secrets, a collection journal, discoverable combos ("mix X with Y"), unlockable areas and bugs. |
 | Tone | Weird and silly: absurd humor, mild gross-out (burps, slime, stink clouds), slapstick flinging where bugs bounce back dizzy. Never mean. |
