@@ -6,6 +6,8 @@ import {
   entities,
   entity,
   frames,
+  lookAt,
+  settleCamera,
   framesUntil,
   freeze,
   glideFrames,
@@ -34,25 +36,6 @@ const events = (page: Page, name: string): Promise<Logged[]> =>
 const fixture = async (page: Page, id: string): Promise<{ x: number; y: number }> =>
   (await page.evaluate((f) => window.__bb!.fixture(f), id))!;
 
-/** Scroll the camera with the real wheel so its left edge is near x, then freeze and let it settle. */
-async function lookAt(page: Page, x: number): Promise<void> {
-  await freeze(page, false);
-  await scrollTo(page, x);
-  await settle(page);
-}
-
-/** Freeze the sim and run frames until the camera stops moving. */
-async function settle(page: Page): Promise<void> {
-  await freeze(page, true);
-  let last = await camera(page);
-  for (let i = 0; i < 20; i++) {
-    await frames(page, 10);
-    const now = await camera(page);
-    if (Math.abs(now - last) < 0.005) return;
-    last = now;
-  }
-}
-
 /** With the sim frozen: carry what the mouse holds to world (x, y) and let go gently. */
 async function carryTo(page: Page, from: { x: number; y: number }, x: number, y: number): Promise<void> {
   const to = await toClient(page, x, y);
@@ -70,12 +53,11 @@ test('watering the droopy sunflower with a wet sponge opens the flowerbed, for g
     await openFrozen(page, 0);
     expect(await unlocked(page)).not.toContain('area_flowerbed_stage');
     // Locked: the camera can look 4 m past the barrier, then springs back.
-    await freeze(page, false);
     await scrollTo(page, 0);
     await expect.poll(() => camera(page)).toBeGreaterThan(POND_X - 4.2);
     await page.mouse.move(960, 600);
     await expect.poll(() => camera(page), { timeout: 15_000 }).toBeGreaterThanOrEqual(POND_X - 0.05);
-    await settle(page);
+    await settleCamera(page);
     const soil = await fixture(page, 'fix_sunflower_gate');
     const sponge = (await entities(page)).find((e) => e.defId === 'item_sponge')!;
     // Dunk it in the pond...

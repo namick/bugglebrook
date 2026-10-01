@@ -39,6 +39,12 @@ export async function launchApp(userData?: string): Promise<Launched> {
     if (msg.type() === 'error') errors.push(msg.text());
   });
   await page.waitForFunction(() => window.__bb !== undefined);
+  // A tiling window manager may stretch the window to fill its tile. Put it
+  // back to the 1280x720 that CI's virtual screen gives it.
+  if (!process.env.CI) {
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1280, 720));
+    await expect.poll(() => page.evaluate(() => `${innerWidth}x${innerHeight}`)).toBe('1280x720');
+  }
   return {
     app,
     page,
@@ -232,6 +238,35 @@ export async function scrollTo(page: Page, x: number): Promise<void> {
     await page.mouse.wheel(0, Math.max(-600, Math.min(600, (d * 100) / 1.5)));
     await page.waitForTimeout(30);
   }
+}
+
+/** Wait until the camera has stopped moving (it glides on the screen's clock, even with the sim frozen). */
+export async function settleCamera(page: Page): Promise<void> {
+  let last = Number.NaN;
+  await expect
+    .poll(
+      async () => {
+        const now = await camera(page);
+        const still = Math.abs(now - last) < 0.002;
+        last = now;
+        return still;
+      },
+      { intervals: [200], timeout: 20_000 },
+    )
+    .toBe(true);
+}
+
+/**
+ * Scroll the camera with the real wheel until its left edge is near x, and
+ * wait for it to settle. Works with the sim frozen, so the world does not
+ * move on while the camera does: it steps two frames at the end so the
+ * area in view wakes up.
+ */
+export async function lookAt(page: Page, x: number): Promise<void> {
+  await scrollTo(page, x);
+  await settleCamera(page);
+  // The sim hears where the camera is on its next step (faraway areas sleep), so take a couple.
+  await page.evaluate(() => window.__bb!.isPaused() && window.__bb!.frames(2));
 }
 
 export type UiName = Parameters<TestHook['uiClient']>[0];

@@ -7,7 +7,13 @@ import {
   content,
   entities,
   entity,
+  frames,
+  framesUntil,
+  glideFrames,
   launchApp,
+  lookAt,
+  openFrozen,
+  pressFrozen,
   pressOn,
   scrollTo,
   toClient,
@@ -42,6 +48,8 @@ async function spawn(page: Page, kind: 'bug' | 'item', defId: string, x: number,
   let id = -1;
   await expect
     .poll(async () => {
+      // A frozen sim only takes the command on its next step.
+      await page.evaluate(() => window.__bb!.isPaused() && window.__bb!.frames(1));
       id = (await entities(page)).find((e) => !before.has(e.id) && e.defId === defId)?.id ?? -1;
       return id;
     })
@@ -145,29 +153,38 @@ test('things dropped in the pond splash, get wet, and float or sink', async () =
   const bb = await launchApp();
   try {
     const { page } = bb;
-    await clickSlot(page, 0);
-    await scrollTo(page, POND_X);
+    // Frozen and stepped frame by frame, so CI's slow renderer sees the same steps as a fast machine.
+    await openFrozen(page, 0);
+    await lookAt(page, POND_X);
     const water = (await page.evaluate(() => window.__bb!.water())).surfaces[0]!;
-    const cork = await spawn(page, 'item', 'item_cork', POND_X + 2.5, 7.5);
-    const pebble = await spawn(page, 'item', 'item_pebble', POND_X + 3.05, 7.5);
-    await settle(page, cork);
-    await settle(page, pebble);
+    const still = async (id: number): Promise<boolean> => {
+      const e = (await entity(page, id))!;
+      return Math.hypot(e.vx, e.vy) < 0.3;
+    };
     await page.evaluate(() => window.__bb!.clearLogs());
-    const corkX = await openWater(page);
-    const pebbleX = await openWater(page, [corkX]);
-    for (const [id, x] of [
-      [cork, corkX],
-      [pebble, pebbleX],
-    ] as const) {
-      const at = await pressOn(page, id);
-      await carryTo(page, at, x, water.level - 1);
+    // One at a time: both roll down the bank to the same spot, and the hand grabs the top one.
+    const dropped: number[] = [];
+    const ids: number[] = [];
+    for (const defId of ['item_cork', 'item_pebble']) {
+      const id = await spawn(page, 'item', defId, POND_X + 2.5, 7.5);
+      expect(await framesUntil(page, () => still(id), 600, 10)).toBe(true);
+      ids.push(id);
+      const x = await openWater(page, dropped);
+      const at = await pressFrozen(page, id);
+      const to = await toClient(page, x, water.level - 1);
+      await glideFrames(page, at, to.x - at.x, to.y - at.y, 16, 2);
+      await frames(page, 30);
       await page.mouse.up();
-      await page.mouse.move(960, 100);
+      await frames(page, 2);
+      dropped.push(x);
     }
-    await expect.poll(async () => (await events(page, 'splashed')).length).toBeGreaterThanOrEqual(2);
+    const [cork, pebble] = ids as [number, number];
+    expect(await framesUntil(page, async () => (await events(page, 'splashed')).length >= 2, 240, 10)).toBe(
+      true,
+    );
     const sounds = await page.evaluate(() => window.__bb!.sfxLog());
     expect(sounds.some((s) => s === 'splash' || s === 'plop')).toBe(true);
-    await page.waitForTimeout(5000);
+    await frames(page, 300);
     const c = (await entity(page, cork))!;
     const p = (await entity(page, pebble))!;
     expect(c.tags).toContain('tag_wet');
