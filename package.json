@@ -29,13 +29,13 @@
     "format": "prettier --write . && eslint . --fix",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "electron-vite build && playwright test",
+    "test:e2e": "electron-vite build && node scripts/display.mjs playwright test",
     "icon": "node scripts/make-icon.mjs",
     "dist:linux": "electron-vite build && electron-builder --linux --publish never",
     "dist:appimage": "electron-vite build && electron-builder --linux AppImage --publish never",
     "dist:win": "electron-vite build && electron-builder --win --publish never",
     "dist:mac": "electron-vite build && electron-builder --mac --publish never",
-    "shots": "electron-vite build && playwright test -c playwright.shots.config.ts"
+    "shots": "electron-vite build && node scripts/display.mjs playwright test -c playwright.shots.config.ts"
   },
   "dependencies": {
     "electron-updater": "6.8.9"

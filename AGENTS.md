@@ -37,7 +37,7 @@ pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e
 ```
 
 - `pnpm test` runs Vitest (`tests/unit/`).
-- `pnpm test:e2e` builds, then runs Playwright against the real Electron app (`tests/e2e/`). It needs a display. Use `xvfb-run -a pnpm test:e2e` when there is none.
+- `pnpm test:e2e` builds, then runs Playwright against the real Electron app (`tests/e2e/`). On Linux with `xvfb-run` installed, it and `pnpm shots` run on their own virtual X display (`scripts/display.mjs`), so no window opens on the desktop. Never run Electron on the owner's real desktop. Set `BB_REAL_DISPLAY=1` only if you must watch a run.
 - `pnpm format` runs Prettier and ESLint with `--fix`.
 - `pnpm shots` saves a screenshot tour to `/tmp/bb-shots`. Look at the PNGs after any art change. Faces are small at 1080p, so zoom in (`magick in.png -crop WxH+X+Y -scale 400% out.png`) before judging an expression. Move the hand out of the way before a close-up; it draws over whatever it hovers.
 - E2E tests that stage bugs should call `content()` from `tests/e2e/app.ts` first, or bugs walk off to eat the food you spawn. Dot and Rollo start close together, so use Glorp (alone on the stump) when only one mouth may be in range. Content bugs still come to sniff anything the player just dropped (that is an M4 acceptance rule), and Dot starts on the plaza's bottle cap.
@@ -50,7 +50,7 @@ pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e
 - `pnpm shots -g "day, night"` runs only the M6 tour (files `100-` to `120-`): dawn, noon, sunset, night, the pond at night, Flick, rain, a rainbow, wind, cloud, a shooting star, the sundial, and the vane.
 - `pnpm shots -g "menu, pause"` runs only the M5 tour (files `90-` to `99g-`): the menu, settings, the first scene, pause, the pocket, and the compost bin. Screenshots come out at the window's device pixels, so they are larger than 1920x1080 on a HiDPI desktop.
 - `pnpm shots -g "idle watch"` runs only the idle watch (files `60-` to `87-`): five simulated minutes of the plaza left alone, with `idle-log.txt` listing what the bugs did. Read the log next to the frames when tuning the AI.
-- Outside CI, `launchApp` sets the window to 1280x720 (what CI's virtual screen gives it), since a tiling window manager may stretch it. Other agents running E2E or shots on the same desktop at the same time will break each other's runs; wait for them. Set `BB_SHOTS_DIR` to keep your screenshots apart.
+- Outside CI, `launchApp` sets the window to 1280x720 (what CI's virtual screen gives it). Each `xvfb-run -a` gets its own display, so agents can run E2E or shots at the same time, though parallel runs are slower. Set `BB_SHOTS_DIR` to keep your screenshots apart.
 - Some shells set `ELECTRON_RUN_AS_NODE=1`. The E2E launcher clears it, but unset it yourself before running Electron any other way.
 
 ## Rules
