@@ -449,6 +449,7 @@ export class Game {
     };
     view.onSound = (name, strength) => this.sfx.play(name, strength);
     view.weather.onSound = (name, strength) => this.sfx.ambient(name, strength);
+    view.onAmbient = (name, strength) => this.sfx.ambient(name, strength);
     sim.events.onAny((name, payload) => {
       this.eventLog.push({ name, tick: sim.tick, payload });
       if (this.eventLog.length > 400) this.eventLog.shift();

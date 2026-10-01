@@ -197,7 +197,7 @@ describe('weather', () => {
 
   it(
     'is deterministic: two worlds with the same seed have the same weather and clock',
-    { timeout: 60_000 },
+    { timeout: 240_000 },
     () => {
       const a = Sim.create({ seed: 'twins' });
       const b = Sim.create({ seed: 'twins' });

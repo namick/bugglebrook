@@ -84,7 +84,40 @@ export type SfxName =
   | 'knock'
   | 'blink'
   | 'light_on'
-  | 'light_off';
+  | 'light_off'
+  | 'slurp'
+  | 'unlock'
+  | 'creak'
+  | 'latch'
+  | 'lift'
+  | 'bell'
+  | 'paint'
+  | 'knock_back'
+  | 'rustle'
+  | 'hum'
+  | 'web'
+  | 'jar'
+  | 'snap'
+  | 'claw'
+  | 'domino'
+  | 'stink_puff'
+  | 'chop'
+  | 'nibble'
+  | 'cocoon'
+  | 'freed'
+  | 'band'
+  | 'stage'
+  | 'bee_hum'
+  | 'birdsong'
+  | 'board_patter'
+  | 'drip'
+  | 'bubble_blorp'
+  | 'steam_hiss'
+  | 'arcade_blip'
+  | 'leaf_rustle'
+  | 'scratch'
+  | 'tulip_hum'
+  | 'peek_twig';
 
 /**
  * The impact sound for a material. Soft materials (cloth, paper) thud like
@@ -245,6 +278,42 @@ export class Sfx {
       bus.on('bug_joined', () => this.play('ta_da')),
       bus.on('item_transformed', () => this.play('twinkle', 1)),
       bus.on('bug_umbrella', (e) => this.limited('pick', 150, e.on ? 0.7 : 0.4)),
+      // M7: the new areas and bugs.
+      bus.on('sunflower_drank', () => this.play('slurp')),
+      bus.on('area_unlocked', () => this.play('unlock')),
+      bus.on('tunnel_rolled', (e) => this.play(e.fits ? 'latch' : 'clink')),
+      bus.on('lift_moved', (e) => this.play(e.phase === 'top' ? 'pop' : 'lift')),
+      bus.on('stage_lights_changed', () => this.play('stage')),
+      bus.on('speaker_toggled', () => this.play('bell')),
+      bus.on('painted', () => this.limited('paint', 200)),
+      bus.on('gnome_knocked', () => this.play('knock')),
+      bus.on('gnome_answered', () => this.play('knock_back')),
+      bus.on('hideout_stirred', (e) =>
+        this.limited(
+          e.fixture === 'fix_tulip' ? 'hum' : e.fixture === 'fix_can_tunnel' ? 'scratch' : 'rustle',
+          300,
+          0.7,
+        ),
+      ),
+      bus.on('band_played', () => this.play('band')),
+      bus.on('lamp_toggled', (e) => this.play(e.on ? 'light_on' : 'light_off')),
+      bus.on('floor_dropped', () => this.play('plip')),
+      bus.on('web_caught', (e) => {
+        if (e.on) this.limited('web', 200);
+      }),
+      bus.on('spider_waved', () => this.play('twinkle', 1)),
+      bus.on('jar_refilled', () => this.limited('jar', 300)),
+      bus.on('track_snapped', (e) => this.play(e.on ? 'snap' : 'pick')),
+      bus.on('claw_moved', (e) =>
+        this.play(e.phase === 'prize' ? 'ta_da' : e.phase === 'miss' ? 'clink' : 'claw'),
+      ),
+      bus.on('dominoes_fell', () => this.play('domino')),
+      bus.on('stink_cloud', () => this.play('stink_puff')),
+      bus.on('bug_freed', () => this.play('freed')),
+      bus.on('bug_nibbled', () => this.limited('nibble', 150)),
+      bus.on('bug_changed', (e) => this.play(e.form === 'cocoon' ? 'cocoon' : 'twinkle', 1)),
+      bus.on('bug_chopped', () => this.play('chop')),
+      bus.on('bug_blinked', () => this.play('peek_twig')),
     ];
   }
 
@@ -862,6 +931,295 @@ export class Sfx {
           return [{ freq: 1800 * j, to: 900 * j, dur: 0.04, wave: 'square', gain: 0.1 }];
         case 'light_off':
           return [{ freq: 900 * j, to: 500 * j, dur: 0.04, wave: 'square', gain: 0.08 }];
+        // --- M7 ---------------------------------------------------------------
+        case 'slurp':
+          // The sunflower drinks: a long gurgly slurp rising, then a happy pop.
+          return [
+            {
+              freq: 400 * j,
+              to: 1400 * j,
+              dur: 0.5,
+              wave: 'noise',
+              q: 6,
+              gain: 0.18,
+              vibrato: { rate: 18, depth: 120 },
+            },
+            {
+              freq: 300 * j,
+              to: 900 * j,
+              dur: 0.45,
+              wave: 'sine',
+              gain: 0.12,
+              vibrato: { rate: 14, depth: 40 },
+            },
+            { freq: 880 * j, to: 1320 * j, dur: 0.12, wave: 'triangle', gain: 0.15, delay: 0.55 },
+          ];
+        case 'unlock':
+          // A new place: a bright rising chord with a shimmer.
+          return [392, 523, 659, 784, 1047].map((f, k) => ({
+            freq: f * j,
+            dur: 0.5 - k * 0.04,
+            wave: (k % 2 ? 'sine' : 'triangle') as 'sine' | 'triangle',
+            gain: 0.12,
+            delay: k * 0.07,
+          }));
+        case 'creak':
+          return [
+            {
+              freq: 180 * j,
+              to: 140 * j,
+              dur: 0.35,
+              wave: 'sawtooth',
+              gain: 0.05 * intensity,
+              vibrato: { rate: 30, depth: 20 },
+            },
+          ];
+        case 'latch':
+          return [
+            { freq: 2200 * j, to: 1600 * j, dur: 0.05, wave: 'square', gain: 0.12 },
+            { freq: 300 * j, to: 200 * j, dur: 0.18, wave: 'triangle', gain: 0.25, delay: 0.06 },
+            {
+              freq: 140 * j,
+              to: 110 * j,
+              dur: 0.5,
+              wave: 'sawtooth',
+              gain: 0.08,
+              delay: 0.2,
+              vibrato: { rate: 20, depth: 10 },
+            },
+          ];
+        case 'lift':
+          // The pulley squeaks round.
+          return [0, 1, 2].map((k) => ({
+            freq: 900 * j,
+            to: 1100 * j,
+            dur: 0.08,
+            wave: 'sine' as const,
+            gain: 0.06 * intensity,
+            delay: k * 0.18,
+          }));
+        case 'bell':
+          return [
+            {
+              freq: 660 * j,
+              to: 640 * j,
+              dur: 0.5,
+              wave: 'sine',
+              gain: 0.14,
+              vibrato: { rate: 6, depth: 8 },
+            },
+            { freq: 1320 * j, dur: 0.3, wave: 'sine', gain: 0.05 },
+          ];
+        case 'paint':
+          return [
+            { freq: 300 * j, to: 700 * j, dur: 0.16, wave: 'noise', q: 8, gain: 0.2 },
+            { freq: 500 * j, to: 260 * j, dur: 0.12, wave: 'sine', gain: 0.12 },
+          ];
+        case 'knock_back':
+          // Hollow knocks from inside the gnome: deeper and slower.
+          return [0, 1, 2].map((k) => ({
+            freq: 150 * j,
+            to: 110 * j,
+            dur: 0.1,
+            wave: 'triangle' as const,
+            gain: 0.35,
+            delay: 0.1 + k * 0.32,
+          }));
+        case 'rustle':
+        case 'leaf_rustle':
+          return [0, 1, 2, 3].map((k) => ({
+            freq: (2500 + this.random() * 2000) * j,
+            dur: 0.04,
+            wave: 'noise' as const,
+            q: 2,
+            gain: 0.06 * intensity,
+            delay: k * 0.05,
+          }));
+        case 'hum':
+        case 'tulip_hum':
+          return [
+            {
+              freq: 220 * j,
+              to: 230 * j,
+              dur: 0.6,
+              wave: 'sawtooth',
+              gain: 0.04 * intensity,
+              vibrato: { rate: 25, depth: 6 },
+              attack: 0.1,
+            },
+          ];
+        case 'bee_hum':
+          return [
+            {
+              freq: 180 * j,
+              to: 200 * j,
+              dur: 0.9,
+              wave: 'sawtooth',
+              gain: 0.025 * intensity,
+              vibrato: { rate: 28, depth: 10 },
+              attack: 0.3,
+            },
+          ];
+        case 'birdsong':
+          return [0, 1, 2].map((k) => ({
+            freq: (2400 + k * 300) * j,
+            to: (3200 - k * 200) * j,
+            dur: 0.07,
+            wave: 'sine' as const,
+            gain: 0.04 * intensity,
+            delay: k * 0.11,
+          }));
+        case 'web':
+          return [
+            {
+              freq: 500 * j,
+              to: 300 * j,
+              dur: 0.25,
+              wave: 'sine',
+              gain: 0.1,
+              vibrato: { rate: 12, depth: 30 },
+            },
+          ];
+        case 'jar':
+          return [
+            { freq: 2093 * j, dur: 0.25, wave: 'sine', gain: 0.08 },
+            { freq: 3136 * j, dur: 0.18, wave: 'sine', gain: 0.04 },
+          ];
+        case 'snap':
+          return [
+            { freq: 3000 * j, to: 1800 * j, dur: 0.03, wave: 'square', gain: 0.12 },
+            { freq: 900 * j, dur: 0.05, wave: 'triangle', gain: 0.1, delay: 0.03 },
+          ];
+        case 'claw':
+          // A whirring motor.
+          return [
+            {
+              freq: 120 * j,
+              to: 160 * j,
+              dur: 0.6,
+              wave: 'sawtooth',
+              gain: 0.05,
+              vibrato: { rate: 40, depth: 8 },
+            },
+          ];
+        case 'domino':
+          return [0, 1, 2, 3, 4].map((k) => ({
+            freq: (1400 - k * 60) * j,
+            dur: 0.03,
+            wave: 'square' as const,
+            gain: 0.05,
+            delay: k * 0.07,
+          }));
+        case 'stink_puff':
+          // Pfffft: an embarrassed little cloud.
+          return [
+            { freq: 160 * j, to: 90 * j, dur: 0.35, wave: 'noise', q: 3, gain: 0.25 },
+            {
+              freq: 120 * j,
+              to: 70 * j,
+              dur: 0.3,
+              wave: 'sawtooth',
+              gain: 0.06,
+              vibrato: { rate: 20, depth: 15 },
+            },
+          ];
+        case 'chop':
+          return [
+            { freq: 3000 * j, to: 600 * j, dur: 0.12, wave: 'noise', q: 2, gain: 0.3 },
+            { freq: 700 * j, to: 1100 * j, dur: 0.1, wave: 'square', gain: 0.07, delay: 0.05 },
+          ];
+        case 'nibble':
+          return [0, 1].map((k) => ({
+            freq: 1800 * j,
+            to: 1200 * j,
+            dur: 0.03,
+            wave: 'noise' as const,
+            q: 5,
+            gain: 0.15,
+            delay: k * 0.08,
+          }));
+        case 'cocoon':
+          return [
+            {
+              freq: 800 * j,
+              to: 400 * j,
+              dur: 0.8,
+              wave: 'sine',
+              gain: 0.08,
+              vibrato: { rate: 5, depth: 30 },
+              attack: 0.3,
+            },
+          ];
+        case 'freed':
+          return [
+            { freq: 400 * j, to: 900 * j, dur: 0.12, wave: 'triangle', gain: 0.2 },
+            { freq: 1400 * j, dur: 0.06, wave: 'sine', gain: 0.1, delay: 0.1 },
+          ];
+        case 'band':
+          return [262, 330, 392, 523].map((f, k) => ({
+            freq: f * j,
+            dur: 0.9,
+            wave: 'triangle' as const,
+            gain: 0.09,
+            delay: k * 0.03,
+          }));
+        case 'stage':
+          return [
+            { freq: 1200 * j, dur: 0.04, wave: 'square', gain: 0.08 },
+            { freq: 1800 * j, dur: 0.04, wave: 'square', gain: 0.06, delay: 0.05 },
+          ];
+        case 'board_patter':
+          // Rain drumming on wooden boards: low wooden ticks.
+          return [0, 1, 2].map((k) => ({
+            freq: (500 + this.random() * 400) * j,
+            dur: 0.03,
+            wave: 'noise' as const,
+            q: 4,
+            gain: 0.04 * intensity,
+            delay: k * (0.03 + this.random() * 0.05),
+          }));
+        case 'drip':
+          return [{ freq: 1500 * j, to: 2400 * j, dur: 0.06, wave: 'sine', gain: 0.07 * intensity }];
+        case 'bubble_blorp':
+          return [
+            { freq: 220 * j, to: 520 * j, dur: 0.12, wave: 'sine', gain: 0.08 * intensity },
+            { freq: 300 * j, to: 700 * j, dur: 0.1, wave: 'sine', gain: 0.05 * intensity, delay: 0.15 },
+          ];
+        case 'steam_hiss':
+          return [
+            {
+              freq: 5000 * j,
+              to: 4000 * j,
+              dur: 0.6,
+              wave: 'noise',
+              q: 1,
+              gain: 0.03 * intensity,
+              attack: 0.2,
+            },
+          ];
+        case 'arcade_blip':
+          return [0, 1, 2].map((k) => ({
+            freq: [880, 1175, 1568][k]! * j,
+            dur: 0.05,
+            wave: 'square' as const,
+            gain: 0.03 * intensity,
+            delay: k * 0.07,
+          }));
+        case 'scratch':
+          return [0, 1, 2].map((k) => ({
+            freq: 3000 * j,
+            to: 2000 * j,
+            dur: 0.06,
+            wave: 'noise' as const,
+            q: 6,
+            gain: 0.05 * intensity,
+            delay: k * 0.09,
+          }));
+        case 'peek_twig':
+          return [
+            { freq: 3000 * j, dur: 0.02, wave: 'noise', q: 8, gain: 0.08 },
+            { freq: 140 * j, dur: 0.15, wave: 'sine', gain: 0.08, delay: 0.05 },
+          ];
       }
     })();
     for (const tone of tones) this.backend.play({ ...tone, gain: (tone.gain ?? 0.3) * v, bus: 'sfx' });

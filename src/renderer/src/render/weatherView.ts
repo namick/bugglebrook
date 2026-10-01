@@ -1,3 +1,4 @@
+import type { LightFn } from './areaArt/live';
 import { Container, Graphics, Sprite } from 'pixi.js';
 import { PIXELS_PER_METER, VIEW_HEIGHT_PX, VIEW_WIDTH_PX } from '../../../game/constants';
 import type { EntityView, Sim } from '../../../game/sim';
@@ -107,6 +108,8 @@ export class WeatherView {
   private answerBig = false;
   /** Sounds from the weather itself (rain patter), and how loud. */
   onSound: ((name: 'rain' | 'wind' | 'cricket', strength: number) => void) | null = null;
+  /** More lights each frame, from the areas' live views (lamps, neon, stage lights). */
+  extraLights: ((light: LightFn) => void) | null = null;
   private soundIn = 0;
 
   constructor(
@@ -151,6 +154,15 @@ export class WeatherView {
           this.firefly(plaza.xStart * PPM + mx + (Math.random() - 0.5) * 300, 700 + Math.random() * 120),
         );
       }
+  }
+
+  /** The top of a roof over world pixel x (the porch boards, the treehouse roof), or null. */
+  private roofTop(x: number): number | null {
+    for (const area of this.sim.content.areas.all) {
+      const r = area.roof;
+      if (r && x >= (area.xStart + r.x0) * PPM && x <= (area.xStart + r.x1) * PPM) return r.top * PPM;
+    }
+    return null;
   }
 
   private firefly(x: number, y: number): Firefly {
@@ -233,11 +245,13 @@ export class WeatherView {
       const wx = left + d.x;
       const wy = sim.terrain.surfaceY(wx / PPM) * PPM;
       const water = this.water.surfaceAt(wx);
-      const floor = water ?? wy;
+      // Rooms keep the rain off: it lands on the porch boards and the treehouse roof.
+      const roof = this.roofTop(wx);
+      const floor = roof ?? water ?? wy;
       if (d.y > floor) {
         if (this.splashes.length < SPLASH_MAX && Math.random() < 0.6)
-          this.splashes.push({ x: wx, y: floor, age: 0, water: water !== null });
-        if (water !== null && this.rings.length < 40 && Math.random() < 0.5)
+          this.splashes.push({ x: wx, y: floor, age: 0, water: roof === null && water !== null });
+        if (roof === null && water !== null && this.rings.length < 40 && Math.random() < 0.5)
           this.rings.push({ x: wx, age: 0 });
         d.y = -Math.random() * 200 - d.len;
         d.x = Math.random() * (VIEW_WIDTH_PX + 400) - 200 - slant * 0.4;
@@ -463,6 +477,7 @@ export class WeatherView {
           this.light(x, y + 6, 90, 0xfff4cc, look.moon.alpha * glow * 0.7, 1.6 * shimmer, 0.28);
           this.light(x, y + 20, 60, 0xfff4cc, look.moon.alpha * glow * 0.35, 0.5, 0.9);
         }
+    this.extraLights?.((x, y, r, color, alpha, sx = 1, sy = 1) => this.light(x, y, r, color, alpha, sx, sy));
     this.drawFireflies(dt, glow, left);
   }
 

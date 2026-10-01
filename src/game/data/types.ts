@@ -89,7 +89,7 @@ export interface AreaDef {
   /** Fixed solids: roofs, shelves, walls, slides. */
   solids?: readonly SolidDef[];
   /** A roof overhead (the porch boards, the treehouse): the sky and sun do not reach under it. */
-  roof?: { x0: number; x1: number; y: number };
+  roof?: { x0: number; x1: number; y: number; top: number };
   /** Music and ambience hints for the renderer: how the area sounds. */
   mood: AreaMood;
 }

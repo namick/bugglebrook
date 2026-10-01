@@ -6,6 +6,14 @@ import type { ChatTopic, Fidget, Liking } from '../../../game/events';
 import type { EntityView, Sim } from '../../../game/sim';
 import { likingOf } from '../../../game/systems/bugAi';
 import { Background } from './background';
+import { ArcadeLive } from './areaArt/arcadeLive';
+import { CanWallLive, LockView, SunflowerLive } from './areaArt/barrierLive';
+import { CompostLive } from './areaArt/compostLive';
+import { FlowerbedLive } from './areaArt/flowerbedLive';
+import type { AreaLive } from './areaArt/live';
+import type { AreaFrame, AreaSound } from './areaArt/live';
+import { PorchLive } from './areaArt/porchLive';
+import type { AreaDef } from '../../../game/data/types';
 import { Bubbles } from './bubbles';
 import type { BubbleInfo } from './bubbles';
 import type { FaceOverride } from './bugFace';
@@ -162,22 +170,42 @@ export class WorldView extends Container {
     this.weather = new WeatherView(sim, this.water);
     this.fixtures = new FixtureArt(sim);
     this.entityLayer.sortableChildren = true;
+    this.lives = makeLives(sim);
+    for (const live of this.lives) live.glow.blendMode = 'add';
     this.graded.addChild(
       bg.near,
       this.fixtures,
+      ...this.lives.map((l) => l.back),
       this.weather.puddles,
       this.water.back,
       this.behind,
       this.shadows,
       this.trails,
       this.entityLayer,
+      ...this.lives.filter((l) => !(l instanceof LockView)).map((l) => l.front),
       this.over,
       this.water.front,
       this.weather.splashLayer,
       this.soapBubbles,
       this.particles,
     );
-    this.world.addChild(this.graded, this.weather.lights, this.fixtures.eyes, this.glows, this.bubbles);
+    this.world.addChild(
+      this.graded,
+      ...this.lives.filter((l) => l instanceof LockView).map((l) => l.front),
+      ...this.lives.map((l) => l.glow),
+      this.weather.lights,
+      this.fixtures.eyes,
+      this.glows,
+      this.bubbles,
+    );
+    this.weather.extraLights = (light) => {
+      if (!this.areaFrame) return;
+      for (const live of this.lives) {
+        // Locked areas show only their hints, not their full lights.
+        if (!(live instanceof LockView) && this.lockedAt((live.x0 + live.x1) / 2)) continue;
+        live.lights(this.areaFrame, light);
+      }
+    };
     this.weatherMix = weatherTarget(sim.weather.weather);
     this.soapBubbles.onPop = (x, y) => {
       this.particles.ring(x, y, 14);
@@ -196,6 +224,51 @@ export class WorldView extends Container {
     );
     this.listen();
     this.listenSky();
+    for (const live of this.lives) this.offs.push(...live.listen(sim, this.particles));
+  }
+
+  /** The areas' live views: flowers, the porch, the compost lab, the arcade, the barriers, locked previews. */
+  private readonly lives: AreaLive[];
+  private areaFrame: AreaFrame | null = null;
+  /** Ambient sounds from the areas (bees, drips, steam, arcade blips). */
+  onAmbient: ((name: AreaSound, strength: number) => void) | null = null;
+
+  private ambientIn = 2;
+
+  /**
+   * Each area sounds like itself (game design doc, section 16): bees and
+   * birds over the flowerbed, creaks and drips under the porch, blorps and
+   * hisses in the compost lab, blips in the arcade. Quiet, and only now and then.
+   */
+  private ambience(dt: number, camera: Camera): void {
+    this.ambientIn -= dt;
+    if (this.ambientIn > 0 || !this.onAmbient) return;
+    this.ambientIn = 2.5 + Math.random() * 4;
+    const area = this.sim.areaOf(camera.centerX);
+    const open = this.sim.barriers.isOpen(area.id);
+    const night = this.look.glow > 0.5;
+    const s = open ? 0.8 : 0.35;
+    switch (area.mood) {
+      case 'garden':
+        this.onAmbient(night ? 'tulip_hum' : Math.random() < 0.5 ? 'bee_hum' : 'birdsong', s);
+        break;
+      case 'porch':
+        this.onAmbient(Math.random() < 0.5 ? 'creak' : 'drip', s);
+        break;
+      case 'compost':
+        this.onAmbient(Math.random() < 0.6 ? 'bubble_blorp' : 'steam_hiss', s);
+        break;
+      case 'arcade':
+        this.onAmbient(Math.random() < 0.6 ? 'arcade_blip' : 'leaf_rustle', s);
+        break;
+      default:
+        if (!night && Math.random() < 0.3) this.onAmbient('birdsong', 0.4);
+    }
+  }
+
+  /** Is world pixel x in a locked area? */
+  private lockedAt(xPx: number): boolean {
+    return !this.sim.barriers.isOpen(this.sim.areaOf(xPx / PPM).id);
   }
 
   /**
@@ -906,6 +979,24 @@ export class WorldView extends Container {
     this.lastHover = hover;
     // Pocketed things are drawn by the pocket tray, not the world.
     const views = this.sim.views().filter((v) => v.pocket === undefined);
+    this.areaFrame = {
+      sim: this.sim,
+      dt,
+      time: this.time,
+      left: camera.x * PPM,
+      right: camera.x * PPM + VIEW_WIDTH_PX,
+      look: this.look,
+      weather: this.weatherMix,
+      views,
+      hand: hover ? { x: hover.x * PPM, y: hover.y * PPM } : null,
+      particles: this.particles,
+      sound: (name, strength) => this.onAmbient?.(name, strength),
+    };
+    for (const live of this.lives) {
+      live.update(this.areaFrame);
+      live.back.x = live.front.x = live.glow.x = scroll;
+    }
+    this.ambience(dt, camera);
     this.water.update(dt, camera, views);
     this.weather.update(dt, camera, this.look, this.weatherMix, views);
     this.soapBubbles.update(dt, this.obstacles(views, left, right));
@@ -970,6 +1061,8 @@ export class WorldView extends Container {
         sprite.setRim(rim > 0, rim);
         sprite.setStink(look.stink);
         sprite.setSoggy(view.soggy ?? 0);
+        sprite.setBites(view.bites ?? 0);
+        sprite.setPaint(view.paint);
         sprite.update(dt);
       }
     }
@@ -1556,4 +1649,24 @@ export class WorldView extends Container {
   get soapBubbleCount(): number {
     return this.soapBubbles.count;
   }
+}
+
+/** The live views for whatever areas and barriers the world has. */
+function makeLives(sim: Sim): AreaLive[] {
+  const out: AreaLive[] = [];
+  const area = (id: string): AreaDef | undefined => sim.content.areas.tryGet(id);
+  const flowerbed = area('area_flowerbed_stage');
+  const porch = area('area_under_porch');
+  const compost = area('area_compost_lab');
+  const arcade = area('area_treehouse_arcade');
+  if (flowerbed) out.push(new FlowerbedLive(flowerbed));
+  if (porch) out.push(new PorchLive(porch));
+  if (compost) out.push(new CompostLive(compost));
+  if (arcade) out.push(new ArcadeLive(arcade));
+  const sunflower = sim.barriers.barrier('sunflower');
+  if (sunflower) out.push(new SunflowerLive(sunflower));
+  const tunnel = sim.barriers.barrier('can_tunnel');
+  if (tunnel && porch) out.push(new CanWallLive(tunnel, porch));
+  out.push(new LockView(sim.content.areas.all));
+  return out;
 }

@@ -225,8 +225,9 @@ export class Barriers {
   private lattice(b: Barrier): void {
     const sim = this.sim;
     const panels = sim.entities.ofKind('item').filter((e) => e.defId === 'item_lattice_panel');
+    // No panel at all (an empty test world): nothing to move, so the way stays shut.
     const moved =
-      panels.length === 0 ||
+      panels.length > 0 &&
       panels.some((e) => {
         if (sim.isPocketed(e.id)) return true;
         const s = sim.physics.getState(e.id);

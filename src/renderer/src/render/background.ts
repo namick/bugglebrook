@@ -7,11 +7,89 @@ import type { Terrain } from '../../../game/world/terrain';
 import type { Camera } from './camera';
 import { OUTLINE, darken, lighten, mix, stroke } from './palette';
 import { drawPondBackProps, drawPondBank, drawPondMid, pondFrontGap } from './pondArt';
+import { drawCompostBack, drawCompostMid, drawCompostOver } from './areaArt/compost';
+import { drawFlowerbedBack, drawFlowerbedMid, drawFlowerbedOver } from './areaArt/flowerbed';
+import { drawPorchBack, drawPorchBackdrop } from './areaArt/porch';
+import { drawTreehouseBackdrop, drawTreehouseUnder } from './areaArt/treehouse';
 import type { SkyLook } from './skyLook';
 import { gradientTexture } from './lightTextures';
+import { parallaxX } from './areaArt/common';
 
 const PPM = PIXELS_PER_METER;
 const BOTTOM = VIEW_HEIGHT_PX + 40;
+/** The front layer's grass only reaches this high: its baked chunks start here. */
+const FRONT_TOP = 760;
+const CHUNK = 1024;
+
+/**
+ * A static layer baked into 1024 px textures on demand. The source shapes
+ * stay alive (off stage); chunks near the view are baked (the visible ones
+ * at once, one more ahead each frame) and chunks far away are freed.
+ */
+class LazyLayer {
+  private readonly holder = new Container();
+  private readonly out = new Container();
+  private readonly chunks = new Map<number, Sprite>();
+  /** Chunks baked over the layer's life. */
+  baked = 0;
+
+  constructor(
+    private readonly renderer: Renderer,
+    layer: Container,
+    private readonly width: number,
+    private readonly height: number,
+    private readonly resolution: number,
+    private readonly parallax: number,
+    private readonly top = 0,
+  ) {
+    for (const c of [...layer.children]) this.holder.addChild(c);
+    layer.addChild(this.out);
+  }
+
+  get alive(): number {
+    return this.chunks.size;
+  }
+
+  private bake(i: number): void {
+    const x = i * CHUNK;
+    // Overlap neighbours a little so filtering never shows a seam.
+    const w = Math.min(CHUNK + 4, this.width - x);
+    if (w <= 0) return;
+    const tex = this.renderer.generateTexture({
+      target: this.holder,
+      frame: new Rectangle(x, this.top, w, this.height - this.top),
+      resolution: this.resolution,
+      antialias: true,
+    });
+    const sprite = new Sprite(tex);
+    sprite.position.set(x, this.top);
+    this.out.addChild(sprite);
+    this.chunks.set(i, sprite);
+    this.baked++;
+  }
+
+  /** `cameraPx` is the camera's left edge in world pixels. */
+  update(cameraPx: number): void {
+    const left = cameraPx * this.parallax;
+    const first = Math.max(0, Math.floor(left / CHUNK));
+    const last = Math.min(Math.ceil(this.width / CHUNK) - 1, Math.floor((left + VIEW_WIDTH_PX) / CHUNK));
+    // What is on screen must exist now.
+    for (let i = first; i <= last; i++) if (!this.chunks.has(i)) this.bake(i);
+    // One chunk ahead on either side per frame, so panning never waits.
+    for (const i of [last + 1, first - 1])
+      if (i >= 0 && i * CHUNK < this.width && !this.chunks.has(i)) {
+        this.bake(i);
+        break;
+      }
+    // Free what is far away.
+    for (const [i, sprite] of this.chunks)
+      if (i < first - 2 || i > last + 2) {
+        this.chunks.delete(i);
+        this.out.removeChild(sprite);
+        sprite.destroy({ texture: true, textureSource: true });
+      }
+  }
+}
 
 /** Parallax factors: how fast each layer moves relative to the camera. */
 export const PARALLAX = { sun: 0.03, clouds: 0.12, hills: 0.28, mid: 0.55, near: 1, front: 1.22 } as const;
@@ -156,30 +234,28 @@ export class Background {
   }
 
   /**
-   * Render the static layers into textures once. They hold thousands of
-   * shapes; drawing them as a few sprites per frame keeps software
-   * renderers (CI, VMs) fast and costs real GPUs nothing.
+   * Bake the static layers into 1024 px wide textures, lazily: only the
+   * chunks near the view exist at any time, so a wide world costs little
+   * memory. They hold thousands of shapes; a few sprites per frame keep
+   * software renderers (CI, VMs) fast and cost real GPUs nothing.
    */
   private bakeAll(renderer: Renderer): void {
     const fine = Math.min(2, Math.max(1, renderer.resolution));
     const height = BOTTOM;
-    this.bakeLayer(
-      renderer,
-      this.hills,
-      [...this.hills.children],
-      this.span(PARALLAX.hills) + 200,
-      height,
-      1,
-    );
-    this.bakeLayer(renderer, this.mid, [...this.mid.children], this.span(PARALLAX.mid) + 300, height, 1);
-    this.bakeLayer(renderer, this.near, [...this.near.children], this.worldPx, height, fine);
-    this.bakeLayer(
-      renderer,
-      this.front,
-      [...this.front.children],
-      this.span(PARALLAX.front) + 200,
-      height,
-      fine,
+    this.lazy.push(
+      new LazyLayer(renderer, this.hills, this.span(PARALLAX.hills) + 200, height, 1, PARALLAX.hills),
+      new LazyLayer(renderer, this.mid, this.span(PARALLAX.mid) + 300, height, 1, PARALLAX.mid),
+      new LazyLayer(renderer, this.near, this.worldPx, height, fine, PARALLAX.near),
+      // The front layer is only grass at the bottom of the screen.
+      new LazyLayer(
+        renderer,
+        this.front,
+        this.span(PARALLAX.front) + 200,
+        height,
+        fine,
+        PARALLAX.front,
+        FRONT_TOP,
+      ),
     );
     this.cloudSprites.forEach((cloud, i) => {
       const b = cloud.getLocalBounds();
@@ -197,34 +273,15 @@ export class Background {
     });
   }
 
-  private bakeLayer(
-    renderer: Renderer,
-    layer: Container,
-    children: Container[],
-    width: number,
-    height: number,
-    resolution: number,
-  ): void {
-    const CHUNK = 1024;
-    const index = layer.getChildIndex(children[0]!);
-    const holder = new Container();
-    for (const c of children) holder.addChild(c);
-    const out = new Container();
-    for (let x = 0; x < width; x += CHUNK) {
-      // Overlap neighbours a little so filtering never shows a seam.
-      const w = Math.min(CHUNK + 4, width - x);
-      const tex = renderer.generateTexture({
-        target: holder,
-        frame: new Rectangle(x, 0, w, height),
-        resolution,
-        antialias: true,
-      });
-      const sprite = new Sprite(tex);
-      sprite.position.set(x, 0);
-      out.addChild(sprite);
-    }
-    holder.destroy({ children: true });
-    layer.addChildAt(out, Math.min(index, layer.children.length));
+  /** The baked layers, drawn lazily chunk by chunk. */
+  private readonly lazy: LazyLayer[] = [];
+
+  /** Chunks baked so far and alive now, for tests and the frame budget. */
+  get chunkStats(): { alive: number; baked: number } {
+    return {
+      alive: this.lazy.reduce((n, l) => n + l.alive, 0),
+      baked: this.lazy.reduce((n, l) => n + l.baked, 0),
+    };
   }
 
   /** How wide a parallax layer must be to cover the whole world scroll. */
@@ -466,8 +523,8 @@ export class Background {
     const g = new Graphics();
     const width = this.span(PARALLAX.mid) + 300;
     const ground = 905;
-    // A huge rusty watering can lying in the grass.
-    const canX = width * 0.42;
+    // A huge rusty watering can lying in the grass, behind the plaza.
+    const canX = parallaxX(((this.plaza.xStart + this.plaza.xEnd) / 2) * PPM, PARALLAX.mid) - 200;
     g.roundRect(canX - 260, ground - 250, 420, 250, 40)
       .fill(0x7fb3a8)
       .stroke(soft(4, 0.5));
@@ -533,6 +590,10 @@ export class Background {
     this.mid.addChild(g);
     const pond = this.areas.find((a) => a.water);
     if (pond) this.mid.addChild(drawPondMid(pond, PARALLAX.mid, rng));
+    const flowerbed = this.areas.find((a) => a.id === 'area_flowerbed_stage');
+    if (flowerbed) this.mid.addChild(drawFlowerbedMid(flowerbed, PARALLAX.mid, rng));
+    const compost = this.areas.find((a) => a.id === 'area_compost_lab');
+    if (compost) this.mid.addChild(drawCompostMid(compost, PARALLAX.mid, rng));
   }
 
   /** The terrain surface as flat pixel pairs, with the stump flattened out. */
@@ -545,8 +606,35 @@ export class Background {
     return pts;
   }
 
+  /** Terrain points between world pixels a and b, flat [x, y] pairs, the stump flattened if asked. */
+  private groundBetween(a: number, b: number, flattenStump: boolean): number[] {
+    const out: number[] = [];
+    const line = this.groundLine(flattenStump);
+    const at = (x: number): number => {
+      for (let i = 2; i < line.length; i += 2)
+        if (line[i]! >= x) {
+          const x0 = line[i - 2]!;
+          const t = (x - x0) / Math.max(1e-6, line[i]! - x0);
+          return line[i - 1]! + (line[i + 1]! - line[i - 1]!) * t;
+        }
+      return line[line.length - 1]!;
+    };
+    out.push(a, at(a));
+    for (let i = 0; i < line.length; i += 2)
+      if (line[i]! > a && line[i]! < b) out.push(line[i]!, line[i + 1]!);
+    out.push(b, at(b));
+    return out;
+  }
+
   private drawNear(rng: Rng): void {
-    const area = this.areas[0]!;
+    const byId = (id: string): AreaDef | undefined => this.areas.find((a) => a.id === id);
+    const flowerbed = byId('area_flowerbed_stage');
+    const porch = byId('area_under_porch');
+    const compost = byId('area_compost_lab');
+    const house = byId('area_treehouse_arcade');
+    // Rooms that hide the sky: the crawlspace under the porch and the treehouse.
+    if (porch?.roof) this.near.addChild(drawPorchBackdrop(porch, rng));
+    if (house?.roof) this.near.addChild(drawTreehouseBackdrop(house, this.terrain, rng));
     const back = new Container();
     const plazaBack = new Graphics();
     plazaBack.x = this.plazaX;
@@ -554,93 +642,132 @@ export class Background {
     back.addChild(plazaBack);
     for (const pond of this.areas.filter((a) => a.water))
       back.addChild(drawPondBackProps(pond, this.terrain, rng));
+    if (flowerbed) back.addChild(drawFlowerbedBack(flowerbed, this.terrain, rng));
+    if (compost) back.addChild(drawCompostBack(compost, this.terrain, rng));
     // Push the props back a little: softer and hazier than anything grabbable.
     back.tint = 0xe2ecdf;
     back.alpha = 0.92;
     this.near.addChild(back);
+    // The porch's own props sit in its gloom, without the haze.
+    if (porch) this.near.addChild(drawPorchBack(porch, rng));
 
-    // Soil.
+    // Soil, area by area, in each area's colors. The treehouse has a floor instead.
     const soil = new Graphics();
-    const line = this.groundLine(true);
-    const dirt = new FillGradient({
-      type: 'linear',
-      start: { x: 0, y: 0 },
-      end: { x: 0, y: 1 },
-      colorStops: [
-        { offset: 0, color: area.dirt },
-        { offset: 1, color: area.dirtDark },
-      ],
-      textureSpace: 'local',
-    });
-    soil.poly([...line, this.worldPx, BOTTOM, 0, BOTTOM]).fill(dirt);
-    // Strata, buried pebbles, and roots.
-    for (let i = 0; i < 3; i++) {
-      const y0 = 960 + i * 38;
-      soil.moveTo(0, y0);
-      for (let x = 0; x <= this.worldPx; x += 60) soil.lineTo(x, y0 + Math.sin(x / 140 + i * 2) * 8);
-      soil.stroke({ width: 3, color: darken(area.dirt, 0.25), alpha: 0.35 });
-    }
-    for (let x = 30; x < this.worldPx; x += rng.range(40, 120)) {
-      const y = rng.range(950, 1070);
-      const r = rng.range(6, 16);
-      const tint = rng.pick([0xc9b8a6, 0xb5a79c, 0xd6c3a5, 0x9e8a7a]);
-      soil
-        .ellipse(x, y, r * 1.3, r)
-        .fill(tint)
-        .stroke(soft(2.5, 0.5));
-      soil.ellipse(x - r * 0.3, y - r * 0.35, r * 0.5, r * 0.25).fill({ color: 0xffffff, alpha: 0.35 });
-      if (rng.chance(0.5))
+    for (const area of this.areas) {
+      if (area.id === house?.id) continue;
+      const a = area.xStart * PPM;
+      const b = area.xEnd * PPM;
+      const dirt = new FillGradient({
+        type: 'linear',
+        start: { x: 0, y: 0 },
+        end: { x: 0, y: 1 },
+        colorStops: [
+          { offset: 0, color: area.dirt },
+          { offset: 1, color: area.dirtDark },
+        ],
+        textureSpace: 'local',
+      });
+      soil.poly([...this.groundBetween(a - 1, b + 1, true), b + 1, BOTTOM, a - 1, BOTTOM]).fill(dirt);
+      // Strata, buried pebbles, and roots.
+      for (let i = 0; i < 3; i++) {
+        const y0 = 960 + i * 38;
+        soil.moveTo(a, y0);
+        for (let x = a; x <= b; x += 60) soil.lineTo(x, y0 + Math.sin(x / 140 + i * 2) * 8);
+        soil.stroke({ width: 3, color: darken(area.dirt, 0.25), alpha: 0.35 });
+      }
+      for (let x = a + 30; x < b; x += rng.range(40, 120)) {
+        const y = rng.range(950, 1070);
+        const r = rng.range(6, 16);
+        const tint = rng.pick([0xc9b8a6, 0xb5a79c, 0xd6c3a5, 0x9e8a7a]);
         soil
-          .circle(x + rng.range(-40, 40), y + rng.range(-20, 20), 3)
-          .fill({ color: darken(area.dirt, 0.4), alpha: 0.5 });
-    }
-    for (let x = 200; x < this.worldPx; x += rng.range(500, 900)) {
-      const y = rng.range(960, 1000);
-      soil
-        .moveTo(x, y)
-        .bezierCurveTo(x + 40, y + 30, x + 70, y - 10, x + 120, y + 25)
-        .stroke({ width: 5, color: darken(area.dirt, 0.3), alpha: 0.5, cap: 'round' });
+          .ellipse(x, y, r * 1.3, r)
+          .fill(mix(tint, area.dirt, 0.25))
+          .stroke(soft(2.5, 0.5));
+        soil.ellipse(x - r * 0.3, y - r * 0.35, r * 0.5, r * 0.25).fill({ color: 0xffffff, alpha: 0.35 });
+        if (rng.chance(0.5))
+          soil
+            .circle(x + rng.range(-40, 40), y + rng.range(-20, 20), 3)
+            .fill({ color: darken(area.dirt, 0.4), alpha: 0.5 });
+      }
+      for (let x = a + 200; x < b; x += rng.range(500, 900)) {
+        const y = rng.range(960, 1000);
+        soil
+          .moveTo(x, y)
+          .bezierCurveTo(x + 40, y + 30, x + 70, y - 10, x + 120, y + 25)
+          .stroke({ width: 5, color: darken(area.dirt, 0.3), alpha: 0.5, cap: 'round' });
+      }
     }
     this.near.addChild(soil);
+    if (house) this.near.addChild(drawTreehouseUnder(house, this.terrain, rng));
 
-    this.near.addChild(this.drawStump(area));
+    this.near.addChild(this.drawStump(this.plaza));
 
-    // Moss on top of the ground, with a scalloped lower edge and a bold outline.
+    // The top of the ground: moss in the garden, mulch in the flowerbed, sludge on the compost,
+    // packed dust under the porch. Scalloped lower edge, bold outline.
     const moss = new Graphics();
-    const top = this.groundLine(true);
-    // Scallops.
-    const scallop: number[] = [];
-    for (let x = this.worldPx; x >= 0; x -= 28) {
-      const y = this.terrain.surfaceY(Math.min(x / PPM, this.worldPx / PPM - 0.01)) * PPM;
-      const flat = Math.max(y, 890);
-      scallop.push(x, flat + 30 + (Math.round(x / 28) % 2 === 0 ? 10 : 0));
+    for (const area of this.areas) {
+      if (area.id === house?.id) continue;
+      const a = area.xStart * PPM;
+      const b = area.xEnd * PPM;
+      const top = this.groundBetween(a, b, true);
+      const scallop: number[] = [];
+      const dusty = area.id === porch?.id;
+      for (let x = b; x >= a; x -= 28) {
+        const y = this.terrain.surfaceY(Math.min(x / PPM, this.worldPx / PPM - 0.01)) * PPM;
+        const flat = Math.max(y, 890);
+        scallop.push(x, flat + (dusty ? 16 : 30) + (Math.round(x / 28) % 2 === 0 ? (dusty ? 4 : 10) : 0));
+      }
+      scallop.push(a, scallop[scallop.length - 1]!);
+      moss.poly([...top, ...scallop]).fill(area.ground);
+      moss
+        .poly([
+          ...top.map((v, i) => (i % 2 === 1 ? v + 12 : v)),
+          ...scallop.map((v, i) => (i % 2 === 1 ? v - 4 : v)),
+        ])
+        .fill({ color: area.groundDark, alpha: 0.35 });
+      if (area.id === flowerbed?.id)
+        // Wood chips in the mulch.
+        for (let x = a + 20; x < b; x += rng.range(24, 60)) {
+          const y = this.terrain.surfaceY(x / PPM) * PPM + rng.range(6, 24);
+          moss
+            .ellipse(x, y, rng.range(6, 12), 3.5)
+            .fill({ color: rng.pick([0xa0704a, 0x5a3b2b, 0xc98f5c]), alpha: 0.9 });
+        }
+      if (dusty)
+        for (let x = a + 30; x < b; x += rng.range(40, 90))
+          moss.circle(x, this.terrain.surfaceY(x / PPM) * PPM + rng.range(4, 12), rng.range(2, 4)).fill({
+            color: 0xa89888,
+            alpha: 0.6,
+          });
     }
-    moss.poly([...top, ...scallop]).fill(area.ground);
-    moss
-      .poly([
-        ...top.map((v, i) => (i % 2 === 1 ? v + 12 : v)),
-        ...scallop.map((v, i) => (i % 2 === 1 ? v - 4 : v)),
-      ])
-      .fill({
-        color: area.groundDark,
-        alpha: 0.35,
-      });
-    const surface = this.groundLine(false);
+    const surface = this.groundBetween(0, this.worldPx, false);
+    const houseX = house ? house.xStart * PPM : Infinity;
     moss.moveTo(surface[0]!, surface[1]!);
-    for (let i = 2; i < surface.length; i += 2) moss.lineTo(surface[i]!, surface[i + 1]!);
+    for (let i = 2; i < surface.length && surface[i]! <= houseX; i += 2)
+      moss.lineTo(surface[i]!, surface[i + 1]!);
     moss.stroke(stroke(6));
     this.near.addChild(moss);
     for (const pond of this.areas.filter((a) => a.water))
       this.near.addChild(drawPondBank(pond, this.terrain, rng));
+    // Things shaped by the ground: the gnome's belly and the flowerpot stage, the compost heap.
+    if (flowerbed) this.near.addChild(drawFlowerbedOver(flowerbed, this.terrain));
+    if (compost) this.near.addChild(drawCompostOver(compost, this.terrain, rng));
 
-    // Grass tufts and tiny flowers along the ground, behind the bugs.
+    // Grass tufts and tiny flowers along the ground, behind the bugs. Not indoors.
     const tufts = new Graphics();
     const ponds = this.areas.filter((a) => a.water);
     const inPond = (x: number): boolean =>
       ponds.some((p) => x > (p.xStart + p.water!.x0 - 0.4) * PPM && x < (p.xStart + p.water!.x1 + 0.4) * PPM);
+    const bare = (x: number): boolean =>
+      (!!porch && x > porch.xStart * PPM && x < porch.xEnd * PPM) ||
+      (!!house && x > house.xStart * PPM) ||
+      (!!flowerbed && x > (flowerbed.xStart + 13.6) * PPM && x < (flowerbed.xStart + 30) * PPM) ||
+      (!!flowerbed && x > flowerbed.xStart * PPM && x < (flowerbed.xStart + 7.2) * PPM) ||
+      (!!compost && x > (compost.xStart + 1.5) * PPM && x < (compost.xStart + 9) * PPM) ||
+      (!!compost && x > (compost.xStart + 25.8) * PPM && x < compost.xEnd * PPM);
     for (let x = 10; x < this.worldPx; x += rng.range(34, 110)) {
       const y = this.terrain.surfaceY(x / PPM) * PPM;
-      if (inPond(x)) continue; // reeds grow there instead
+      if (inPond(x) || bare(x)) continue; // reeds grow there instead
       const s = x - this.plazaX;
       if (s > 1100 && s < 2800 && y < 880) continue; // not on the stump
       const n = rng.int(2, 4);
@@ -855,6 +982,12 @@ export class Background {
     const g = new Graphics();
     const width = this.span(PARALLAX.front) + 200;
     const gaps = this.areas.filter((a) => a.water).map((a) => pondFrontGap(a, PARALLAX.front));
+    // No grass in front of the rooms (the porch's crawlspace, the treehouse).
+    for (const room of this.areas.filter((a) => a.roof))
+      gaps.push([
+        parallaxX(room.xStart * PPM, PARALLAX.front) - 200,
+        parallaxX(room.xEnd * PPM, PARALLAX.front) + 200,
+      ]);
     for (let x = rng.range(0, 200); x < width; x += rng.range(260, 620)) {
       // Keep the view into the pond clear.
       if (gaps.some(([a, b]) => x > a && x < b)) continue;
@@ -886,6 +1019,7 @@ export class Background {
 
   update(camera: Camera, time: number, look?: SkyLook, extras?: SkyExtras): void {
     const px = camera.x * camera.ppm;
+    for (const l of this.lazy) l.update(px);
     const drift = -px * PARALLAX.sun;
     this.sunRays.rotation = time * 0.05;
     this.clouds.x = -px * PARALLAX.clouds;

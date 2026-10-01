@@ -385,7 +385,7 @@ export const AREAS = createRegistry<AreaDef>('area', [
     dirtDark: 0x2a2438,
     unlockedByDefault: false,
     mood: 'porch',
-    roof: { x0: 0.2, x1: 32, y: 2.5 },
+    roof: { x0: 0.2, x1: 32, y: 2.5, top: 1.9 },
     solids: [
       // The porch floorboards overhead: a roof that keeps the rain off.
       { id: 'solid_porch_boards', box: [0.2, 1.9, 32, 2.5] },
@@ -567,7 +567,7 @@ export const AREAS = createRegistry<AreaDef>('area', [
     dirtDark: 0x8a4f22,
     unlockedByDefault: false,
     mood: 'arcade',
-    roof: { x0: 1, x1: 32, y: 1.3 },
+    roof: { x0: 1, x1: 32, y: 1.3, top: 0.9 },
     solids: [
       // The treehouse roof.
       { id: 'solid_treehouse_roof', box: [1, 0.9, 32, 1.3] },
@@ -594,7 +594,7 @@ export const AREAS = createRegistry<AreaDef>('area', [
     ],
     fixtures: [
       { id: 'fix_treehouse_window', kind: 'window', x: 3.4, y: 3.3, radius: 0.9 },
-      { id: 'fix_pegboard', kind: 'pegboard', x: 9.4, y: 3.9, radius: 0.4, w: 8, h: 4.2 },
+      { id: 'fix_pegboard', kind: 'pegboard', x: 9.4, y: 4.15, radius: 0.4, w: 8, h: 3.7 },
       { id: 'fix_bead_pit', kind: 'bead_pit', x: 17.7, y: 7.9, radius: 0.5, w: 5.6 },
       { id: 'fix_jar_claw', kind: 'jar_claw', x: 23.2, y: 3.8, radius: 0.4, w: 2.8 },
       { id: 'fix_claw_button', kind: 'claw_button', x: 26.2, y: 4.5, radius: 0.35 },
