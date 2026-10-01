@@ -6,7 +6,7 @@ import { NullAudioBackend } from '../../src/renderer/src/audio/synth';
 import { standUp } from '../../src/renderer/src/render/areaArt/barrierLive';
 import { bloom } from '../../src/renderer/src/render/areaArt/flowerbedLive';
 import type { AreaSound } from '../../src/renderer/src/render/areaArt/live';
-import { shaftX } from '../../src/renderer/src/render/areaArt/porchLive';
+import { shaftSlant, shaftStrength } from '../../src/renderer/src/render/areaArt/porchLook';
 
 // M7's pure view helpers and sounds.
 
@@ -31,10 +31,15 @@ describe('area looks', () => {
     expect(curve[curve.length - 1]).toBeCloseTo(1, 1);
   });
 
-  it('the porch light shaft drifts across the floor through the day', () => {
-    expect(shaftX(0, 7)).toBeLessThan(shaftX(0, 12));
-    expect(shaftX(0, 12)).toBeLessThan(shaftX(0, 18));
-    expect(shaftX(0, 2)).toBe(shaftX(0, 7));
+  it("the porch's sunbeams swing across the floor through the day and are gone at night", () => {
+    // Leaning right in the morning, straight down about one, leaning left by evening.
+    expect(shaftSlant(8)).toBeGreaterThan(0);
+    expect(shaftSlant(13)).toBeCloseTo(0);
+    expect(shaftSlant(18)).toBeLessThan(0);
+    for (let h = 7; h < 19; h += 0.5) expect(shaftSlant(h + 0.5)).toBeLessThanOrEqual(shaftSlant(h));
+    expect(shaftStrength(12)).toBe(1);
+    expect(shaftStrength(23)).toBe(0);
+    expect(shaftStrength(3)).toBe(0);
   });
 });
 
