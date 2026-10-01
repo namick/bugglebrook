@@ -194,6 +194,31 @@ describe('the Tinker Bench', () => {
     expect(v.y).toBeLessThan(at.y);
   });
 
+  it('pops loudly enough that idle bugs nearby turn to gawk at the new thing (R09)', () => {
+    const sim = benchWorld('gawk');
+    const at = benchAt(sim);
+    const near = sim.spawn('bug', 'bug_ladybug_dot', at.x + 6, GROUND_Y - 0.6);
+    const far = sim.spawn('bug', 'bug_snail_glorp', at.x - 11, GROUND_Y - 0.8);
+    for (const bug of [near, far])
+      for (const need of ['need_hunger', 'need_fun', 'need_social', 'need_clean', 'need_energy'] as const)
+        sim.send({ type: 'set_need', id: bug.id, need, value: 100 });
+    sim.run(30);
+    for (const bug of [near, far]) {
+      bug.bug!.mode = 'st_idle';
+      bug.bug!.decideIn = 600;
+    }
+    const log = record(sim);
+    fill(sim, ['item_twig', 'item_rubber_band']);
+    sim.send({ type: 'pull_lever' });
+    sim.run(BENCH_SHAKE - 2);
+    expect(named(log, 'bug_gawked')).toHaveLength(0);
+    sim.run(6);
+    expect(named(log, 'crafted')).toHaveLength(1);
+    const lookers = named(log, 'bug_gawked').map((e) => e.id);
+    expect(lookers).toContain(near.id);
+    expect(lookers).not.toContain(far.id);
+  });
+
   it('pulls a crafted thing back into its parts, into the trays, and they craft again', () => {
     const sim = benchWorld();
     const log = record(sim);

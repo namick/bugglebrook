@@ -308,6 +308,8 @@ export class Bench {
       if (first) this.state.made.push(recipe.id);
       const s = sim.physics.getState(out.id);
       sim.events.emit('crafted', { recipe: recipe.id, id: out.id, defId: out.defId, x: s.x, y: s.y, first });
+      // The pop is loud: idle bugs nearby turn round to gawk at the new thing.
+      sim.noteLoud(top.x, top.y);
       return;
     }
     this.fail(ids, ings, top);
