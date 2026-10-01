@@ -391,13 +391,13 @@ describe('save migrations from every shipped version', () => {
   const fixture = (v: number): Record<string, unknown> =>
     JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures', `save-v${v}.json`), 'utf8'));
 
-  for (const v of [1, 2, 3, 4, 5, 6, 7, 8]) {
+  for (const v of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
     it(`loads a real version ${v} save and plays on`, () => {
       const raw = fixture(v);
       expect(raw.version).toBe(v);
       const save = loadSaveFile(JSON.stringify(raw));
       expect(save.version).toBe(SAVE_VERSION);
-      expect(save.meta).toEqual({ createdAt: raw.savedAt, thumb: null });
+      expect(save.meta).toEqual(raw.meta ?? { createdAt: raw.savedAt, thumb: null });
       expect(save.world.pocket!.slots).toHaveLength(6);
       expect(save.world.counters).toEqual({ fed: {} });
       const sim = Sim.load(save.world);
