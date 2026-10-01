@@ -209,6 +209,9 @@ describe('potion effects (M8 acceptance)', () => {
     s2.send({ type: 'give_potion', id: d2.id, potion: 'potion_bubble_burp' });
     // Keep Rollo just in front of Dot, whichever way she turns, until she burps.
     for (let i = 0; i < 400 && named(log2, 'potion_burped').length === 0; i++) {
+      // Staring at her, quite still (an idle bug this close would shuffle aside for room).
+      rollo.bug!.mode = 'st_react';
+      rollo.bug!.timer = 100;
       const v = s2.view(d2.id)!;
       s2.physics.place(rollo.id, v.x + v.bug!.facing * 1.1, v.y, 0);
       s2.step();

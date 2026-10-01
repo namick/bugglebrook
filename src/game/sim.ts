@@ -1139,10 +1139,10 @@ export class Sim {
   private updateBugs(): void {
     const held = this.physics.grabbed;
     const heldEntity = held === null ? undefined : this.entities.get(held);
-    let offered: { x: number; y: number } | null = null;
+    let offered: { x: number; y: number; defId: string } | null = null;
     if (heldEntity?.kind === 'item' && this.content.items.get(heldEntity.defId).tags.includes('tag_edible')) {
       const s = this.physics.getState(heldEntity.id);
-      offered = { x: s.x, y: s.y };
+      offered = { x: s.x, y: s.y, defId: heldEntity.defId };
     }
     for (const entity of this.entities.ofKind('bug')) {
       if (this.isSleeping(entity.id)) continue;

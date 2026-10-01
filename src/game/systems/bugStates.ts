@@ -6,7 +6,16 @@ import type { BugBrain, EntityId } from '../core/entities';
 import { SIM_HZ } from '../core/loop';
 import { DIZZY_SPEED } from '../constants';
 import type { BugContext, BugDecision } from './bugTypes';
-import { EMPTY_WORLD, SPOT_CAMERA, SPOT_STAGE, SPOT_TOP, SPOT_WATER } from './bugTypes';
+import {
+  EMPTY_WORLD,
+  SPOT_BEADS,
+  SPOT_CAMERA,
+  SPOT_SLIDE,
+  SPOT_STAGE,
+  SPOT_TOP,
+  SPOT_WATER,
+} from './bugTypes';
+import { MACHINE_ACTIONS, arriveAtMachine, carryToMachine, useMachine } from './bugMachines';
 import {
   ARRIVE,
   DECIDE_EVERY,
@@ -50,6 +59,10 @@ import {
   SPOT_PICNIC,
   SPOT_ROW,
 } from './bugTuning';
+
+/** Room a bug leaves between itself and another bug standing still, and a sleeping one (m). */
+export const BUG_SPACE = 0.22;
+export const SLEEPER_SPACE = 0.5;
 
 /** Morning: out of the cocoon comes a butterfly (or, the second time round, a caterpillar again). */
 export function hatch(brain: BugBrain, ctx: BugContext, out: BugDecision): void {
@@ -126,7 +139,22 @@ export function pendingBug(brain: BugBrain, ctx: BugContext, out: BugDecision): 
   if (brain.pending !== 'aloof') {
     enter(brain, brain.pending === 'stuck' ? 'st_react' : 'st_idle', 60);
     out.velocity = grip(n);
+    // Moose, stuck on his back, gives a big heave every so often and looks
+    // round for help (R04): signs of life for whoever passes. No dice: the
+    // wait is worked out from his ID, so the world's rolls stay the same.
+    if (brain.pending === 'stuck' && ctx.tick >= brain.fidgetAt) {
+      brain.fidgetAt = ctx.tick + 6 * SIM_HZ + (((ctx.id ?? 0) * 97 + ctx.tick) % (4 * SIM_HZ));
+      const variant = Math.floor(ctx.tick / SIM_HZ) % 3;
+      brain.reaction = { type: 'huh', variant, tick: ctx.tick };
+      brain.variants.huh = variant;
+      out.notices.push({ type: 'fidgeted', fidget: 'kick' }, { type: 'reacted', reaction: 'huh', variant });
+    }
     return out;
+  }
+  // Barty stops now and then to give his ball a proud polish.
+  if (ctx.tick >= brain.fidgetAt && brain.mode === 'st_wander' && Math.abs(state.x - brain.restX) < 0.3) {
+    brain.fidgetAt = ctx.tick + 8 * SIM_HZ + (((ctx.id ?? 0) * 89 + ctx.tick) % (5 * SIM_HZ));
+    out.notices.push({ type: 'fidgeted', fidget: 'groom' });
   }
   // Barty: back and forth by his resting spot, nudging his ball along.
   if (brain.mode !== 'st_wander' || Math.abs(brain.targetX - state.x) < 0.2) {
@@ -142,6 +170,7 @@ export function idle(me: EntityId, brain: BugBrain, ctx: BugContext, out: BugDec
   const { def, state, tick } = ctx;
   const n = ctx.support;
   const world = ctx.world ?? EMPTY_WORLD;
+  if (n && comeForLater(brain, ctx, out)) return out;
   if (offeredNear(ctx)) {
     // Food on offer: turn to it and wait, instead of wandering off.
     brain.facing = ctx.offered!.x >= state.x ? 1 : -1;
@@ -183,6 +212,7 @@ export function idle(me: EntityId, brain: BugBrain, ctx: BugContext, out: BugDec
       return out;
     }
   }
+  if (n && scoot(me, brain, ctx, out)) return out;
   if (brain.overhead || brain.rolling) {
     // Carrying something heavy overhead, or rolling a ball: off somewhere with it.
     if (n && brain.timer-- <= 0) startWander(brain, ctx);
@@ -201,6 +231,88 @@ export function idle(me: EntityId, brain: BugBrain, ctx: BugContext, out: BugDec
   }
   if (brain.timer <= 0 && n) startWander(brain, ctx);
   return out;
+}
+
+/** After a "later", a bug free again walks over to food still held out this far away (m). */
+const LATER_REACH = 6;
+
+/**
+ * A bug that said "later" to food while it was busy (R21) keeps its word:
+ * once it is free, and the food is still held out a little way off, it
+ * walks over to be fed. Returns true while it is on its way.
+ */
+function comeForLater(brain: BugBrain, ctx: BugContext, out: BugDecision): boolean {
+  const o = ctx.offered;
+  const { state, def } = ctx;
+  if (!o || brain.later === undefined || ctx.tick >= brain.later) return false;
+  const d = Math.abs(o.x - state.x);
+  if (d < OFFER_RANGE - 0.6 || d > LATER_REACH || Math.abs(o.y - state.y) > 3) return false;
+  const side = o.x >= state.x ? 1 : -1;
+  const standX = o.x - side * (def.radius + 0.5);
+  const result = stepToward(brain, ctx, standX - state.x, Math.abs(state.vx) / SIM_HZ, out, 1, false);
+  if (result === 'blocked') {
+    delete brain.later;
+    return false;
+  }
+  return true;
+}
+
+/** Modes in which a bug counts as standing still, for keeping a little space (R15). */
+const STILL: ReadonlySet<string> = new Set([
+  'st_idle',
+  'st_react',
+  'st_sleep',
+  'st_eat',
+  'st_landing',
+  'st_recover',
+  'st_perform',
+  'st_use',
+]);
+
+/**
+ * Bugs standing still keep a little space between them (R15), so they never
+ * stand drawn inside each other: an idle bug too close to another one that
+ * is standing still shuffles a step away. It keeps well clear of a sleeper,
+ * like Dot napping on her bottle cap. Returns true if it moved.
+ */
+export function scoot(me: EntityId, brain: BugBrain, ctx: BugContext, out: BugDecision): boolean {
+  const { def, state } = ctx;
+  const world = ctx.world ?? EMPTY_WORLD;
+  let closest: { dx: number; gap: number; want: number; id: EntityId } | null = null;
+  for (const o of world.bugs()) {
+    if (o.id === me || o.held || !o.supported || !STILL.has(o.brain.mode)) continue;
+    if (o.brain.mode === 'st_use' && o.brain.action === 'bounce') continue;
+    if (Math.abs(o.y - state.y) > def.radius + o.def.radius) continue;
+    const dx = state.x - o.x;
+    const gap = Math.abs(dx) - def.radius - o.def.radius;
+    const want = o.brain.mode === 'st_sleep' ? SLEEPER_SPACE : BUG_SPACE;
+    if (gap >= want) continue;
+    if (!closest || gap - want < closest.gap - closest.want) closest = { dx, gap, want, id: o.id };
+  }
+  if (!closest) return false;
+  // The player's things close by: better a little crowded than a nudge to their work.
+  if (world.setupNear(state.x, state.y, def.radius + 0.9)) return false;
+  // Straight on top of each other: the higher ID steps right.
+  const away: 1 | -1 = closest.dx > 0.01 ? 1 : closest.dx < -0.01 ? -1 : me > closest.id ? 1 : -1;
+  // Squeezed in on that side too: stay put and let the bugs on the outside make room.
+  const squeezed = world
+    .bugs()
+    .some(
+      (o) =>
+        o.id !== me &&
+        o.id !== closest.id &&
+        (o.x - state.x) * away > 0 &&
+        Math.abs(o.y - state.y) < def.radius + o.def.radius &&
+        Math.abs(o.x - state.x) - def.radius - o.def.radius < BUG_SPACE + 0.1,
+    );
+  if (squeezed) return false;
+  const facing = brain.facing;
+  const result = stepToward(brain, ctx, away, Math.abs(state.vx) / SIM_HZ, out, 0.45, false);
+  if (result === 'blocked') {
+    brain.facing = facing;
+    return false;
+  }
+  return true;
 }
 
 /** Flying, falling, hopping, and bouncing, and how each landing ends. */
@@ -307,6 +419,7 @@ export function airborne(
 
 /** Sniffing something new (`st_use` with `inspect`). */
 export function use(brain: BugBrain, ctx: BugContext, out: BugDecision): BugDecision {
+  if (brain.action !== null && MACHINE_ACTIONS.has(brain.action)) return useMachine(brain, ctx, out);
   const { rng, tick, def } = ctx;
   const target = brain.targetId === null ? null : ctx.target(brain.targetId);
   if (target) face(brain, ctx, target.x, out);
@@ -413,7 +526,9 @@ export function seek(
   // Places: the water's edge, the top of the stump, the camera, the pebble row.
   if (id < 0) {
     const dx = brain.targetX - state.x;
-    if (Math.abs(dx) < (id === SPOT_TOP || id === SPOT_STAGE ? 0.8 : 0.2) && n) {
+    const near =
+      id === SPOT_TOP || id === SPOT_STAGE ? 0.8 : id === SPOT_SLIDE || id === SPOT_BEADS ? 0.45 : 0.2;
+    if (Math.abs(dx) < near && n) {
       if (id === SPOT_WATER) {
         const edge = world.waterEdge(state.x);
         const dir = edge?.dir ?? brain.facing;
@@ -475,6 +590,7 @@ export function seek(
         out.notices.push({ type: 'posed' }, react(brain, 'show_off', rng, tick));
         return out;
       }
+      if (arriveAtMachine(brain, ctx, id, out)) return out;
       return giveUp();
     }
     return walk(brain, ctx, dx, moved, out);
@@ -706,6 +822,11 @@ export function seek(
       out.notices.push({ type: 'used', action: 'roll', targetId: id });
       return out;
     }
+    case 'tinker':
+    case 'brew':
+      // Something for the bench or the cauldron: pick it up and take it there.
+      if (!carryToMachine(brain, ctx, id)) return giveUp();
+      return out;
     case 'carry': {
       if (world.isSetup(id) || world.bugs().some((o) => o.brain.carrying === id)) return giveUp();
       const row = rowSlots(brain, ctx);

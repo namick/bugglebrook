@@ -248,6 +248,12 @@ export interface BugBrain {
   overhead?: boolean;
   /** Rolling what it carries along behind it (Barty). */
   rolling?: boolean;
+  /** When it last used each machine (R20: `dial`, `tray`, `cauldron`, `slide`, `beads`), in ticks. */
+  machines?: Record<string, number>;
+  /** A thing it wished the bench would make (a recipe ID), until this tick. */
+  wish?: { recipe: string; until: number };
+  /** Said "later" to food while busy (R21): until this tick it goes for food nearby once free. */
+  later?: number;
 }
 
 export interface Entity {

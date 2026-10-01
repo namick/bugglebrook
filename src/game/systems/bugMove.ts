@@ -157,6 +157,13 @@ export function stepToward(
     if (brain.mode === 'st_wander' && Math.abs(dx) < def.radius * 2 + 0.3) return 'blocked';
     const landX = state.x + brain.facing * (def.radius * 2 + 0.3);
     if (!clearLanding(ctx, landX)) return 'blocked';
+    // Never hop a pebble only to come down on someone (Dot asleep on her bottle cap).
+    if (
+      world
+        .bugs()
+        .some((o) => Math.abs(o.x - landX) < o.def.radius + def.radius && Math.abs(o.y - state.y) < 1.2)
+    )
+      return 'blocked';
     const rise = Math.max(0.1, bottom - ob.top + 0.12);
     const up = Math.sqrt(2 * GRAVITY * rise);
     // Far enough forward to clear it, not land on it.

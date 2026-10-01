@@ -6,7 +6,17 @@ import type { AreaDef, FixtureDef, RecipeInput } from '../data/types';
 import type { Sim } from '../sim';
 import type { DropCandidate } from './dropTargets';
 import type { Ingredient } from './crafting';
-import { blobKind, defaultParts, isFood, matchRecipe, nearMiss, recipeFor, tagNudge } from './crafting';
+import {
+  blobKind,
+  defaultParts,
+  inputMatches,
+  isFood,
+  matchRecipe,
+  nearMiss,
+  recipeFor,
+  tagNudge,
+} from './crafting';
+import { WISH_TICKS } from './bugMachines';
 
 /**
  * The Tinker Bench (game design doc, section 8): three bottle-cap trays on a
@@ -72,6 +82,8 @@ export class Bench {
   private rng: Rng;
   /** Bouncy blobs boinging about, until when. Not saved: it only lasts 3 s. */
   readonly boing = new Map<EntityId, number>();
+  /** Things a bug tossed at a tray, on their way: which tray, and until when. Not saved: a toss lasts a second. */
+  private readonly tossed = new Map<EntityId, { tray: number; until: number }>();
 
   constructor(private readonly sim: Sim) {
     this.state = newBenchState(sim.seed);
@@ -132,6 +144,68 @@ export class Bench {
       out.push({ kind: 'tray', entityId: -1 - i, x: t.x, y: t.y - 0.25 });
     });
     return out;
+  }
+
+  /**
+   * The bench as the bug AI sees it (R20): the table top, its empty trays,
+   * and whether a thing fits a recipe a bug wished for. Null while the bench
+   * is shut away, asleep, or shaking.
+   */
+  bugView(): {
+    x0: number;
+    x1: number;
+    y: number;
+    trays: { i: number; x: number }[];
+    fits: (recipe: string, itemId: EntityId) => boolean;
+  } | null {
+    const b = this.bench();
+    if (!b || !this.ready() || this.busy) return null;
+    const half = (b.fixture.w ?? 4.4) / 2;
+    const trays: { i: number; x: number }[] = [];
+    this.state.trays.forEach((id, i) => {
+      if (id === null) trays.push({ i, x: this.trayAt(i).x });
+    });
+    const sim = this.sim;
+    return {
+      x0: b.x - half,
+      x1: b.x + half,
+      y: b.fixture.y,
+      trays,
+      fits: (recipeId, itemId) => {
+        const recipe = sim.content.recipes.tryGet(recipeId);
+        const e = sim.entities.get(itemId);
+        if (!recipe || !e || e.kind !== 'item') return false;
+        // Something like it is in a tray already: one of each is plenty.
+        if (this.filled().some((id) => sim.entities.get(id)?.defId === e.defId)) return false;
+        const ing = { defId: e.defId, tags: sim.tagsOf(itemId) };
+        return recipe.inputs.some((input) => inputMatches(input, ing));
+      },
+    };
+  }
+
+  /** A bug tossed this at tray `i`: it goes in if it comes down on it. */
+  expect(id: EntityId, tray: number): void {
+    if (tray < 0 || tray >= this.state.trays.length) return;
+    this.tossed.set(id, { tray, until: this.sim.tick + 3 * SIM_HZ });
+  }
+
+  /** Tossed things that come down on their tray drop in. */
+  private catchTossed(): void {
+    const sim = this.sim;
+    for (const [id, t] of [...this.tossed]) {
+      const e = sim.entities.get(id);
+      if (!e || sim.tick > t.until || this.state.trays[t.tray] !== null || sim.isSleeping(id)) {
+        this.tossed.delete(id);
+        continue;
+      }
+      if (sim.physics.grabbed === id || !sim.physics.isActive(id) || sim.carrierOf(id) !== null) continue;
+      const s = sim.physics.getState(id);
+      const at = this.trayAt(t.tray);
+      if (s.vy > 0 && Math.abs(s.x - at.x) < 0.55 && s.y < at.y && s.y > at.y - 1.1) {
+        this.tossed.delete(id);
+        this.place(id, t.tray);
+      }
+    }
   }
 
   /** Is (x, y) right over one of the trays? A bug let go there gets refused. */
@@ -264,6 +338,7 @@ export class Bench {
         this.state.trays[i] = null;
     }
     this.boingBlobs();
+    if (this.tossed.size > 0 && this.ready() && !this.busy) this.catchTossed();
     if (sim.tick % WISH_CHECK === 0) this.wishes();
   }
 
@@ -439,6 +514,8 @@ export class Bench {
       if (sim.tick - last < WISH_EVERY || !this.rng.chance(WISH_CHANCE)) continue;
       const recipe = this.rng.pick(open);
       this.state.wished[String(bug.id)] = sim.tick;
+      // The bug keeps its wish in mind for a while: it may fetch a part of it (R10).
+      brain.wish = { recipe: recipe.id, until: sim.tick + WISH_TICKS };
       sim.events.emit('bug_wished', {
         id: bug.id,
         defId: bug.defId,

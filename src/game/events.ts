@@ -319,6 +319,8 @@ export interface GameEvents {
   blueprint_found: { id: EntityId; recipe: string; x: number; y: number };
   /** A bored bug near the bench wishes for something craftable. */
   bug_wished: { id: EntityId; defId: string; recipe: string; output: string };
+  /** A bored bug pushed the sundial's rim a notch: the world fast-forwards `minutes`. */
+  bug_turned_dial: { id: EntityId; defId: string; minutes: number; x: number; y: number };
   /** A junk blob was shaken back into its parts. */
   blob_split: { id: EntityId; parts: EntityId[]; x: number; y: number };
   /** A poked junk blob squeaks. */
@@ -473,6 +475,8 @@ export type Liking = 'loved' | 'liked' | 'neutral' | 'disliked';
  * M8 adds `drink` (a gulp from a potion bottle), `cheer` (at a bubbling
  * cauldron or a ta-da at the bench), `huh` (a potion fizzling on a thing, or
  * a bug put in a tray), `blegh` (sludge), and `wow` (a potion taking hold).
+ * After M8: `later` (a busy bug glancing at food held out to it: "in a
+ * minute") and `whee` (riding the leaf slide, wading in the bead pit).
  */
 export type ReactionType =
   | 'grab'
@@ -507,7 +511,9 @@ export type ReactionType =
   | 'cheer'
   | 'huh'
   | 'blegh'
-  | 'wow';
+  | 'wow'
+  | 'later'
+  | 'whee';
 
 export const REACTION_TYPES: readonly ReactionType[] = [
   'grab',
@@ -543,6 +549,8 @@ export const REACTION_TYPES: readonly ReactionType[] = [
   'huh',
   'blegh',
   'wow',
+  'later',
+  'whee',
 ];
 
 /** Variants per reaction type. */

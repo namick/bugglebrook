@@ -408,6 +408,41 @@ const BLEGH: Triple = three(
     seconds: 1.8,
   },
 );
+// After M8, shared by everyone: a busy bug's "later" to food held out to it
+// (R21: the food in its bubble, then dots, a nod, or a thumbs up), and the
+// "whee!" of the leaf slide and the bead pit.
+const LATER: Triple = three(
+  { eyes: 'open', mouth: 'smile', pictos: ['food', 'dots'], emotion: 'meh', move: 'nod', seconds: 1.5 },
+  {
+    eyes: 'happy',
+    mouth: 'grin',
+    pictos: ['food', 'thumbs_up'],
+    emotion: 'happy',
+    move: 'nod',
+    seconds: 1.5,
+  },
+  {
+    eyes: 'squint',
+    mouth: 'flat',
+    pictos: ['dots', 'food'],
+    emotion: 'question',
+    move: 'shrug',
+    seconds: 1.5,
+  },
+);
+const WHEE: Triple = three(
+  { eyes: 'happy', mouth: 'whee', blush: true, pictos: ['star', 'exclaim'], emotion: 'whee', seconds: 1.6 },
+  { eyes: 'wide', mouth: 'whee', pictos: ['exclaim'], emotion: 'whee', move: 'wiggle', seconds: 1.6 },
+  {
+    eyes: 'happy',
+    mouth: 'grin',
+    blush: true,
+    pictos: ['laugh'],
+    emotion: 'giggle',
+    fx: 'sparkles',
+    seconds: 1.6,
+  },
+);
 const WOW: Triple = three(
   {
     eyes: 'wide',
@@ -2443,11 +2478,15 @@ export function reactionLook(art: BugArt, type: ReactionType, variant: number): 
                                       ? BLEGH
                                       : type === 'wow'
                                         ? WOW
-                                        : CLASSIC.has(type)
-                                          ? PERSONAL[art][type as Classic]
-                                          : EVERYDAY.has(type)
-                                            ? EVERYDAY_LOOKS[art][type as Everyday]
-                                            : FED[type as keyof typeof FED];
+                                        : type === 'later'
+                                          ? LATER
+                                          : type === 'whee'
+                                            ? WHEE
+                                            : CLASSIC.has(type)
+                                              ? PERSONAL[art][type as Classic]
+                                              : EVERYDAY.has(type)
+                                                ? EVERYDAY_LOOKS[art][type as Everyday]
+                                                : FED[type as keyof typeof FED];
   return set[((variant % 3) + 3) % 3]!;
 }
 
@@ -2486,6 +2525,18 @@ const SHOWS_IN: Readonly<Record<ReactionType, readonly BugMode[]>> = {
   huh: ['st_react', 'st_idle', 'st_airborne', 'st_landing'],
   blegh: ['st_react', 'st_idle', 'st_wander', 'st_airborne'],
   wow: ['st_react', 'st_idle', 'st_wander', 'st_airborne', 'st_landing', 'st_sleep'],
+  later: [
+    'st_use',
+    'st_airborne',
+    'st_perform',
+    'st_social',
+    'st_seek',
+    'st_ride',
+    'st_hide',
+    'st_idle',
+    'st_react',
+  ],
+  whee: ['st_use', 'st_airborne', 'st_landing', 'st_react', 'st_idle'],
 };
 
 /** Is a reaction that started `ageSeconds` ago still showing in `mode`? */

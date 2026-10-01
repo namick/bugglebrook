@@ -463,11 +463,14 @@ export class WorldView extends Container {
     const j = this.juiceFor(id);
     // Under an opera or squeaky potion, everything it says comes out sung.
     const sung = this.sim.view(id)?.effects?.some((e) => e.effect === 'opera' || e.effect === 'squeaky');
+    // A busy bug's "later" shows the food held out to it.
+    const grabbed = this.sim.physics.grabbed;
+    const held = type === 'later' && grabbed !== null ? this.sim.entities.get(grabbed) : undefined;
     this.say(
       id,
       sung ? ['note', look.pictos[0] ?? 'note'] : look.pictos,
       Math.max(1.2, look.seconds) + 0.4,
-      j.food,
+      held?.kind === 'item' ? held.defId : j.food,
     );
     const v = this.sim.view(id);
     if (!v) return;
@@ -889,7 +892,10 @@ export class WorldView extends Container {
     if (!look && !move && j.move) move = movePose(j.move.move, j.move.t, j.move.seconds);
 
     const speed = Math.hypot(view.vx, view.vy);
-    const flying = bug.mode === 'st_airborne' || bug.mode === 'st_use';
+    // On the spring or riding the slide; other machine use is standing still.
+    const flying =
+      bug.mode === 'st_airborne' ||
+      (bug.mode === 'st_use' && (bug.action === 'bounce' || bug.action === 'slide'));
     const held = bug.mode === 'st_held';
 
     // Where to look: the cursor when it is close, food on offer, a friend, or ahead.

@@ -525,7 +525,13 @@ export type AdvertAction =
   | 'shelter'
   | 'lift'
   | 'roll'
-  | 'dance';
+  | 'dance'
+  // R20: the machines of the newer areas, which bugs use on their own.
+  | 'turn'
+  | 'tinker'
+  | 'brew'
+  | 'slide'
+  | 'wade';
 
 export const ADVERT_ACTIONS: readonly AdvertAction[] = [
   'eat',
@@ -539,6 +545,11 @@ export const ADVERT_ACTIONS: readonly AdvertAction[] = [
   'lift',
   'roll',
   'dance',
+  'turn',
+  'tinker',
+  'brew',
+  'slide',
+  'wade',
 ];
 
 /** What an object offers a bug (game design doc, section 5). */

@@ -181,5 +181,17 @@ export function emitNotice(sim: Sim, self: Entity, notice: BugNotice, selfState:
       sim.events.emit('bug_changed', { ...base, form: notice.form, x: s.x, y: s.y });
       if (notice.form === 'butterfly') sim.findSecret('secret_munch_butterfly', s.x, s.y);
       return;
+    case 'turned_dial':
+      // The same path as the player's hand on the rim: a turn, then let go.
+      sim.weather.turnDial(notice.minutes);
+      sim.weather.releaseDial();
+      sim.events.emit('bug_turned_dial', { ...base, minutes: notice.minutes, x: s.x, y: s.y });
+      return;
+    case 'tossed':
+      if (notice.into === 'tray') sim.bench.expect(notice.itemId, notice.tray);
+      return;
+    case 'stirred':
+      sim.cauldron.stir(notice.radians);
+      return;
   }
 }

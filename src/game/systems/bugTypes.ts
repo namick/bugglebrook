@@ -14,6 +14,40 @@ export const SPOT_TOP = -3;
 export const SPOT_CAMERA = -4;
 /** The flowerbed's flowerpot stage, where bugs dance. */
 export const SPOT_STAGE = -7;
+/** The machines bugs use on their own (R20): the sundial, the bench's trays, the cauldron, the leaf slide, and the bead pit. */
+export const SPOT_DIAL = -8;
+export const SPOT_TRAY = -9;
+export const SPOT_CAULDRON = -10;
+export const SPOT_SLIDE = -11;
+export const SPOT_BEADS = -12;
+
+/** The machines in the newer areas, as a bug's AI sees them. Each is null when its area is shut or asleep. */
+export interface Machines {
+  /** The sundial's face. `turnable`: a bug may push its rim a notch now (daytime, not already turning). */
+  dial: { x: number; y: number; turnable: boolean } | null;
+  /** The Tinker Bench's table top, its empty trays, and which loose things fit a wished-for recipe. */
+  bench: {
+    x0: number;
+    x1: number;
+    y: number;
+    trays: readonly { i: number; x: number }[];
+    fits: (recipe: string, itemId: EntityId) => boolean;
+  } | null;
+  /** The cauldron's mouth, how many things are in it, whether it takes more, and which things count as ingredients. */
+  cauldron: {
+    x: number;
+    y: number;
+    count: number;
+    ready: boolean;
+    ingredient: (itemId: EntityId) => boolean;
+  } | null;
+  /** The leaf slide: the top (where to stand) and the x where it meets the floor. */
+  slide: { topX: number; topY: number; bottomX: number } | null;
+  /** The bead pit's sunken floor. */
+  beads: { x0: number; x1: number; y: number } | null;
+  /** Tall things standing on the floor that no bug walks past (the claw machine's jar). */
+  walls: readonly { x0: number; x1: number }[];
+}
 
 /** Something a bug could go and do, offered by an object, another bug, or a spot nearby. */
 export interface AdvertCandidate {
@@ -116,6 +150,8 @@ export interface BugWorld {
   isLight?: (id: EntityId) => boolean;
   /** The flowerpot stage's top, if its area is open. Tests may leave it out. */
   stage?: () => { x0: number; x1: number; y: number } | null;
+  /** The machines of the newer areas (R20). Tests may leave it out. */
+  machines?: () => Machines;
 }
 
 /** What a bug knows about the time and the weather (game design doc, section 5). */
@@ -152,7 +188,7 @@ export interface BugContext {
   /** What is pressing against the bug on that side, if anything. */
   obstacle: (dir: 1 | -1) => Obstacle | null;
   /** Food the player is holding, if any: nearby bugs stop and turn to it. */
-  offered?: { x: number; y: number } | null;
+  offered?: { x: number; y: number; defId?: string } | null;
   /** Fraction of the bug under water, 0 to 1. */
   submerged?: number;
   /** Open water (not ice or a lily pad) under world x. */
@@ -220,6 +256,12 @@ export type BugNotice = (
   | { type: 'freed'; partnerId: EntityId }
   | { type: 'chopped'; itemId: EntityId }
   | { type: 'changed'; form: 'cocoon' | 'butterfly' | 'caterpillar' }
+  /** Pushed the sundial's rim forward this many game minutes. */
+  | { type: 'turned_dial'; minutes: number }
+  /** Tossed what it carried toward a bench tray or into the cauldron. */
+  | { type: 'tossed'; itemId: EntityId; into: 'tray' | 'cauldron'; tray: number }
+  /** Went round the cauldron with the ladle by this many radians. */
+  | { type: 'stirred'; radians: number }
 ) & { by?: EntityId };
 
 export interface BugDecision {

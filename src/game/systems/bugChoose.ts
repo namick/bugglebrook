@@ -12,6 +12,7 @@ import { SEEK_TIMEOUT, enter, launch } from './bugMove';
 import { available, endSocial } from './bugSocial';
 import { addNeeds, moodOf, urgency } from './needs';
 import { enterSleep, isSocial, likingOf, scoreAdvert } from './bugAi';
+import { machineAdverts } from './bugMachines';
 import {
   IGNORED_TICKS,
   PERCEPTION,
@@ -21,6 +22,22 @@ import {
   SOCIAL_NEEDS,
   WANDER_RANGE,
 } from './bugTuning';
+
+/** An outing goes this far past the edge of home (m), about one wander in this many (%). */
+const OUTING: readonly [number, number] = [2, 7];
+const OUTING_PERCENT = 7;
+
+/**
+ * Is it time for an outing? Only a lively bug at ease (fun under 80,
+ * energy over 50, in daylight and dry), on roughly one wander in 14. Worked
+ * out from the tick and the bug's ID, so it takes no dice.
+ */
+function outingDue(brain: BugBrain, ctx: BugContext): boolean {
+  const n = brain.needs;
+  if (n.need_fun >= 80 || n.need_energy <= 50 || n.need_hunger < 40) return false;
+  if (ctx.sky && (ctx.sky.dark || ctx.sky.raining || ctx.sky.evening)) return false;
+  return (ctx.tick * 7 + (ctx.id ?? 0) * 31) % 100 < OUTING_PERCENT;
+}
 
 /** Is this bug napping right next to a sleeping friend? */
 export function inPile(me: EntityId, x: number, def: BugDef, ctx: BugContext): boolean {
@@ -223,7 +240,16 @@ function spotAdverts(brain: BugBrain, ctx: BugContext): AdvertCandidate[] {
 /** Everything this bug could do next, from items, other bugs, and spots. */
 function candidates(me: EntityId, brain: BugBrain, ctx: BugContext): AdvertCandidate[] {
   const { def } = ctx;
+  const sleepers = (ctx.world ?? EMPTY_WORLD)
+    .bugs()
+    .filter((o) => o.id !== me && o.brain.mode === 'st_sleep');
   const items = ctx.adverts().filter((c) => {
+    // A snack right by a sleeping bug is that bug's (Dot's berry in the first scene): tiptoe past it.
+    if (
+      c.action === 'eat' &&
+      sleepers.some((o) => Math.abs(c.x - o.x) < o.def.radius + 0.9 && Math.abs(c.y - o.y) < 1.2)
+    )
+      return false;
     if (c.action === 'carry') return !!def.habits.rowsPebbles;
     if (c.action === 'lift') return !!def.habits.strong && brain.carrying === null;
     if (c.action === 'roll') return !!def.habits.rollsBalls && brain.carrying === null;
@@ -251,6 +277,7 @@ function candidates(me: EntityId, brain: BugBrain, ctx: BugContext): AdvertCandi
     ...carry,
     ...socialAdverts(me, brain, ctx),
     ...spotAdverts(brain, ctx),
+    ...machineAdverts(me, brain, ctx),
   ];
 }
 
@@ -339,6 +366,7 @@ export function startWander(brain: BugBrain, ctx: BugContext, away?: number): vo
   let lo = Math.max(reach.x0 + margin, state.x - WANDER_RANGE);
   let hi = Math.min(reach.x1 - margin, state.x + WANDER_RANGE);
   const home = ctx.home;
+  let outing: { x0: number; x1: number } | null = null;
   if (home) {
     const hlo = home.x0 + margin;
     const hhi = home.x1 - margin;
@@ -347,10 +375,36 @@ export function startWander(brain: BugBrain, ctx: BugContext, away?: number): vo
     else {
       lo = Math.max(lo, hlo);
       hi = Math.min(hi, hhi);
+      // Now and then a lively bug pops over into the next area for a look round (R04).
+      if (away === undefined && outingDue(brain, ctx)) {
+        const dir = state.x - home.x0 < home.x1 - state.x ? -1 : 1;
+        const edge = dir < 0 ? home.x0 : home.x1;
+        const a = edge + dir * OUTING[0];
+        const b = edge + dir * OUTING[1];
+        outing = {
+          x0: Math.max(reach.x0 + margin, Math.min(a, b)),
+          x1: Math.min(reach.x1 - margin, Math.max(a, b)),
+        };
+        if (outing.x1 <= outing.x0) outing = null;
+      }
     }
   }
   enter(brain, 'st_wander', SEEK_TIMEOUT);
+  if (outing) {
+    lo = outing.x0;
+    hi = outing.x1;
+    // A longer walk: give it time to get there.
+    brain.timer = SEEK_TIMEOUT + Math.round(((Math.abs(hi - state.x) + 1) / def.speed) * SIM_HZ);
+  }
   let target = away === undefined ? rng.range(lo, Math.max(lo, hi)) : away;
+  if (away === undefined)
+    for (const o of (ctx.world ?? EMPTY_WORLD).bugs()) {
+      // Never stop right by a sleeper (Dot napping on her bottle cap): stop short, on this side.
+      if (o.brain.mode !== 'st_sleep' || Math.abs(o.y - state.y) > 1.5) continue;
+      const clear = def.radius + o.def.radius + 0.6;
+      if (Math.abs(target - o.x) < clear) target = o.x + (state.x >= o.x ? 1 : -1) * clear;
+    }
+  target = Math.min(reach.x1 - margin, Math.max(reach.x0 + margin, target));
   if (def.swim !== 'skate' && ctx.overWater) {
     // Stop at the water's edge instead.
     const step = target > state.x ? 0.2 : -0.2;
