@@ -1003,20 +1003,20 @@ function sprout(g: Graphics, def: ItemDef, w: number, h: number): void {
 
 function slingshot(g: Graphics, def: ItemDef, w: number, h: number): void {
   const fork: Pt = [0, h * 0.02];
-  const tipL: Pt = [-w / 2 + 7, -h / 2 + 7];
-  const tipR: Pt = [w / 2 - 7, -h / 2 + 7];
+  const tipL: Pt = [-w / 2 + 10, -h / 2 + 10];
+  const tipR: Pt = [w / 2 - 10, -h / 2 + 10];
   // The band behind the frame, sagging into a pouch.
   const pouch: Pt = [0, -h * 0.18];
-  wire(g, [tipL, pouch, tipR], 3.5, def.accent, 2.5);
-  g.roundRect(pouch[0] - 7, pouch[1] - 3, 14, 7, 3)
+  wire(g, [tipL, pouch, tipR], 5, def.accent, 2.5);
+  g.roundRect(pouch[0] - 11, pouch[1] - 5, 22, 11, 5)
     .fill(darken(def.accent, 0.2))
     .stroke(stroke(2.5));
   // The forked twig.
   const arm = (tip: Pt): Pt[] => [fork, [tip[0] * 0.75, -h * 0.12], tip];
-  for (const tip of [tipL, tipR]) wire(g, arm(tip), 9, def.color, 3);
-  wire(g, [[1, h / 2 - 5], [-1, h * 0.25], fork], 11, def.color, 3);
+  for (const tip of [tipL, tipR]) wire(g, arm(tip), 15, def.color, 3.5);
+  wire(g, [[1, h / 2 - 8], [-1, h * 0.25], fork], 18, def.color, 3.5);
   // Bark marks, a knot, and a shine.
-  g.circle(0, h * 0.28, 2).fill(darken(def.color, 0.35));
+  g.circle(0, h * 0.28, 3).fill(darken(def.color, 0.35));
   for (const y of [h * 0.12, h * 0.38])
     g.moveTo(-3, y)
       .lineTo(2, y + 2)
@@ -1032,9 +1032,9 @@ function slingshot(g: Graphics, def: ItemDef, w: number, h: number): void {
   );
   // Band wraps at the tips.
   for (const [x, y] of [tipL, tipR])
-    g.roundRect(x - 5.5, y + 2, 11, 5, 2)
+    g.roundRect(x - 9, y + 2, 18, 8, 3)
       .fill(def.accent)
-      .stroke(stroke(2));
+      .stroke(stroke(3));
 }
 
 function springLauncher(g: Graphics, def: ItemDef, w: number, h: number): void {
@@ -1410,44 +1410,54 @@ function strawRocket(g: Graphics, def: ItemDef, w: number, h: number): void {
 function seesaw(g: Graphics, def: ItemDef): void {
   const plank = partBox(def, 0);
   const cork = partBox(def, 1);
-  // The cork pivot, a little wider at the bottom.
-  g.moveTo(cork.x + 3, cork.y)
-    .lineTo(cork.x + cork.w - 3, cork.y)
+  // The cork pivot, a chunky wedge, wider at the bottom.
+  g.moveTo(cork.x + 7, cork.y)
+    .lineTo(cork.x + cork.w - 7, cork.y)
     .lineTo(cork.x + cork.w, cork.y + cork.h)
     .lineTo(cork.x, cork.y + cork.h)
     .closePath()
     .fill(def.accent)
-    .stroke(stroke(3.5));
+    .stroke(stroke(5));
+  g.moveTo(cork.x + cork.w * 0.62, cork.y + 4)
+    .lineTo(cork.x + cork.w * 0.78, cork.y + cork.h - 4)
+    .lineTo(cork.x + cork.w - 6, cork.y + cork.h - 4)
+    .lineTo(cork.x + cork.w - 10, cork.y + 4)
+    .closePath()
+    .fill(darken(def.accent, 0.18));
   for (const [x, y] of [
     [0.3, 0.35],
-    [0.65, 0.6],
-    [0.4, 0.8],
-    [0.75, 0.25],
+    [0.55, 0.62],
+    [0.35, 0.82],
+    [0.7, 0.3],
+    [0.2, 0.6],
   ] as const)
-    g.circle(cork.x + cork.w * x, cork.y + cork.h * y, 1.3).fill(darken(def.accent, 0.35));
-  g.ellipse(cork.x + cork.w / 2, cork.y + 2, cork.w / 2 - 3, 2.5).fill(lighten(def.accent, 0.25));
-  // The popsicle-stick plank.
-  g.roundRect(plank.x, plank.y, plank.w, plank.h, plank.h / 2)
-    .fill(def.color)
-    .stroke(stroke(3.5));
-  for (const x of [-plank.w * 0.3, plank.w * 0.18])
-    g.moveTo(x, plank.y + plank.h * 0.55)
-      .lineTo(x + plank.w * 0.12, plank.y + plank.h * 0.45)
-      .stroke({ width: 1.2, color: darken(def.color, 0.25) });
+    g.circle(cork.x + cork.w * x, cork.y + cork.h * y, 2.4).fill(darken(def.accent, 0.4));
+  // The popsicle-stick plank: thick, with a darker edge for depth.
+  const r = plank.h / 2;
+  g.roundRect(plank.x, plank.y, plank.w, plank.h, r).fill(darken(def.color, 0.22)).stroke(stroke(5));
+  g.roundRect(plank.x + 3, plank.y + 3, plank.w - 6, plank.h * 0.62, r * 0.8).fill(def.color);
+  for (const x of [-plank.w * 0.3, plank.w * 0.12, plank.w * 0.34])
+    g.moveTo(x, plank.y + plank.h * 0.4)
+      .lineTo(x + plank.w * 0.1, plank.y + plank.h * 0.32)
+      .stroke({ width: 2, color: darken(def.color, 0.28), cap: 'round' });
   shine(
     g,
     [
-      [plank.x + 8, plank.y + 3],
-      [plank.x + plank.w * 0.4, plank.y + 3],
+      [plank.x + 14, plank.y + 7],
+      [plank.x + plank.w * 0.42, plank.y + 7],
     ],
-    1.8,
-    0.75,
+    3,
+    0.8,
   );
-  // A seat bump at each end.
-  for (const x of [plank.x + 12, plank.x + plank.w - 22])
-    g.roundRect(x, plank.y - 5, 10, 6, 2)
+  // A padded pink seat at each end.
+  for (const x of [plank.x + 12, plank.x + plank.w - 52]) {
+    g.roundRect(x, plank.y - 13, 40, 17, 8)
       .fill(0xff7eb6)
-      .stroke(stroke(2.5));
+      .stroke(stroke(4));
+    g.moveTo(x + 8, plank.y - 8)
+      .lineTo(x + 24, plank.y - 8)
+      .stroke({ width: 3, color: 0xffffff, alpha: 0.7, cap: 'round' });
+  }
 }
 
 function spoonCatapult(g: Graphics, def: ItemDef): void {
@@ -1456,76 +1466,97 @@ function spoonCatapult(g: Graphics, def: ItemDef): void {
   const lipL = partBox(def, 2);
   const lipR = partBox(def, 3);
   const eraser = partBox(def, 4);
-  // The pencil-eraser pivot.
-  g.roundRect(eraser.x, eraser.y, eraser.w, eraser.h, 5).fill(def.accent).stroke(stroke(3.5));
-  g.rect(eraser.x + 2, eraser.y + eraser.h * 0.55, eraser.w - 4, 3).fill(darken(def.accent, 0.2));
+  // The pencil-eraser pivot, with its metal band.
+  g.roundRect(eraser.x, eraser.y, eraser.w, eraser.h, 8).fill(def.accent).stroke(stroke(5));
+  g.rect(eraser.x + 3, eraser.y + eraser.h * 0.5, eraser.w - 6, eraser.h * 0.2).fill(METAL);
+  g.moveTo(eraser.x + 3, eraser.y + eraser.h * 0.5)
+    .lineTo(eraser.x + eraser.w - 3, eraser.y + eraser.h * 0.5)
+    .moveTo(eraser.x + 3, eraser.y + eraser.h * 0.7)
+    .lineTo(eraser.x + eraser.w - 3, eraser.y + eraser.h * 0.7)
+    .stroke({ width: 2.5, color: METAL_DARK });
   shine(
     g,
     [
-      [eraser.x + 4, eraser.y + 4],
-      [eraser.x + 4, eraser.y + eraser.h * 0.45],
+      [eraser.x + 7, eraser.y + 7],
+      [eraser.x + 7, eraser.y + eraser.h * 0.38],
     ],
-    1.8,
+    3,
     0.6,
   );
-  // The spoon: handle, then the bowl's cup between its two lips.
+  // The spoon: a thick handle, then the bowl's cup between its two lips.
   g.roundRect(handle.x, handle.y, handle.w, handle.h, handle.h / 2)
-    .fill(def.color)
-    .stroke(stroke(3.5));
+    .fill(darken(def.color, 0.2))
+    .stroke(stroke(5));
+  g.roundRect(handle.x + 3, handle.y + 3, handle.w - 6, handle.h * 0.55, handle.h * 0.3).fill(def.color);
   const left = lipL.x;
   const right = lipR.x + lipR.w;
   const bottom = bowl.y + bowl.h;
   g.moveTo(left, lipL.y)
-    .bezierCurveTo(left, bottom + 2, right, bottom + 2, right, lipR.y)
-    .quadraticCurveTo((left + right) / 2, (lipL.y + lipR.y) / 2 + 6, left, lipL.y)
+    .bezierCurveTo(left, bottom + 4, right, bottom + 4, right, lipR.y)
+    .quadraticCurveTo((left + right) / 2, (lipL.y + lipR.y) / 2 + 10, left, lipL.y)
     .closePath()
     .fill(def.color)
-    .stroke(stroke(3.5));
+    .stroke(stroke(5));
   // The hollow of the bowl, tilted toward us.
-  g.moveTo(left + 4, lipL.y + 3)
-    .quadraticCurveTo((left + right) / 2, (lipL.y + lipR.y) / 2 + 9, right - 4, lipR.y + 2)
-    .quadraticCurveTo((left + right) / 2, bottom - 1, left + 4, lipL.y + 3)
-    .fill(darken(def.color, 0.18));
-  g.moveTo(left + 4, lipL.y + 6)
-    .quadraticCurveTo(left + 6, bottom - 2, left + bowl.w * 0.35, bottom - 1)
-    .stroke({ width: 1.8, color: 0xffffff, alpha: 0.85, cap: 'round' });
+  g.moveTo(left + 6, lipL.y + 5)
+    .quadraticCurveTo((left + right) / 2, (lipL.y + lipR.y) / 2 + 14, right - 6, lipR.y + 3)
+    .quadraticCurveTo((left + right) / 2, bottom - 2, left + 6, lipL.y + 5)
+    .fill(darken(def.color, 0.22));
+  g.moveTo(left + 7, lipL.y + 9)
+    .quadraticCurveTo(left + 9, bottom - 4, left + bowl.w * 0.35, bottom - 2)
+    .stroke({ width: 3, color: 0xffffff, alpha: 0.85, cap: 'round' });
   shine(
     g,
     [
-      [handle.x + 6, handle.y + 2.5],
-      [handle.x + handle.w - 8, handle.y + 2.5],
+      [handle.x + 10, handle.y + 5],
+      [handle.x + handle.w - 14, handle.y + 5],
     ],
-    1.4,
-    0.8,
+    2.5,
+    0.85,
   );
 }
 
 function trampoline(g: Graphics, def: ItemDef): void {
   const bed = partBox(def, 0);
   const legs = [partBox(def, 1), partBox(def, 2)];
-  // Spring legs on little feet.
+  // Chunky spring legs on wooden feet.
   for (const leg of legs) {
     const cx = leg.x + leg.w / 2;
-    coil(g, cx, bed.y + bed.h, leg.y + leg.h - 4, leg.w * 0.45, 3, METAL);
-    g.roundRect(leg.x - 2, leg.y + leg.h - 5, leg.w + 4, 5, 2)
+    for (const dx of [-leg.w * 0.18, leg.w * 0.18])
+      wire(
+        g,
+        Array.from({ length: 7 }, (_, i): Pt => [
+          cx + dx + (i % 2 === 0 ? -1 : 1) * leg.w * 0.2,
+          bed.y + bed.h + ((leg.y + leg.h - 8 - bed.y - bed.h) * i) / 6,
+        ]),
+        4.5,
+        METAL,
+        2.5,
+      );
+    g.roundRect(leg.x - 6, leg.y + leg.h - 10, leg.w + 12, 10, 4)
       .fill(WOOD_DARK)
-      .stroke(stroke(2.5));
+      .stroke(stroke(4));
   }
-  // The tissue bed, puffy, on a popsicle-stick frame.
-  g.roundRect(bed.x, bed.y, bed.w, bed.h, 3).fill(WOOD).stroke(stroke(3.5));
-  g.moveTo(bed.x + 10, bed.y + 1)
-    .quadraticCurveTo(0, bed.y - 6, bed.x + bed.w - 10, bed.y + 1)
-    .lineTo(bed.x + bed.w - 10, bed.y + bed.h - 2)
-    .lineTo(bed.x + 10, bed.y + bed.h - 2)
+  // The frame: a thick popsicle-stick rim.
+  g.roundRect(bed.x, bed.y, bed.w, bed.h, 8).fill(WOOD).stroke(stroke(5));
+  g.rect(bed.x + 4, bed.y + bed.h * 0.62, bed.w - 8, bed.h * 0.3).fill(darken(WOOD, 0.2));
+  // The tissue bed, puffed up over the frame.
+  g.moveTo(bed.x + 14, bed.y + 3)
+    .quadraticCurveTo(0, bed.y - 12, bed.x + bed.w - 14, bed.y + 3)
+    .lineTo(bed.x + bed.w - 14, bed.y + bed.h * 0.6)
+    .lineTo(bed.x + 14, bed.y + bed.h * 0.6)
     .closePath()
     .fill(def.color)
-    .stroke(stroke(3));
-  // Pink stitching along the tissue.
-  for (let x = bed.x + 16; x < bed.x + bed.w - 14; x += 9)
-    g.moveTo(x, bed.y + bed.h * 0.5)
-      .lineTo(x + 4, bed.y + bed.h * 0.5)
-      .stroke({ width: 1.6, color: def.accent, cap: 'round' });
-  for (const x of [bed.x + 5, bed.x + bed.w - 5]) g.circle(x, bed.y + bed.h / 2, 1.6).fill(darken(WOOD, 0.4));
+    .stroke(stroke(4));
+  // Pink stitching and polka dots along the tissue.
+  for (let x = bed.x + 22; x < bed.x + bed.w - 20; x += 14)
+    g.moveTo(x, bed.y + bed.h * 0.42)
+      .lineTo(x + 6, bed.y + bed.h * 0.42)
+      .stroke({ width: 2.5, color: def.accent, cap: 'round' });
+  for (let x = bed.x + 40; x < bed.x + bed.w - 30; x += 46)
+    g.circle(x, bed.y + 1, 4).fill(lighten(def.accent, 0.3));
+  for (const x of [bed.x + 8, bed.x + bed.w - 8])
+    g.circle(x, bed.y + bed.h * 0.4, 2.6).fill(darken(WOOD, 0.45));
 }
 
 // --- Wearables -----------------------------------------------------------------

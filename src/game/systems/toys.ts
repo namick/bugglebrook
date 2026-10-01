@@ -1,7 +1,7 @@
 import type { Entity, EntityId } from '../core/entities';
 import { SIM_HZ } from '../core/loop';
 import { GRAVITY } from '../constants';
-import type { ItemDef } from '../data/types';
+import type { ItemDef, ItemShape } from '../data/types';
 import type { Impact } from '../physics/physics';
 import type { Sim } from '../sim';
 import { SKY_TOP } from './potions';
@@ -47,6 +47,19 @@ const SEESAW_TIP = 0.3;
 const SPOON_REST = 0.38;
 const SPOON_DOWN = -0.32;
 const SPOON_SPRING = 900;
+
+/**
+ * Where a seesaw or catapult turns: the bottom middle of its lowest part (the
+ * cork, the eraser), in meters from its center. Read from the shape, so the
+ * art, the collider, and the pivot always agree.
+ */
+export function pivotFoot(shape: ItemShape): { x: number; y: number } {
+  if (shape.type !== 'box' || !shape.parts?.length)
+    return { x: 0, y: shape.type === 'box' ? shape.height / 2 : 0 };
+  let low = shape.parts[0]!;
+  for (const p of shape.parts) if (p.y + p.height / 2 > low.y + low.height / 2) low = p;
+  return { x: low.x, y: low.y + low.height / 2 };
+}
 
 export class Toys {
   /** The slingshot being pulled, and what is in it. Not saved: it lasts as long as a press. */
@@ -306,10 +319,10 @@ export class Toys {
           if (e.toy?.flying) this.rocket(e);
           break;
         case 'seesaw':
-          this.settle(e, 'seesaw');
+          this.settle(e);
           break;
         case 'catapult':
-          this.settle(e, 'catapult');
+          this.settle(e);
           if (e.toy?.pivot) this.spoon(e);
           break;
         case 'trampoline':
@@ -412,16 +425,19 @@ export class Toys {
    * A seesaw or catapult let go comes to rest on its pivot: from then on it
    * turns about it. Grabbing it lifts it off.
    */
-  private settle(e: Entity, kind: 'seesaw' | 'catapult'): void {
+  private settle(e: Entity): void {
     const sim = this.sim;
     const physics = sim.physics;
     if (e.toy?.pivot || physics.grabbed === e.id || physics.isPinned(e.id)) return;
     const s = physics.getState(e.id);
     if (Math.hypot(s.vx, s.vy) > 0.15 || Math.abs(s.av) > 0.2 || !physics.isSupported(e.id)) return;
     if (Math.abs(s.angle) > 0.5) return;
+    // In the pond it floats; it only sets down on its pivot on dry ground.
+    if ((sim.environment.submerged.get(e.id) ?? 0) > 0) return;
     const k = sim.potions.scaleOf(e);
     // The pivot: the bottom of the cork (seesaw) or the eraser (catapult).
-    const local = kind === 'seesaw' ? { x: 0, y: 0.25 * k } : { x: 0.4 * k, y: 0.31 * k };
+    const foot = pivotFoot(this.def(e)!.shape);
+    const local = { x: foot.x * k, y: foot.y * k };
     const c = Math.cos(s.angle);
     const sn = Math.sin(s.angle);
     const px = s.x + local.x * c - local.y * sn;
