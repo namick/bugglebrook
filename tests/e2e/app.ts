@@ -227,34 +227,41 @@ export async function holdNearMouth(
   }
 }
 
-const camera = async (page: Page): Promise<number> => (await page.evaluate(() => window.__bb!.camera())).x;
 
-/** Scroll the camera with the real mouse wheel until its left edge is near `x` (or as near as it may rest). */
+/** Scroll the camera with the real mouse wheel until its left edge rests near `x` (or as near as it may). */
 export async function scrollTo(page: Page, x: number): Promise<void> {
   await page.mouse.move(960, 200);
-  for (let i = 0; i < 80; i++) {
+  let off = Infinity;
+  for (let i = 0; i < 30; i++) {
     // Aim inside the stretch the camera rests in: past a locked barrier it
     // only peeks and springs back, so it would never get there.
     const cam = await page.evaluate(() => window.__bb!.camera());
-    const d = Math.min(cam.max, Math.max(cam.min, x)) - cam.x;
-    if (Math.abs(d) < 0.3) return;
-    await page.mouse.wheel(0, Math.max(-600, Math.min(600, (d * 100) / 1.5)));
-    await page.waitForTimeout(30);
+    off = Math.min(cam.max, Math.max(cam.min, x)) - cam.x;
+    if (Math.abs(off) < 0.3) return;
+    await page.mouse.wheel(0, Math.max(-600, Math.min(600, (off * 100) / 1.5)));
+    // The camera coasts after a wheel turn on the screen's clock, which is
+    // slow on a software renderer: let it stop before measuring again, or
+    // the next turn piles onto a stale reading and overshoots.
+    await settleCamera(page);
   }
+  throw new Error(`scrollTo(${x}): the camera is still ${off.toFixed(2)} m off`);
 }
 
-/** Wait until the camera has stopped moving (it glides on the screen's clock, even with the sim frozen). */
+/**
+ * Wait until the camera has stopped moving (it glides on the screen's clock,
+ * even with the sim frozen). Still means unchanged over at least three
+ * screen frames, however slowly the screen draws them.
+ */
 export async function settleCamera(page: Page): Promise<void> {
-  let last = Number.NaN;
+  let since = await page.evaluate(() => window.__bb!.camera());
   await expect
     .poll(
       async () => {
-        const now = await camera(page);
-        const still = Math.abs(now - last) < 0.002;
-        last = now;
-        return still;
+        const now = await page.evaluate(() => window.__bb!.camera());
+        if (Math.abs(now.x - since.x) >= 0.002) since = now;
+        return now.frame - since.frame >= 3;
       },
-      { intervals: [200], timeout: 20_000 },
+      { intervals: [50], timeout: 20_000 },
     )
     .toBe(true);
 }

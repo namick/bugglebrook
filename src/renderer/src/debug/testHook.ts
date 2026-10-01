@@ -23,8 +23,11 @@ export interface TestHook {
   tick(): number;
   entities(): EntityView[];
   entity(id: number): EntityView | null;
-  /** The camera's left edge, and the furthest left and right it rests at (it may peek past those, then springs back). */
-  camera(): { x: number; min: number; max: number };
+  /**
+   * The camera's left edge, the furthest left and right it rests at (it may
+   * peek past those, then springs back), and the screen frame it was read on.
+   */
+  camera(): { x: number; min: number; max: number; frame: number };
   /** Client (CSS pixel) position of a world point, for page.mouse. */
   worldToClient(x: number, y: number): Point;
   /** Client position of the centre of a menu slot sign. */
@@ -239,7 +242,7 @@ export function installTestHook(game: Game): void {
     entity: (id) => game.session?.sim.view(id) ?? null,
     camera: () => {
       const cam = game.session?.camera;
-      return { x: cam?.x ?? 0, min: cam?.restMin ?? 0, max: cam?.restMax ?? 0 };
+      return { x: cam?.x ?? 0, min: cam?.restMin ?? 0, max: cam?.restMax ?? 0, frame: game.frameCount };
     },
     worldToClient: (x, y) => {
       const cam = game.session?.camera;
