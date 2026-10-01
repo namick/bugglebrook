@@ -227,7 +227,6 @@ export async function holdNearMouth(
   }
 }
 
-
 /** Scroll the camera with the real mouse wheel until its left edge rests near `x` (or as near as it may). */
 export async function scrollTo(page: Page, x: number): Promise<void> {
   await page.mouse.move(960, 200);
