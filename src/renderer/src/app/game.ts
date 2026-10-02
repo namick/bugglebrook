@@ -1066,6 +1066,23 @@ export class Game {
    * for the screen (test hook): pointer drags go out exactly as a frame
    * would send them, so tests stay deterministic on slow machines.
    */
+  /**
+   * Tests (paused): run n whole frames, each one sim step and the view's
+   * update, and say how long each took in ms. Drawing is not included: Pixi
+   * renders on its own ticker.
+   */
+  timeFrames(n: number): number[] {
+    const out: number[] = [];
+    if (!this.session || !this.paused) return out;
+    for (let i = 0; i < n; i++) {
+      const t = performance.now();
+      this.stepFrames(1);
+      this.frame(1 / 60);
+      out.push(performance.now() - t);
+    }
+    return out;
+  }
+
   stepFrames(n: number): void {
     const s = this.session;
     if (!s) return;

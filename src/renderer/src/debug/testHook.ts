@@ -202,6 +202,8 @@ export interface TestHook extends ArtHook {
   step(n: number): void;
   /** Run `n` frames of input and sim at 60 Hz right now, whatever the screen's speed. */
   frames(n: number): void;
+  /** While paused: n whole frames (a sim step and the view's update each), timed in ms. */
+  timeFrames(n: number): number[];
   setPaused(paused: boolean): void;
   /** Open the next world already frozen (as `setPaused(true)`), before its first step. */
   freezeNextWorld(on: boolean): void;
@@ -871,6 +873,7 @@ export function installTestHook(game: Game, boundary?: ErrorBoundary): void {
     send: (command) => game.session?.sim.send(command),
     step: (n) => game.stepSim(n),
     frames: (n) => game.stepFrames(n),
+    timeFrames: (n) => game.timeFrames(n),
     setPaused: (p) => game.setPaused(p),
     freezeNextWorld: (on) => {
       game.freezeNextWorld = on;
