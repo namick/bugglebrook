@@ -7,6 +7,7 @@ import { MantisPainter } from './mantis';
 import { StagbeetlePainter } from './stagbeetle';
 import { StickinsectPainter } from './stickinsect';
 import { StinkbugPainter } from './stinkbug';
+import { TardigradePainter } from './tardigrade';
 
 /**
  * The painter for a species drawn in its own module, or null for the first
@@ -26,6 +27,8 @@ export function makePainter(args: PainterArgs): SpeciesPainter | null {
       return new MantisPainter(args);
     case 'stickinsect':
       return new StickinsectPainter(args);
+    case 'tardigrade':
+      return new TardigradePainter(args);
     default:
       return null;
   }
@@ -41,6 +44,8 @@ export function bugSpan(def: BugDef): number {
       return d * 1.5;
     case 'mantis':
       return d * 1.4;
+    case 'tardigrade':
+      return d * 1.15;
     case 'stickinsect':
       return (def.collider?.width ?? def.radius * 2) * PIXELS_PER_METER;
     default:

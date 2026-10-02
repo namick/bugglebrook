@@ -499,3 +499,43 @@ describe('mystery clues', () => {
     );
   });
 });
+
+describe('Wubbo', () => {
+  const LAB = ['area_flowerbed_stage', 'area_under_porch', 'area_compost_lab'];
+  const shatterOnMoss = (sim: Sim): void => {
+    const lab = sim.content.areas.get('area_compost_lab');
+    const moss = put(sim, 'item_moss_tuft', lab.xStart + 20);
+    const bottle = put(sim, 'item_potion_giant', lab.xStart + 22);
+    sim.run(20);
+    const m = sim.physics.getState(moss.id);
+    sim.shatterPotion(bottle, moss.id, m.x, m.y);
+    sim.run(30);
+  };
+
+  it('the giant potion broken on the moss grows Wubbo, once the scope has shown him', () => {
+    const sim = world('wubbo', LAB);
+    shatterOnMoss(sim);
+    expect(sim.cast.present('bug_tardigrade_wubbo')).toBe(false);
+    sim.findSecret('secret_scope_wubbo', 0, 0);
+    const log = record(sim);
+    shatterOnMoss(sim);
+    expect(named(log, 'wubbo_grew')).toHaveLength(1);
+    expect(sim.cast.joined('bug_tardigrade_wubbo')).toBe(true);
+    expectFound(sim, 'secret_wubbo_found');
+    expect(sim.journal.state.bugs).toContain('bug_tardigrade_wubbo');
+  });
+
+  it('never gets dizzy, and pats dizzy friends better', () => {
+    const sim = world('pats');
+    const wubbo = bugAt(sim, 'bug_tardigrade_wubbo', PLAZA_X + 28);
+    const dot = bugAt(sim, 'bug_ladybug_dot', PLAZA_X + 28.8);
+    sim.run(30);
+    expect(CONTENT.bugs.get('bug_tardigrade_wubbo').dizzyProof).toBe(true);
+    dot.bug!.mode = 'st_dizzy';
+    dot.bug!.timer = 300;
+    sim.run(60);
+    // Sixty ticks of its own, and Wubbo's pats on top.
+    expect(dot.bug!.mode === 'st_dizzy' ? dot.bug!.timer : 0).toBeLessThan(300 - 60 - 20);
+    void wubbo;
+  });
+});

@@ -15,7 +15,6 @@ import { createRegistry } from './registry';
  */
 export const M10_PENDING: ReadonlySet<string> = new Set([
   'secret_ant_sugar',
-  'secret_wubbo_found',
   'secret_queen_sweet',
   'secret_root_pull',
   'secret_ant_conga',

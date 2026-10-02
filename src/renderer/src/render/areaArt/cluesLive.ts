@@ -646,6 +646,12 @@ export class ClueFxLive extends AreaLive {
         particles.sparkles(...at(e.x, e.y - 0.5), 16);
       }),
       sim.events.on('twig_bridged', (e) => particles.hearts(...at(e.x, e.y - 0.6), 5)),
+      sim.events.on('wubbo_grew', (e) => {
+        particles.ring(...at(e.x, e.y), 70);
+        particles.sparkles(...at(e.x, e.y - 0.5), 24);
+        particles.puff(...at(e.x, e.y), 0xffd9c7, 10, 0, -80, 24);
+      }),
+      sim.events.on('bug_patted', (e) => particles.hearts(...at(e.x, e.y - 0.6), 2)),
       sim.events.on('moss_squeaked', (e) => {
         this.squeak = 0;
         [this.squeakX, this.squeakY] = at(e.x, e.y);

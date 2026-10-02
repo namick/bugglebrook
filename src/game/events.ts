@@ -287,6 +287,10 @@ export interface GameEvents {
   orbit_returned: { id: EntityId; crumb: EntityId; x: number; y: number };
   /** At night the moss jar squeaked at the hand: something tiny lives in there. */
   moss_squeaked: { x: number; y: number };
+  /** The giant potion on the moss tuft grew Wubbo to bug size. */
+  wubbo_grew: { id: EntityId; x: number; y: number };
+  /** Wubbo patted a dizzy bug, who gets over it faster. */
+  bug_patted: { id: EntityId; targetId: EntityId; x: number; y: number };
   /** Three bugs walked across Twig lying over a gap. */
   twig_bridged: { id: EntityId; x: number; y: number };
 

@@ -212,6 +212,43 @@ test('clues tour', async () => {
     await shot(page, '15-rainbow-end');
     await send(page, [{ type: 'set_weather', wind: 0, rain: false, weather: 'weather_clear' }], 2);
 
+    // --- Wubbo: the giant potion broken on the moss tuft.
+    await send(page, [{ type: 'find_secret', id: 'secret_scope_wubbo' }], 1);
+    const jar = await fixture(page, 'fix_jar_moss');
+    await look(page, jar.x - 6);
+    const mossX = jar.x + 3;
+    const moss = await spawn(page, 'item_moss_tuft', mossX, 8);
+    await frames(page, 60);
+    const bottle = await spawn(page, 'item_potion_giant', mossX, 5);
+    await page.evaluate(
+      ([b, m]) => {
+        const e = window.__bb!.entity(b as number)!;
+        const t = window.__bb!.entity(m as number)!;
+        window.__bb!.send({ type: 'grab', x: e.x, y: e.y });
+        window.__bb!.frames(1);
+        window.__bb!.send({ type: 'drag', x: t.x, y: t.y - 1.4 });
+        window.__bb!.frames(4);
+        window.__bb!.send({ type: 'release', vx: 0, vy: 16 });
+        window.__bb!.frames(1);
+      },
+      [bottle, moss] as const,
+    );
+    for (let t = 0; t < 30; t++) {
+      await frames(page, 4);
+      if (await page.evaluate(() => window.__bb!.events().some((e) => e.name === 'wubbo_grew'))) break;
+    }
+    await frames(page, 10);
+    await shot(page, '17-wubbo-grows');
+    await frames(page, 120);
+    const wubbo = await page.evaluate(() =>
+      window.__bb!.entities().find((e) => e.defId === 'bug_tardigrade_wubbo'),
+    );
+    if (wubbo) {
+      await shot(page, '18-wubbo', [wubbo.x - 1.6, wubbo.y - 1.4, wubbo.x + 1.6, wubbo.y + 0.9]);
+      await send(page, [{ type: 'poke', x: wubbo.x, y: wubbo.y }], 20);
+      await shot(page, '19-wubbo-poked', [wubbo.x - 1.6, wubbo.y - 1.6, wubbo.x + 1.6, wubbo.y + 0.9]);
+    }
+
     // --- M10's treasures in a row in the plaza's sky.
     const defs = [
       'item_key_tiny',

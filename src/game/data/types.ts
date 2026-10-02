@@ -245,7 +245,8 @@ export type BugArt =
   | 'dungbeetle'
   | 'caterpillar'
   | 'mantis'
-  | 'stickinsect';
+  | 'stickinsect'
+  | 'tardigrade';
 
 /**
  * Personality knobs that the AI reads, 0 to 1. `curious` sniffs new things,
@@ -291,6 +292,8 @@ export interface BugHabits {
   chops?: boolean;
   /** Freezes whenever the hand is near, and only moves when nobody is looking (Twig). */
   shy?: boolean;
+  /** Pats dizzy bugs nearby, who get over it twice as fast (Wubbo). */
+  pats?: boolean;
 }
 
 /**

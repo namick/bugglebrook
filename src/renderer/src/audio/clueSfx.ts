@@ -34,6 +34,7 @@ export const CLUE_SFX = [
   'orbit_return',
   'proud_sigh',
   'tiny_squeak',
+  'wubbo_pop',
 ] as const;
 
 export type ClueSfx = (typeof CLUE_SFX)[number];
@@ -213,6 +214,20 @@ export function clueTones(name: ClueSfx, j: number, intensity: number): Tone[] {
         { freq: 2400 * j, to: 300 * j, dur: 0.6, wave: 'noise', q: 3, gain: 0.1 },
         { freq: 1319 * j, dur: 0.3, wave: 'sine', gain: 0.08, delay: 0.6 },
       ];
+    case 'wubbo_pop':
+      // Growing from tiny to bug size: a rising wobble, a pop, and a bubbly giggle.
+      return [
+        { freq: 200 * j, to: 900 * j, dur: 0.6, wave: 'sine', gain: 0.12, vibrato: { rate: 12, depth: 40 } },
+        { freq: 600 * j, to: 200 * j, dur: 0.08, wave: 'square', gain: 0.08, delay: 0.6 },
+        ...[0, 1, 2, 3].map((k) => ({
+          freq: (300 + (k % 2) * 60) * j,
+          dur: 0.09,
+          wave: 'sine' as const,
+          gain: 0.08,
+          delay: 0.75 + k * 0.1,
+          vibrato: { rate: 12, depth: 20 },
+        })),
+      ];
     case 'tiny_squeak':
       return [
         { freq: 2600 * j, to: 3400 * j, dur: 0.06, wave: 'sine', gain: 0.06 },
@@ -254,5 +269,6 @@ export function clueSounds(
     bus.on('orbit_returned', () => play('orbit_return')),
     bus.on('twig_bridged', () => play('proud_sigh')),
     bus.on('moss_squeaked', () => play('tiny_squeak')),
+    bus.on('wubbo_grew', () => play('wubbo_pop')),
   ];
 }

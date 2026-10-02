@@ -35,6 +35,7 @@ describe('content registries', () => {
       'bug_caterpillar_munch',
       'bug_mantis_prim',
       'bug_stickinsect_twig',
+      'bug_tardigrade_wubbo',
     ]);
     // Every hidden bug has a secret that finds it.
     for (const bug of CONTENT.bugs.all.filter((b) => b.hidden))

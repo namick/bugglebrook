@@ -141,6 +141,8 @@ export const SCRAPS_TOUCH = 0.75;
 export const ORBIT_SPEED = 24;
 /** Twig's bridge: bugs that walk across him. */
 export const BRIDGE_BUGS = 3;
+/** Wubbo pats dizzy bugs within this reach (m). */
+export const PAT_REACH = 1.8;
 
 const SCRAPS = ['item_map_scrap_1', 'item_map_scrap_2', 'item_map_scrap_3', 'item_map_scrap_4'];
 
@@ -152,7 +154,8 @@ type Noted =
   | { k: 'flung'; id: EntityId; vx: number; vy: number }
   | { k: 'landed'; id: EntityId; x: number; y: number }
   | { k: 'key'; id: EntityId }
-  | { k: 'thrown'; id: EntityId };
+  | { k: 'thrown'; id: EntityId }
+  | { k: 'shatter'; potion: string | null; target: EntityId | null; x: number; y: number };
 
 interface Spot {
   area: AreaDef;
@@ -179,6 +182,9 @@ export class Clues {
       this.noted.push({ k: 'thrown', id: e.id });
     });
     on('bug_landed', (e) => this.noted.push({ k: 'landed', id: e.id, x: e.x, y: e.y }));
+    on('potion_shattered', (e) =>
+      this.noted.push({ k: 'shatter', potion: e.potion, target: e.targetId, x: e.x, y: e.y }),
+    );
   }
 
   restore(state: ClueState): void {
@@ -339,7 +345,29 @@ export class Clues {
     this.scraps();
     this.bridge();
     this.squeak();
+    this.pats();
     if (sim.weather.raining) sim.journal.notice('rain_seen');
+  }
+
+  /** Wubbo pats dizzy bugs near him, and they get over it half again as fast (section 4). */
+  private pats(): void {
+    const sim = this.sim;
+    for (const pal of sim.entities.ofKind('bug')) {
+      if (!pal.bug || pal.bug.pending || sim.isSleeping(pal.id)) continue;
+      if (!sim.content.bugs.get(pal.defId).habits.pats) continue;
+      const p = sim.physics.getState(pal.id);
+      for (const bug of sim.entities.ofKind('bug')) {
+        const b = bug.bug;
+        if (bug.id === pal.id || !b || b.mode !== 'st_dizzy' || sim.isSleeping(bug.id)) continue;
+        const q = sim.physics.getState(bug.id);
+        if (Math.hypot(q.x - p.x, q.y - p.y) > PAT_REACH) continue;
+        b.timer = Math.max(1, b.timer - 7);
+        if (sim.tick % 90 === 0) {
+          sim.reactBug(pal, 'play');
+          sim.events.emit('bug_patted', { id: pal.id, targetId: bug.id, x: q.x, y: q.y });
+        }
+      }
+    }
   }
 
   /**
@@ -408,6 +436,17 @@ export class Clues {
         if (!sim.weather.dark || s.orbit >= 0) return;
         if (-n.vy < ORBIT_SPEED || Math.abs(n.vx) > -n.vy * 0.5) return;
         s.orbit = n.id;
+        return;
+      }
+      case 'shatter': {
+        // Wubbo (mystery_tiny_squeak): the giant potion broken on the moss tuft grows the tiny
+        // water bear seen under the scope to bug size. He pops out and joins.
+        if (n.potion !== 'potion_giant' || n.target === null) return;
+        const moss = sim.entities.get(n.target);
+        if (moss?.defId !== 'item_moss_tuft' || !sim.canFind('secret_wubbo_found')) return;
+        const m = sim.physics.getState(moss.id);
+        const wubbo = sim.cast.find('bug_tardigrade_wubbo', m.x, m.y - 0.6);
+        if (wubbo) sim.events.emit('wubbo_grew', { id: wubbo.id, x: m.x, y: m.y });
         return;
       }
       case 'thrown':

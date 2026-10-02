@@ -341,6 +341,37 @@
    "sourceHash": "aa3ad22eb9df10660825cd63178244863f7311d3b833422e7a7ea4947a473e7d",
    "status": "empty"
   },
+  "bug_tardigrade_wubbo": {
+   "face": [],
+   "faceAnchors": {
+    "eye": {
+     "r": 4.646,
+     "x": 35.282,
+     "y": -9.476
+    },
+    "mouth": {
+     "s": 9.66,
+     "x": 39.146,
+     "y": 3.68
+    }
+   },
+   "id": "bug_tardigrade_wubbo",
+   "kind": "bug",
+   "pages": {
+    "1": [],
+    "2": []
+   },
+   "parts": {},
+   "report": [
+    {
+     "level": "info",
+     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+    }
+   ],
+   "rigHash": "34d70d2823baa708",
+   "sourceHash": "5b0611258a8057c0b2189880b3913ec8a022f89ee7901b2b163322384db486a9",
+   "status": "empty"
+  },
   "bug_waterstrider_skeet": {
    "face": [],
    "faceAnchors": {
