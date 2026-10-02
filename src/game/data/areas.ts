@@ -355,7 +355,7 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { id: 'fix_ring_mushroom_1', kind: 'ring_mushroom', x: 26.7, y: 8.3, radius: 0.42 },
       { id: 'fix_ring_mushroom_2', kind: 'ring_mushroom', x: 27.9, y: 8.05, radius: 0.48 },
       { id: 'fix_ring_mushroom_3', kind: 'ring_mushroom', x: 29.1, y: 8.3, radius: 0.42 },
-      { id: 'fix_clover', kind: 'clover', x: 13.9, y: 8.85, radius: 0.6 },
+      { id: 'fix_clover', kind: 'clover', x: 11.95, y: 8.85, radius: 0.6 },
     ],
   },
   {

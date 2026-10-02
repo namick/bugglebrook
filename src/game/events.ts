@@ -285,6 +285,8 @@ export interface GameEvents {
   /** A bug flung up at night left the sky, and came back with a moon crumb. */
   orbit_launched: { id: EntityId; x: number; y: number };
   orbit_returned: { id: EntityId; crumb: EntityId; x: number; y: number };
+  /** At night the moss jar squeaked at the hand: something tiny lives in there. */
+  moss_squeaked: { x: number; y: number };
   /** Three bugs walked across Twig lying over a gap. */
   twig_bridged: { id: EntityId; x: number; y: number };
 

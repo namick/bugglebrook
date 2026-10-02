@@ -466,3 +466,36 @@ describe('the treehouse', () => {
     expect(sim.journal.state.noticed).toContain('cloud_jar_used');
   });
 });
+
+describe('mystery clues', () => {
+  it('at night the moss jar squeaks at the hand, and the journal notes it', () => {
+    const sim = world('squeak', ['area_flowerbed_stage', 'area_under_porch', 'area_compost_lab']);
+    const jar = spot(sim, 'fix_jar_moss');
+    const log = record(sim);
+    sim.send({ type: 'hand', x: jar.x, y: jar.y });
+    sim.run(30);
+    expect(named(log, 'moss_squeaked')).toHaveLength(0);
+    sim.send({ type: 'set_time', hour: 23 });
+    sim.run(30);
+    expect(named(log, 'moss_squeaked')).toHaveLength(1);
+    expect(sim.journal.state.noticed).toContain('moss_squeak');
+    const page = sim.book().mysteries.find((m) => m.id === 'mystery_tiny_squeak')!;
+    expect(page.panels[0]!.state).toBe('done');
+  });
+
+  it('rain the player sees fills the cloud mystery panel', () => {
+    const sim = world('rainseen');
+    sim.send({ type: 'set_weather', wind: 0, rain: true });
+    sim.run(20);
+    expect(sim.journal.state.noticed).toContain('rain_seen');
+  });
+
+  it('the find_secret debug command finds prerequisites first', () => {
+    const sim = world('debug');
+    sim.send({ type: 'find_secret', id: 'secret_golden_marble' });
+    sim.step();
+    expect(sim.secrets).toEqual(
+      expect.arrayContaining(['secret_treasure_map', 'secret_sundial_midnight', 'secret_golden_marble']),
+    );
+  });
+});

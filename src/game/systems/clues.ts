@@ -56,6 +56,8 @@ export interface ClueState {
   mothsAt: number;
   /** When the cloud jar last made rain. */
   cloudAt: number;
+  /** When the moss jar last squeaked at the hand. */
+  squeakAt: number;
 }
 
 export function newClueState(): ClueState {
@@ -81,6 +83,7 @@ export function newClueState(): ClueState {
     shine: 0,
     mothsAt: -9999,
     cloudAt: -9999,
+    squeakAt: -9999,
   };
 }
 
@@ -335,6 +338,25 @@ export class Clues {
     this.cloudLine();
     this.scraps();
     this.bridge();
+    this.squeak();
+    if (sim.weather.raining) sim.journal.notice('rain_seen');
+  }
+
+  /**
+   * The tiny squeak (mystery_tiny_squeak, step 1): at night, the hand over
+   * the moss jar in the compost lab hears a tiny squeak, and the jar wobbles.
+   */
+  private squeak(): void {
+    const sim = this.sim;
+    const hand = sim.hand;
+    if (!hand || !sim.weather.dark || sim.tick - this.state.squeakAt < 3 * SIM_HZ) return;
+    if (sim.secrets.includes('secret_wubbo_found')) return;
+    const jar = this.spots('shelf_jar').find((s) => s.fixture.id === 'fix_jar_moss');
+    if (!jar || !this.awake(jar.area)) return;
+    if (Math.hypot(hand.x - jar.x, hand.y - jar.y) > Math.max(0.7, jar.fixture.radius + 0.2)) return;
+    this.state.squeakAt = sim.tick;
+    sim.events.emit('moss_squeaked', { x: jar.x, y: jar.y });
+    sim.journal.notice('moss_squeak');
   }
 
   private handle(n: Noted): void {

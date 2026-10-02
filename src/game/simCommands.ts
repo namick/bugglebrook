@@ -211,6 +211,16 @@ export function apply(sim: Sim, command: Command): void {
           ? { x: command.x, y: command.y }
           : null;
       return;
+    case 'find_secret': {
+      const grant = (id: string, depth: number): void => {
+        const def = sim.content.secrets.tryGet(id);
+        if (!def || depth > 8) return;
+        for (const r of def.requires ?? []) grant(r, depth + 1);
+        sim.findSecret(id, sim.view0().x0 + 5, 5);
+      };
+      grant(String(command.id), 0);
+      return;
+    }
     case 'unlock':
       if (sim.content.areas.has(command.area)) sim.barriers.unlock(command.area, sim.view0().x0, 5);
       return;

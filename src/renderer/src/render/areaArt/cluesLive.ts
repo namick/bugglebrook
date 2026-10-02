@@ -450,7 +450,7 @@ export class PorchCluesLive extends AreaLive {
   private drawShadow(g: Graphics, f: AreaFrame): void {
     const t = this.shadow;
     if (t < 0 || t > 5) return;
-    const a = Math.min(1, t / 0.5, (5 - t) / 0.8) * 0.5;
+    const a = Math.min(1, t / 0.5, (5 - t) / 0.8) * 0.85;
     const x = this.shadowX;
     const y = 360;
     const c = { color: 0x1a1030, alpha: a };
@@ -467,6 +467,14 @@ export class PorchCluesLive extends AreaLive {
     // One arm up, waving.
     const wave = Math.sin(f.time * 7) * 0.5;
     g.roundRect(x + 100, y - 150 + wave * 20, 26, 90, 13).fill(c);
+  }
+
+  /** The flashlight's round spot on the back wall, where the shadow shows. */
+  override lights(f: AreaFrame, light: LightFn): void {
+    const t = this.shadow;
+    if (t < 0 || t > 5 || !this.shows(f)) return;
+    const a = Math.min(1, t / 0.4, (5 - t) / 0.8);
+    light(this.shadowX + 30, 340, 420, 0xfff1c0, 0.55 * a, 1.2, 1);
   }
 
   private drawMoths(g: Graphics, f: AreaFrame): void {
@@ -597,8 +605,14 @@ export class TelescopeLive extends AreaLive {
 
 /** The quick puffs and sparkles that mark M10's clue moments anywhere in the world. */
 export class ClueFxLive extends AreaLive {
+  private readonly g = new Graphics();
+  private squeak = -1;
+  private squeakX = 0;
+  private squeakY = 0;
+
   constructor(width: number) {
     super(0, width * PPM);
+    this.front.addChild(this.g);
   }
 
   override listen(sim: Sim, particles: Particles): Array<() => void> {
@@ -632,11 +646,43 @@ export class ClueFxLive extends AreaLive {
         particles.sparkles(...at(e.x, e.y - 0.5), 16);
       }),
       sim.events.on('twig_bridged', (e) => particles.hearts(...at(e.x, e.y - 0.6), 5)),
+      sim.events.on('moss_squeaked', (e) => {
+        this.squeak = 0;
+        [this.squeakX, this.squeakY] = at(e.x, e.y);
+      }),
       sim.events.on('boot_tipped', (e) => particles.sparkles(...at(e.x, e.y - 0.8), 8)),
     ];
   }
 
-  update(): void {}
+  /** The moss jar's squeak: wobble lines either side, and two beady eyes blinking out of the moss. */
+  update(f: AreaFrame): void {
+    const g = this.g.clear();
+    if (this.squeak < 0) return;
+    this.squeak += f.dt;
+    if (this.squeak > 1.4) {
+      this.squeak = -1;
+      return;
+    }
+    const t = this.squeak;
+    const a = Math.min(1, (1.4 - t) / 0.4);
+    const x = this.squeakX;
+    const y = this.squeakY;
+    const w = Math.sin(t * 30) * 4 * (f.reduced ? 0.4 : 1);
+    for (const side of [-1, 1])
+      for (const k of [0, 1]) {
+        const a0 = side > 0 ? -0.5 : Math.PI - 0.5;
+        const r = 28 + k * 9;
+        g.moveTo(x + w + Math.cos(a0) * r, y + Math.sin(a0) * r);
+        g.arc(x + w, y, r, a0, a0 + 1).stroke({
+          width: 2.5,
+          color: 0xffffff,
+          alpha: 0.8 * a,
+          cap: 'round',
+        });
+      }
+    if (t % 0.7 > 0.1)
+      for (const dx of [-5, 5]) g.circle(x + dx + w, y + 6, 2.2).fill({ color: OUTLINE, alpha: a });
+  }
 }
 
 /** The clue views for whatever the world has. */

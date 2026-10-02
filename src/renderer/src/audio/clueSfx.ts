@@ -33,6 +33,7 @@ export const CLUE_SFX = [
   'orbit_whoosh',
   'orbit_return',
   'proud_sigh',
+  'tiny_squeak',
 ] as const;
 
 export type ClueSfx = (typeof CLUE_SFX)[number];
@@ -212,6 +213,11 @@ export function clueTones(name: ClueSfx, j: number, intensity: number): Tone[] {
         { freq: 2400 * j, to: 300 * j, dur: 0.6, wave: 'noise', q: 3, gain: 0.1 },
         { freq: 1319 * j, dur: 0.3, wave: 'sine', gain: 0.08, delay: 0.6 },
       ];
+    case 'tiny_squeak':
+      return [
+        { freq: 2600 * j, to: 3400 * j, dur: 0.06, wave: 'sine', gain: 0.06 },
+        { freq: 3000 * j, to: 3800 * j, dur: 0.05, wave: 'sine', gain: 0.05, delay: 0.09 },
+      ];
     case 'proud_sigh':
       return [{ freq: 330 * j, to: 220 * j, dur: 0.6, wave: 'sine', gain: 0.07, formants: [600, 1000] }];
   }
@@ -247,5 +253,6 @@ export function clueSounds(
     bus.on('orbit_launched', () => play('orbit_whoosh')),
     bus.on('orbit_returned', () => play('orbit_return')),
     bus.on('twig_bridged', () => play('proud_sigh')),
+    bus.on('moss_squeaked', () => play('tiny_squeak')),
   ];
 }

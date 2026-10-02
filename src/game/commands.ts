@@ -71,6 +71,12 @@ export type Command =
   | { type: 'hand'; x: number | null; y: number | null }
   /** Debug and tests: open a locked area as if its barrier had been solved. */
   | { type: 'unlock'; area: string }
+  /**
+   * Debug, tests, and shots: find a secret as if its trigger had fired, its
+   * prerequisites first. It does nothing the secret's trigger does besides
+   * logging it (no items, no doors).
+   */
+  | { type: 'find_secret'; id: string }
   /** The player pulled the Tinker Bench's clothespin lever down (M8). */
   | { type: 'pull_lever' }
   /** The player stirred the cauldron with the ladle, by this many radians around its middle. */

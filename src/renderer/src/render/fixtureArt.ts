@@ -252,6 +252,26 @@ export class FixtureArt extends Container {
       const pulse = 0.6 + 0.4 * Math.sin(time * 4);
       g.moveTo(x, y).lineTo(tip.x, tip.y).stroke({ width: 5, color: 0xcfe0ff, alpha: pulse, cap: 'round' });
       g.circle(tip.x, tip.y, 7).fill({ color: 0xffffff, alpha: pulse });
+      // Once the midnight secret is found, moonlit dots lead on to the clover patch (fix_clover).
+      if (sim.secrets.includes('secret_sundial_midnight') && sim.weather.dark) {
+        const clover = sim.clues.spots('clover')[0];
+        if (clover) {
+          const cx = clover.x * PIXELS_PER_METER;
+          const cy = sim.surfaceY(clover.x) * PIXELS_PER_METER - 30;
+          for (let k = 1; k <= 8; k++) {
+            const u = k / 9;
+            const bob = Math.sin(time * 3 + k) * 3;
+            g.circle(
+              tip.x + (cx - tip.x) * u,
+              tip.y + (cy - tip.y) * u - Math.sin(u * Math.PI) * 40 + bob,
+              4,
+            ).fill({
+              color: 0xcfe0ff,
+              alpha: pulse * (0.4 + 0.6 * u),
+            });
+          }
+        }
+      }
     }
     // The gnomon: a little stick fin.
     g.poly([x - 5, y - 2, x + 28, y - 58, x + 34, y - 54, x + 7, y + 2])
