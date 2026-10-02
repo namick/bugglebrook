@@ -63,10 +63,17 @@ test('the ant line scatters from the hand and forms up again', async () => {
   try {
     await clickSlot(page, 0);
     await send(page, { type: 'set_time', hour: 12 });
+    // Bugs startle ants too, and Dot and Rollo start on the ant line, so take
+    // the plaza's bugs out: only the hand may scatter the line here.
+    const bugs = (await page.evaluate(() => window.__bb!.entities())).filter(
+      (e) => e.kind === 'bug' && e.x > PLAZA_X - 2 && e.x < PLAZA_X + 40,
+    );
+    for (const b of bugs) await send(page, { type: 'despawn', id: b.id });
     await jumpTo(page, PLAZA_X);
     const ants = (): Promise<Critter[]> =>
       critters(page, 'area_stump_plaza').then((all) => all.filter((c) => c.kind === 'ant'));
     await expect.poll(async () => (await ants()).length).toBeGreaterThanOrEqual(6);
+    await expect.poll(async () => (await ants()).filter((a) => a.startled).length).toBe(0);
     // Put the hand down right on an ant on the flat ground past the hill.
     const target =
       (await ants()).filter((a) => a.x > PLAZA_X + 5).sort((a, b) => a.x - b.x)[0] ?? (await ants())[0]!;
@@ -80,7 +87,7 @@ test('the ant line scatters from the hand and forms up again', async () => {
     await page.mouse.move(at.x, 80, { steps: 4 });
     await expect
       .poll(async () => (await ants()).filter((a) => a.startled).length, { timeout: 10_000 })
-      .toBeLessThanOrEqual(1);
+      .toBe(0);
   } finally {
     await bb.close();
   }
