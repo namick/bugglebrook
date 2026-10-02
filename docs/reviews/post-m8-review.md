@@ -79,3 +79,7 @@ All in `~/Pictures/bugglebrook-shots/post-m8/`. The raw PNGs and the idle log ar
 - `sheet-core-pond.png`: the M1 to M3 tours, core verbs and the pond
 - `sheet-idle-watch.png`: five idle minutes in the plaza
 - Crops: `crop-porch-floor-inventory-row.png`, `crop-flowerbed-floor-tiny-props.png`, `crop-bench-shake-and-tada.png`, `crop-locked-sunflower-at-edge.png`, `crop-plaza-day-leftover-rain.png`, `items-sheet1-scale.png`
+
+## After the fixes
+
+Before and after sheets are in `~/Pictures/bugglebrook-shots/post-m8-fixes/`, and the raw PNGs from every tour are in `raw/`. `before-areas-*` are from the commit before the fixes; the `after-*` sheets cover the areas by day, at dusk, at night, and in rain, the porch and bench, the hints, the bench and cauldron, potions and toys, items, the M7 bugs, the idle watch, the menu, and the day, night, and weather tour.

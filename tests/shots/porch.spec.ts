@@ -1,8 +1,8 @@
-import { expect, test } from '@playwright/test';
+import { test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { frames, jumpTo, launchApp, toClient, waitForScene } from '../e2e/app';
+import { clickSlot, frames, jumpTo, launchApp, toClient, waitForScene } from '../e2e/app';
 import { sharpShots } from './clip';
 
 // The porch tour (`pnpm shots -g "porch tour"`): Under the Porch by day,
@@ -49,9 +49,8 @@ test('porch tour', async () => {
     await page.waitForTimeout(400);
     await waitForScene(page, 'menu');
     await page.evaluate(() => window.__bb!.freezeNextWorld(true));
-    const pos = (await page.evaluate(() => window.__bb!.slotButtonClient(0)))!;
-    await page.mouse.click(pos.x, pos.y);
-    await expect.poll(() => page.evaluate(() => window.__bb!.scene()), { timeout: 60_000 }).toBe('world');
+    // clickSlot clicks again if the first click lands while the menu is still settling.
+    await clickSlot(page, 0);
     await page.mouse.move(960, 40);
     await send(page, { type: 'unlock', area: 'area_under_porch' });
     await frames(page, 120);
