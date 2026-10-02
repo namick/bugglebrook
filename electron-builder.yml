@@ -80,3 +80,18 @@ linux:
 deb:
   # Debian's own naming: bugglebrook_1.0.0_amd64.deb
   artifactName: ${name}_${version}_${arch}.${ext}
+  # What Electron needs, spelled out (electron-builder's defaults plus sound
+  # and GPU buffers). Ubuntu 24.04 renamed libasound2 to libasound2t64.
+  depends:
+    - libgtk-3-0
+    - libnotify4
+    - libnss3
+    - libxss1
+    - libxtst6
+    - xdg-utils
+    - libatspi2.0-0
+    - libuuid1
+    - libsecret-1-0
+    - libgbm1
+    - libdrm2
+    - libasound2 | libasound2t64

@@ -266,3 +266,21 @@ describe('the update toast', () => {
     expect(Math.max(...xs)).toBeGreaterThan(TOAST_AT.x);
   });
 });
+
+describe('packaging (P-31)', () => {
+  const config = readFileSync(join(import.meta.dirname, '../../electron-builder.yml'), 'utf8');
+
+  it('the .deb lists what it depends on, sound included', () => {
+    const deb = config.slice(config.indexOf('\ndeb:'));
+    expect(deb).toMatch(/\n {2}depends:\n/);
+    for (const pkg of ['libgtk-3-0', 'libnss3', 'libgbm1', 'libasound2 | libasound2t64'])
+      expect(deb).toContain(`- ${pkg}`);
+  });
+
+  it('every platform has its own icon file, and each exists', () => {
+    for (const icon of ['build/icon.ico', 'build/icon.icns', 'build/icons']) {
+      expect(config).toContain(`icon: ${icon}`);
+      expect(existsSync(join(import.meta.dirname, '../..', icon))).toBe(true);
+    }
+  });
+});
