@@ -1,7 +1,7 @@
 {
   "name": "bugglebrook",
   "productName": "Bugglebrook",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A weird, silly sandbox about tiny bugs in a backyard world.",
   "homepage": "https://github.com/namick/bugglebrook",
   "repository": {
@@ -23,6 +23,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "build:steam": "electron-vite build --mode steam",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.game.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.e2e.json && tsc --noEmit -p tsconfig.scripts.json",
     "lint": "eslint . && prettier --check . && node scripts/art/build.ts --check",

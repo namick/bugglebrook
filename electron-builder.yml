@@ -4,11 +4,18 @@ copyright: Copyright © 2026 namick
 directories:
   buildResources: build
   output: dist
+# Only the built app goes in: out/ holds the code, the shipped music
+# (out/renderer/music) and the generated art. Raw sources never ship:
+# assets/music (Suno WAVs), art/src (.ora files), docs, tests, and scripts
+# are all outside these globs.
 files:
   - out/**
   - package.json
   - '!**/*.map'
 asarUnpack: []
+# No file types or URL schemes belong to the game.
+fileAssociations: []
+protocols: []
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 
 publish:
@@ -19,17 +26,31 @@ publish:
   releaseType: draft
 
 win:
+  icon: build/icon.ico
   target:
     - target: nsis
       arch: [x64]
 nsis:
-  oneClick: false
+  # One click, per user: no admin prompt, no questions, installs to
+  # %LOCALAPPDATA%\Programs\Bugglebrook and starts the game when done.
+  oneClick: true
   perMachine: false
-  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Bugglebrook
+  uninstallDisplayName: Bugglebrook
+  runAfterFinish: true
+  # Saves and settings live in %APPDATA%\Bugglebrook; uninstalling keeps them.
+  deleteAppDataOnUninstall: false
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
   artifactName: ${productName}-Setup-${version}.${ext}
 
 mac:
-  category: public.app-category.kids-games
+  icon: build/icon.icns
+  # The audience is about 13, older than Apple's Kids bands (5 to 11), so the
+  # plain Games category fits better than kids-games.
+  category: public.app-category.games
   target:
     - target: dmg
       arch: [x64, arm64]
@@ -38,13 +59,24 @@ mac:
   # Unsigned builds. Set up signing and notarization before shipping to players.
   identity: null
   hardenedRuntime: false
+dmg:
+  title: ${productName} ${version}
 
 linux:
+  icon: build/icons
   category: Game
   maintainer: namick <namick@users.noreply.github.com>
   synopsis: Tiny bugs, a backyard, and lots of toys.
+  desktop:
+    entry:
+      Name: Bugglebrook
+      Comment: Tiny bugs, a backyard, and lots of toys.
+      Keywords: bugs;sandbox;toys;garden;
   target:
     - target: AppImage
       arch: [x64]
     - target: deb
       arch: [x64]
+deb:
+  # Debian's own naming: bugglebrook_1.0.0_amd64.deb
+  artifactName: ${name}_${version}_${arch}.${ext}
