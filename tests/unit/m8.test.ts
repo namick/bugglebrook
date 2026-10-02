@@ -223,6 +223,33 @@ describe('crafted toys', () => {
     expect(sim.physics.hasPivot(saw.id)).toBe(false);
   });
 
+  it('a light thing left on the low end for a while does not jam the seesaw (PM-01)', () => {
+    for (const weight of ['item_pebble', 'bug'] as const) {
+      const sim = world(`seesaw-jam-${weight}`);
+      const saw = put(sim, 'item_popsicle_seesaw', OPEN);
+      sim.run(90);
+      const s = v(sim, saw);
+      const cork = put(sim, 'item_cork', s.x + 1.3, s.y - 0.6);
+      // Long enough for anything that may settle to settle.
+      sim.run(300);
+      expect(sim.physics.isSettled(cork.id)).toBe(false);
+      const before = v(sim, saw).angle;
+      expect(before).toBeGreaterThan(0.2);
+      // Laid gently on the high end, not thrown.
+      const high = v(sim, saw);
+      const x = high.x - 1.2;
+      const y = high.y - 1.2 * Math.sin(before) - 0.6;
+      if (weight === 'bug') bugAt(sim, 'bug_pillbug_rollo', x, y);
+      else put(sim, 'item_pebble', x, y);
+      let low = before;
+      for (let i = 0; i < 180; i++) {
+        sim.step();
+        low = Math.min(low, v(sim, saw).angle);
+      }
+      expect(low).toBeLessThan(-0.2);
+    }
+  });
+
   it('the spoon catapult flings what is in its bowl when pulled down and let go', () => {
     const sim = world('catapult');
     const cat = put(sim, 'item_spoon_catapult', OPEN);

@@ -1543,7 +1543,39 @@ export class Physics {
     const batch = new Set<Body>();
     for (let b = this.world.getBodyList(); b; b = b.getNext())
       if (this.canSettle(b) && this.restsFree(b)) batch.add(b);
+    if (batch.size > 0) this.keepOnHinges(batch);
     if (batch.size > 0) this.settleAll(batch);
+  }
+
+  /**
+   * Take out of the batch whatever rests on or leans against something that
+   * may move under it: a body on a hinge or in the hand (a seesaw's plank, a
+   * catapult's spoon, anything welded), or a thing that stays loose because
+   * it rests on one. A light thing settled on a seesaw's low end would hold
+   * the plank down for good (PM-01 of the post-merge playtest).
+   */
+  private keepOnHinges(batch: Set<Body>): void {
+    const loose = new Set<Body>();
+    for (let changed = true; changed;) {
+      changed = false;
+      for (const b of batch) {
+        for (let edge = b.getContactList(); edge; edge = edge.next ?? null) {
+          const o = edge.other!;
+          if (!o.isDynamic() || batch.has(o) || this.bugs.has(o)) continue;
+          if (o.getJointList() === null && !loose.has(o)) continue;
+          const c = edge.contact;
+          if (!c.isTouching() || !c.isEnabled()) continue;
+          const m = this.manifold(c);
+          const sign = c.getFixtureA().getBody() === b ? 1 : -1;
+          // Something on top of it does not hold it up.
+          if (m && m.normal.y * sign < -0.5) continue;
+          batch.delete(b);
+          loose.add(b);
+          changed = true;
+          break;
+        }
+      }
+    }
   }
 
   /**
