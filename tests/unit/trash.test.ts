@@ -396,6 +396,25 @@ describe('nothing is lost (no softlock)', () => {
 });
 
 describe('the tidy whistle', () => {
+  it('the can will not eat the whistle: it spits it back out with a "nope" (P-26)', () => {
+    const sim = Sim.create({ seed: 'whistle-nope' });
+    calm(sim);
+    const log = record(sim);
+    const whistle = sim.entities.ofKind('item').find((e) => e.defId === 'item_tidy_whistle')!;
+    expect(sim.trash.refusal(whistle)).toBe('tool');
+    // Its mouth still lights for it, so letting go there is answered, not a plain drop.
+    expect(sim.trash.candidates(whistle.id)).toHaveLength(1);
+    dropInCan(sim, whistle);
+    sim.run(5);
+    expect(sim.entities.has(whistle.id)).toBe(true);
+    expect(sim.trash.state.inside).toEqual([]);
+    expect(named(log, 'trash_spat')).toMatchObject([{ id: whistle.id, why: 'tool' }]);
+    expect(named(log, 'trash_chomped')).toEqual([]);
+    // The tidy whistle never tidies itself into the can either.
+    sim.run(3 * 60);
+    expect(sim.entities.has(whistle.id)).toBe(true);
+  });
+
   it('sends loose things in view home one after another, junk into the can, and leaves builds and toys', () => {
     const sim = Sim.create({ seed: 'whistle' });
     calm(sim);

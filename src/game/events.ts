@@ -657,7 +657,8 @@ export interface GameEvents {
     id: EntityId;
     kind: EntityKind;
     defId: string;
-    why: 'bug' | 'big' | 'setup' | 'hiccup';
+    /** `tool`: the tidy whistle, which the can will not keep. */
+    why: 'bug' | 'big' | 'setup' | 'tool' | 'hiccup';
     x: number;
     y: number;
   };

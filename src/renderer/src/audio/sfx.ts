@@ -510,7 +510,9 @@ export class Sfx {
       // Playtest F1 and F2: the trash can and tidying up.
       bus.on('trash_chomped', () => this.limited('trash_chomp', 120)),
       bus.on('trash_burped', (e) => this.play('trash_burp', e.size)),
-      bus.on('trash_spat', (e) => this.play(e.why === 'hiccup' ? 'trash_hiccup' : 'trash_spit')),
+      bus.on('trash_spat', (e) =>
+        this.play(e.why === 'hiccup' ? 'trash_hiccup' : e.why === 'tool' ? 'trash_nope' : 'trash_spit'),
+      ),
       bus.on('trash_poked', () => this.play('trash_clack')),
       bus.on('trash_rummaged', () => this.play('trash_rummage')),
       // M11: hats and accessories, and the music bugs.

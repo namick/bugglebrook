@@ -230,8 +230,10 @@ export class Trash {
    * Why the can would not keep this thing, or null if it would: bugs, the
    * player's builds, pinned things, and things too big for its mouth.
    */
-  refusal(e: Entity, built?: ReadonlySet<EntityId>): 'bug' | 'big' | 'setup' | null {
+  refusal(e: Entity, built?: ReadonlySet<EntityId>): 'bug' | 'big' | 'setup' | 'tool' | null {
     if (e.kind === 'bug') return 'bug';
+    // The whistle is the player's tool: the can will not have it (P-26).
+    if (e.defId === TIDY_WHISTLE) return 'tool';
     const def = this.sim.content.items.get(e.defId);
     const ext = halfExtents(def.shape, 0);
     const scale = this.sim.potions.scaleOf(e);
@@ -244,7 +246,9 @@ export class Trash {
   /** A drop target over each can's mouth, while the held thing would go in. */
   candidates(heldId: EntityId): DropCandidate[] {
     const e = this.sim.entities.get(heldId);
-    if (!e || e.kind !== 'item' || this.refusal(e) !== null) return [];
+    // The whistle gets a mouth too, so letting go of it there earns a "nope".
+    const why = e && e.kind === 'item' ? this.refusal(e) : 'bug';
+    if (why !== null && why !== 'tool') return [];
     return this.cans().flatMap((can, i) => {
       if (!this.ready(can)) return [];
       const r = this.rim(can);
@@ -308,7 +312,7 @@ export class Trash {
   }
 
   /** Out it pops, up and over the rim. A bug comes out smelly and cross. */
-  private spit(e: Entity, can: Can, why: 'bug' | 'big' | 'setup' | 'hiccup'): void {
+  private spit(e: Entity, can: Can, why: 'bug' | 'big' | 'setup' | 'tool' | 'hiccup'): void {
     const sim = this.sim;
     const r = this.rim(can);
     const s = sim.physics.getState(e.id);

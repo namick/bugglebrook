@@ -9,6 +9,7 @@ export type TidySfx =
   | 'trash_burp'
   | 'trash_spit'
   | 'trash_hiccup'
+  | 'trash_nope'
   | 'trash_clack'
   | 'trash_rummage'
   | 'whistle_toot'
@@ -21,6 +22,7 @@ export const TIDY_SFX: readonly TidySfx[] = [
   'trash_burp',
   'trash_spit',
   'trash_hiccup',
+  'trash_nope',
   'trash_clack',
   'trash_rummage',
   'whistle_toot',
@@ -120,6 +122,30 @@ export function tidyTones(name: TidySfx, j: number, intensity: number, random: (
         { freq: 260 * j, to: 720 * j, dur: 0.08, wave: 'sawtooth', gain: 0.2, formants: [600, 1100] },
         { freq: 1200 * j, to: 400 * j, dur: 0.05, wave: 'noise', q: 2, gain: 0.18, delay: 0.08 },
         ...clang(j, 0.1, 0.4),
+      ];
+    case 'trash_nope':
+      // "Nuh-uh!": two quick lid clangs, falling, and a low grumble as the whistle flies back out.
+      return [
+        ...clang(j * 1.1, 0, 0.5),
+        ...clang(j * 0.85, 0.14, 0.45),
+        {
+          freq: 180 * j,
+          to: 140 * j,
+          dur: 0.12,
+          wave: 'sawtooth',
+          gain: 0.12,
+          formants: [500, 900],
+          delay: 0.02,
+        },
+        {
+          freq: 160 * j,
+          to: 110 * j,
+          dur: 0.14,
+          wave: 'sawtooth',
+          gain: 0.12,
+          formants: [500, 900],
+          delay: 0.17,
+        },
       ];
     case 'trash_clack':
       // An empty can: the lid clacks twice, a tinny "hm?".
