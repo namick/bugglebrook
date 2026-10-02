@@ -96,7 +96,7 @@ jobs:
             echo '| File | Size |'
             echo '|---|---|'
             for f in dist/*.exe dist/*.dmg dist/*.zip dist/*.AppImage dist/*.deb; do
-              [ -f "$f" ] && echo "| $(basename "$f") | $(du -h "$f" | cut -f1) |"
+              if [ -f "$f" ]; then echo "| $(basename "$f") | $(du -h "$f" | cut -f1) |"; fi
             done
           } | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7

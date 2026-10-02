@@ -69,7 +69,8 @@ jobs:
           node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test
+      # No tests here: tag a commit that CI already passed on main (RELEASING.md).
+      # The unit suite's timing and soak tests are tuned for CI's Ubuntu runner.
       - run: pnpm build
       # releaseType: draft in electron-builder.yml keeps this a draft.
       - run: pnpm exec electron-builder ${{ matrix.platform }} --publish always
@@ -84,7 +85,7 @@ jobs:
             echo '| File | Size |'
             echo '|---|---|'
             for f in dist/*.exe dist/*.dmg dist/*.zip dist/*.AppImage dist/*.deb; do
-              [ -f "$f" ] && echo "| $(basename "$f") | $(du -h "$f" | cut -f1) |"
+              if [ -f "$f" ]; then echo "| $(basename "$f") | $(du -h "$f" | cut -f1) |"; fi
             done
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
