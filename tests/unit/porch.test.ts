@@ -7,8 +7,7 @@ import { relayPorch } from '../../src/game/save/relayPorch';
 import type { Content } from '../../src/game/data';
 import { CONTENT } from '../../src/game/data';
 import { PORCH_LID } from '../../src/game/data/areas';
-import { createRegistry } from '../../src/game/data/registry';
-import type { ItemDef, StartEntity } from '../../src/game/data/types';
+import type { StartEntity } from '../../src/game/data/types';
 import { MAGNET_RANGE } from '../../src/game/systems/environment';
 import { leanAgainst, stackTop } from '../../src/game/world/startLayout';
 
@@ -21,20 +20,6 @@ const onShelf = (s: StartEntity): boolean => s.y !== undefined;
 const inPile = (s: StartEntity): boolean =>
   !!s.stack || s.lean !== undefined || JUNK[JUNK.indexOf(s) + 1]?.lean !== undefined;
 const inLid = (s: StartEntity): boolean => s.x > PORCH_LID.x0 && s.x < PORCH_LID.x1;
-
-/** The same game with every porch item this much bigger (the item size pass may scale them). */
-function scaled(k: number): Content {
-  const ids = new Set(JUNK.map((s) => s.defId));
-  const items = CONTENT.items.all.map((d): ItemDef => {
-    if (!ids.has(d.id)) return d;
-    const shape =
-      d.shape.type === 'circle'
-        ? { ...d.shape, radius: d.shape.radius * k }
-        : { ...d.shape, width: d.shape.width * k, height: d.shape.height * k };
-    return { ...d, shape };
-  });
-  return { ...CONTENT, items: createRegistry('item', items) };
-}
 
 /** Only the porch, open, with its start list laid out; returns the entity for each start entry. */
 function porch(content: Content = CONTENT): { sim: Sim; ids: number[] } {
@@ -100,31 +85,28 @@ describe('the porch layout (R02)', () => {
     }
   });
 
-  for (const [label, k] of [
-    ['at today’s sizes', 1],
-    ['with every item half as big again', 1.5],
-  ] as const)
-    it(`settles where it was put, and a click on each thing's middle picks up that thing, ${label}`, () => {
-      const { sim, ids } = porch(k === 1 ? CONTENT : scaled(k));
-      const start = new Map(ids.map((id) => [id, sim.view(id)!]));
-      sim.run(300);
-      expect(sim.rescues).toBe(0);
-      JUNK.forEach((s, i) => {
-        const id = ids[i]!;
-        const v = sim.view(id)!;
-        const was = start.get(id)!;
-        expect(v.defId).toBe(s.defId);
-        // Nothing slid off, rolled away, or fell off a shelf.
-        expect(Math.abs(v.x - was.x), `${s.defId} at ${s.x} moved`).toBeLessThan(0.35);
-        expect(Math.abs(v.y - was.y), `${s.defId} at ${s.x} fell`).toBeLessThan(0.3);
-        // The grab audit: the hand at its middle picks up this thing and no neighbor.
-        expect(sim.physics.bodyAt(v.x, v.y, 0.2), `${s.defId} at ${s.x}`).toBe(id);
-      });
-      // Leaners still lean.
-      JUNK.forEach((s, i) => {
-        if (s.lean) expect(Math.abs(sim.view(ids[i]!)!.angle), s.defId).toBeGreaterThan(0.3);
-      });
+  // The sizes here are the grown ones (R05): the registry grows small things as it loads.
+  it("settles where it was put, and a click on each thing's middle picks up that thing", () => {
+    const { sim, ids } = porch();
+    const start = new Map(ids.map((id) => [id, sim.view(id)!]));
+    sim.run(300);
+    expect(sim.rescues).toBe(0);
+    JUNK.forEach((s, i) => {
+      const id = ids[i]!;
+      const v = sim.view(id)!;
+      const was = start.get(id)!;
+      expect(v.defId).toBe(s.defId);
+      // Nothing slid off, rolled away, or fell off a shelf.
+      expect(Math.abs(v.x - was.x), `${s.defId} at ${s.x} moved`).toBeLessThan(0.35);
+      expect(Math.abs(v.y - was.y), `${s.defId} at ${s.x} fell`).toBeLessThan(0.3);
+      // The grab audit: the hand at its middle picks up this thing and no neighbor.
+      expect(sim.physics.bodyAt(v.x, v.y, 0.2), `${s.defId} at ${s.x}`).toBe(id);
     });
+    // Leaners still lean.
+    JUNK.forEach((s, i) => {
+      if (s.lean) expect(Math.abs(sim.view(ids[i]!)!.angle), s.defId).toBeGreaterThan(0.3);
+    });
+  });
 });
 
 describe('piling start things (pure)', () => {

@@ -366,7 +366,7 @@ export function useMachine(brain: BugBrain, ctx: BugContext, out: BugDecision): 
         }
         // Up and in it goes, in a little arc.
         const hand = handPoint(state.x, state.y, def.radius, brain.facing);
-        const v = hopVelocity(hand.x, hand.y, to.x, to.y, 0.55 + Math.abs(to.x - hand.x) * 0.09);
+        const v = hopVelocity(hand.x, hand.y, to.x, to.y, 0.75 + Math.abs(to.x - hand.x) * 0.09);
         out.throw = { itemId, vx: v.x, vy: v.y, to: -1 };
         out.notices.push({
           type: 'tossed',

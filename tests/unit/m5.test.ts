@@ -419,6 +419,20 @@ describe('save migrations from every shipped version', () => {
     });
   }
 
+  it('re-lays a version 10 porch that is still locked, and keeps an opened one', () => {
+    const raw = fixture(10) as { world: { barriers: { open: string[] }; entities: unknown[] } };
+    const opened = loadSaveFile(JSON.stringify(raw));
+    expect(opened.world.built).toContain('area_under_porch');
+    // The opened porch keeps everything; the treehouse may gain its fuller marble run.
+    expect(opened.world.entities.length).toBeGreaterThanOrEqual(raw.world.entities.length);
+    raw.world.barriers.open = raw.world.barriers.open.filter((id) => id !== 'area_under_porch');
+    const locked = loadSaveFile(JSON.stringify(raw));
+    expect(locked.world.built).not.toContain('area_under_porch');
+    const sim = Sim.load(locked.world);
+    expect(sim.built).toContain('area_under_porch');
+    expect(sim.entities.ofKind('item').filter((e) => e.defId === 'item_lattice_panel')).toHaveLength(1);
+  });
+
   it('keeps a version 5 world exactly, apart from the new fields and the flowerbed shift', () => {
     const raw = fixture(5) as {
       world: { entities: { id: number; body: { x: number; y: number } }[]; tick: number };

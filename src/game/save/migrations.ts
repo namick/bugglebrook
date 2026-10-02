@@ -1,5 +1,7 @@
 import { SAVE_VERSION } from './schema';
 import type { SaveFile } from './schema';
+import { relayPorch } from './relayPorch';
+import { addTreehouseRun } from './treehouseRun';
 import { validateSaveFile } from './validate';
 
 /**
@@ -295,6 +297,19 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
       return back;
     });
     return { ...save, version: 10, world: { ...world, entities } };
+  },
+  /**
+   * Version 11 (the post-M8 content pass) re-lays two areas a player may
+   * not have reached. A porch still behind its lattice gets the new junk
+   * piles and shelves (R02): its items go and `Sim.load` lays it out
+   * afresh. A treehouse pegboard still holding its two starting pieces gets
+   * the full marble run (R16). Areas the player has played in stay as they
+   * are.
+   */
+  10: (save) => {
+    const typed = save as unknown as SaveFile;
+    const relaid = addTreehouseRun({ ...typed, world: relayPorch(typed.world) });
+    return { ...(relaid as unknown as Record<string, unknown>), version: 11 };
   },
 };
 
