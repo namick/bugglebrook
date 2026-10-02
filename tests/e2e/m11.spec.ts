@@ -78,7 +78,7 @@ test('the camera comes out, bugs in frame react, and the world holds still until
   }
 });
 
-test('framing a shot: a frame, a filter, zoom, pan, and stickers with the real mouse', async () => {
+test('framing a shot: a frame, a filter, zoom, and pan with the real mouse', async () => {
   const bb = await launchApp();
   try {
     const { page } = bb;
@@ -112,6 +112,19 @@ test('framing a shot: a frame, a filter, zoom, pan, and stickers with the real m
     await page.mouse.move(mid.x - 150, mid.y - 60, { steps: 5 });
     await page.mouse.up();
     await expect.poll(async () => (await photo(page)).cx).toBeGreaterThan(zoomed.cx + 20);
+    expect(bb.errors).toEqual([]);
+  } finally {
+    await bb.close();
+  }
+});
+
+test('stickers: off the tray onto the photo, scaled and turned by the handle, thrown away over the tray', async () => {
+  const bb = await launchApp();
+  try {
+    const { page } = bb;
+    await clickSlot(page, 0);
+    await page.waitForTimeout(500);
+    await openCamera(page);
 
     // A sticker from the tray onto the photo.
     const card = await uiAt(page, 'sticker_crown');

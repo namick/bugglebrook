@@ -122,6 +122,9 @@ void main(void) {
 export class LookFilter extends Filter {
   constructor(mode: number) {
     super({
+      // Shade at the screen's resolution (tests draw tiny on software GL; the
+      // shutter's capture renders at 1), not Pixi's default of 1 whatever the screen.
+      resolution: 'inherit',
       glProgram: new GlProgram({ vertex: VERTEX, fragment: FRAGMENT, name: 'bb-photo-look' }),
       resources: {
         lookUniforms: {
