@@ -50,7 +50,8 @@
       },
       "warnings": [
         "sum check -3.6 dB: a stem is probably missing or from another take",
-        "envelope correlation 0.80: a stem may come from a different take"
+        "envelope correlation 0.80: a stem may come from a different take",
+        "loudness held 0.9 dB under -18 LUFS to keep the true peak under -1.5 dBTP"
       ],
       "source": {
         "hash": "sha1:89b3013e5606a725ae72a7063e7e291f9ba75c7a",
@@ -106,7 +107,8 @@
       "warnings": [
         "no stem is a lead by name; made 7 Keyboard.wav the lead (it plays most of the song and sits highest). Check by ear and pin it in overrides.json (\"keyboard\": \"lead\" or \"harmony\")",
         "sum check -5.6 dB: a stem is probably missing or from another take",
-        "envelope correlation 0.86: a stem may come from a different take"
+        "envelope correlation 0.86: a stem may come from a different take",
+        "loudness held 2.4 dB under -18 LUFS to keep the true peak under -1.5 dBTP"
       ],
       "source": {
         "hash": "sha1:923ac16a998833b14257b7d805c918713ee1c305",

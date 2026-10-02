@@ -9,7 +9,6 @@
 // FFMPEG to its path. `--src` reads the raw tracks from another folder
 // (for example the main checkout when you work in a git worktree).
 
-import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -25,6 +24,7 @@ import {
   trackSpec,
 } from '../../src/shared/music.ts';
 import type { Activity, StemMapping, TrackOverride } from './analysis.ts';
+import { FFMPEG, decode, encode, hasFilter, loudness, stretch } from './ffmpeg.ts';
 import {
   PITCHED_PERCUSSION,
   SR,
@@ -60,12 +60,13 @@ import {
 } from './analysis.ts';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const FFMPEG = process.env.FFMPEG ?? 'ffmpeg';
 const AUDIO_EXT = /\.(wav|mp3|flac)$/i;
 /** Loudness target (brief 7.7), and the true-peak ceiling. */
 const TARGET_LUFS = -18;
 const STINGER_LUFS = -16;
 const PEAK_CEILING = -1.5;
+/** Opus raises true peaks a few tenths of a dB: aim this far under the ceiling before encoding. */
+const ENCODE_MARGIN = 0.5;
 /** Frames of the loop's own audio kept on each side of the body in every file. */
 const PAD = 4800;
 const BITRATE: Record<MusicLayer | 'full', number> = {
@@ -107,102 +108,6 @@ function parseArgs(argv: string[]): Options {
     else o.ids.push(a);
   }
   return o;
-}
-
-// --- ffmpeg ----------------------------------------------------------------------
-
-function run(args: string[], input?: Float32Array): Promise<{ out: Buffer; err: string }> {
-  return new Promise((ok, fail) => {
-    const p = spawn(FFMPEG, ['-hide_banner', '-nostdin', '-loglevel', 'info', ...args], {
-      stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe'],
-    });
-    const chunks: Buffer[] = [];
-    let err = '';
-    p.stdout!.on('data', (c: Buffer) => chunks.push(c));
-    p.stderr!.on('data', (c: Buffer) => (err += c.toString()));
-    p.on('error', fail);
-    p.on('close', (code) => {
-      if (code === 0) ok({ out: Buffer.concat(chunks), err });
-      else fail(new Error(`ffmpeg ${args.join(' ')} failed (${code}):\n${err.slice(-2000)}`));
-    });
-    if (input && p.stdin) {
-      p.stdin.on('error', () => undefined);
-      p.stdin.end(Buffer.from(input.buffer, input.byteOffset, input.byteLength));
-    }
-  });
-}
-
-function floats(buf: Buffer): Float32Array {
-  const copy = new Uint8Array(buf.byteLength);
-  copy.set(buf);
-  return new Float32Array(copy.buffer, 0, copy.byteLength >> 2);
-}
-
-/** Decode any audio file to 48 kHz interleaved stereo float. */
-async function decode(file: string): Promise<Float32Array> {
-  const { out } = await run(['-i', file, '-f', 'f32le', '-ac', '2', '-ar', String(SR), 'pipe:1']);
-  return floats(out);
-}
-
-const RAW_IN = (channels: number): string[] => [
-  '-f',
-  'f32le',
-  '-ar',
-  String(SR),
-  '-ac',
-  String(channels),
-  '-i',
-  'pipe:0',
-];
-
-/** Time-stretch stereo audio by `tempo` (above 1 is faster) with rubberband, or atempo without it. */
-async function stretch(audio: Float32Array, tempo: number, rubberband: boolean): Promise<Float32Array> {
-  const filter = rubberband
-    ? `rubberband=tempo=${tempo}:pitchq=quality:channels=together:transients=mixed`
-    : `atempo=${tempo}`;
-  const { out } = await run(
-    [...RAW_IN(2), '-af', filter, '-f', 'f32le', '-ac', '2', '-ar', String(SR), 'pipe:1'],
-    audio,
-  );
-  return floats(out);
-}
-
-/** Integrated loudness (LUFS) and true peak (dBTP) of stereo audio. */
-async function loudness(audio: Float32Array): Promise<{ lufs: number; truePeak: number }> {
-  const res = await run([...RAW_IN(2), '-af', 'ebur128=peak=true:framelog=quiet', '-f', 'null', '-'], audio);
-  const summary = res.err.slice(res.err.lastIndexOf('Summary:'));
-  const lufs = Number(/I:\s+(-?[\d.]+|-inf) LUFS/.exec(summary)?.[1] ?? NaN);
-  const truePeak = Number(/Peak:\s+(-?[\d.]+|-inf) dBFS/.exec(summary)?.[1] ?? NaN);
-  return { lufs: Number.isFinite(lufs) ? lufs : -70, truePeak: Number.isFinite(truePeak) ? truePeak : -70 };
-}
-
-async function encode(audio: Float32Array, channels: number, kbps: number, file: string): Promise<void> {
-  mkdirSync(dirname(file), { recursive: true });
-  await run(
-    [
-      ...RAW_IN(channels),
-      '-c:a',
-      'libopus',
-      '-b:a',
-      `${kbps}k`,
-      '-vbr',
-      'on',
-      '-application',
-      'audio',
-      '-frame_duration',
-      '20',
-      '-map_metadata',
-      '-1',
-      '-y',
-      file,
-    ],
-    audio,
-  );
-}
-
-async function hasFilter(name: string): Promise<boolean> {
-  const { out } = await run(['-filters']);
-  return new RegExp(`\\s${name}\\s`).test(out.toString());
 }
 
 // --- Discovery -------------------------------------------------------------------
@@ -459,6 +364,7 @@ async function importTrack(
 
   // Sum check and vocals (brief 7.4, playtest F5).
   let reference: Float32Array;
+  let refIsMix = false;
   if (mix && inst) {
     const vc = vocalCheck(mix, inst, vocals);
     r.lines.push(
@@ -484,10 +390,13 @@ async function importTrack(
     } else {
       r.lines.push('vocals: none audible in the full mix');
       reference = mix;
+      refIsMix = true;
     }
   } else if (inst) reference = inst;
-  else if (mix) reference = mix;
-  else throw new Error(`${id}: no audio files`);
+  else if (mix) {
+    reference = mix;
+    refIsMix = true;
+  } else throw new Error(`${id}: no audio files`);
 
   // Tempo (brief 7.5): beat-track the drums, else the mix.
   const target = override?.bpm ?? spec?.bpm;
@@ -572,24 +481,33 @@ async function importTrack(
     `loop: ${loopStart.toFixed(2)} s to ${(e / SR).toFixed(2)} s, ${bars} bars (${((e - s) / SR).toFixed(2)} s), seam score ${score.toFixed(3)}`,
   );
 
-  // Loudness (brief 7.7): one gain for every layer, from the mix over the loop.
-  const region = reference.subarray(s * 2, e * 2);
-  const ld = await loudness(region);
-  let gainDb = TARGET_LUFS - ld.lufs;
+  // Loudness (brief 7.7): one gain for every layer. Measured on the layers
+  // summed, as the game plays them: Suno's stems don't add up to its
+  // mastered mix, so the mix would leave every track a different amount
+  // quieter than the target.
   const names = layers.size ? [...layers.keys()] : (['full'] as const);
   const sources = new Map<MusicLayer | 'full', Float32Array>(layers.size ? layers : [['full', reference]]);
   const baked = new Map<MusicLayer | 'full', Float32Array>();
   for (const n of names) baked.set(n, bakeLoop(sources.get(n)!, 2, s, e, x, curveFor(n)));
   const sum = new Float32Array((e - s) * 2);
   for (const b of baked.values()) mixInto(sum, b);
-  const sumLd = await loudness(sum.map((v) => v * fromDb(gainDb)));
-  if (sumLd.truePeak > PEAK_CEILING) {
-    const cut = sumLd.truePeak - PEAK_CEILING;
+  const ld = await loudness(sum);
+  const mixLd = layers.size ? await loudness(reference.subarray(s * 2, e * 2)) : null;
+  let gainDb = TARGET_LUFS - ld.lufs;
+  // The codec adds a little to peaks: keep a margin under the ceiling.
+  const ceiling = PEAK_CEILING - ENCODE_MARGIN;
+  if (ld.truePeak + gainDb > ceiling) {
+    const cut = ld.truePeak + gainDb - ceiling;
     gainDb -= cut;
-    r.lines.push(`gain lowered ${cut.toFixed(1)} dB to keep the true peak under ${PEAK_CEILING} dBTP`);
+    warn(
+      r,
+      `loudness held ${cut.toFixed(1)} dB under ${TARGET_LUFS} LUFS to keep the true peak under ${PEAK_CEILING} dBTP`,
+    );
   }
   r.lines.push(
-    `loudness: mix ${ld.lufs.toFixed(1)} LUFS over the loop, gain ${fmtDb(gainDb)} for every layer -> ${TARGET_LUFS} LUFS`,
+    `loudness: layers ${ld.lufs.toFixed(1)} LUFS over the loop` +
+      (mixLd ? ` (the ${refIsMix ? 'full' : 'instrumental'} mix ${mixLd.lufs.toFixed(1)})` : '') +
+      `, gain ${fmtDb(gainDb)} for every layer -> ${(ld.lufs + gainDb).toFixed(1)} LUFS`,
   );
 
   // Bake and encode (brief 7.8, 7.9).
