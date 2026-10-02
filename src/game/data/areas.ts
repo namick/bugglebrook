@@ -153,7 +153,7 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_bluebell_bloom', x: 12.9 },
       // Pollen by the bluebells, and a third seed on the pile by the leaf.
       { kind: 'item', defId: 'item_pollen_puff', x: 13.75 },
-      { kind: 'item', defId: 'item_seed_sunflower', x: 9.4 },
+      { kind: 'item', defId: 'item_seed_sunflower', x: 7.9 },
       { kind: 'item', defId: 'item_honey_drop', x: 30.3 },
       { kind: 'item', defId: 'item_bluebell_bloom', x: 30.9 },
       { kind: 'item', defId: 'item_leaf', x: 31.4 },
