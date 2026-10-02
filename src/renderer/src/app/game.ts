@@ -32,6 +32,8 @@ import { CREDITS } from '../ui/credits';
 import { SettingsPanel } from '../ui/settingsPanel';
 import { StampStrip } from '../ui/stampStrip';
 import { HintDirector } from './hintDirector';
+import { GUIDE } from './ghost';
+import { guideSkipButton } from '../ui/guideSkip';
 import { AlbumBoard } from '../photo/album';
 import { PhotoMode } from '../photo/photoMode';
 import { INTRO, Intro } from './intro';
@@ -95,6 +97,8 @@ interface WorldSession {
   hintTime: number;
   /** The discovery stamps, top right (R22). */
   stamps: StampStrip;
+  /** Skips the guided start (F3), shown while it runs. */
+  guideSkip: PictureButton;
 }
 
 /** The native moves the browser merged into this one, oldest first, if it can tell us. */
@@ -528,6 +532,13 @@ export class Game {
     cover.eventMode = 'none';
     cover.alpha = intro ? 1 : 0;
     const hints = new HintDirector(sim, camera, input);
+    // A new world's first scene leads into the guided start (playtest F3).
+    if (intro) hints.ghost.startGuide();
+    const guideSkip = guideSkipButton(() => {
+      this.sfx.play('ui_pop');
+      this.session?.hints.skipGuide();
+    });
+    guideSkip.visible = false;
     view.hints = hints.affordance;
     view.music = () => {
       const seq = this.music.sequencerReport();
@@ -540,7 +551,7 @@ export class Game {
     ui.addChild(pocket, pause, home, stamps);
     // The ghost hand goes over the UI, so it can reach into the pocket.
     root.addChild(view, marks, cover, ui, ghost);
-    ui.addChild(pocket, pause, home);
+    ui.addChild(pocket, pause, home, guideSkip);
     const topUi = new Container();
     topUi.addChild(camButton, album);
     root.addChild(view, cover, ui, topUi);
@@ -596,6 +607,7 @@ export class Game {
       ghost,
       hintTime: 0,
       stamps,
+      guideSkip,
     };
     input.onGesture = (gesture, strength) => {
       if (gesture === 'pan' || gesture === 'scroll' || gesture === 'edge') session.panned = true;
@@ -1041,12 +1053,19 @@ export class Game {
     }
     s.pause.update(dt);
     s.home.update(dt);
+    s.guideSkip.visible = s.hints.ghost.guiding && (s.intro === null || s.intro.t >= GUIDE.startAt);
+    s.guideSkip.update(dt);
     // Hints: wobbles and glints where the hand rests, and now and then a ghost-hand demo.
     const reduced = this.settings.get().reduceMotion;
     const ghost = s.hints.update({
       dt,
       wallDt: Math.min(2, this.app.ticker.deltaMS / 1000),
-      blocked: this.paused || this.switching || this.overlaid || s.intro !== null,
+      // The guided start may run during the first scene, once its camera slide is over.
+      blocked:
+        this.paused ||
+        this.switching ||
+        this.overlaid ||
+        (s.intro !== null && !(s.hints.ghost.guiding && s.intro.t >= GUIDE.startAt)),
       pointer: this.pointer,
       reduced,
     });

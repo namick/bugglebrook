@@ -16,7 +16,11 @@ import {
   demosDoneIn,
   dialDemo,
   dragDemo,
+  feedDemo,
+  flingDemo,
   ghostAt,
+  shakeDemo,
+  tickleDemo,
   leverDemo,
   pocketDemo,
   spongeDemo,
@@ -103,6 +107,29 @@ export class HintDirector {
 
   dispose(): void {
     for (const u of this.unsubscribe) u();
+  }
+
+  /** The skip button: the guided start ends. */
+  skipGuide(): void {
+    this.ghost.skipGuide();
+    this.demoCamera = null;
+  }
+
+  /** An awake, found bug on screen nearest to `near`, with its mouth. */
+  private bugOnScreen(views: readonly EntityView[], near: Point): EntityView | null {
+    let best: EntityView | null = null;
+    let bestD = Infinity;
+    for (const v of views) {
+      const b = v.bug;
+      if (!b || b.pending || v.held || v.pocket !== undefined || !this.onScreen(v)) continue;
+      if (b.mode === 'st_sleep' || b.mode === 'st_airborne' || b.mode === 'st_dizzy') continue;
+      const d = Math.hypot(v.x - near.x, v.y - near.y);
+      if (d < bestD) {
+        best = v;
+        bestD = d;
+      }
+    }
+    return best;
   }
 
   /** The player did something: any demo stops at once. */
@@ -328,6 +355,24 @@ export class HintDirector {
     const latBarrier = sim.barriers.barrier('lattice');
     if (lat && latBarrier && sim.barriers.closed(latBarrier) && this.onScreen(lat))
       scripts.set('lattice', () => dragDemo('lattice', this.toView(lat), -1));
+    // The guided start's core verbs (F3): feed, fling, tickle, shake.
+    const bug = this.bugOnScreen(views, center);
+    if (bug) {
+      const mouth = sim.mouthAnchor(bug.id);
+      const food = views.find((v) => {
+        if (v.kind !== 'item' || v.held || v.pocket !== undefined || !this.onScreen(v)) return false;
+        const def = sim.content.items.tryGet(v.defId);
+        return !!def?.tags.includes('tag_edible') && Math.abs(v.x - bug.x) < 6;
+      });
+      if (mouth && food && this.onScreen(mouth))
+        scripts.set('feed', () => feedDemo(this.toView(food), this.toView(mouth), food.defId));
+      scripts.set('tickle', () => tickleDemo(this.toView({ x: bug.x, y: bug.y })));
+    }
+    if (small) {
+      const v = this.toView(small);
+      scripts.set('fling', () => flingDemo(v, small.defId, v.x < VIEW_WIDTH_PX / 2 ? 1 : -1));
+      scripts.set('shake', () => shakeDemo(v, small.defId));
+    }
     const kind = chooseDemo(allowed, [...scripts.keys()], this.ghost.shown);
     return kind ? (scripts.get(kind)?.() ?? null) : null;
   }
@@ -353,6 +398,8 @@ export class HintDirector {
     shown: Record<string, number>;
     done: DemoKind[];
     stopped: number;
+    /** The guided start's demos still to come (F3), or null when there is no guide. */
+    guide: DemoKind[] | null;
     glints: Record<string, number>;
     wobbles: Record<string, number>;
   } {
@@ -366,6 +413,7 @@ export class HintDirector {
       shown: Object.fromEntries(this.ghost.shown),
       done: [...this.ghost.done],
       stopped: this.ghost.stopped,
+      guide: this.ghost.guide ? [...this.ghost.guide] : null,
       glints,
       wobbles,
     };

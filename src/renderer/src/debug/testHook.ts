@@ -34,6 +34,7 @@ import type { ToggleKey, VolumeKey } from '../ui/settingsPanel';
 export type UiName =
   | 'pause'
   | 'home'
+  | 'guide_skip'
   | 'resume'
   | 'to_menu'
   | 'gear'
@@ -343,6 +344,8 @@ export interface TestHook extends ArtHook {
       shown: Record<string, number>;
       done: string[];
       stopped: number;
+      /** The guided start's demos still to come (F3), or null. */
+      guide: string[] | null;
       frame: {
         x: number;
         y: number;
@@ -419,6 +422,8 @@ export function installTestHook(game: Game): void {
         return s?.pause ?? null;
       case 'home':
         return s?.home ?? null;
+      case 'guide_skip':
+        return s?.guideSkip ?? null;
       case 'camera':
         return s?.cameraButton ?? null;
       case 'album':
@@ -739,6 +744,7 @@ export function installTestHook(game: Game): void {
           shown: info.shown,
           done: info.done,
           stopped: info.stopped,
+          guide: info.guide,
           frame:
             f && at ? { x: at.x, y: at.y, pose: f.pose, alpha: f.alpha, tray: f.tray, carry: f.carry } : null,
         },
