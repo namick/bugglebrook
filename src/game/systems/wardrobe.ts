@@ -48,6 +48,11 @@ export interface WardrobeState {
   pollen: Record<string, number>;
   /** Tick the fashion parade last ran, or -1. */
   parade: number;
+  /**
+   * A hat the plaza's earthworm wore down into its hole (`secret_worm_hat`):
+   * when, and once it has come up again elsewhere, where and until when.
+   */
+  worm?: { item: EntityId; at: number; out: { x: number; until: number } | null };
   rng: RngState;
 }
 
@@ -75,6 +80,31 @@ export const DRESS_EVERY = 45 * SIM_HZ;
 export const FRAGILE_SPEED = 7;
 /** A hat pulled off and let go this fast after (a click on it) goes back on: the click pokes its bug. */
 export const CLICK_TICKS = 15;
+/** The plaza's earthworm (section 3): where its hole is (plaza x), and how it peeks out. */
+export const WORM_X = 31.5;
+export const WORM_SHOW = 5 * SIM_HZ;
+export const WORM_PERIOD = 26 * SIM_HZ;
+export const WORM_PERIOD_RAIN = 12 * SIM_HZ;
+/** The worm comes up somewhere else this long after it takes a hat down, and leaves the hat there after this. */
+export const WORM_AWAY = 2 * 60 * SIM_HZ;
+export const WORM_SHOWS_OFF = 8 * SIM_HZ;
+/** Where it comes up again: the pond's left bank (pond x). */
+export const WORM_OUT_X = 1.4;
+/** It ducks from an empty hand this close (m). */
+export const WORM_SHY = 1.3;
+
+/**
+ * How far the worm is up out of its hole at `tick`, 0 to 1: it peeks out
+ * for five seconds now and then (more often in the rain), easing up and down.
+ */
+export function wormRise(tick: number, raining: boolean): number {
+  const period = raining ? WORM_PERIOD_RAIN : WORM_PERIOD;
+  const local = tick % period;
+  if (local >= WORM_SHOW) return 0;
+  const ease = 0.9 * SIM_HZ;
+  return Math.max(0, Math.min(1, local / ease, (WORM_SHOW - local) / ease));
+}
+
 /** How often the slow checks run (perks, dressing, swaps, the parade). */
 const SLOW = 30;
 
@@ -127,16 +157,91 @@ export class Wardrobe {
       }
       if (Object.keys(bug.wearing).length === 0) delete bug.wearing;
     }
+    // A hat down the worm's hole stays out of the world.
+    const w = this.state.worm;
+    if (w && sim.entities.has(w.item) && !this.worn.has(w.item)) sim.physics.setActive(w.item, false);
+    else delete this.state.worm;
   }
 
-  /** Is this thing on a bug? */
+  /** Is this thing on a bug (or on the worm)? */
   isWorn(id: EntityId): boolean {
-    return this.worn.has(id);
+    return this.worn.has(id) || this.state.worm?.item === id;
   }
 
-  /** Who wears this thing, and in which slot. */
+  /** Who wears this thing, and in which slot (the worm is bug -1). */
   wornBy(id: EntityId): { bug: EntityId; slot: WearSlot } | null {
+    if (this.state.worm?.item === id) return { bug: -1, slot: 'head' };
     return this.worn.get(id) ?? null;
+  }
+
+  // --- The worm (secret_worm_hat) --------------------------------------------
+
+  /** Where the worm's hole is, in the world (m). */
+  wormHole(): { x: number; y: number } | null {
+    const sim = this.sim;
+    if (!sim.content.areas.has('area_stump_plaza')) return null;
+    const x = sim.content.areas.get('area_stump_plaza').xStart + WORM_X;
+    return { x, y: sim.surfaceY(x) };
+  }
+
+  /** How far up the worm is right now, 0 to 1: its own rhythm, and it ducks from an empty hand. */
+  wormUp(): number {
+    const sim = this.sim;
+    const hole = this.wormHole();
+    if (!hole || this.state.worm) return 0;
+    const hand = sim.hand;
+    if (hand && sim.physics.grabbed === null && Math.hypot(hand.x - hole.x, hand.y - hole.y) < WORM_SHY)
+      return 0;
+    return wormRise(sim.tick, sim.weather.raining);
+  }
+
+  /** A hat let go on the peeking worm: it wears it down its hole. */
+  toWorm(item: Entity): void {
+    const sim = this.sim;
+    const hole = this.wormHole();
+    if (!hole || this.state.worm || this.worn.has(item.id)) return;
+    if (sim.physics.grabbed === item.id) sim.physics.release();
+    sim.environment.unstickAll(item.id);
+    sim.thrown.delete(item.id);
+    sim.physics.setVelocity(item.id, 0, 0);
+    sim.physics.setActive(item.id, false);
+    sim.physics.place(item.id, hole.x, hole.y + 0.3, 0);
+    this.state.worm = { item: item.id, at: sim.tick, out: null };
+    sim.linkedCache = null;
+    sim.worldCache = null;
+    sim.findSecret('secret_worm_hat', hole.x, hole.y);
+    sim.events.emit('worm_hatted', { itemId: item.id, defId: item.defId, x: hole.x, y: hole.y });
+  }
+
+  /** Two minutes on, the worm comes up on the pond's bank still wearing it, then leaves it there. */
+  private wormAway(): void {
+    const sim = this.sim;
+    const w = this.state.worm;
+    if (!w) return;
+    const item = sim.entities.get(w.item);
+    if (!item) {
+      delete this.state.worm;
+      return;
+    }
+    if (!w.out) {
+      if (sim.tick - w.at < WORM_AWAY) return;
+      const x = sim.content.areas.get('area_puddle_pond').xStart + WORM_OUT_X;
+      w.out = { x, until: sim.tick + WORM_SHOWS_OFF };
+      sim.physics.place(w.item, x, sim.surfaceY(x) - 0.4, 0);
+      sim.events.emit('worm_resurfaced', { itemId: w.item, defId: item.defId, x, y: sim.surfaceY(x) });
+      return;
+    }
+    if (sim.tick < w.out.until) return;
+    // Back down it goes, and the hat stays on the bank.
+    const x = w.out.x + 0.5;
+    const half = sim.halfHeight(item);
+    delete this.state.worm;
+    sim.physics.place(w.item, x, sim.surfaceY(x) - half - 0.3, 0);
+    sim.physics.setActive(w.item, true);
+    sim.physics.setVelocity(w.item, 0.6, -2);
+    sim.linkedCache = null;
+    sim.worldCache = null;
+    sim.events.emit('worm_left_hat', { itemId: w.item, defId: item.defId, x, y: sim.surfaceY(x) });
   }
 
   /** Everything a bug wears, by slot order. */
@@ -226,6 +331,10 @@ export class Wardrobe {
       const c = this.crown(bug);
       out.push({ kind: 'crown', entityId: bug.id, x: c.x, y: c.y });
     }
+    // The worm, while it peeks out of its hole.
+    const hole = this.wormHole();
+    if (hole && this.wormUp() > 0.5 && sim.barriers.isOpen('area_stump_plaza'))
+      out.push({ kind: 'worm', entityId: 0, x: hole.x, y: hole.y - 0.3 });
     return out;
   }
 
@@ -345,6 +454,7 @@ export class Wardrobe {
     }
     delete this.state.plans[String(id)];
     delete this.state.pollen[String(id)];
+    if (this.state.worm?.item === id) delete this.state.worm;
   }
 
   /** Something it wears changed the bug's body or what its AI sees. */
@@ -547,6 +657,7 @@ export class Wardrobe {
   update(): void {
     const sim = this.sim;
     this.runPlans();
+    this.wormAway();
     if (sim.tick % SLOW !== 0) return;
     for (const bug of sim.entities.ofKind('bug')) {
       if (!bug.bug || sim.isSleeping(bug.id)) continue;

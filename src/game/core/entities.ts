@@ -284,6 +284,8 @@ export interface Entity {
   toy?: ToyState;
   /** What a bug wears (M11), by slot: item IDs. Worn things are out of the physics, on the bug. */
   wearing?: Partial<Record<WearSlot, EntityId>>;
+  /** A one-of-a-kind item's home (M10): where it first appeared, and where it comes back to. */
+  home?: { x: number; y: number };
 }
 
 /**

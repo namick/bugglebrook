@@ -589,6 +589,20 @@ function drawFoundFriend(g: Graphics, def: BugDef, x: number, y: number, s: numb
         .stroke(stroke(1.5));
       return true;
     }
+    case 'tardigrade': {
+      // A round, translucent peach face with a tube snout, beady eyes, and a giggle.
+      g.ellipse(x, y, h * 0.95, h * 0.78)
+        .fill(def.body)
+        .stroke(st);
+      g.ellipse(x - h * 0.15, y - h * 0.2, h * 0.5, h * 0.3).fill({ color: 0xffffff, alpha: 0.35 });
+      g.ellipse(x + h * 0.55, y + h * 0.2, h * 0.2, h * 0.22)
+        .fill(def.belly)
+        .stroke(stroke(2));
+      for (const dx of [-0.25, 0.2]) g.circle(x + h * dx, y - h * 0.15, h * 0.1).fill(OUTLINE);
+      smile(x - h * 0.02, y + h * 0.25, h * 0.2, h * 0.14);
+      g.circle(x - h * 0.55, y + h * 0.1, h * 0.12).fill(cheek);
+      return true;
+    }
     default:
       return false;
   }

@@ -2,6 +2,7 @@ import type { Advert, ItemDef } from './types';
 import { createRegistry } from './registry';
 import { M8_ITEMS } from './items8';
 import { M9_ITEMS } from './items9';
+import { M10_ITEMS } from './items10';
 import { TIDY_ITEMS } from './itemsTidy';
 import { M11_ITEMS } from './items11';
 import { growItem } from './itemSize';
@@ -1086,6 +1087,7 @@ export const WRITTEN_ITEMS: readonly ItemDef[] = [
   },
   ...M8_ITEMS,
   ...M9_ITEMS,
+  ...M10_ITEMS,
   ...TIDY_ITEMS,
   ...M11_ITEMS,
 ];

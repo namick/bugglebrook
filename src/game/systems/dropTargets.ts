@@ -7,7 +7,7 @@ import type { EntityId } from '../core/entities';
  * physics drop. M8 adds containers (the bench's trays, the cauldron),
  * potions at a mouth, and paint on a bug. M11 adds heads. Hands and seats come later.
  */
-export type DropTargetKind = 'mouth' | 'tray' | 'cauldron' | 'trash' | 'body' | 'head' | 'crown';
+export type DropTargetKind = 'mouth' | 'tray' | 'cauldron' | 'trash' | 'body' | 'head' | 'crown' | 'worm';
 
 export interface DropRule {
   kind: DropTargetKind;
@@ -31,6 +31,8 @@ export const DROP_RULES: readonly DropRule[] = [
   { kind: 'trash', priority: 2, radius: 0.9, tag: 'item' },
   // 3: a bug's head (or body), for anything wearable (M11). About 50 px from the head.
   { kind: 'head', priority: 3, radius: 0.6, tag: 'wearable' },
+  // The plaza's earthworm while it peeks out: it wears a hat down its hole (`secret_worm_hat`).
+  { kind: 'worm', priority: 3, radius: 0.6, tag: 'wearable' },
   // Just above a head: compost goo or an eggshell becomes a hat instead of a meal.
   { kind: 'crown', priority: 3, radius: 0.25, tag: 'head_turn' },
   // 4: a bug's mouth, for anything edible or a potion. 50 px from the mouth anchor.

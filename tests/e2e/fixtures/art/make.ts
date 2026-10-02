@@ -326,6 +326,8 @@ const OVERRIDES: Record<string, Shape> = {
   'bug_stagbeetle_moose:head': marked(0.36, 0.31, '#a0503a'),
   'bug_mantis_prim:head': wedge([-0.4, -0.42, 0.68, -0.36, 0.3, 0.28], '#90f090'),
   'bug_stinkbug_whiff:head': marked(0.46, 0.46, '#c0d060'),
+  'bug_tardigrade_wubbo:body': marked(1.1, 0.72, '#f5b7a1', 0, 0.05),
+  'bug_tardigrade_wubbo:snout': oval(0.14, 0.16, '#ffd9c7'),
   'bug_bee_buzzby:body': marked(0.84, 0.66, '#ffd23f'),
   'bug_bee_buzzby:head': marked(0.44, 0.44, '#fff0a0'),
   'bug_bee_buzzby:wing': oval(0.17, 0.3, '#c0f0ff', 0, -0.3),

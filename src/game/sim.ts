@@ -59,6 +59,11 @@ import type { Placed } from './world/startLayout';
 import { leanAgainst, stackTop } from './world/startLayout';
 import { Bench } from './systems/bench';
 import { Cauldron } from './systems/cauldron';
+import { Journal } from './systems/journal';
+import { Clues } from './systems/clues';
+import { Hidden } from './systems/hidden';
+import { journalBook } from './systems/journalBook';
+import type { JournalBook } from './systems/journalBook';
 import { Trash } from './systems/trash';
 import { Wardrobe } from './systems/wardrobe';
 import { MusicBugs } from './systems/musicBugs';
@@ -360,6 +365,12 @@ export class Sim {
   readonly toys: Toys;
   /** Brings back anything that leaves the world. */
   readonly bounds: Bounds;
+  /** M10's clues and secrets in the open areas (saved as `world.clues`). */
+  readonly clues: Clues;
+  /** The journal's memory (M10): what the player met, found, and saw (saved as `world.journal`). */
+  readonly journal: Journal;
+  /** M10: the hidden areas' doorways, the depths, and the hollow. */
+  readonly hidden: Hidden;
   /** The trash can (playtest F1). */
   readonly trash: Trash;
   /** The tidy whistle, slow tidying, and the junk cap (playtest F2). */
@@ -396,6 +407,9 @@ export class Sim {
     this.potions = new Potions(this);
     this.toys = new Toys(this);
     this.bounds = new Bounds(this);
+    this.journal = new Journal(this);
+    this.clues = new Clues(this);
+    this.hidden = new Hidden(this);
     this.trash = new Trash(this);
     this.tidy = new Tidy(this);
     this.wardrobe = new Wardrobe(this);
@@ -404,6 +418,7 @@ export class Sim {
     this.buildSolids();
     this.barriers.build();
     this.places.build();
+    this.hidden.build();
     this.physics.passThrough = (a, b, _nx, ny) => this.softContact(a, b, ny) || this.ghostThrough(a, b);
     // The cobweb hammock lets things sink through after a moment; ghosts pass the web and the can wall.
     this.physics.platformPass = (key, id) =>
@@ -538,6 +553,7 @@ export class Sim {
       if (saved.brew) entity.brew = clone(saved.brew);
       if (saved.effects) entity.effects = clone(saved.effects);
       if (saved.toasted) entity.toasted = true;
+      if (saved.home) entity.home = { ...saved.home };
       if (saved.toy) entity.toy = clone(saved.toy);
       if (saved.wearing && entity.bug) entity.wearing = { ...saved.wearing };
       sim.entities.restore(entity);
@@ -584,6 +600,10 @@ export class Sim {
     if (save.barriers) sim.barriers.restore(clone(save.barriers));
     if (save.places) sim.places.restore(clone(save.places));
     if (save.bench) sim.bench.restore(clone(save.bench));
+    if (save.journal) sim.journal.restore(clone(save.journal));
+    if (save.clues) sim.clues.restore(clone(save.clues));
+    if (save.hidden) sim.hidden.restore(clone(save.hidden));
+    sim.hidden.build();
     if (save.cauldron) sim.cauldron.restore(clone(save.cauldron));
     if (save.trash) sim.trash.restore(clone(save.trash));
     if (save.tidy) sim.tidy.restore(clone(save.tidy));
@@ -607,6 +627,7 @@ export class Sim {
     sim.refreshFriction();
     // Anything a save left outside the world (R01) drops back in.
     sim.bounds.sweep();
+    if (!save.journal) sim.journal.seed();
     return sim;
   }
 
@@ -659,6 +680,7 @@ export class Sim {
     if (!this.defExists(kind, defId)) throw new Error(`Unknown ${kind} def: ${defId}`);
     const entity = this.entities.create(kind, defId);
     if (kind === 'bug') entity.bug = newBugBrain(x, this.rng);
+    if (kind === 'item' && this.content.items.get(defId).unique) entity.home = { x, y };
     this.addBodyFor(entity, { x, y, angle: 0, vx: 0, vy: 0, av: 0 });
     this.events.emit('entity_spawned', { id: entity.id, kind, defId });
     return entity;
@@ -725,11 +747,15 @@ export class Sim {
     // the clock stops, so no timer runs out while the player frames a shot.
     if (this.photo) {
       if (!this.photo.frozen && this.tick - this.photo.at >= PHOTO_MOMENT_TICKS) this.photo.frozen = true;
-      if (this.photo.frozen) return;
+      if (this.photo.frozen) {
+        this.journal.update();
+        return;
+      }
     }
     this.weather.update();
     this.barriers.update();
     this.places.update();
+    this.hidden.update();
     this.bench.update();
     this.cauldron.update();
     this.trash.update();
@@ -760,6 +786,7 @@ export class Sim {
     const impacts = this.physics.takeImpacts();
     this.handleImpacts(impacts);
     this.toys.impacts(impacts);
+    this.clues.impacts(impacts);
     this.environment.afterPhysics(impacts);
     this.catchThrows();
     this.setup.update();
@@ -769,6 +796,8 @@ export class Sim {
     if (this.tick % 60 === 0)
       for (const [k, t] of this.passing) if (t < this.tick - 1) this.passing.delete(k);
     if (this.tick > 0 && this.tick % RESPAWN_TICKS === 0) this.respawn();
+    this.clues.update();
+    this.journal.update();
     this.tick++;
   }
 
@@ -1274,8 +1303,9 @@ export class Sim {
         overWater: (x) => this.environment.overOpenWater(x),
         shore: this.environment.shoreFrom(state.x),
         frozen: this.hasTag(entity.id, 'tag_frozen'),
-        home: home ? { x0: home.xStart, x1: home.xEnd } : null,
-        reach: this.barriers.span(),
+        // Shut in a hidden area, home is out of reach: no pining at the wall.
+        home: home && !this.hidden.hiddenAt(state.x) ? { x0: home.xStart, x1: home.xEnd } : null,
+        reach: this.barriers.span(state.x),
         hand: this.hand,
         drowsy: !!entity.effects && !!this.potions.has(entity, 'sleepy'),
         impact: inGrace ? 0 : (this.bugImpacts.get(entity.id) ?? 0),
@@ -1465,9 +1495,16 @@ export class Sim {
       }
       const throwing = this.pendingThrows.get(itemId);
       if (!this.entities.has(itemId) || owners.has(itemId)) continue;
-      const hand = bug?.bug ? this.handOf(bug) : this.physics.getState(itemId);
+      let hand = bug?.bug ? this.handOf(bug) : this.physics.getState(itemId);
       const item = this.entities.get(itemId)!;
-      const half = halfExtents(this.content.items.get(item.defId).shape, 0).h;
+      const ext = halfExtents(this.content.items.get(item.defId).shape, 0);
+      const half = ext.h;
+      // Set down (not thrown) against the player's setup, it goes on the bug's other side (the setup rule).
+      if (bug && !throwing && this.setupNearExcept(hand.x, ext.w + 0.2, itemId)) {
+        const bx = this.physics.getState(bug.id).x;
+        const other = { x: 2 * bx - hand.x, y: hand.y };
+        if (!this.setupNearExcept(other.x, ext.w + 0.2, itemId)) hand = other;
+      }
       const floor = this.terrain.surfaceY(hand.x) - half - 0.01;
       physics.place(itemId, hand.x, Math.min(hand.y, floor), 0);
       physics.setActive(itemId, true);
@@ -1536,8 +1573,18 @@ export class Sim {
     const item = this.entities.get(itemId);
     if (!item) return;
     const s = this.physics.getState(bugId);
-    const x = s.x + b.facing * (this.bugDef(bug).radius + 0.3);
-    const half = halfExtents(this.content.items.get(item.defId).shape, 0).h;
+    const ext = halfExtents(this.content.items.get(item.defId).shape, 0);
+    const half = ext.h;
+    // In front of the bug, or behind it if that would set it against the player's setup (the setup rule).
+    const reach = this.bugDef(bug).radius + 0.3;
+    const clear = ext.w + 0.25;
+    const front = s.x + b.facing * reach;
+    const back = s.x - b.facing * reach;
+    const x = !this.setupNearExcept(front, clear, itemId)
+      ? front
+      : !this.setupNearExcept(back, clear, itemId)
+        ? back
+        : s.x;
     this.physics.place(itemId, x, this.terrain.surfaceY(x) - half - 0.02, 0);
     if (asleep) this.sleeping.add(itemId);
     else this.physics.setActive(itemId, true);
@@ -1696,11 +1743,35 @@ export class Sim {
     this.findSecret('secret_bug_totem', top.x, top.y);
   }
 
-  /** A secret was found: the first time, it is logged and announced. */
-  findSecret(id: string, x: number, y: number): void {
-    if (this.secrets.includes(id)) return;
+  /**
+   * A secret was found: the first time, it is logged and announced. A
+   * blocked secret, or one whose prerequisites are not all found yet, does
+   * not fire (section 12's "Requires"). True if it was found just now.
+   */
+  findSecret(id: string, x: number, y: number): boolean {
+    if (!this.canFind(id)) return false;
     this.secrets.push(id);
     this.events.emit('secret_found', { id, x, y });
+    return true;
+  }
+
+  /** Could `id` be found now: not found yet, not blocked, and its prerequisites found? */
+  canFind(id: string): boolean {
+    if (this.secrets.includes(id)) return false;
+    const def = this.content.secrets.tryGet(id);
+    if (def?.blocked) return false;
+    return (def?.requires ?? []).every((r) => this.secrets.includes(r));
+  }
+
+  /** The journal as pages (M10), from the saved state. Pure read; the renderer draws it. */
+  book(): JournalBook {
+    return journalBook({
+      content: this.content,
+      secrets: this.secrets,
+      journal: this.journal.state,
+      made: this.bench.state.made,
+      hinted: this.bench.state.hinted,
+    });
   }
 
   /** The world x range the camera shows, or the whole world when nobody is watching. */
@@ -1975,7 +2046,8 @@ export class Sim {
     const f = this.focus;
     for (const area of this.content.areas.all) {
       const gap = f ? Math.max(area.xStart - f.x1, f.x0 - area.xEnd, 0) : 0;
-      const asleep = gap >= SLEEP_DISTANCE;
+      // The hidden areas are worlds apart: only the one being looked at is awake.
+      const asleep = (f && this.hidden.asleepFor(area, f)) ?? gap >= SLEEP_DISTANCE;
       if (asleep === this.asleepAreas.has(area.id)) continue;
       if (asleep) this.asleepAreas.add(area.id);
       else this.asleepAreas.delete(area.id);
@@ -2039,7 +2111,7 @@ export class Sim {
     const def = this.content.items.get(entity.defId);
     const tags = [...def.tags, 'item'];
     if (this.isPotion(entity)) tags.push('potion');
-    if (def.paint) tags.push('paint');
+    if (def.paint || def.id === 'item_paint_rainbow') tags.push('paint');
     if (def.wear) tags.push('wearable');
     if (HEAD_TURNS[def.id]) tags.push('head_turn');
     return tags;
@@ -2247,8 +2319,12 @@ export class Sim {
         for (let tries = 0; tries < 8 && near(x); tries++) x = this.rng.range(area.xStart + 1, area.xEnd - 1);
         // The player's things fill the area: no drop this time.
         if (near(x)) continue;
-        const entity = this.spawn('item', entry.item, x, -0.5);
-        this.events.emit('item_respawned', { id: entity.id, defId: entity.defId, x, y: -0.5 });
+        // Indoors, it drops from just under the roof (the treehouse's, the depths' ceiling).
+        const roof = area.roof;
+        const local = x - area.xStart;
+        const y = roof && local >= roof.x0 && local <= roof.x1 ? roof.y + 0.3 : -0.5;
+        const entity = this.spawn('item', entry.item, x, y);
+        this.events.emit('item_respawned', { id: entity.id, defId: entity.defId, x, y });
       }
     }
   }
@@ -2387,6 +2463,7 @@ export class Sim {
       if (e.brew) saved.brew = clone(e.brew);
       if (e.effects && e.effects.length > 0) saved.effects = clone(e.effects);
       if (e.toasted) saved.toasted = true;
+      if (e.home) saved.home = { ...e.home };
       if (e.toy && Object.keys(e.toy).length > 0) saved.toy = clone(e.toy);
       if (e.wearing && Object.keys(e.wearing).length > 0) saved.wearing = { ...e.wearing };
       return saved;
@@ -2408,6 +2485,9 @@ export class Sim {
       built: [...this.built],
       bench: this.bench.serialize(),
       cauldron: this.cauldron.serialize(),
+      journal: this.journal.serialize(),
+      clues: this.clues.serialize(),
+      hidden: this.hidden.serialize(),
       trash: this.trash.serialize(),
       tidy: this.tidy.serialize(),
       wardrobe: this.wardrobe.serialize(),

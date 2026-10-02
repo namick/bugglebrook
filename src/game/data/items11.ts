@@ -43,8 +43,9 @@ function wearable(
 const box = (width: number, height: number): ItemShape => ({ type: 'box', width, height });
 
 /**
- * M11's hats and accessories (game design doc, section 7.3): the sixteen
- * the catalog has that M8 did not craft. The rest are in `items8.ts`.
+ * M11's hats and accessories (game design doc, section 7.3): the thirteen
+ * the catalog has that M8 did not craft and M10 did not hide. The rest are in
+ * `items8.ts` and `items10.ts`.
  */
 export const M11_ITEMS: readonly ItemDef[] = [
   wearable(
@@ -130,21 +131,6 @@ export const M11_ITEMS: readonly ItemDef[] = [
     ['night_glow'],
   ),
   wearable(
-    'item_hat_candle',
-    {
-      name: 'Birthday candle hat',
-      shape: box(0.3, 0.5),
-      material: 'mat_plastic',
-      density: 0.7,
-      art: 'hat_candle',
-      color: 0xff9ec7,
-      accent: 0xffd23f,
-      tags: ['tag_glowing', 'tag_hot'],
-    },
-    'head',
-    ['glow'],
-  ),
-  wearable(
     'item_hat_eggshell',
     {
       name: 'Eggshell hat',
@@ -178,21 +164,6 @@ export const M11_ITEMS: readonly ItemDef[] = [
     ['smelly'],
   ),
   wearable(
-    'item_hat_bubble',
-    {
-      name: 'Bubble helmet',
-      shape: box(0.56, 0.52),
-      material: 'mat_plastic',
-      density: 0.3,
-      restitution: 0.5,
-      art: 'hat_bubble',
-      color: 0xbfe8ff,
-      accent: 0xffffff,
-    },
-    'head',
-    ['breathe'],
-  ),
-  wearable(
     'item_acc_sunglasses',
     {
       name: 'Sunglasses',
@@ -219,20 +190,6 @@ export const M11_ITEMS: readonly ItemDef[] = [
     },
     'face',
     ['deep_voice'],
-  ),
-  wearable(
-    'item_acc_monocle',
-    {
-      name: 'Monocle',
-      shape: box(0.22, 0.3),
-      material: 'mat_glass',
-      density: 1.2,
-      art: 'monocle',
-      color: 0xd8b04a,
-      accent: 0xbfe8ff,
-    },
-    'face',
-    ['peer'],
   ),
   wearable(
     'item_acc_bowtie_ribbon',

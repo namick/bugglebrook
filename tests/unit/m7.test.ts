@@ -562,6 +562,7 @@ describe('signature behaviors', () => {
 
   it('Munch nibbles holes in leaves; after five leafy meals a cocoon at night, and a butterfly at dawn', () => {
     const { sim, ids } = stage('munch', [{ def: 'bug_caterpillar_munch', x: 5 }]);
+    sim.findSecret('secret_munch_found', 0, 0);
     const munch = ids[0]!;
     const log = record(sim);
     const brain = sim.entities.get(munch)!.bug!;

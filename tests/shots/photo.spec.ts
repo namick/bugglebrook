@@ -7,7 +7,7 @@ import { sharpShots } from './clip';
 
 // M11 photo mode tour (files 250- to 269-): the camera moment, the clean
 // viewfinder, each tray open, every frame and filter, stickers in the hand
-// and placed, zoom, the shutter and its polaroid, and the album.
+// and placed, zoom, the shutter and its polaroid, and the journal's photos page.
 
 const DIR = process.env.BB_SHOTS_DIR ?? '/tmp/bb-shots';
 
@@ -110,7 +110,7 @@ test('photo mode tour', async () => {
     await page.waitForTimeout(350);
     await shot(page, '265-polaroid');
     await page.waitForTimeout(1200);
-    // Two more photos for the album, with other looks.
+    // Two more photos for the journal, with other looks.
     await clickUi(page, 'tab_filters');
     await clickUi(page, 'filter_comic');
     await clickUi(page, 'tab_filters');
@@ -124,7 +124,9 @@ test('photo mode tour', async () => {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(600);
     await shot(page, '266-camera-away');
-    await clickUi(page, 'album');
+    await clickUi(page, 'journal');
+    await page.waitForTimeout(900);
+    await clickUi(page, 'journal_tab_page_photos');
     await page.waitForTimeout(900);
     await shot(page, '267-album');
   } finally {
@@ -143,8 +145,8 @@ test('photo mode tour: the empty album', async () => {
     await page.waitForTimeout(500);
     await clickSlot(page, 0);
     await page.waitForTimeout(800);
-    // The album button only shows once there is a photo; open the board directly to see its empty page.
-    await page.evaluate(() => window.__bb!.openAlbum());
+    // The journal's photos page before the first photo.
+    await page.evaluate(() => window.__bb!.openJournal('page_photos'));
     await page.waitForTimeout(900);
     await shot(page, '268-album-empty');
   } finally {

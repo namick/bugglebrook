@@ -28,7 +28,7 @@ The Layers panel has three groups:
 - **parts**: one empty layer per piece. This is where you draw.
 - **face**: Dot's own mouths. Her head is dark, so she gets light pink line mouths instead of the shared ones.
 
-The eyes, and every other bug's mouths, come from `art/src/faces/face_kit.ora`. Draw those once and all fifteen bugs use them.
+The eyes, and every other bug's mouths, come from `art/src/faces/face_kit.ora`. Draw those once and all sixteen bugs use them.
 
 ## 4. Draw
 

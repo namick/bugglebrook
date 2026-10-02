@@ -20,3 +20,32 @@ export { PHOTO_MOMENT_TICKS, TOTEM_COUNT, TOTEM_TICKS, findTotem } from './syste
 export { POCKET_SLOTS, STACK_MAX } from './systems/pocket';
 export type { PocketState } from './systems/pocket';
 export { loadSaveFile, SaveError } from './save/migrations';
+export type { BugObservations, JournalState, Notice } from './systems/journal';
+export { BUTTERFLY_KEY, NOTICES, OBS_SLOTS, SPARKLE_AFTER, nextSecret } from './systems/journal';
+export type {
+  AreaCount,
+  BugCard,
+  DateStamp,
+  EntryKind,
+  EntryState,
+  ItemGroup,
+  JournalBook,
+  JournalEntry,
+  MysteryPage,
+  MysteryPanel,
+  PageId,
+} from './systems/journalBook';
+export {
+  ITEM_GROUPS,
+  MAP_AREAS,
+  PAGE_IDS,
+  dateStamp,
+  itemGroup,
+  journalBook,
+  journalItems,
+  journalPotions,
+  weirdFavorite,
+} from './systems/journalBook';
+export { GLYPHS, isGlyph } from './data/glyphs';
+export type { Glyph } from './data/glyphs';
+export type { HintGlyph, MysteryDef, SecretDef } from './data';

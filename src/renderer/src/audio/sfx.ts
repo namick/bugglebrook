@@ -1,6 +1,8 @@
 import type { EventBus } from '../../../game/core/events';
 import type { GameEvents } from '../../../game/events';
 import { craftTones, noteTones, type CraftSfx } from './craftSfx';
+import { clueSounds, clueTones, isClueSfx, type ClueSfx } from './clueSfx';
+import { hiddenTones, isHiddenSfx, type HiddenSfx } from './hiddenSfx';
 import { isTidySfx, tidyTones, type TidySfx } from './tidySfx';
 import { isWearSfx, wearTones, type WearSfx } from './wearSfx';
 import type { AudioBackend, Tone } from './synth';
@@ -131,7 +133,15 @@ export type SfxName =
   // M8: the bench's lever and the cauldron's ladle (gestures), and crafting and potions.
   | 'lever'
   | 'stir'
+  // M10, the journal: a page turning, the book opening and shutting, an entry coming into color.
+  | 'page_flip'
+  | 'book_open'
+  | 'book_close'
+  | 'reveal'
   | CraftSfx
+  | ClueSfx
+  // M10: the hidden areas and the finale.
+  | HiddenSfx
   // Playtest F1 and F2: the trash can and the tidy whistle.
   | TidySfx
   // M11: hats and accessories, and the music bugs.
@@ -426,6 +436,33 @@ export class Sfx {
       ),
       bus.on('toy_used', (e) => this.limited(TOY_SOUND[e.action], 100)),
       bus.on('scope_viewed', () => this.play('scope')),
+      ...clueSounds(bus, (name, intensity) => this.play(name, intensity)),
+      // M10: the hidden areas, their doorways, and the finale.
+      bus.on('doorway_used', () => this.play('iris')),
+      bus.on('ants_took_sugar', () => this.play('ant_march', 1)),
+      bus.on('ant_hill_opened', () => this.play('crumble')),
+      bus.on('ant_hill_poked', () => this.limited('ant_march', 300, 0.8)),
+      bus.on('conveyor_took', () => this.limited('conveyor', 200)),
+      bus.on('queen_fed', () => {
+        this.play('queen_munch');
+        this.play('ant_cheer');
+      }),
+      bus.on('queen_gave', () => this.play('twinkle', 1)),
+      bus.on('queen_poked', () => this.limited('larva_squeak', 250, 0.7)),
+      bus.on('root_pulled', () => this.play('root_pop')),
+      bus.on('root_poked', () => this.limited('root_creak', 400)),
+      bus.on('larva_wiggled', () => this.limited('larva_squeak', 150)),
+      bus.on('ants_conga', () => this.play('ant_cheer')),
+      bus.on('pantry_scrap_found', () => this.play('twinkle', 0.8)),
+      bus.on('gnome_sneezed', () => this.play('gnome_sneeze')),
+      bus.on('telescope_viewed', () => this.play('telescope')),
+      bus.on('pedestal_poked', () => this.limited('marble_seat', 400, 0.4)),
+      bus.on('marble_seated', () => this.play('marble_seat')),
+      bus.on('finale_started', () => this.play('fanfare')),
+      bus.on('firework_burst', () => {
+        this.play('firework_whistle', 0.6);
+        this.play('firework_pop', 0.8);
+      }),
       // Playtest F1 and F2: the trash can and tidying up.
       bus.on('trash_chomped', () => this.limited('trash_chomp', 120)),
       bus.on('trash_burped', (e) => this.play('trash_burp', e.size)),
@@ -1068,6 +1105,44 @@ export class Sfx {
             gain: 0.12,
             delay: k * 0.08,
           }));
+        case 'page_flip':
+          // A paper page swishing over: a quick rising then falling rustle, and a soft flap at the end.
+          return [
+            { freq: 1400 * j, to: 3600 * j, dur: 0.12, wave: 'noise', q: 0.8, gain: 0.16 * intensity },
+            {
+              freq: 3200 * j,
+              to: 900 * j,
+              dur: 0.16,
+              wave: 'noise',
+              q: 0.9,
+              gain: 0.14 * intensity,
+              delay: 0.1,
+            },
+            { freq: 220 * j, to: 140 * j, dur: 0.05, wave: 'sine', gain: 0.12 * intensity, delay: 0.22 },
+          ];
+        case 'book_open':
+          // The cover creaks open, the pages fan, and it settles with a papery whump.
+          return [
+            { freq: 180 * j, to: 260 * j, dur: 0.14, wave: 'triangle', gain: 0.16 },
+            { freq: 900 * j, to: 3000 * j, dur: 0.2, wave: 'noise', q: 0.8, gain: 0.14, delay: 0.06 },
+            { freq: 140 * j, to: 90 * j, dur: 0.1, wave: 'sine', gain: 0.26, delay: 0.26 },
+            { freq: 1320 * j, to: 1760 * j, dur: 0.12, wave: 'sine', gain: 0.08, delay: 0.3 },
+          ];
+        case 'book_close':
+          return [
+            { freq: 2600 * j, to: 900 * j, dur: 0.12, wave: 'noise', q: 0.9, gain: 0.14 },
+            { freq: 170 * j, to: 80 * j, dur: 0.1, wave: 'sine', gain: 0.32, delay: 0.1 },
+            { freq: 1200 * j, to: 600 * j, dur: 0.04, wave: 'noise', q: 2, gain: 0.1, delay: 0.1 },
+          ];
+        case 'reveal':
+          // Color pouring into a drawing: a bright little upward shimmer.
+          return [0, 1, 2, 3].map((k) => ({
+            freq: [880, 1109, 1319, 1760][k]! * j,
+            dur: 0.14,
+            wave: 'sine' as const,
+            gain: 0.09 * intensity,
+            delay: k * 0.045,
+          }));
         case 'stamp':
           // An ink stamp hitting paper: a soft low thump and a papery tap.
           return [
@@ -1426,11 +1501,15 @@ export class Sfx {
             { freq: 140 * j, dur: 0.15, wave: 'sine', gain: 0.08, delay: 0.05 },
           ];
         default:
-          return isTidySfx(name)
-            ? tidyTones(name, j, intensity, this.random)
-            : isWearSfx(name)
-              ? wearTones(name, j, intensity, this.random)
-              : craftTones(name, j, intensity, this.random);
+          return isClueSfx(name)
+            ? clueTones(name, j, intensity)
+            : isHiddenSfx(name)
+              ? hiddenTones(name, j, intensity)
+              : isTidySfx(name)
+                ? tidyTones(name, j, intensity, this.random)
+                : isWearSfx(name)
+                  ? wearTones(name, j, intensity, this.random)
+                  : craftTones(name, j, intensity, this.random);
       }
     })();
     this.emit(name, tones, v, log);

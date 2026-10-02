@@ -126,9 +126,6 @@ const CLAW_POOL: readonly string[] = [
   'item_pollen_puff',
   // M11: hats and accessories (section 3: the jar restocks from a pool of them).
   'item_hat_wizard',
-  'item_hat_candle',
-  'item_hat_bubble',
-  'item_acc_monocle',
   'item_acc_googly_glasses',
   'item_hat_acorn_cap',
 ];
@@ -339,7 +336,8 @@ export class Places {
         sim.events.emit('hideout_stirred', { fixture: f.id, x: f.x, y: f.y });
         return true;
       default:
-        return false;
+        // M10's hidden areas and their doorways.
+        return sim.hidden.poke(f);
     }
   }
 

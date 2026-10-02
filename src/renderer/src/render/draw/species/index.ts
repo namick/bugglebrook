@@ -10,6 +10,7 @@ import { MothPainter } from './moth';
 import { StagbeetlePainter } from './stagbeetle';
 import { StickinsectPainter } from './stickinsect';
 import { StinkbugPainter } from './stinkbug';
+import { TardigradePainter } from './tardigrade';
 
 /**
  * The painter for a species drawn in its own module, or null for the first
@@ -29,6 +30,8 @@ export function makePainter(args: PainterArgs): SpeciesPainter | null {
       return new MantisPainter(args);
     case 'stickinsect':
       return new StickinsectPainter(args);
+    case 'tardigrade':
+      return new TardigradePainter(args);
     case 'bee':
       return new BeePainter(args);
     case 'cricket':
@@ -50,6 +53,8 @@ export function bugSpan(def: BugDef): number {
       return d * 1.5;
     case 'mantis':
       return d * 1.4;
+    case 'tardigrade':
+      return d * 1.15;
     case 'cricket':
       return d * 1.5;
     case 'moth':

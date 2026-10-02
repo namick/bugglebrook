@@ -1,5 +1,6 @@
 import { BUG_MODES, SOCIAL_KINDS } from '../core/entities';
 import { sequencerProblems } from '../systems/sequencer';
+import { hiddenProblems } from '../systems/hidden';
 import { ADVERT_ACTIONS } from '../data/types';
 import { REACTION_TYPES } from '../events';
 import { POCKET_SLOTS, STACK_MAX } from '../systems/pocket';
@@ -315,6 +316,8 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
     if (e.effects !== undefined && !(Array.isArray(e.effects) && e.effects.every(isEffect)))
       errors.push(`${at}.effects is invalid`);
     if (e.toasted !== undefined && typeof e.toasted !== 'boolean') errors.push(`${at}.toasted is invalid`);
+    if (e.home !== undefined && !(isObj(e.home) && isNum(e.home.x) && isNum(e.home.y)))
+      errors.push(`${at}.home is invalid`);
     if (e.toy !== undefined && !isObj(e.toy)) errors.push(`${at}.toy is invalid`);
     if (e.wearing !== undefined && !isWearing(e.wearing)) errors.push(`${at}.wearing is invalid`);
     return undefined;
@@ -352,6 +355,30 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
   if (world.bench !== undefined) {
     const problems = benchProblems(world.bench);
     if (problems.length > 0) errors.push(`world.bench is invalid: ${problems.join(', ')}`);
+  }
+  if (world.clues !== undefined) {
+    const c = world.clues;
+    const ok =
+      isObj(c) &&
+      typeof c.bootTipped === 'boolean' &&
+      typeof c.nook === 'boolean' &&
+      isNum(c.slides) &&
+      isNum(c.clawStreak) &&
+      isNum(c.orbit) &&
+      ['boot', 'frog', 'mushrooms', 'ringers', 'window', 'crossed'].every(
+        (k) => Array.isArray(c[k]) && (c[k] as unknown[]).every(isNum),
+      ) &&
+      isNumMap(c.riding) &&
+      isNumMap(c.thrown);
+    if (!ok) errors.push('world.clues is invalid');
+  }
+  if (world.hidden !== undefined) {
+    const problems = hiddenProblems(world.hidden);
+    if (problems.length > 0) errors.push(`world.hidden is invalid: ${problems.join(', ')}`);
+  }
+  if (world.journal !== undefined) {
+    const problems = journalProblems(world.journal);
+    if (problems.length > 0) errors.push(`world.journal is invalid: ${problems.join(', ')}`);
   }
   if (world.cauldron !== undefined) {
     const c = world.cauldron;
@@ -422,6 +449,7 @@ function isWardrobe(v: unknown): boolean {
     ) &&
     isNumMap(v.pollen) &&
     isNum(v.parade) &&
+    (v.worm === undefined || (isObj(v.worm) && isNum(v.worm.item) && isNum(v.worm.at))) &&
     Array.isArray(v.rng) &&
     v.rng.length === 4 &&
     v.rng.every(isNum)
@@ -513,4 +541,25 @@ function pocketProblems(pocket: unknown, ids: ReadonlySet<number>): string[] {
   });
   if (!isNumMap(pocket.at)) errors.push('at is invalid');
   return errors;
+}
+
+/** Problems with a saved journal (version 14). */
+function journalProblems(j: unknown): string[] {
+  if (!isObj(j)) return ['not an object'];
+  const out: string[] = [];
+  for (const k of ['bugs', 'items', 'potions', 'areas', 'noticed', 'hinted', 'viewed', 'lost'] as const)
+    if (!isStrings(j[k])) out.push(k);
+  if (!isNumMap(j.when)) out.push('when');
+  if (!isNum(j.last)) out.push('last');
+  if (!(j.sparkle === null || typeof j.sparkle === 'string')) out.push('sparkle');
+  if (!(isObj(j.extra) && Object.values(j.extra).every((v) => typeof v === 'string'))) out.push('extra');
+  if (!isObj(j.obs)) out.push('obs');
+  else
+    for (const [bug, o] of Object.entries(j.obs)) {
+      if (!(isObj(o) && isStrings(o.loved) && isStrings(o.disliked) && isNumMap(o.toys)))
+        out.push(`obs.${bug}`);
+      else if (!(o.place === null || typeof o.place === 'string') || typeof o.photo !== 'boolean')
+        out.push(`obs.${bug}`);
+    }
+  return out;
 }

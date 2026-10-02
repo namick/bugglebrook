@@ -312,7 +312,8 @@ describe('a real version 10 save', () => {
     const save = loadSaveFile(raw);
     expect(save.version).toBe(SAVE_VERSION);
     const sim = Sim.load(save.world);
-    expect(sim.barriers.span()).toEqual({ x0: 0, x1: sim.worldWidth });
+    // The whole surface strip; the hidden areas past it (M10) are their own sealed stretches.
+    expect(sim.barriers.span()).toEqual({ x0: 0, x1: sim.content.areas.get('area_treehouse_arcade').xEnd });
     const dot = sim.entities.ofKind('bug').find((e) => e.defId === 'bug_ladybug_dot')!;
     expect(dot.effects?.map((f) => f.potion)).toContain('potion_glow');
     sim.run(600);

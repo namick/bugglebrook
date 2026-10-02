@@ -331,12 +331,19 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
    */
   13: (save) => ({ ...save, version: 14 }),
   /**
-   * Version 15 (M11's hats and the music bugs) adds each bug's `wearing`
-   * and `world.wardrobe` (bugs' plans with what they wear, Buzzby's pollen,
-   * and the wardrobe's dice). A world without them wears nothing; loading
-   * gives it M11's new hats and accessories.
+   * Version 15 (M10) adds `world.journal`, `world.clues`, and
+   * `world.hidden`, and entity `home`. A world without a journal starts one
+   * on load, with the bugs, items, and areas its secrets and bench already
+   * prove the player found, and gets the two hidden areas built, still shut.
    */
   14: (save) => ({ ...save, version: 15 }),
+  /**
+   * Version 16 (M11's hats and the music bugs) adds each bug's `wearing`
+   * and `world.wardrobe` (bugs' plans with what they wear, Buzzby's pollen,
+   * the worm's hat, and the wardrobe's dice). A world without them wears
+   * nothing; loading gives it M11's new hats and accessories.
+   */
+  15: (save) => ({ ...save, version: 16 }),
 };
 
 export class SaveError extends Error {

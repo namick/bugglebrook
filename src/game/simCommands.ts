@@ -61,8 +61,8 @@ export function apply(sim: Sim, command: Command): void {
       const held = sim.physics.grabbed;
       let x = command.x;
       if (held !== null) {
-        const span = sim.barriers.span();
         const at = sim.physics.position(held).x;
+        const span = sim.barriers.span(at);
         const e = sim.entities.get(held);
         const box = e?.kind === 'item' ? sim.boxOf(held) : null;
         const half = box ? Math.min((box.x1 - box.x0) / 2, (span.x1 - span.x0) / 4) : 0;
@@ -89,6 +89,7 @@ export function apply(sim: Sim, command: Command): void {
       if (entity.bug) releaseBug(entity.bug, sim.content.bugs.get(entity.defId), flung, s.y);
       if (entity.bug?.pending) sim.cast.released(entity);
       sim.places.released(entity);
+      sim.hidden.released(entity.id);
       sim.setup.touch(entity.id);
       sim.events.emit('item_dropped', {
         id: entity.id,
@@ -221,6 +222,16 @@ export function apply(sim: Sim, command: Command): void {
           ? { x: command.x, y: command.y }
           : null;
       return;
+    case 'find_secret': {
+      const grant = (id: string, depth: number): void => {
+        const def = sim.content.secrets.tryGet(id);
+        if (!def || depth > 8) return;
+        for (const r of def.requires ?? []) grant(r, depth + 1);
+        sim.findSecret(id, sim.view0().x0 + 5, 5);
+      };
+      grant(String(command.id), 0);
+      return;
+    }
     case 'unlock':
       if (sim.content.areas.has(command.area)) sim.barriers.unlock(command.area, sim.view0().x0, 5);
       return;
@@ -263,6 +274,15 @@ export function apply(sim: Sim, command: Command): void {
       return;
     case 'photo_saved':
       sim.events.emit('photo_saved', { ok: command.ok === true });
+      return;
+    case 'journal_seen':
+      if (Array.isArray(command.keys)) sim.journal.viewed(command.keys.slice(0, 400).map(String));
+      return;
+    case 'notice':
+      sim.journal.notice(String(command.what));
+      return;
+    case 'travel':
+      if (typeof command.door === 'string') sim.hidden.travel(command.door);
       return;
     case 'beckon': {
       const bug = sim.entities.get(command.id);

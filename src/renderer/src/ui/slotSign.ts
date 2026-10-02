@@ -5,8 +5,10 @@ import type { SaveFile } from '../../../game';
 import { drawFriend } from '../render/draw/pictogram';
 import { OUTLINE, darken, stroke } from '../render/palette';
 import { Bounce, markUi } from './button';
+import { drawDotJar } from '../journal/entryArt';
+import { secretJar } from '../journal/layout';
 import { drawBoard } from './controls';
-import { CREAM, LEAF, LEAF_DARK, jarIcon, sproutIcon } from './icons';
+import { CREAM, LEAF, LEAF_DARK, sproutIcon } from './icons';
 
 export const SIGN_W = 380;
 export const SIGN_H = 340;
@@ -22,7 +24,7 @@ export interface SlotPicture {
   badge: string | null;
   /** Bug defs living in the world, for the row of little faces. */
   bugs: string[];
-  /** 0 to 1: how many of those bugs the player has fed. */
+  /** 0 to 1: the share of the world's findable secrets it has found (playtest F4). */
   fill: number;
 }
 
@@ -43,11 +45,10 @@ export function slotPicture(save: SaveFile): SlotPicture {
         .map((e) => e.defId),
     ),
   ].sort();
-  const fedBugs = bugs.filter((b) => (fed[b] ?? 0) > 0).length;
   // A bad picture never costs the slot: it just shows no picture.
   const thumb =
     save.meta.thumb && /^data:image\/(png|jpeg|webp);base64,/.test(save.meta.thumb) ? save.meta.thumb : null;
-  return { thumb, badge, bugs, fill: bugs.length ? fedBugs / bugs.length : 0 };
+  return { thumb, badge, bugs, fill: secretJar(CONTENT, save.world.secrets).fill };
 }
 
 /** A data URL as a texture, once the image has decoded. */
@@ -66,8 +67,9 @@ export async function textureFromDataUrl(url: string): Promise<Texture | null> {
  * One save slot on the menu (game design doc, section 17): a big wooden sign
  * on a post. Empty, it shows a sprout in a pot with a plus leaf. Used, it
  * shows a picture of the world from the last save, a round badge with the
- * face of the bug the player fed most, a jar filling up as more bugs get
- * fed, and a little face for each bug that lives there.
+ * face of the bug the player fed most, a jar of glowing dots that fills as
+ * the world's secrets are found, and a little face for each bug that lives
+ * there.
  *
  * Click to play. A used sign can be dragged: drop it on the compost bin to
  * delete the slot (the bin's lid is the confirm).
@@ -228,7 +230,7 @@ export class SlotSign extends Container {
     this.face.addChild(badge);
     // The jar and the row of bug faces.
     const stats = new Graphics();
-    jarIcon(stats, 70, picture.fill);
+    drawDotJar(stats, 76, picture.fill);
     stats.position.set(-SIGN_W / 2 + 62, SIGN_H / 2 - 64);
     this.face.addChild(stats);
     const faces = new Graphics();

@@ -259,6 +259,20 @@ const legs = (joint: readonly [V, V, V], upper = 'leg_upper', lower = 'leg_lower
 
 /** The parts of the bugs drawn by species painters, in radii, back to front (docs/06-art-guide.md, A4). */
 const PAINTED: Partial<Record<BugArt, readonly Entry[]>> = {
+  tardigrade: [
+    {
+      name: 'body',
+      kind: 'static',
+      at: [-0.13, -0.11],
+      note: 'The chubby bean body, head end at the front. No face.',
+    },
+    { name: 'snout', kind: 'static', at: [1.0, 0.16], note: 'The round tube mouth at the front.' },
+    legs([
+      [0.05, 0.56],
+      [0.06, 0.77],
+      [0.07, 0.98],
+    ]),
+  ],
   stinkbug: [
     { name: 'belly', kind: 'static', at: [-0.38, 0.52], note: 'Pale underside.' },
     { name: 'head', kind: 'static', at: [1.02, 0.12], note: 'Small head, tucked under the shield. No face.' },
@@ -1324,6 +1338,7 @@ const PAINTED_FACE: Partial<
   caterpillar: { eye: [1.06, 0.02, 0.19], mouth: [0.96, 0.29, 0.4] },
   mantis: { eye: [1.36, -0.98, 0.26], mouth: [1.1, -0.56, 0.24] },
   stickinsect: { eye: [1.6, -0.6, 0.173], mouth: [1.7, -0.467, 0.333] },
+  tardigrade: { eye: [0.767, -0.206, 0.101], mouth: [0.851, 0.08, 0.21] },
   bee: { eye: [0.932, -0.075, 0.158], mouth: [0.897, 0.18, 0.242] },
   cricket: { eye: [1.025, -0.229, 0.146], mouth: [0.999, 0.004, 0.224] },
   moth: { eye: [0.93, -0.209, 0.158], mouth: [0.894, 0.029, 0.22] },

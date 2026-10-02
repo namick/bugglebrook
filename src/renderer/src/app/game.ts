@@ -1,7 +1,7 @@
 import type { Application, FederatedPointerEvent, FederatedWheelEvent } from 'pixi.js';
 import { Container, Graphics, Point, UPDATE_PRIORITY } from 'pixi.js';
 import { CONTENT, FixedStepper, Sim, VIEW_HEIGHT_PX, VIEW_WIDTH_M, VIEW_WIDTH_PX } from '../../../game';
-import type { PhotoRecord } from '../../../game';
+import type { PageId, PhotoRecord } from '../../../game';
 import type { BugglebrookApi } from '../../../shared/ipc';
 import type { Settings } from '../../../shared/settings';
 import type { AudioBackend } from '../audio/synth';
@@ -25,14 +25,18 @@ import type { CursorPose } from '../ui/cursor';
 import { HandCursor, cursorPose } from '../ui/cursor';
 import { MenuScene, homeButton, pauseButton } from '../ui/menu';
 import type { MenuSound } from '../ui/menu';
-import { AlbumButton, ALBUM_AT, cameraButton } from '../ui/photoButtons';
+import { cameraButton } from '../ui/photoButtons';
 import { PocketTray } from '../ui/pocketTray';
 import { CreditsBoard } from '../ui/creditsBoard';
 import { CREDITS } from '../ui/credits';
 import { SettingsPanel } from '../ui/settingsPanel';
-import { StampStrip } from '../ui/stampStrip';
+import { HiddenDirector } from './hiddenDirector';
 import { HintDirector } from './hintDirector';
-import { AlbumBoard } from '../photo/album';
+import { GUIDE } from './ghost';
+import { guideSkipButton } from '../ui/guideSkip';
+import { JOURNAL_AT, JournalButton } from '../ui/journalButton';
+import { JournalView } from '../journal/journalView';
+import { withSeen } from '../journal/layout';
 import { PhotoMode } from '../photo/photoMode';
 import { INTRO, Intro } from './intro';
 import { SaveService } from './saveService';
@@ -64,9 +68,15 @@ interface WorldSession {
   ui: Container;
   pause: PictureButton;
   home: PictureButton;
-  /** The camera (photo mode) and the album, top right. They stay up while the rest of the UI hides. */
+  /** The camera (photo mode) and the journal, top right. They stay up while the rest of the UI hides. */
   cameraButton: PictureButton;
-  album: AlbumButton;
+  journal: JournalButton;
+  /** Journal entries looked at this visit, until the sim takes `journal_seen` on its next step. */
+  seen: Set<string>;
+  /** Seconds until the journal button rereads the book. */
+  bookIn: number;
+  /** The spread the journal was last left open on. */
+  spread: number;
   topUi: Container;
   pocket: PocketTray;
   /** The player's photos, oldest first (saved in `meta.photos`). */
@@ -93,8 +103,10 @@ interface WorldSession {
   marks: HintMarks;
   ghost: GhostHand;
   hintTime: number;
-  /** The discovery stamps, top right (R22). */
-  stamps: StampStrip;
+  /** Skips the guided start (F3), shown while it runs. */
+  guideSkip: PictureButton;
+  /** M10's hidden areas: the doorways' iris wipe, the telescope, the finale's camera. */
+  hidden: HiddenDirector;
 }
 
 /** The native moves the browser merged into this one, oldest first, if it can tell us. */
@@ -125,8 +137,8 @@ export class Game {
   private closingCredits: CreditsBoard[] = [];
   /** Photo mode, while the camera is out. */
   photo: PhotoMode | null = null;
-  /** The photo album, while it is open over the world. */
-  album: AlbumBoard | null = null;
+  /** The journal, while it is open over the world. */
+  journal: JournalView | null = null;
   readonly saves: SaveService;
   readonly settings: SettingsService;
   readonly sfx: Sfx;
@@ -202,11 +214,14 @@ export class Game {
       // Escape opens pause as a convenience (the button is always on screen too).
       if (e.key === 'Escape') {
         if (this.photo) this.closePhoto();
-        else if (this.album) this.closeAlbum();
+        else if (this.journal) this.closeJournal();
         else if (this.panel) this.closePanel();
         else if (this.credits) this.closeCredits();
         else if (this.session) this.openPause();
       }
+      // The arrow keys turn the journal's pages.
+      if (this.journal && (e.key === 'ArrowRight' || e.key === 'ArrowLeft'))
+        this.journal.turn(e.key === 'ArrowRight' ? 1 : -1);
     });
     this.curtain.rect(0, 0, VIEW_WIDTH_PX, VIEW_HEIGHT_PX).fill(0x2b1b2e);
     this.curtain.alpha = 0;
@@ -234,13 +249,19 @@ export class Game {
   /** Is the sim stopped? Hidden window, open pause board, or frozen by a test. */
   get paused(): boolean {
     return (
-      this.hidden || this.frozen || ((this.panel !== null || this.album !== null) && this.session !== null)
+      this.hidden || this.frozen || ((this.panel !== null || this.journal !== null) && this.session !== null)
     );
   }
 
-  /** Something is open over the world that takes the pointer: the pause board, the album, or the camera. */
+  /** Something is open over the world that takes the pointer: the pause board, the journal, or the camera. */
   private get overlaid(): boolean {
-    return this.panel !== null || this.album !== null || this.photo !== null;
+    return (
+      this.panel !== null ||
+      this.journal !== null ||
+      this.photo !== null ||
+      // M10: looking through Gnome Hollow's telescope.
+      (this.session?.hidden.telescope.isOpen ?? false)
+    );
   }
 
   /** Hide the system cursor and draw the hand on top of everything instead. */
@@ -488,9 +509,11 @@ export class Game {
     const intro = !save && this.introEnabled ? new Intro() : null;
     if (intro) sim.send({ type: 'stage_intro' });
     const camera = new Camera(sim.worldWidth, VIEW_WIDTH_M);
-    const open = sim.barriers.span();
-    camera.setLimits(open.x0, open.x1);
-    camera.set(save ? save.view.cameraX : START_CAMERA_X);
+    const startX = save ? save.view.cameraX : START_CAMERA_X;
+    const at = startX + VIEW_WIDTH_M / 2;
+    const open = sim.barriers.view(at);
+    camera.setLimits(open.x0, open.x1, sim.barriers.region(at));
+    camera.set(startX);
     if (intro) {
       // Slide in from the pond side and settle with sleeping Dot in the middle.
       const dot = sim.views().find((v) => v.defId === 'bug_ladybug_dot');
@@ -515,19 +538,27 @@ export class Game {
     });
     const home = homeButton(() => {
       this.sfx.play('ui_pop');
+      // Inside a hidden area, home is back out through its doorway first.
+      if (this.session?.hidden.leave()) return;
       this.session?.camera.glideTo(START_CAMERA_X, 1);
     });
     const camButton = cameraButton(() => this.togglePhoto());
-    const album = new AlbumButton(() => {
-      this.sfx.play('ui_pop');
-      this.openAlbum();
-    });
-    album.visible = (save?.meta.photos?.length ?? 0) > 0;
-    for (const b of [pause, home, camButton, album]) b.onHover = () => this.sfx.play('hover', 0.5);
+    const journal = new JournalButton(sim);
+    journal.onPress = () => this.openJournal();
+    journal.onHover = () => this.sfx.play('hover', 0.5);
+    journal.onStamp = () => this.sfx.play('stamp');
+    for (const b of [pause, home, camButton]) b.onHover = () => this.sfx.play('hover', 0.5);
     const cover = new Graphics().rect(0, 0, VIEW_WIDTH_PX, VIEW_HEIGHT_PX).fill(0x2b1b2e);
     cover.eventMode = 'none';
     cover.alpha = intro ? 1 : 0;
     const hints = new HintDirector(sim, camera, input);
+    // A new world's first scene leads into the guided start (playtest F3).
+    if (intro) hints.ghost.startGuide();
+    const guideSkip = guideSkipButton(() => {
+      this.sfx.play('ui_pop');
+      this.session?.hints.skipGuide();
+    });
+    guideSkip.visible = false;
     view.hints = hints.affordance;
     view.music = () => {
       const seq = this.music.sequencerReport();
@@ -535,15 +566,14 @@ export class Game {
     };
     const marks = new HintMarks();
     const ghost = new GhostHand((defId) => sim.content.items.tryGet(defId));
-    const stamps = new StampStrip(sim);
-    stamps.onStamp = () => this.sfx.play('stamp');
-    ui.addChild(pocket, pause, home, stamps);
-    // The ghost hand goes over the UI, so it can reach into the pocket.
-    root.addChild(view, marks, cover, ui, ghost);
-    ui.addChild(pocket, pause, home);
+    ui.addChild(pocket, pause, home, guideSkip);
     const topUi = new Container();
-    topUi.addChild(camButton, album);
-    root.addChild(view, cover, ui, topUi);
+    topUi.addChild(camButton, journal);
+    // The hint marks sit on the world; the ghost hand goes over the UI, so it can reach into the pocket.
+    root.addChild(view, marks, cover, ui, topUi, ghost);
+    const hidden = new HiddenDirector(sim, camera, input, (name, strength) => this.sfx.play(name, strength));
+    root.addChildAt(hidden.iris, root.getChildIndex(view) + 1);
+    root.addChild(hidden.telescope);
 
     this.menu?.destroy({ children: true });
     this.menu = null;
@@ -582,7 +612,10 @@ export class Game {
       pause,
       home,
       cameraButton: camButton,
-      album,
+      journal,
+      seen: new Set(),
+      bookIn: 0,
+      spread: 0,
       topUi,
       pocket,
       photos: [...(save?.meta.photos ?? [])],
@@ -600,7 +633,8 @@ export class Game {
       marks,
       ghost,
       hintTime: 0,
-      stamps,
+      guideSkip,
+      hidden,
     };
     input.onGesture = (gesture, strength) => {
       if (gesture === 'pan' || gesture === 'scroll' || gesture === 'edge') session.panned = true;
@@ -641,12 +675,13 @@ export class Game {
     if (!this.session) return;
     this.photo?.destroy({ children: true });
     this.photo = null;
-    this.album?.destroy({ children: true });
-    this.album = null;
+    this.journal?.destroy({ children: true });
+    this.journal = null;
     this.sfx.detach();
     this.music.detach();
     this.voices.detach();
     this.session.hints.dispose();
+    this.session.hidden.dispose();
     this.session.sim.events.clear();
     this.session.root.destroy({ children: true });
     this.session = null;
@@ -656,7 +691,7 @@ export class Game {
   openPause(): void {
     if (!this.session || this.panel) return;
     if (this.photo) this.closePhoto();
-    if (this.album) this.closeAlbum(true);
+    if (this.journal) this.closeJournal(true);
     this.openPanel(true);
     void this.saveNow();
   }
@@ -748,7 +783,7 @@ export class Game {
 
   private closingPanels: SettingsPanel[] = [];
   private closingPhotos: PhotoMode[] = [];
-  private closingAlbums: AlbumBoard[] = [];
+  private closingJournals: JournalView[] = [];
 
   /** The camera button: out, or away again. */
   togglePhoto(): void {
@@ -766,7 +801,7 @@ export class Game {
     const s = this.session;
     if (!s || this.photo || this.switching) return;
     this.closePanel(true);
-    this.closeAlbum(true);
+    this.closeJournal(true);
     s.input.leave();
     s.camera.stopGlide();
     s.camera.velocity = 0;
@@ -782,11 +817,10 @@ export class Game {
         void this.saveNow();
       },
       onLanded: () => {
-        s.album.visible = true;
-        s.album.bump();
+        s.journal.bump();
         this.sfx.play('pick', 0.7);
       },
-      albumAt: () => ALBUM_AT,
+      journalAt: () => JOURNAL_AT,
       now: () => new Date().toISOString(),
     });
     this.photo = photo;
@@ -809,32 +843,69 @@ export class Game {
     void this.saveNow();
   }
 
-  /** The album (the journal's photos page, for now): the world pauses under it. */
-  openAlbum(): void {
+  /**
+   * The journal (game design doc, section 13): the world pauses under it.
+   * From photo mode, the camera goes away first. `page` opens at a tab;
+   * otherwise it opens where it was left.
+   */
+  openJournal(page: PageId | null = null): void {
     const s = this.session;
-    if (!s || this.album || this.photo || this.panel) return;
-    const album = new AlbumBoard(s.photos, {
-      close: () => this.closeAlbum(),
-      sound: (name) => this.sfx.play(name),
-    });
-    this.album = album;
+    if (!s || this.journal || this.panel || this.switching) return;
+    if (this.photo) this.closePhoto();
+    s.input.leave();
+    const sim = s.sim;
+    const view = new JournalView(
+      {
+        content: sim.content,
+        book: () => sim.book(),
+        photos: s.photos,
+        seen: s.seen,
+        send: (command) => sim.send(command),
+        sound: (name, strength) => this.sfx.play(name, strength),
+        close: () => this.closeJournal(),
+        travel: (areaId) => this.travelTo(areaId),
+        // Only found areas the world has (the hidden ones may not be built yet).
+        canTravel: (areaId) =>
+          sim.content.areas.tryGet(areaId) !== undefined && sim.journal.state.areas.includes(areaId),
+        cameraCenter: () => s.camera.centerX,
+        reduceMotion: () => this.settings.get().reduceMotion,
+        buttonAt: () => JOURNAL_AT,
+      },
+      page,
+      s.spread,
+    );
+    this.journal = view;
     this.stepper.reset();
-    this.app.stage.addChild(album);
+    this.app.stage.addChild(view);
     this.raiseOverlays();
   }
 
-  closeAlbum(now = false): void {
-    const album = this.album;
-    if (!album) return;
-    this.album = null;
+  /** Close the journal: the world runs on at once while the book flies home. `now` skips that. */
+  closeJournal(now = false): void {
+    const view = this.journal;
+    if (!view) return;
+    this.journal = null;
     this.stepper.reset();
+    if (this.session) {
+      this.session.spread = view.lastSpread;
+      this.session.bookIn = 0;
+    }
     if (now) {
-      album.destroy({ children: true });
+      view.destroy({ children: true });
       return;
     }
-    album.onClosed = () => album.destroy({ children: true });
-    album.close();
-    this.closingAlbums.push(album);
+    view.onClosed = () => view.destroy({ children: true });
+    view.close();
+    this.closingJournals.push(view);
+  }
+
+  /** The map page: close the book and glide the camera to an area. */
+  travelTo(areaId: string): void {
+    const s = this.session;
+    const area = s?.sim.content.areas.tryGet(areaId);
+    this.closeJournal();
+    if (!s || !area) return;
+    s.camera.glideTo((area.xStart + area.xEnd) / 2 - VIEW_WIDTH_M / 2, 1.2);
   }
 
   /** Save the current world, with a fresh picture for its sign. Saves never interleave. */
@@ -901,6 +972,7 @@ export class Game {
     if (!s) return;
     for (let i = 0; i < n; i++) {
       if (this.frameClock !== null) this.frameClock += 1000 / 60;
+      s.hidden.update(1 / 60);
       s.input.frame(1 / 60);
       this.sendHand(s);
       s.sim.step();
@@ -953,6 +1025,9 @@ export class Game {
   /** Tests can have the next world open frozen, so not one step runs before they say. */
   freezeNextWorld = false;
 
+  /** Screenshots can slow the journal's animations down to catch them midway. */
+  journalSpeed = 1;
+
   /** Tests can stop the menu's clock and step it with `menuFrames`. */
   menuFrozen = false;
 
@@ -972,15 +1047,15 @@ export class Game {
       b.update(dt);
       return !b.destroyed;
     });
-    if (this.album) this.album.update(dt);
+    if (this.journal) this.journal.update(dt * this.journalSpeed);
     this.closingPanels = this.closingPanels.filter((p) => {
       if (p.destroyed) return false;
       p.update(dt);
       return !p.destroyed;
     });
-    this.closingAlbums = this.closingAlbums.filter((a) => {
+    this.closingJournals = this.closingJournals.filter((a) => {
       if (a.destroyed) return false;
-      a.update(dt);
+      a.update(dt * this.journalSpeed);
       return !a.destroyed;
     });
     this.closingPhotos = this.closingPhotos.filter((p) => {
@@ -1000,6 +1075,7 @@ export class Game {
       return;
     }
     if (!this.paused) {
+      s.hidden.update(dt);
       s.input.frame(dt);
       this.stepper.advance(dt, () => s.sim.step());
       this.sinceSave += dt;
@@ -1007,8 +1083,9 @@ export class Game {
       this.runIntro(s, dt);
     }
     // Locked areas: the camera may look past a barrier, and springs back when let go.
-    const open = s.sim.barriers.span();
-    s.camera.setLimits(open.x0, open.x1);
+    // Inside a hidden area (M10), its sealed stretch is all there is.
+    const open = s.sim.barriers.view(s.camera.centerX);
+    s.camera.setLimits(open.x0, open.x1, s.sim.barriers.region(s.camera.centerX));
     if (s.follow !== null) {
       s.camera.glideTo(s.follow, 1.6);
       s.follow = null;
@@ -1023,7 +1100,6 @@ export class Game {
     if (this.photo) this.photo.update(dt);
     const hideUi = this.photo !== null || this.closingPhotos.length > 0;
     s.ui.visible = !hideUi;
-    s.album.visible = s.photos.length > 0 || this.album !== null;
     this.music.worldFrame(dt, {
       sim: s.sim,
       x0: s.camera.x,
@@ -1046,12 +1122,19 @@ export class Game {
     }
     s.pause.update(dt);
     s.home.update(dt);
+    s.guideSkip.visible = s.hints.ghost.guiding && (s.intro === null || s.intro.t >= GUIDE.startAt);
+    s.guideSkip.update(dt);
     // Hints: wobbles and glints where the hand rests, and now and then a ghost-hand demo.
     const reduced = this.settings.get().reduceMotion;
     const ghost = s.hints.update({
       dt,
       wallDt: Math.min(2, this.app.ticker.deltaMS / 1000),
-      blocked: this.paused || this.switching || this.overlaid || s.intro !== null,
+      // The guided start may run during the first scene, once its camera slide is over.
+      blocked:
+        this.paused ||
+        this.switching ||
+        this.overlaid ||
+        (s.intro !== null && !(s.hints.ghost.guiding && s.intro.t >= GUIDE.startAt)),
       pointer: this.pointer,
       reduced,
     });
@@ -1064,8 +1147,14 @@ export class Game {
       glint: tab.glint('pocket'),
       wobble: tab.wobble('pocket') * (reduced ? 0.4 : 1),
     });
-    s.stamps.update(dt, this.overlaid ? null : this.pointer, Math.min(2, this.app.ticker.deltaMS / 1000));
+    // The journal button rereads the book now and then (it is not free to work out).
+    s.bookIn -= dt;
+    if (s.bookIn <= 0) {
+      s.bookIn = 0.5;
+      const book = withSeen(s.sim.book(), s.seen);
+      s.journal.setBook(book.completion, book.newCount);
+    }
+    s.journal.update(dt, this.overlaid ? null : this.pointer, Math.min(2, this.app.ticker.deltaMS / 1000));
     s.cameraButton.update(dt);
-    s.album.update(dt);
   }
 }

@@ -152,6 +152,10 @@ const SOAPED = ['tag_sticky', 'tag_slimy', 'tag_smelly', 'tag_painted', 'tag_mud
 
 /** Fixtures a click does something to. */
 const CLICKABLE: ReadonlySet<FixtureDef['kind']> = new Set<FixtureDef['kind']>([
+  // M10's clues (`Clues.poke`).
+  'window',
+  'frog_eyes',
+  'clover',
   'hose_tap',
   'rubber_boot',
   'teacup',
@@ -173,6 +177,16 @@ const CLICKABLE: ReadonlySet<FixtureDef['kind']> = new Set<FixtureDef['kind']>([
   'bench_lever',
   'cauldron',
   'bug_scope',
+  // M10 hidden areas (doorways answer only once open).
+  'ant_hill',
+  'depths_door',
+  'gnome_door',
+  'hollow_door',
+  'ant_queen',
+  'larva',
+  'root_knot',
+  'telescope',
+  'moon_pedestal',
   'trash_can',
 ]);
 
@@ -293,6 +307,8 @@ export class Environment {
         if (!CLICKABLE.has(f.kind)) continue;
         // Hidden bugs' hideouts stop answering once their bug is found.
         if (f.kind === 'munch_leaf' && this.sim.cast.joined('bug_caterpillar_munch')) continue;
+        // A hidden area's doorway is only a doorway once it opens (the ant hill always answers).
+        if (f.door && f.kind !== 'ant_hill' && !this.sim.hidden.doorOpen(f.id)) continue;
         const fx = area.xStart + f.x;
         const hit =
           f.w !== undefined && f.h !== undefined
@@ -320,7 +336,7 @@ export class Environment {
       if (Math.hypot(x - sun.x, y - sun.y) <= SUN_SPOT) this.sim.weather.clickSun(sun.x, sun.y);
     } else if (f.kind === 'knothole') {
       this.sim.weather.pokeKnothole(f);
-    } else this.sim.places.poke(f);
+    } else if (!this.sim.clues.poke(f)) this.sim.places.poke(f);
     return true;
   }
 

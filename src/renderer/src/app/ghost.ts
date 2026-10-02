@@ -14,10 +14,25 @@
  */
 
 export type DemoKind =
-  'dial' | 'pocket' | 'cauldron' | 'lattice' | 'sunflower' | 'lever' | 'trash' | 'whistle';
+  | 'feed'
+  | 'fling'
+  | 'tickle'
+  | 'shake'
+  | 'dial'
+  | 'pocket'
+  | 'cauldron'
+  | 'lattice'
+  | 'sunflower'
+  | 'lever'
+  | 'trash'
+  | 'whistle';
 
-/** Most useful first: the plaza's own toys before the barriers. */
+/** Most useful first: the core verbs, then the plaza's own toys, then the barriers. */
 export const DEMO_ORDER: readonly DemoKind[] = [
+  'feed',
+  'fling',
+  'tickle',
+  'shake',
   'dial',
   'pocket',
   'trash',
@@ -39,6 +54,23 @@ export const GHOST = {
   fadeOut: 0.5,
   /** How see-through the ghost is at its brightest. */
   alpha: 0.7,
+} as const;
+
+/**
+ * The guided start (playtest F3): in a new world, right after the first
+ * scene's camera slide, the core verbs nobody can see (feeding, flinging,
+ * the tickle, the shake) are demoed one after another whenever the player
+ * pauses for a moment. Any input stops a demo; doing the gesture or the skip
+ * button ends that part. It is the same ghost, just sooner and in order.
+ */
+export const GUIDE = {
+  order: ['feed', 'fling', 'tickle', 'shake'] as readonly DemoKind[],
+  /** Seconds without input before a guided demo. */
+  idleSeconds: 4,
+  /** Seconds between guided demos. */
+  gapSeconds: 2.5,
+  /** The guide begins this long into the first scene (after the fade and the camera slide). */
+  startAt: 4.5,
 } as const;
 
 export type GhostPose = 'open' | 'hover_grab' | 'grab';
@@ -229,6 +261,38 @@ export function leverDemo(knob: Pt): GhostScript {
   };
 }
 
+/** Feed a bug: carry a food to its mouth and let go there. */
+export function feedDemo(food: Pt, mouth: Pt, defId: string): GhostScript {
+  return {
+    kind: 'feed',
+    carryDef: defId,
+    keys: [
+      ...reach(food),
+      { at: 1.15, x: food.x, y: food.y - 50, pose: 'grab', carry: true },
+      { at: 2.5, x: mouth.x, y: mouth.y - 20, pose: 'grab', carry: true },
+      { at: 2.8, x: mouth.x, y: mouth.y - 10, pose: 'grab', carry: true },
+      ...letGo({ x: mouth.x, y: mouth.y - 10 }, 3.0),
+    ],
+  };
+}
+
+/** Fling a thing: wind back a little, then a quick swoop up and away, letting go mid-swoop. */
+export function flingDemo(item: Pt, defId: string, dir: 1 | -1 = 1): GhostScript {
+  const back = { x: item.x - dir * 50, y: item.y + 10 };
+  const out = { x: item.x + dir * 230, y: item.y - 200 };
+  return {
+    kind: 'fling',
+    carryDef: defId,
+    keys: [
+      ...reach(item),
+      { at: 1.6, x: back.x, y: back.y, pose: 'grab', carry: true },
+      { at: 1.8, x: item.x + dir * 110, y: item.y - 90, pose: 'grab', carry: true },
+      { at: 1.95, x: out.x, y: out.y, pose: 'open' },
+      { at: 2.9, x: out.x + dir * 20, y: out.y - 30, pose: 'open' },
+    ],
+  };
+}
+
 /** The trash can (playtest F1): carry a small thing over its mouth (the lid gapes) and let go. */
 export function trashDemo(item: Pt, mouth: Pt, defId: string): GhostScript {
   const over = { x: mouth.x, y: mouth.y - 70 };
@@ -243,6 +307,25 @@ export function trashDemo(item: Pt, mouth: Pt, defId: string): GhostScript {
       ...letGo(over, 2.9),
     ],
   };
+}
+
+/** Tickle a bug: press on it and hold still, the fingers wiggling a little. */
+export function tickleDemo(bug: Pt): GhostScript {
+  const keys: GhostKey[] = reach(bug);
+  for (let k = 1; k <= 12; k++)
+    keys.push({ at: 1.0 + k * 0.17, x: bug.x + (k % 2 ? 3 : -3), y: bug.y + (k % 3) - 1, pose: 'grab' });
+  keys.push(...letGo(bug, 3.2));
+  return { kind: 'tickle', carryDef: null, keys };
+}
+
+/** Shake a held thing: pick it up and swing it back and forth three times, fast. */
+export function shakeDemo(item: Pt, defId: string): GhostScript {
+  const up = { x: item.x, y: item.y - 70 };
+  const keys: GhostKey[] = [...reach(item), { at: 1.4, x: up.x, y: up.y, pose: 'grab', carry: true }];
+  for (let k = 1; k <= 6; k++)
+    keys.push({ at: 1.4 + k * 0.13, x: up.x + (k % 2 ? 70 : -70), y: up.y, pose: 'grab', carry: true });
+  keys.push({ at: 2.4, x: up.x, y: up.y, pose: 'grab', carry: true }, ...letGo(up, 2.6));
+  return { kind: 'shake', carryDef: defId, keys };
 }
 
 /** The tidy whistle (playtest F2): two quick taps on it. */
@@ -262,8 +345,22 @@ export function whistleDemo(at: Pt): GhostScript {
 
 /** The sim events that mean the player found a demo's gesture. */
 export function demoDoneBy(name: string, payload: unknown): DemoKind | null {
-  const p = (payload ?? {}) as { areaId?: string; defId?: string; by?: string };
+  const p = (payload ?? {}) as {
+    areaId?: string;
+    defId?: string;
+    by?: string;
+    byPlayer?: boolean;
+    flung?: boolean;
+  };
   switch (name) {
+    case 'bug_fed':
+      return p.byPlayer ? 'feed' : null;
+    case 'item_dropped':
+      return p.flung ? 'fling' : null;
+    case 'bug_tickled':
+      return 'tickle';
+    case 'item_shaken':
+      return 'shake';
     case 'time_skipped':
       return 'dial';
     case 'pocketed':
@@ -347,6 +444,28 @@ export class GhostScheduler {
   stopped = 0;
   /** A demo already ran in this idle stretch. */
   private usedThisIdle = false;
+  /** The guided start's demos still to show, in order, or null when there is no guide (F3). */
+  guide: DemoKind[] | null = null;
+
+  /** Start the guided start: the core verbs the player has not done yet. */
+  startGuide(): void {
+    this.guide = GUIDE.order.filter((k) => !this.done.has(k));
+    if (this.guide.length === 0) this.guide = null;
+  }
+
+  /** The skip button: no more guided demos (the ordinary, rarer ones stay). */
+  skipGuide(): void {
+    this.guide = null;
+    if (this.active && GUIDE.order.includes(this.active.script.kind)) {
+      this.active = null;
+      this.sinceEnd = 0;
+    }
+  }
+
+  /** Is a guided demo still to come? */
+  get guiding(): boolean {
+    return this.guide !== null && this.guide.length > 0;
+  }
 
   /** The player did something: stop any demo now and start counting again. */
   input(): void {
@@ -362,19 +481,28 @@ export class GhostScheduler {
   /** The player found this gesture: never demo it again. */
   markDone(kind: DemoKind): void {
     this.done.add(kind);
+    if (this.guide) {
+      this.guide = this.guide.filter((k) => k !== kind);
+      if (this.guide.length === 0) this.guide = null;
+    }
     if (this.active?.script.kind === kind) {
       this.active = null;
       this.sinceEnd = 0;
     }
   }
 
-  /** Demos that may still be shown this session. */
+  /** Demos that may still be shown this session: while guiding, only the guide's next ones. */
   allowed(): DemoKind[] {
-    return DEMO_ORDER.filter((k) => !this.done.has(k) && (this.shown.get(k) ?? 0) < GHOST.perKind);
+    if (this.guide) return this.guide.filter((k) => !this.done.has(k));
+    return DEMO_ORDER.filter(
+      (k) => !this.done.has(k) && (this.shown.get(k) ?? 0) < GHOST.perKind && !GUIDE.order.includes(k),
+    );
   }
 
-  /** May a new demo start now? */
+  /** May a new demo start now? The guide waits less, and may show more than one per idle stretch. */
   get due(): boolean {
+    if (this.guide)
+      return this.active === null && this.idle >= GUIDE.idleSeconds && this.sinceEnd >= GUIDE.gapSeconds;
     return (
       this.active === null &&
       !this.usedThisIdle &&
@@ -411,6 +539,11 @@ export class GhostScheduler {
         this.active = { script, t: 0 };
         this.usedThisIdle = true;
         this.shown.set(script.kind, (this.shown.get(script.kind) ?? 0) + 1);
+        // Each guided demo shows once in the guide.
+        if (this.guide) {
+          this.guide = this.guide.filter((k) => k !== script.kind);
+          if (this.guide.length === 0) this.guide = null;
+        }
       }
     }
     const a = this.active;

@@ -6,7 +6,15 @@ import { CONTENT } from '../../src/game/data';
 import { WEAR_SLOTS } from '../../src/game/data/types';
 import { SAVE_VERSION } from '../../src/game/save/schema';
 import { MIGRATIONS, loadSaveFile } from '../../src/game/save/migrations';
-import { CLICK_TICKS, DOFF_AFTER, FLIP_AFTER, JUDGE_AFTER } from '../../src/game/systems/wardrobe';
+import {
+  CLICK_TICKS,
+  DOFF_AFTER,
+  FLIP_AFTER,
+  JUDGE_AFTER,
+  WORM_AWAY,
+  WORM_SHOWS_OFF,
+  wormRise,
+} from '../../src/game/systems/wardrobe';
 import { PLAZA_X } from './world';
 
 // M11: hats and accessories on bugs (game design doc, sections 2, 4, 7.3,
@@ -554,27 +562,27 @@ describe('secrets', () => {
   });
 });
 
-describe('save version 15', () => {
-  it('migrates a version 14 save, which wears nothing, and gives it M11’s new things', () => {
+describe('save version 16', () => {
+  it('migrates a version 15 save, which wears nothing, and gives it M11’s new things', () => {
     const sim = Sim.create({ seed: 'old' });
-    const world14 = sim.serialize();
-    delete world14.wardrobe;
-    world14.entities = world14.entities.filter(
+    const world15 = sim.serialize();
+    delete world15.wardrobe;
+    world15.entities = world15.entities.filter(
       (e) =>
         !(e.kind === 'item' && CONTENT.items.get(e.defId).wear) ||
         e.defId === 'item_hat_thimble' ||
         e.defId === 'item_hat_mushroom',
     );
     const file = {
-      version: 14,
+      version: 15,
       savedAt: 'x',
-      world: world14,
+      world: world15,
       view: { cameraX: 0 },
       meta: { createdAt: 'x', thumb: null },
     };
-    expect(MIGRATIONS[14]).toBeDefined();
+    expect(MIGRATIONS[15]).toBeDefined();
     const loaded = loadSaveFile(JSON.stringify(file));
-    expect(loaded.version).toBe(15);
+    expect(loaded.version).toBe(16);
     const back = Sim.load(loaded.world);
     const have = new Set(back.entities.ofKind('item').map((e) => e.defId));
     for (const id of ['item_hat_acorn_cap', 'item_acc_sunglasses', 'item_hat_tiny_top_hat', 'item_hat_chef'])
@@ -600,5 +608,52 @@ describe('save version 15', () => {
   it('every slot name is one of the four', () => {
     expect(WEAR_SLOTS).toEqual(['head', 'face', 'back', 'feet']);
     for (const w of WEARABLES) expect(WEAR_SLOTS).toContain(w.wear);
+  });
+});
+
+describe('the worm hat (secret_worm_hat)', () => {
+  it('a hat let go on the peeking worm goes down its hole, and comes up on the pond bank later', () => {
+    const sim = world('worm');
+    const log = record(sim);
+    const hole = sim.wardrobe.wormHole()!;
+    const hat = item(sim, 'item_hat_acorn_cap', hole.x - 3);
+    sim.run(20);
+    // Wait for it to peek, then carry the hat over and let go.
+    while (wormRise(sim.tick + 45, false) < 0.9 || wormRise(sim.tick + 90, false) < 0.9) sim.step();
+    carryTo(sim, hat, hole.x, hole.y - 0.4);
+    expect(sim.secrets).toContain('secret_worm_hat');
+    expect(sim.wardrobe.state.worm?.item).toBe(hat.id);
+    expect(sim.view(hat.id)!.worn).toEqual({ by: -1, slot: 'head' });
+    expect(sim.physics.isActive(hat.id)).toBe(false);
+    // Saved and loaded meanwhile, it is still down there.
+    const back = Sim.load(JSON.parse(JSON.stringify(sim.serialize())));
+    expect(back.physics.isActive(hat.id)).toBe(false);
+    const log2 = record(back);
+    back.run(WORM_AWAY + 5);
+    expect(named(log, 'worm_hatted')).toHaveLength(1);
+    expect(named(log2, 'worm_resurfaced')).toHaveLength(1);
+    const out = back.wardrobe.state.worm!.out!;
+    expect(back.areaOf(out.x).id).toBe('area_puddle_pond');
+    back.run(WORM_SHOWS_OFF + 60);
+    expect(back.wardrobe.state.worm).toBeUndefined();
+    const v = back.view(hat.id)!;
+    expect(back.physics.isActive(hat.id)).toBe(true);
+    expect(back.areaOf(v.x).id).toBe('area_puddle_pond');
+  });
+
+  it('the worm ducks from an empty hand, and takes no hat while it is down', () => {
+    const sim = world('worm-duck');
+    const hole = sim.wardrobe.wormHole()!;
+    while (wormRise(sim.tick, false) < 1) sim.step();
+    expect(sim.wardrobe.wormUp()).toBeGreaterThan(0.9);
+    sim.send({ type: 'hand', x: hole.x, y: hole.y - 0.5 });
+    sim.step();
+    expect(sim.wardrobe.wormUp()).toBe(0);
+    sim.send({ type: 'hand', x: null, y: null });
+    while (wormRise(sim.tick, false) > 0) sim.step();
+    const hat = item(sim, 'item_hat_acorn_cap', hole.x - 2);
+    sim.run(10);
+    carryTo(sim, hat, hole.x, hole.y - 0.4);
+    expect(sim.wardrobe.state.worm).toBeUndefined();
   });
 });

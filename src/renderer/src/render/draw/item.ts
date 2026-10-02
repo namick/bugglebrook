@@ -15,6 +15,7 @@ import {
   outlineItemArt8,
   pinwheelHub,
 } from './itemArt8';
+import { drawItemArt10 } from './itemArt10';
 import { drawWhistle, outlineWhistle } from './tidyArt';
 
 /** The outline behind small loose things' art (px): about 2 px heavier than their own. */
@@ -194,6 +195,7 @@ export class ItemSprite extends Container {
         if (
           !drawItemArt7(this.g, def, w, h, seed) &&
           !drawItemArt9(this.g, def, w, h) &&
+          !drawItemArt10(this.g, def, w, h) &&
           !drawItemArt11(this.g, def, w, h, seed)
         )
           drawItemArt8(this.g, def, w, h, seed);

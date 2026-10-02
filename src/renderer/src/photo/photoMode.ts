@@ -41,10 +41,10 @@ export interface PhotoHooks {
   reduceMotion(): boolean;
   /** A photo was taken. The record's `file` fills in once the write finishes. */
   onPhoto(record: PhotoRecord): void;
-  /** The polaroid landed on the album. */
+  /** the polaroid landed on the journal. */
   onLanded(): void;
   /** Where the polaroid flies to, in view pixels. */
-  albumAt(): Point;
+  journalAt(): Point;
   /** The time for the record (ISO). */
   now(): string;
 }
@@ -66,7 +66,7 @@ const FRAME_PITCH = 140;
 const FILTER_PITCH = 108;
 const TAB_X = 76;
 const SHUTTER_AT = { x: W - 140, y: H - 140 };
-/** How long the polaroid takes to fly to the album, in seconds. */
+/** How long the polaroid takes to fly to the journal, in seconds. */
 export const POLAROID_FLIGHT = 1.1;
 
 interface Flying {
@@ -720,7 +720,7 @@ export class PhotoMode extends Container {
     return bugsInFrame(this.view, bugs);
   }
 
-  /** Click: flash, the shutter sound, the file, and a polaroid that flies to the album. */
+  /** Click: flash, the shutter sound, the file, and a polaroid that flies to the journal. */
   shoot(): void {
     if (this.shooting || this.closing) return;
     this.shooting = true;
@@ -777,7 +777,7 @@ export class PhotoMode extends Container {
     this.shooting = false;
   }
 
-  /** The photo as a small polaroid that flies to the album. */
+  /** The photo as a small polaroid that flies to the journal. */
   private launchPolaroid(canvas: HTMLCanvasElement | null, record: PhotoRecord): Flying {
     const node = new Container();
     const picW = 420;
@@ -871,8 +871,8 @@ export class PhotoMode extends Container {
     for (const f of [...this.flying]) {
       f.t += dt / POLAROID_FLIGHT;
       const u = Math.min(1, f.t);
-      const to = this.hooks.albumAt();
-      // Hold still a moment to be seen, then swoop up to the album, shrinking and turning.
+      const to = this.hooks.journalAt();
+      // Hold still a moment to be seen, then swoop up to the journal, shrinking and turning.
       const hold = 0.35;
       const m = u < hold ? 0 : (u - hold) / (1 - hold);
       const ease = m * m * (3 - 2 * m);
@@ -907,7 +907,7 @@ export class PhotoMode extends Container {
   }
 }
 
-/** A 320x180 JPEG of the photo, for the save and the album. */
+/** A 320x180 JPEG of the photo, for the save and the journal. */
 function thumbOf(canvas: HTMLCanvasElement): string {
   try {
     const small = document.createElement('canvas');

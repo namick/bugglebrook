@@ -307,7 +307,9 @@ export function memoryModifier(brain: BugBrain, id: EntityId, tick: number): num
     if (e.id !== id) continue;
     const fresh = 1 - (tick - e.tick) / MEMORY_TICKS;
     if (fresh <= 0) continue;
-    m = e.good ? 1 + 0.5 * fresh : 1 - 0.7 * fresh;
+    // Failing at the same thing again and again (a target behind the player's setup) adds up,
+    // so a bug stops going back to it; a good time is remembered once.
+    m = e.good ? Math.max(m, 1 + 0.5 * fresh) : Math.min(m, 1) * (1 - 0.7 * fresh);
   }
   return m;
 }

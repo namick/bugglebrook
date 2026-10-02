@@ -71,6 +71,12 @@ export type Command =
   | { type: 'hand'; x: number | null; y: number | null }
   /** Debug and tests: open a locked area as if its barrier had been solved. */
   | { type: 'unlock'; area: string }
+  /**
+   * Debug, tests, and shots: find a secret as if its trigger had fired, its
+   * prerequisites first. It does nothing the secret's trigger does besides
+   * logging it (no items, no doors).
+   */
+  | { type: 'find_secret'; id: string }
   /** The player pulled the Tinker Bench's clothespin lever down (M8). */
   | { type: 'pull_lever' }
   /** The player stirred the cauldron with the ladle, by this many radians around its middle. */
@@ -95,6 +101,16 @@ export type Command =
    * The player's hand on the mushroom sequencer (M9): a press (`start`) on a
    * cap or a control, or a drag across caps that paints them like the first.
    */
-  | { type: 'seq_touch'; x: number; y: number; start: boolean };
+  | { type: 'seq_touch'; x: number; y: number; start: boolean }
+  /** The player looked at these journal entries (M10): they lose their "new!" badge. */
+  | { type: 'journal_seen'; keys: string[] }
+  /** The player noticed a clue the renderer shows on hover (M10, `NOTICES` in `systems/journal.ts`). */
+  | { type: 'notice'; what: string }
+  /**
+   * M10: go through the open doorway `door` (a fixture id). The renderer
+   * sends it at the middle of the iris wipe, as the camera moves to the
+   * other side; whatever the hand holds comes along.
+   */
+  | { type: 'travel'; door: string };
 
 export type CommandType = Command['type'];

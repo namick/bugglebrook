@@ -4,9 +4,11 @@ import { ITEMS } from './items';
 import { POTIONS } from './potions';
 import { RECIPES } from './recipes';
 import { SECRETS } from './secrets';
+import { MYSTERIES } from './mysteries';
+import { isGlyph } from './glyphs';
 import type { Registry } from './registry';
 import { ID_PATTERN } from './registry';
-import type { AreaDef, BugDef, ItemDef, PotionDef, RecipeDef, SecretDef } from './types';
+import type { AreaDef, BugDef, ItemDef, MysteryDef, PotionDef, RecipeDef, SecretDef } from './types';
 import { NEED_IDS, PAINT_IDS } from './types';
 import { MATERIALS } from './materials';
 import { VIEW_HEIGHT_M } from '../constants';
@@ -16,7 +18,7 @@ import { ESSENCE_IDS, ESSENCE_ITEMS, ESSENCE_PAINT, MOON_ITEMS } from './essence
 import type { AffinityDef } from './affinity';
 
 export * from './types';
-export { AREAS, BUGS, ITEMS, MATERIALS, POTIONS, RECIPES, SECRETS };
+export { AREAS, BUGS, ITEMS, MATERIALS, MYSTERIES, POTIONS, RECIPES, SECRETS };
 
 export interface Content {
   areas: Registry<AreaDef>;
@@ -25,6 +27,7 @@ export interface Content {
   recipes: Registry<RecipeDef>;
   potions: Registry<PotionDef>;
   secrets: Registry<SecretDef>;
+  mysteries: Registry<MysteryDef>;
 }
 
 export const CONTENT: Content = {
@@ -34,7 +37,11 @@ export const CONTENT: Content = {
   recipes: RECIPES,
   potions: POTIONS,
   secrets: SECRETS,
+  mysteries: MYSTERIES,
 };
+
+/** The hidden areas (section 3): sealed, past the strip, reached through doorways. */
+export const HIDDEN_AREA_IDS: readonly string[] = ['area_ant_hill_depths', 'area_gnome_hollow'];
 
 /** Width of the whole world in meters: the right edge of the last area. */
 export function worldWidth(content: Content = CONTENT): number {
@@ -88,6 +95,15 @@ export function validateContent(
 
   const ref = (reg: Registry<{ id: string }>, id: string, where: string): void => {
     if (!reg.has(id)) errors.push(`${where} references unknown ${reg.kind} "${id}"`);
+  };
+  const areaRef = (id: string, where: string): void => ref(content.areas, id, where);
+  /** A journal hint is a glyph or a picture of an item, a bug, or an area. */
+  const hintRef = (g: string, where: string): void => {
+    if (isGlyph(g)) return;
+    if (g.startsWith('item_')) ref(content.items, g, where);
+    else if (g.startsWith('bug_')) ref(content.bugs, g, where);
+    else if (g.startsWith('area_')) areaRef(g, where);
+    else errors.push(`${where} has an unknown hint pictogram "${g}"`);
   };
 
   // Areas must tile the world left to right without gaps or overlaps.
@@ -161,6 +177,14 @@ export function validateContent(
         if (!f.item) errors.push(`${where} shelf jar ${f.id} holds nothing`);
         else ref(content.items, f.item, `${where} shelf jar ${f.id}`);
       }
+      if (f.door !== undefined) {
+        // A doorway leads to a doorway in another area, which leads back.
+        const other = content.areas.all.flatMap((a) => (a.fixtures ?? []).map((q) => ({ a, q })));
+        const to = other.find((o) => o.q.id === f.door);
+        if (!to) errors.push(`${where} doorway ${f.id} leads to unknown fixture "${f.door}"`);
+        else if (to.a.id === area.id || to.q.door !== f.id)
+          errors.push(`${where} doorway ${f.id} and ${f.door} must lead to each other across areas`);
+      }
       if (f.w !== undefined && !(f.w > 0)) errors.push(`${where} fixture ${f.id} width must be positive`);
       if (f.h !== undefined && !(f.h > 0)) errors.push(`${where} fixture ${f.id} height must be positive`);
     }
@@ -200,9 +224,19 @@ export function validateContent(
         errors.push(`${where} start ${s.defId} y is off screen`);
     }
   }
-  // Every locked area has exactly one barrier that opens it.
+  // Every locked area has exactly one barrier that opens it. A hidden area
+  // opens through a secret instead, and has doorways in and out.
   for (const area of content.areas.all) {
     if (area.unlockedByDefault) continue;
+    if (area.hidden) {
+      const by = content.secrets.all.filter((s) =>
+        s.unlocks.some((u) => u.kind === 'area' && u.id === area.id),
+      );
+      if (by.length !== 1) errors.push(`hidden area ${area.id} needs exactly one secret that opens it`);
+      if (!(area.fixtures ?? []).some((f) => f.door !== undefined))
+        errors.push(`hidden area ${area.id} has no doorway`);
+      continue;
+    }
     const barriers = content.areas.all.flatMap((a) => (a.fixtures ?? []).filter((f) => f.opens === area.id));
     if (barriers.length !== 1)
       errors.push(`area ${area.id} is locked and needs exactly one barrier to open it`);
@@ -320,7 +354,7 @@ export function validateContent(
     const t = secret.trigger;
     switch (t.type) {
       case 'scripted':
-        ref(content.areas, t.area, where);
+        areaRef(t.area, where);
         break;
       case 'bug_holds_item':
         ref(content.bugs, t.bug, where);
@@ -336,8 +370,34 @@ export function validateContent(
         break;
     }
     for (const unlock of secret.unlocks) {
-      const reg = { bug: content.bugs, area: content.areas, item: content.items }[unlock.kind];
-      ref(reg, unlock.id, where);
+      if (unlock.kind === 'area') areaRef(unlock.id, where);
+      else ref(unlock.kind === 'bug' ? content.bugs : content.items, unlock.id, where);
+    }
+    if (![1, 2, 3].includes(secret.tier)) errors.push(`${where} has a bad tier`);
+    if (secret.blocked === undefined && secret.hint.length === 0) errors.push(`${where} has no hint`);
+    if (secret.hint.length > 3) errors.push(`${where} has more than three hint pictograms`);
+    for (const g of secret.hint) hintRef(g, where);
+    for (const r of secret.requires ?? []) {
+      ref(content.secrets, r, where);
+      if (r === secret.id) errors.push(`${where} requires itself`);
+      const other = content.secrets.tryGet(r);
+      if (other?.blocked && !secret.blocked)
+        errors.push(`${where} requires blocked ${r}, so it is blocked too`);
+    }
+    if (secret.blocked !== undefined && secret.blocked.trim() === '')
+      errors.push(`${where} is blocked without a reason`);
+  }
+
+  for (const m of content.mysteries.all) {
+    const where = `mystery ${m.id}`;
+    for (const a of m.areas) areaRef(a, where);
+    if (m.steps.length < 3) errors.push(`${where} needs at least three steps`);
+    for (const step of m.steps) {
+      if (!step.secret && !step.noticed && !step.item)
+        errors.push(`${where} has a step with nothing to fill it`);
+      if (step.secret) ref(content.secrets, step.secret, where);
+      if (step.item) ref(content.items, step.item, where);
+      for (const g of step.hint) hintRef(g, where);
     }
   }
 

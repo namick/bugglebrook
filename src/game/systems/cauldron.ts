@@ -154,7 +154,12 @@ export class Cauldron {
     const sim = this.sim;
     const m = this.mouth();
     if (!m || e.kind !== 'item') return;
-    if (this.state.contents.length >= MAX_INGREDIENTS || this.bubbling) {
+    // One-of-a-kind treasures are never brewed (M10): the brew spits them back.
+    if (
+      this.state.contents.length >= MAX_INGREDIENTS ||
+      this.bubbling ||
+      sim.content.items.get(e.defId).unique
+    ) {
       this.spitOut(e.id);
       return;
     }

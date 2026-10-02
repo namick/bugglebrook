@@ -29,6 +29,7 @@ import {
   wormRise,
 } from '../critters';
 import { OUTLINE, darken, lighten, mix } from '../palette';
+import { drawPicto } from '../draw/pictogram';
 import { soft } from './common';
 import { AreaLive } from './live';
 import type { AreaFrame, LightFn } from './live';
@@ -252,6 +253,7 @@ export class CritterLive extends AreaLive {
       budget--;
     }
     if (this.antDoor && presence('ant', sky) > 0) this.drawCrumbs(g);
+    this.drawWormOut(fg, f);
   }
 
   private note(c: Critter, x: number, y: number): void {
@@ -344,7 +346,9 @@ export class CritterLive extends AreaLive {
         const w = wormRise(c.seed, t, period);
         const near = threats.some((th) => Math.hypot(th.x - x, th.y - c.home.y) < 130);
         this.wormDuck = near ? 1 : Math.max(0, this.wormDuck - f.dt * 0.5);
-        const up = w.up * (1 - this.wormDuck);
+        // The plaza's worm keeps the sim's rhythm (M11): a hat can be dropped on it while it peeks.
+        const plazaWorm = this.area.id === 'area_stump_plaza';
+        const up = plazaWorm ? f.sim.wardrobe.wormUp() : w.up * (1 - this.wormDuck);
         if (up < 0.02) return false;
         this.drawWorm(g, x, f.sim.surfaceY(x / PPM) * PPM, up, w.look);
         c.shy.since = near ? 0 : c.shy.since + f.dt;
@@ -717,6 +721,18 @@ export class CritterLive extends AreaLive {
         g.moveTo(x - facing * (8 + k * 8), y - 22 - k * 7)
           .lineTo(x - facing * (12 + k * 8), y - 28 - k * 7)
           .stroke({ width: 2, color: 0xfff6d8, alpha: song * 0.85, cap: 'round' });
+  }
+
+  /** The worm that took a hat (M11, `secret_worm_hat`), up again in this area, still wearing it. */
+  private drawWormOut(g: Graphics, f: AreaFrame): void {
+    const out = f.sim.wardrobe.state.worm?.out;
+    if (!out) return;
+    const x = out.x * PPM;
+    if (x < this.x0 || x >= this.x1 || !onScreen(x, f.left, f.right)) return;
+    const gy = f.sim.surfaceY(out.x) * PPM;
+    const look = Math.sin(f.time * 2.2) * 0.6;
+    this.drawWorm(g, x, gy, 1, look);
+    drawPicto(g, 'hat', x + look * 12, gy - 52, 13);
   }
 
   private drawWorm(g: Graphics, x: number, gy: number, up: number, look: number): void {

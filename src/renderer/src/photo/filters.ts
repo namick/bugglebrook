@@ -123,6 +123,17 @@ void main(void) {
     float rim = smoothstep(0.78, 0.92, d);
     float shine = smoothstep(0.5, 0.0, distance(px, center - vec2(r * 0.3, r * 0.3)) / r) * 0.18;
     c = mix(s + shine, s * 0.45, rim);
+  } else if (mode == 7) {
+    // Starry: the finale's night. Deep blue, gold in the lights, and little stars twinkling in the dark.
+    float l = luma(c);
+    c = mix(c * vec3(0.55, 0.62, 1.05), vec3(0.95, 0.78, 0.35) * (l * 1.3), smoothstep(0.55, 0.95, l) * 0.6);
+    c = mix(c, vec3(0.1, 0.13, 0.32), 0.25 * (1.0 - l));
+    vec2 cell = floor(px / 26.0);
+    float h = hash(cell);
+    vec2 star = (cell + vec2(hash(cell + 3.1), hash(cell + 7.7))) * 26.0;
+    float glint = step(0.86, h) * smoothstep(5.0, 0.0, distance(px, star)) * (1.0 - l);
+    c += vec3(1.0, 0.92, 0.6) * glint;
+    c *= 1.0 - 0.35 * smoothstep(0.55, 1.1, length(d));
   }
   finalColor = vec4(clamp(c, 0.0, 1.0), src.a);
 }
@@ -254,6 +265,21 @@ export const FILTERS: readonly FilterDef[] = [
         g.regularPoly(x * r, y * r, r * 0.95, 6, Math.PI / 6)
           .fill(0x9bd0ff)
           .stroke({ width: 3, color: OUTLINE });
+    },
+  },
+  {
+    // The finale's night (M10).
+    id: 'filter_starry',
+    mode: 7,
+    unlock: 'secret_golden_marble_home',
+    icon: (g, s) => {
+      g.circle(0, 0, s * 0.4)
+        .fill(0x1b2350)
+        .stroke(stroke(4));
+      g.star(-s * 0.08, -s * 0.04, 5, s * 0.2, s * 0.09).fill(0xf2c14e);
+      g.circle(s * 0.2, -s * 0.2, s * 0.04).fill(0xffffff);
+      g.circle(s * 0.18, s * 0.18, s * 0.05).fill(0xffffff);
+      g.circle(-s * 0.22, s * 0.2, s * 0.03).fill(0xffffff);
     },
   },
 ];

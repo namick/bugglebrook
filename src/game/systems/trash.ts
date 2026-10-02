@@ -223,7 +223,8 @@ export class Trash {
     const def = this.sim.content.items.get(e.defId);
     const ext = halfExtents(def.shape, 0);
     const scale = this.sim.potions.scaleOf(e);
-    if (def.unpocketable || e.pinned || Math.max(ext.w, ext.h) * 2 * scale > FITS) return 'big';
+    // One-of-a-kind treasures (M10) are never trashed: they need their home spot.
+    if (def.unique || def.unpocketable || e.pinned || Math.max(ext.w, ext.h) * 2 * scale > FITS) return 'big';
     if ((built ?? builtLinked(this.sim)).has(e.id)) return 'setup';
     return null;
   }

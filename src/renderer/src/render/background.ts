@@ -11,6 +11,8 @@ import { drawCompostBack, drawCompostMid, drawCompostOver } from './areaArt/comp
 import { drawFlowerbedBack, drawFlowerbedMid, drawFlowerbedOver } from './areaArt/flowerbed';
 import { drawPorchBack, drawPorchBackdrop } from './areaArt/porch';
 import { drawTreehouseBackdrop, drawTreehouseUnder } from './areaArt/treehouse';
+import { drawDepthsBackdrop } from './areaArt/depths';
+import { drawHollowBackdrop } from './areaArt/hollow';
 import type { SkyLook } from './skyLook';
 import { gradientTexture } from './lightTextures';
 import { parallaxX } from './areaArt/common';
@@ -635,6 +637,11 @@ export class Background {
     // Rooms that hide the sky: the crawlspace under the porch and the treehouse.
     if (porch?.roof) this.near.addChild(drawPorchBackdrop(porch, rng));
     if (house?.roof) this.near.addChild(drawTreehouseBackdrop(house, this.terrain, rng));
+    // M10's hidden areas: the ant colony's cross-section and the inside of the gnome.
+    const depths = byId('area_ant_hill_depths');
+    const hollow = byId('area_gnome_hollow');
+    if (depths) this.near.addChild(drawDepthsBackdrop(depths, new Rng('depths-art')));
+    if (hollow) this.near.addChild(drawHollowBackdrop(hollow, new Rng('hollow-art')));
     const back = new Container();
     const plazaBack = new Graphics();
     plazaBack.x = this.plazaX;
@@ -654,7 +661,7 @@ export class Background {
     // Soil, area by area, in each area's colors. The treehouse has a floor instead.
     const soil = new Graphics();
     for (const area of this.areas) {
-      if (area.id === house?.id) continue;
+      if (area.id === house?.id || area.hidden) continue;
       const a = area.xStart * PPM;
       const b = area.xEnd * PPM;
       const dirt = new FillGradient({
@@ -706,7 +713,7 @@ export class Background {
     // packed dust under the porch. Scalloped lower edge, bold outline.
     const moss = new Graphics();
     for (const area of this.areas) {
-      if (area.id === house?.id) continue;
+      if (area.id === house?.id || area.hidden) continue;
       const a = area.xStart * PPM;
       const b = area.xEnd * PPM;
       const top = this.groundBetween(a, b, true);

@@ -688,6 +688,28 @@ const CAMERA: Record<BugArt, Triple> = {
       seconds: 3,
     },
   ),
+  // Wubbo: delighted to be photographed. Delighted by everything.
+  tardigrade: three(
+    {
+      eyes: 'happy',
+      mouth: 'grin',
+      blush: true,
+      pictos: ['laugh', 'star'],
+      emotion: 'giggle',
+      move: 'wiggle',
+      seconds: 2.4,
+    },
+    {
+      eyes: 'wide',
+      mouth: 'whee',
+      pictos: ['heart'],
+      emotion: 'love',
+      move: 'hop',
+      fx: 'hearts',
+      seconds: 2.4,
+    },
+    { eyes: 'happy', mouth: 'tongue', pictos: ['laugh'], emotion: 'giggle', move: 'pose', seconds: 2.4 },
+  ),
   ...CAMERA_NEW,
 };
 
@@ -1983,6 +2005,75 @@ const PERSONAL: Record<BugArt, Record<Classic, Triple>> = {
       { eyes: 'x', mouth: 'flat', tint: 'green', pictos: ['stink', 'cross'], emotion: 'yuck', fx: 'stink' },
     ),
   },
+  // Wubbo: every reaction is a delighted version of the usual one. Nothing upsets him.
+  tardigrade: {
+    grab: three(
+      { eyes: 'happy', mouth: 'grin', pictos: ['laugh'], emotion: 'giggle', move: 'wiggle' },
+      { eyes: 'wide', mouth: 'whee', pictos: ['heart'], emotion: 'whee', move: 'wiggle' },
+      { eyes: 'happy', mouth: 'tongue', blush: true, pictos: ['laugh', 'star'], emotion: 'giggle' },
+    ),
+    poke: three(
+      { eyes: 'happy', mouth: 'grin', pictos: ['laugh'], emotion: 'giggle', move: 'wiggle', seconds: 1 },
+      { eyes: 'wide', mouth: 'o', pictos: ['heart'], emotion: 'ooh', move: 'hop', seconds: 1 },
+      { eyes: 'happy', mouth: 'tongue', pictos: ['laugh'], emotion: 'giggle', move: 'spin', seconds: 1 },
+    ),
+    fling: three(
+      { eyes: 'wide', mouth: 'whee', pictos: ['laugh', 'up'], emotion: 'whee' },
+      { eyes: 'happy', mouth: 'aah', pictos: ['star'], emotion: 'whee' },
+      { eyes: 'happy', mouth: 'grin', pictos: ['laugh', 'laugh'], emotion: 'giggle' },
+    ),
+    // He laughs off every landing, however hard.
+    land: three(
+      { eyes: 'happy', mouth: 'grin', pictos: ['laugh'], emotion: 'giggle', move: 'wiggle', seconds: 1.4 },
+      {
+        eyes: 'happy',
+        mouth: 'tongue',
+        pictos: ['thumbs_up', 'laugh'],
+        emotion: 'giggle',
+        move: 'hop',
+        seconds: 1.4,
+      },
+      {
+        eyes: 'wide',
+        mouth: 'whee',
+        pictos: ['star'],
+        emotion: 'whee',
+        move: 'spin',
+        fx: 'sparkles',
+        seconds: 1.4,
+      },
+    ),
+    splash: three(
+      {
+        eyes: 'happy',
+        mouth: 'grin',
+        pictos: ['drop', 'heart'],
+        emotion: 'giggle',
+        move: 'wiggle',
+        seconds: 1.6,
+      },
+      { eyes: 'wide', mouth: 'whee', pictos: ['drop', 'laugh'], emotion: 'whee', fx: 'splash', seconds: 1.6 },
+      { eyes: 'happy', mouth: 'tongue', pictos: ['heart'], emotion: 'love', move: 'hop', seconds: 1.6 },
+    ),
+    shake_dry: three(
+      { eyes: 'happy', mouth: 'grin', pictos: ['laugh'], emotion: 'giggle', move: 'shake_off', fx: 'spray' },
+      { eyes: 'wide', mouth: 'whee', pictos: ['drop'], emotion: 'whee', move: 'shiver', fx: 'spray' },
+      {
+        eyes: 'happy',
+        mouth: 'tongue',
+        pictos: ['laugh', 'drop'],
+        emotion: 'giggle',
+        move: 'shake_off',
+        fx: 'spray',
+      },
+    ),
+    // Even stink is funny.
+    stink: three(
+      { eyes: 'happy', mouth: 'grin', pictos: ['stink', 'laugh'], emotion: 'giggle', fx: 'stink' },
+      { eyes: 'wide', mouth: 'o', pictos: ['stink', 'heart'], emotion: 'ooh', fx: 'stink' },
+      { eyes: 'happy', mouth: 'tongue', tint: 'green', pictos: ['laugh'], emotion: 'giggle', fx: 'stink' },
+    ),
+  },
   ...PERSONAL_NEW,
 };
 
@@ -2654,11 +2745,72 @@ const EVERYDAY_LOOKS: Record<BugArt, Record<Everyday, Triple>> = {
       { eyes: 'squint', mouth: 'flat', pictos: ['star'], emotion: 'meh', move: 'none', seconds: 2 },
     ),
   },
+  tardigrade: {
+    inspect: three(
+      { eyes: 'wide', mouth: 'o', pictos: ['heart'], emotion: 'ooh', move: 'sniff', seconds: 1.6 },
+      { eyes: 'happy', mouth: 'grin', pictos: ['laugh'], emotion: 'giggle', move: 'sniff', seconds: 1.6 },
+      { eyes: 'open', mouth: 'smile', pictos: ['food', 'heart'], emotion: 'yum', move: 'nod', seconds: 1.6 },
+    ),
+    gawk: three(
+      { eyes: 'wide', mouth: 'grin', pictos: ['laugh'], emotion: 'giggle', move: 'hop', seconds: 1.3 },
+      {
+        eyes: 'wide',
+        mouth: 'whee',
+        pictos: ['exclaim', 'heart'],
+        emotion: 'ooh',
+        move: 'none',
+        seconds: 1.3,
+      },
+      { eyes: 'happy', mouth: 'grin', pictos: ['star'], emotion: 'happy', move: 'wiggle', seconds: 1.3 },
+    ),
+    play: three(
+      { eyes: 'happy', mouth: 'grin', pictos: ['laugh'], emotion: 'giggle', move: 'wiggle', seconds: 1.2 },
+      { eyes: 'happy', mouth: 'tongue', pictos: ['heart'], emotion: 'love', move: 'pat', seconds: 1.2 },
+      { eyes: 'wide', mouth: 'whee', pictos: ['star', 'laugh'], emotion: 'whee', move: 'hop', seconds: 1.2 },
+    ),
+    show_off: three(
+      { eyes: 'happy', mouth: 'grin', pictos: ['star'], emotion: 'giggle', move: 'pose', seconds: 2 },
+      { eyes: 'happy', mouth: 'tongue', pictos: ['laugh'], emotion: 'giggle', move: 'spin', seconds: 2 },
+      { eyes: 'wide', mouth: 'whee', pictos: ['heart', 'star'], emotion: 'love', move: 'bow', seconds: 2 },
+    ),
+  },
   ...EVERYDAY_NEW,
 };
 
 /** What reaction `type`, variant `variant`, looks like on a bug drawn as `art`. */
+/** Wubbo laughs where anyone else would mind: yucky food, a hard landing, a stolen snack, a slip, gloomy rain. */
+const WUBBO_LAUGH: Triple = three(
+  {
+    eyes: 'happy',
+    mouth: 'grin',
+    pictos: ['laugh'],
+    emotion: 'giggle',
+    move: 'wiggle',
+    fx: 'sparkles',
+    seconds: 1.6,
+  },
+  {
+    eyes: 'happy',
+    mouth: 'tongue',
+    blush: true,
+    pictos: ['laugh', 'laugh'],
+    emotion: 'giggle',
+    move: 'hop',
+    seconds: 1.6,
+  },
+  { eyes: 'wide', mouth: 'whee', pictos: ['laugh', 'star'], emotion: 'giggle', move: 'spin', seconds: 1.6 },
+);
+const WUBBO_LAUGHS: ReadonlySet<ReactionType> = new Set<ReactionType>([
+  'fed_disliked',
+  'land_hard',
+  'robbed',
+  'slip',
+  'rain_gloom',
+  'blegh',
+]);
+
 export function reactionLook(art: BugArt, type: ReactionType, variant: number): ReactionLook {
+  if (art === 'tardigrade' && WUBBO_LAUGHS.has(type)) return WUBBO_LAUGH[((variant % 3) + 3) % 3]!;
   const set: Triple =
     type === 'tickle'
       ? TICKLE

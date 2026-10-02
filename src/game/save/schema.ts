@@ -7,6 +7,9 @@ import type { SkyState } from '../systems/sky';
 import type { TagState } from '../systems/tags';
 import type { BarrierState } from '../systems/barriers';
 import type { PlaceState } from '../systems/places';
+import type { JournalState } from '../systems/journal';
+import type { ClueState } from '../systems/clues';
+import type { HiddenState } from '../systems/hidden';
 import type { BenchState } from '../systems/bench';
 import type { CauldronState } from '../systems/cauldron';
 import type { TrashState } from '../systems/trash';
@@ -17,7 +20,7 @@ import type { WearSlot } from '../data/types';
 import type { WardrobeState } from '../systems/wardrobe';
 
 /** Bump when the save shape changes, and add a migration in migrations.ts. */
-export const SAVE_VERSION = 15;
+export const SAVE_VERSION = 16;
 
 export interface SavedEntity {
   id: number;
@@ -45,7 +48,9 @@ export interface SavedEntity {
   toasted?: boolean;
   /** A crafted toy's state (version 9). */
   toy?: ToyState;
-  /** What a bug wears, by slot (version 15). */
+  /** A unique item's home spot (version 15). */
+  home?: { x: number; y: number };
+  /** What a bug wears, by slot (version 16). */
   wearing?: Partial<Record<WearSlot, number>>;
 }
 
@@ -84,11 +89,17 @@ export interface WorldSave {
   bench?: BenchState;
   /** The cauldron: what is in it and how far it is stirred. Absent before version 9. */
   cauldron?: CauldronState;
+  /** The journal's memory: bugs met, items found, observations, and what is new. Absent before version 15. */
+  journal?: JournalState;
+  /** M10's clue state: the boot, the stump's door, streaks and counts. Absent before version 15. */
+  clues?: ClueState;
+  /** M10's hidden areas: the ants' sugar, the queen, and the finale. Absent before version 15. */
+  hidden?: HiddenState;
   /** The trash can: what waits inside to go home (version 14). */
   trash?: TrashState;
   /** The tidy whistle's queue and tidying's dice (version 14). */
   tidy?: TidyState;
-  /** Hats and accessories (version 15): bugs' plans with what they wear, Buzzby's pollen, and dice. */
+  /** Hats and accessories (version 16): bugs' plans with what they wear, Buzzby's pollen, and dice. */
   wardrobe?: WardrobeState;
 }
 

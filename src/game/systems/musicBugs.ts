@@ -58,7 +58,10 @@ export class MusicBugs {
       const habits = sim.content.bugs.get(bug.defId).habits;
       if (habits.pollen) this.buzz(bug);
       if (habits.fiddles) this.fiddle(bug);
-      if (habits.moth) this.flutter(bug);
+      if (habits.moth) {
+        this.spotlight(bug);
+        this.flutter(bug);
+      }
     }
   }
 
@@ -248,6 +251,33 @@ export class MusicBugs {
     b.facing = dir;
     this.hop(bug, dir * 1.4, -Math.min(6, 2.5 + Math.max(0, s.y - light.y) * 0.9));
     sim.events.emit('moth_circled', { id: bug.id, x: light.x, y: light.y, own: false });
+  }
+
+  /**
+   * `secret_moth_spotlight`: at night, the stage lights on spotlight with
+   * Luma on the stage. She dances in the beam, and moths swirl round her.
+   */
+  private spotlight(bug: Entity): void {
+    const sim = this.sim;
+    if (!sim.weather.dark || sim.places.state.stageLights !== 3) return;
+    const stage = sim.places.fixtures('stage')[0];
+    if (!stage || !sim.barriers.isOpen(stage.area.id)) return;
+    const s = sim.physics.getState(bug.id);
+    const half = (stage.fixture.w ?? stage.fixture.radius * 2) / 2;
+    if (Math.abs(s.x - stage.x) > half || s.y > stage.fixture.y + 0.6) return;
+    const b = bug.bug!;
+    if (sim.tick - (b.machines?.spotlight ?? -Infinity) < 20 * SIM_HZ) return;
+    b.machines = { ...(b.machines ?? {}), spotlight: sim.tick };
+    if (
+      !sim.weather.bedtime(sim.bugDef(bug), bug.id) &&
+      ['st_idle', 'st_wander', 'st_react'].includes(b.mode)
+    ) {
+      enter(b, 'st_perform', 6 * SIM_HZ);
+      b.action = 'dance';
+      sim.bugNotice(bug, react(b, 'dance', sim.rng, sim.tick));
+    }
+    sim.events.emit('moth_spotlit', { id: bug.id, x: s.x, y: s.y });
+    sim.findSecret('secret_moth_spotlight', s.x, s.y);
   }
 
   /** The brightest light within reach: a lamp or stage lights, a glowing thing, a glowing bug, a headlamp. */

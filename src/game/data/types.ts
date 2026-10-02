@@ -100,10 +100,16 @@ export interface AreaDef {
   roof?: { x0: number; x1: number; y: number; top: number };
   /** Music and ambience hints for the renderer: how the area sounds. */
   mood: AreaMood;
+  /**
+   * M10: a hidden area (the Ant Hill Depths, Gnome Hollow). It lies past the
+   * surface strip, sealed by solid walls and a ceiling, and is reached only
+   * through `door` fixtures. It is its own open stretch (`Barriers.span`).
+   */
+  hidden?: boolean;
 }
 
 /** The feel of an area, for its ambient sounds (game design doc, section 16). */
-export type AreaMood = 'garden' | 'pond' | 'plaza' | 'porch' | 'compost' | 'arcade';
+export type AreaMood = 'garden' | 'pond' | 'plaza' | 'porch' | 'compost' | 'arcade' | 'depths' | 'hollow';
 
 /**
  * Water in an area (game design doc, section 3, `fix_pond_water`). The
@@ -173,6 +179,23 @@ export type FixtureKind =
   | 'bug_scope'
   // M9: the mushroom sequencer.
   | 'sequencer'
+  // M10's clues: the plaza's ring mushrooms and clover patch, the pond's frog eyes.
+  | 'ring_mushroom'
+  | 'clover'
+  | 'frog_eyes'
+  // M10 hidden areas: the doorways in and out, and what is inside.
+  | 'ant_hill'
+  | 'depths_door'
+  | 'gnome_door'
+  | 'hollow_door'
+  | 'ant_pantry'
+  | 'ant_conveyor'
+  | 'ant_queen'
+  | 'root_knot'
+  | 'larva'
+  | 'telescope'
+  | 'lost_shelf'
+  | 'moon_pedestal'
   // Playtest F1: the trash can, which eats things and sends them home.
   | 'trash_can';
 
@@ -195,6 +218,8 @@ export interface FixtureDef {
   paint?: PaintId;
   /** What a shelf jar holds and refills. */
   item?: string;
+  /** M10: a doorway, and the fixture id of the doorway on its other side. */
+  door?: string;
 }
 
 /** The five paint puddle colors (game design doc, section 3, `fix_paint_puddles`). */
@@ -244,6 +269,7 @@ export type BugArt =
   | 'caterpillar'
   | 'mantis'
   | 'stickinsect'
+  | 'tardigrade'
   // M11: the music bugs M9 left out.
   | 'bee'
   | 'cricket'
@@ -293,6 +319,8 @@ export interface BugHabits {
   chops?: boolean;
   /** Freezes whenever the hand is near, and only moves when nobody is looking (Twig). */
   shy?: boolean;
+  /** Pats dizzy bugs nearby, who get over it twice as fast (Wubbo). */
+  pats?: boolean;
   /** Dives head first into the trash can to rummage, and comes up with whatever is in it (Rollo, Barty, Whiff). */
   rummages?: boolean;
   /** Judges every hat in sight, and likes wearing any of them (Prim). */
@@ -606,6 +634,17 @@ export type ItemArt =
   | 'castanets'
   | 'bottle_flute'
   | 'leaf_xylophone'
+  // M10's treasures and rewards.
+  | 'key_tiny'
+  | 'map_scrap'
+  | 'treasure_map'
+  | 'marble_gold'
+  | 'gnome_nose'
+  | 'hat_bubble'
+  | 'hat_candle'
+  | 'cloud_jar'
+  | 'paint_rainbow'
+  | 'monocle'
   // M11's hats and accessories.
   | 'hat_acorn'
   | 'hat_party'
@@ -613,13 +652,10 @@ export type ItemArt =
   | 'hat_top'
   | 'hat_chef'
   | 'hat_wizard'
-  | 'hat_candle'
   | 'hat_eggshell'
   | 'hat_goo'
-  | 'hat_bubble'
   | 'sunglasses'
   | 'mustache'
-  | 'monocle'
   | 'bowtie'
   | 'scarf'
   | 'bandaid';
@@ -749,6 +785,12 @@ export interface ItemDef {
   shatters?: { into: string; count: number; speed: number };
   /** A musical thing's note, as a scale step (0 is the area's root), for rule R20. */
   note?: number;
+  /**
+   * One of a kind, needed for a secret (M10): never eaten, broken, crafted,
+   * brewed, or composted, and when it leaves the world it comes back to
+   * where it first appeared rather than the nearest open spot.
+   */
+  unique?: boolean;
   /** The tidy whistle (playtest F2): a click blows it, and loose things in view swoosh home. */
   whistle?: boolean;
 }
@@ -877,10 +919,47 @@ export type SecretTrigger =
   | { type: 'recipe'; recipe: string }
   | { type: 'potion_on_bug'; potion: string; bug: string };
 
+/**
+ * A journal hint: a glyph name from `GLYPHS` (data/glyphs.ts), or a content
+ * ID (`item_*`, `bug_*`, `area_*`) drawn as that thing's own picture.
+ */
+export type HintGlyph = string;
+
 export interface SecretDef {
   id: string;
+  /** A short label for the journal (1 to 3 words). */
   name: string;
+  /** T1 is found by poking around, T2 needs a combination, time, or weather, T3 a chain (section 12). */
+  tier: 1 | 2 | 3;
   trigger: SecretTrigger;
   /** Content unlocked when found. */
   unlocks: readonly { kind: 'bug' | 'area' | 'item'; id: string }[];
+  /** The pictograms on the journal's silhouette before it is found: where or when, never how. */
+  hint: readonly HintGlyph[];
+  /** Secrets that must be found first. `findSecret` refuses this one until they are. */
+  requires?: readonly string[];
+  /**
+   * Why this secret cannot be found yet (a bug or a system that is not in
+   * the game). Blocked secrets are left out of the journal and its counts.
+   */
+  blocked?: string;
+}
+
+/** One panel of a mystery's comic strip (section 12). */
+export interface MysteryStep {
+  /** The secret that fills this panel, if it is one. */
+  secret?: string;
+  /** Or something the player noticed (`journal.noticed`), or an item they found. */
+  noticed?: string;
+  item?: string;
+  /** The panel's pictograms. */
+  hint: readonly HintGlyph[];
+}
+
+export interface MysteryDef {
+  id: string;
+  name: string;
+  /** The areas the chain crosses, in order. */
+  areas: readonly string[];
+  steps: readonly MysteryStep[];
 }

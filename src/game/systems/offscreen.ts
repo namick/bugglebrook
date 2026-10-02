@@ -140,7 +140,8 @@ export class OffScreen {
         return { kind: 'visit', at, x: fx + (fx > at ? -1.2 : 1.2), targetId: friend.id };
       }
     }
-    if (home && (at < home.xStart || at >= home.xEnd))
+    // Shut in a hidden area (M10), home is out of reach.
+    if (home && !area.hidden && (at < home.xStart || at >= home.xEnd))
       return { kind: 'home', at, x: this.spotIn(home, def, sim.rng.range(0.3, 0.7)), targetId: null };
     const lo = Math.max(area.xStart + def.radius + 0.5, at - 6);
     const hi = Math.min(area.xEnd - def.radius - 0.5, at + 6);

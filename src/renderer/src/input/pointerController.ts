@@ -2,6 +2,7 @@ import type { EntityId } from '../../../game/core/entities';
 import type { Sim } from '../../../game/sim';
 import type { Camera, Point } from '../render/camera';
 import { dialMinutes } from '../render/fixtureArt';
+import { DOOR_DWELL } from '../render/iris';
 
 /** `dial` is turning the sundial's rim; `lever` pulls the bench's lever; `stir` goes round the cauldron. */
 export type PointerMode = 'none' | 'hold' | 'pan' | 'dial' | 'lever' | 'stir' | 'seq';
@@ -133,6 +134,15 @@ export class PointerController {
   tickling = false;
   /** The pocket slot under a view point, if the tray is open there (set by the game). */
   pocketAt: ((view: Point) => number | null) | null = null;
+  /**
+   * M10: go through an open doorway. A click on it, or holding something over
+   * it for `DOOR_DWELL` (`carrying`). The game plays the iris wipe and sends
+   * `travel` at its middle.
+   */
+  onDoor: ((doorId: string, carrying: boolean) => void) | null = null;
+  /** Seconds the held thing has hovered a doorway, and the doorway passed through last (until the hand leaves it). */
+  private doorDwell = 0;
+  private doorLatch: string | null = null;
   /** Edge-scroll while carrying (a setting). */
   edgeScroll = true;
   /** Share of the pan speed the camera coasts with after a drag (less with reduce motion). */
@@ -429,8 +439,10 @@ export class PointerController {
     }
     if (this.mode === 'pan') {
       const click = t - this.pressAt <= POKE_MS && this.travelled <= POKE_PX;
-      // A click on empty space pokes it: fixtures like the hose tap respond.
-      if (click) this.sim.send({ type: 'poke', x: this.pressWorld.x, y: this.pressWorld.y });
+      // A click on empty space pokes it: fixtures like the hose tap respond. An open doorway takes you through.
+      const door = click && this.onDoor ? this.sim.hidden.doorAt(this.pressWorld.x, this.pressWorld.y) : null;
+      if (door) this.onDoor?.(door.id, false);
+      else if (click) this.sim.send({ type: 'poke', x: this.pressWorld.x, y: this.pressWorld.y });
       else this.camera.velocity = Math.max(-40, Math.min(40, this.panVelocity)) * this.coastScale;
     }
     this.mode = 'none';
@@ -463,6 +475,7 @@ export class PointerController {
     const world = this.camera.viewToWorld(this.pointer);
     this.hoverWorld = world;
     this.sim.send({ type: 'drag', x: world.x, y: world.y });
+    this.dwellAtDoor(world, dt);
     // Holding a bug still: tickle it.
     const held = this.sim.physics.grabbed;
     if (
@@ -475,6 +488,25 @@ export class PointerController {
       this.tickling = true;
       this.sim.send({ type: 'tickle', on: true });
     }
+  }
+
+  /** Holding something over an open doorway for a moment carries it through. */
+  private dwellAtDoor(world: Point, dt: number): void {
+    const door =
+      this.onDoor && this.sim.physics.grabbed !== null
+        ? this.sim.hidden.doorAt(world.x, world.y, 0.15)
+        : null;
+    if (!door) {
+      this.doorDwell = 0;
+      this.doorLatch = null;
+      return;
+    }
+    if (door.id === this.doorLatch) return;
+    this.doorDwell += dt;
+    if (this.doorDwell < DOOR_DWELL) return;
+    this.doorDwell = 0;
+    this.doorLatch = door.to;
+    this.onDoor?.(door.id, true);
   }
 
   /** Is the player holding something right now? */

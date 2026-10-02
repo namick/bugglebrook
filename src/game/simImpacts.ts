@@ -4,7 +4,7 @@
 // takes the sim, and `Sim` keeps a one-line method that calls it.
 
 import type { EntityId } from './core/entities';
-import { BONK_SPEED } from './constants';
+import { BONK_SPEED, GRAVITY } from './constants';
 import type { ItemDef } from './data/types';
 import type { Impact } from './physics/physics';
 import { springLaunched } from './systems/bugAi';
@@ -134,7 +134,19 @@ export function trySpring(
     if (sim.bugWorld().setupBetween(Math.min(o.x, o.x + reach), Math.max(o.x, o.x + reach))) return false;
   }
   const drift = other?.bug ? other.bug.facing * 1.4 : sim.rng.range(-1, 1);
-  sim.physics.setVelocity(otherId, tx + up.x * launch - up.y * drift, ty + up.y * launch + up.x * drift);
+  let vx = tx + up.x * launch - up.y * drift;
+  const vy = ty + up.y * launch + up.x * drift;
+  // The same for an upright spring: a bug out on its own never comes down on the player's things.
+  if (other?.bug && !sim.byPlayer(other) && vy < 0) {
+    const world = sim.bugWorld();
+    const pad = sim.halfHeight(other) + 0.6;
+    const lands = (v: number): boolean => {
+      const to = o.x + v * ((-2 * vy) / GRAVITY);
+      return world.setupBetween(Math.min(o.x, to) - pad, Math.max(o.x, to) + pad);
+    };
+    if (lands(vx)) vx = !lands(-Math.sign(vx) * 1.4) ? -Math.sign(vx) * 1.4 : 0;
+  }
+  sim.physics.setVelocity(otherId, vx, vy);
   sim.launchGrace.set(otherId, sim.tick + 4);
   sim.bugImpacts.delete(otherId);
   sim.events.emit('spring_bounced', { id: springId, targetId: otherId, x: s.x, y: s.y });

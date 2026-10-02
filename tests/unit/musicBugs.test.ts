@@ -198,4 +198,20 @@ describe('what they do', () => {
     // Unpitched instruments keep their own beat.
     expect(bugPart('drum', 0, 1, 'fiddle')).toBe('hit');
   });
+
+  it('Luma in the stage spotlight at night dances (secret_moth_spotlight)', () => {
+    const sim = Sim.empty({ seed: 'spotlight' });
+    sim.send({ type: 'unlock', area: 'area_flowerbed_stage' });
+    sim.send({ type: 'set_time', hour: 23 });
+    const x = FLOWERBED.xStart + stage.x;
+    // Found first: the spotlight secret needs her found.
+    const luma = sim.cast.find('bug_moth_luma', x, stage.y - 1)!;
+    calm(sim, luma);
+    sim.run(40);
+    expect(sim.secrets).toContain('secret_luma_found');
+    expect(sim.secrets).not.toContain('secret_moth_spotlight');
+    sim.places.state.stageLights = 3;
+    sim.run(40);
+    expect(sim.secrets).toContain('secret_moth_spotlight');
+  });
 });

@@ -1,5 +1,6 @@
 import type { AreaDef, Point2 } from './types';
 import { createRegistry } from './registry';
+import { HIDDEN_AREAS } from './hiddenAreas';
 
 const GROUND = 9;
 /** The tops of the porch's two shelves (world y): a plank on bricks, and one hung from the boards. */
@@ -192,6 +193,8 @@ export const AREAS = createRegistry<AreaDef>('area', [
     fixtures: [
       // The gnome, lying on his back with a hole where his nose should be. Knock, knock.
       { id: 'fix_gnome', kind: 'gnome', x: 3.9, y: 7.6, radius: 1.5 },
+      // M10: his red cone hat, which flips open into Gnome Hollow once his nose is back.
+      { id: 'fix_gnome_hat', kind: 'gnome_door', x: 1.1, y: 7.8, radius: 0.6, door: 'fix_hollow_door' },
       // A curled-up leaf full of fresh bite holes that rustles now and then.
       { id: 'fix_munch_leaf', kind: 'munch_leaf', x: 9.7, y: 8.7, radius: 0.45 },
       // A closed tulip that hums to itself (someone is inside).
@@ -282,6 +285,8 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { id: 'fix_sunken_teacup', kind: 'teacup', x: 12, y: 10.4, radius: 0.62 },
       // The reeds and cattails on the right bank, where fireflies blink at night.
       { id: 'fix_reeds', kind: 'reeds', x: 24.8, y: 7.4, radius: 2 },
+      // M10: two big eyes poking out of the water. Who do they belong to?
+      { id: 'fix_frog_eyes', kind: 'frog_eyes', x: POND.left + 1.6, y: POND.level - 0.12, radius: 0.5 },
     ],
   },
   {
@@ -358,6 +363,14 @@ export const AREAS = createRegistry<AreaDef>('area', [
       // The two dips in the ground fill with rain.
       { id: 'fix_puddle_west', kind: 'puddle', x: 2.2, y: 9.1, radius: 0.8 },
       { id: 'fix_puddle_east', kind: 'puddle', x: 36.4, y: 9.1, radius: 0.8 },
+      // M10: three ring mushrooms that bounce things (a chord when all three ring together),
+      // and the clover patch the midnight sundial points at.
+      { id: 'fix_ring_mushroom_1', kind: 'ring_mushroom', x: 26.7, y: 8.3, radius: 0.42 },
+      { id: 'fix_ring_mushroom_2', kind: 'ring_mushroom', x: 27.9, y: 8.05, radius: 0.48 },
+      { id: 'fix_ring_mushroom_3', kind: 'ring_mushroom', x: 29.1, y: 8.3, radius: 0.42 },
+      { id: 'fix_clover', kind: 'clover', x: 11.95, y: 8.85, radius: 0.6 },
+      // M10: the ant hill. A sugar cube nearby opens it into the Ant Hill Depths.
+      { id: 'fix_ant_hill', kind: 'ant_hill', x: 2.9, y: 7.9, radius: 1, door: 'fix_depths_shaft' },
       // Playtest F1: a tin can with a hinged lid, past the toy pile. Its y is its middle, so the
       // click box covers it; the rim is half its height up. Not a solid: bugs walk past it.
       { id: 'fix_trash_can', kind: 'trash_can', x: 33, y: 8.1, radius: 0.9, w: 1.5, h: 1.8 },
@@ -690,4 +703,6 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { id: 'fix_leaf_slide', kind: 'leaf_slide', x: 31.4, y: 3.1, radius: 0.5, w: 4.6 },
     ],
   },
+  // M10: the hidden areas, past the strip (data/hiddenAreas.ts).
+  ...HIDDEN_AREAS,
 ]);

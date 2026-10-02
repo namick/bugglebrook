@@ -114,6 +114,7 @@ describe('bug rig', () => {
       bug_caterpillar_munch: 15,
       bug_mantis_prim: 10,
       bug_stickinsect_twig: 4,
+      bug_tardigrade_wubbo: 4,
       bug_bee_buzzby: 8,
       bug_cricket_fiddle: 9,
       bug_moth_luma: 8,

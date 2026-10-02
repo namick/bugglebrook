@@ -6,6 +6,7 @@ import type { Barrier } from '../../../../game/systems/barriers';
 import type { Particles } from '../particles';
 import { OUTLINE, darken, lighten, stroke } from '../palette';
 import { soft } from './common';
+import { surfaceEnd } from '../../../../game/systems/barriers';
 import { AreaLive } from './live';
 import type { AreaFrame, LightFn } from './live';
 
@@ -382,7 +383,8 @@ export class LockView extends AreaLive {
       // The locked side of the wall, out to the world's end on that side.
       const left = wall < (area.xStart + area.xEnd) * 0.5 * PPM;
       const a = left ? wall : 0;
-      const z = left ? Math.max(...this.areas.map((q) => q.xEnd)) * PPM : wall;
+      // Out to the surface strip's end: the hidden areas past it (M10) are not previews.
+      const z = left ? surfaceEnd(this.areas, Math.max(...this.areas.map((q) => q.xEnd))) * PPM : wall;
       // A soft edge at the barrier, so the preview fades in over 140 px; full dimness after.
       const EDGE = 140;
       const STEPS = 7;

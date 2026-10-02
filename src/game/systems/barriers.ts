@@ -4,6 +4,7 @@ import { SIM_DT, SIM_HZ } from '../core/loop';
 import type { AreaDef, FixtureDef } from '../data/types';
 import type { BoxPartSpec } from '../physics/physics';
 import type { Sim } from '../sim';
+import { SEAL } from '../data/hiddenAreas';
 
 /**
  * Barriers and unlocks (game design doc, section 3, and M7). Four areas
@@ -81,6 +82,20 @@ const lift = (b: Barrier): { x: number } => ({ x: b.x });
 const TOSS_TO = 1.3;
 const TOSS_TIME = 0.8;
 
+/** The surface strip's right end: where the first hidden area starts, or the world's end. */
+export function surfaceEnd(areas: readonly AreaDef[], worldWidth: number): number {
+  let end = worldWidth;
+  for (const a of areas) if (a.hidden) end = Math.min(end, a.xStart);
+  return end;
+}
+
+/** A hidden area's open stretch (inside its sealing wall) if `x` is in one, else null. */
+export function sealedSpan(areas: readonly AreaDef[], x: number): { x0: number; x1: number } | null {
+  for (const a of areas)
+    if (a.hidden && x >= a.xStart && x < a.xEnd) return { x0: a.xStart + SEAL, x1: a.xEnd };
+  return null;
+}
+
 export class Barriers {
   state: BarrierState;
   private readonly list: Barrier[] = [];
@@ -149,17 +164,50 @@ export class Barriers {
     this.placeBuckets(0);
   }
 
-  /** The walkable stretch of the world around the plaza: between the nearest shut barriers. */
-  span(): { x0: number; x1: number } {
+  /**
+   * The walkable stretch of the world around the plaza: between the nearest
+   * shut barriers. Given an x inside a hidden area (M10), that area's own
+   * sealed stretch instead: nothing walks or is dragged out of it.
+   */
+  span(at?: number): { x0: number; x1: number } {
+    if (at !== undefined) {
+      const sealed = sealedSpan(this.sim.content.areas.all, at);
+      if (sealed) return sealed;
+    }
     const mid = this.middle();
     let x0 = 0;
-    let x1 = this.sim.worldWidth;
+    let x1 = surfaceEnd(this.sim.content.areas.all, this.sim.worldWidth);
     for (const b of this.list) {
       if (!this.closed(b)) continue;
       if (b.wall < mid) x0 = Math.max(x0, b.wall);
       else x1 = Math.min(x1, b.wall);
     }
     return { x0, x1 };
+  }
+
+  /**
+   * The furthest the camera may ever look from `at`: the surface strip, or a
+   * hidden area's sealed stretch. No peeking past these.
+   */
+  region(at: number): { x0: number; x1: number } {
+    const room = this.room(at);
+    return room ?? { x0: 0, x1: surfaceEnd(this.sim.content.areas.all, this.sim.worldWidth) };
+  }
+
+  /**
+   * The stretch the camera rests in from `at`: a hidden area whole (its
+   * sealing wall is drawn, so a one-screen room fills the screen), or the
+   * surface's open stretch, which it may peek past.
+   */
+  view(at: number): { x0: number; x1: number } {
+    return this.room(at) ?? this.span();
+  }
+
+  /** The hidden area at `at`, edge to edge, or null on the surface. */
+  private room(at: number): { x0: number; x1: number } | null {
+    for (const a of this.sim.content.areas.all)
+      if (a.hidden && at >= a.xStart && at < a.xEnd) return { x0: a.xStart, x1: a.xEnd };
+    return null;
   }
 
   /** The plaza's middle: every locked area lies to one side of it. */

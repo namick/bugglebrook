@@ -182,7 +182,7 @@ If you love masks, vector layers, or filter layers, keep a `.kra` working copy t
 
 ### The face kit
 
-Faces are drawn once and shared. There's one extra template, `face_kit.ora`, with every eye shape and every mouth shape. The game uses the kit on every bug, sizing the eyes and mouth to fit each head. Draw the kit once, and all fifteen bugs get your faces.
+Faces are drawn once and shared. There's one extra template, `face_kit.ora`, with every eye shape and every mouth shape. The game uses the kit on every bug, sizing the eyes and mouth to fit each head. Draw the kit once, and all sixteen bugs get your faces.
 
 If a bug needs its own version of a face piece (Twig's tiny sleepy eyes, Dot's mouth drawn in light pink on her dark head), put a layer with the same name in that bug's `face` group. A face piece in a bug's own file wins over the kit.
 
@@ -775,7 +775,7 @@ Per frame:
 - **Hover rim.** A rim container behind the rig mirrors every visible part's transform with its `@rim` texture, at the current rim alpha.
 - **Effects stay as they are.** Dizzy stars and steam (`drawStars` with `crown`), Flick's night glow (the `WeatherView` light at the lantern anchor), Whiff's cloud, Glorp's slime, foot ripples, water dimples.
 
-Budget: about 20 to 45 sprites per bug, 12 bugs, one or two texture pages each. That's well under what Pixi batches cheaply. Add a perf check to `tests/unit/perf.test.ts` style or an E2E frame-time check with all bugs drawn.
+Budget: about 20 to 45 sprites per bug, 16 bugs, one or two texture pages each. That's well under what Pixi batches cheaply. Add a perf check to `tests/unit/perf.test.ts` style or an E2E frame-time check with all bugs drawn.
 
 ### Twig and the twig item
 
@@ -922,7 +922,7 @@ Built on 2026-10-02.
 - **Paint** clips to one piece per patch: the body (or shell, shield, abdomen, stick), or each painted segment of Munch.
 - **The twig item.** When Twig is drawn from art, `itemArt` gives the twig item (in the world and the pocket) his `stick` texture and rim, at game size. The item twig's sprites rebuild when art changes.
 - **Credits.** The heart at the bottom left of the main menu opens a plank board with a picture and a name per line (art, music, code). The names come from `art/CREDITS.json`; an empty name leaves its line off.
-- **Tests.** The crude test pack (`tests/e2e/fixtures/art/make.ts`) now has every bug, drawn from its rig as flat shapes. `tests/unit/artBugs.test.ts` draws every bug in every pose and expression, checks that each skeleton part has a drawing, that every rig part is used, that the rest pose puts each part on its template pivot, and each special form. `pnpm shots -g "art every bug"` saves the Art Lab grid and each pose for all twelve bugs (`art-bug-*`).
+- **Tests.** The crude test pack (`tests/e2e/fixtures/art/make.ts`) now has every bug, drawn from its rig as flat shapes. `tests/unit/artBugs.test.ts` draws every bug in every pose and expression, checks that each skeleton part has a drawing, that every rig part is used, that the rest pose puts each part on its template pivot, and each special form. `pnpm shots -g "art every bug"` saves the Art Lab grid and each pose for all sixteen bugs (`art-bug-*`).
 - **Art Lab poses added:** skate (Skeet), fly with wings open (Prim), karate pose without the chop (Prim), fluttering and floating (Munch).
 - Still not built: the Krita-saved fixture and a frame-time check with all bugs drawn.
 - **M11's music bugs.** Buzzby, Fiddle, and Luma have painters (`species/bee.ts`, `cricket.ts`, `moth.ts`), rigs, templates, and crude test art like the rest. Buzzby's and Luma's wings flap in flight (`fly` in the Art Lab); Fiddle's `fiddle` pose bows his near back leg across the far one (`frame.fiddling`, or while performing or playing).

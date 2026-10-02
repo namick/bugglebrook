@@ -7,7 +7,13 @@ import type { Liking } from '../../../game/events';
 import type { EntityView, Sim } from '../../../game/sim';
 import { likingOf } from '../../../game/systems/bugAi';
 import { Background } from './background';
+import { clueLives } from './areaArt/cluesLive';
 import { ArcadeLive } from './areaArt/arcadeLive';
+import { AntHillLive } from './areaArt/antHillLive';
+import { DepthsLive } from './areaArt/depthsLive';
+import { FinaleLive } from './areaArt/finaleLive';
+import { GnomeLive } from './areaArt/gnomeLive';
+import { HollowLive } from './areaArt/hollowLive';
 import { CanWallLive, LockView, SunflowerLive } from './areaArt/barrierLive';
 import { CompostLive } from './areaArt/compostLive';
 import { CritterLive } from './areaArt/critterLive';
@@ -41,13 +47,14 @@ import { Particles } from './particles';
 import type { Move, Picto, ReactionLook } from './reactions';
 import { movePose, reactionLook, reactionShowing } from './reactions';
 import { thoughtFor } from './thoughts';
+import { HINT_CHANCE, hintThought } from './hintThoughts';
 import { SoapBubbles } from './soapBubbles';
 import type { Obstacle } from './soapBubbles';
 import { tagLook } from './tagLooks';
 import type { TagLook } from './tagLooks';
 import { WaterView } from './water';
 import { FixtureArt } from './fixtureArt';
-import { NO_WEATHER, easeWeather, skyLook, weatherTarget } from './skyLook';
+import { NO_WEATHER, easeWeather, roomLook, skyLook, weatherTarget } from './skyLook';
 import type { SkyLook, WeatherMix } from './skyLook';
 import { WeatherView } from './weatherView';
 import { RAINBOW, easeScale, potionLook } from './potionLooks';
@@ -314,6 +321,12 @@ export class WorldView extends Container {
       case 'arcade':
         this.onAmbient(Math.random() < 0.6 ? 'arcade_blip' : 'leaf_rustle', s);
         break;
+      case 'depths':
+        this.onAmbient(this.sim.weather.night ? 'ant_snore' : 'ant_march', s);
+        break;
+      case 'hollow':
+        this.onAmbient('hollow_tick', s * 0.7);
+        break;
       default:
         if (!night && Math.random() < 0.3) this.onAmbient('birdsong', 0.4);
     }
@@ -571,10 +584,13 @@ export class WorldView extends Container {
   }
 
   /** What the sky looks like right now, eased toward the weather. */
-  private updateLook(dt: number): SkyExtras {
+  private updateLook(dt: number, camera: Camera): SkyExtras {
     const sky = this.sim.weather;
     this.weatherMix = easeWeather(this.weatherMix, weatherTarget(sky.weather), dt, 4);
     this.look = skyLook(hourOf(sky.clock), this.weatherMix);
+    // M10's hidden areas have their own light, not the sky's.
+    const room = this.sim.hidden.hiddenAt(camera.centerX);
+    if (room) this.look = roomLook(this.look, room.mood === 'hollow' ? 'hollow' : 'depths', sky.night);
     this.shooting = this.shooting.filter((s) => (s.age += dt) < 1.2);
     return {
       shades:
@@ -589,7 +605,7 @@ export class WorldView extends Container {
 
   update(dt: number, camera: Camera): void {
     this.time += dt;
-    const extras = this.updateLook(dt);
+    const extras = this.updateLook(dt, camera);
     this.background.update(camera, this.time, this.look, extras);
     this.graded.tint = this.look.near;
     // Water reads the sky too: orange at dusk, deep teal at night.
@@ -1251,10 +1267,41 @@ export class WorldView extends Container {
     const thought = thoughtFor(def, view.bug!.needs, this.sim.content.items, this.bestFriend(view.defId));
     j.thinkIn = THOUGHT_EVERY;
     if (j.hovered >= HOVER_THOUGHT) j.hovered = -60; // once per hover
-    if (!thought) return;
+    if (!thought) {
+      // Bugs hint too: idle near a secret still waiting, now and then it thinks of its pictogram.
+      if ((mode !== 'st_idle' && mode !== 'st_wander') || Math.random() >= HINT_CHANCE) return;
+      const sim = this.sim;
+      const hint = hintThought(
+        sim.content,
+        view.x,
+        sim.secrets,
+        (a) => sim.content.areas.has(a) && sim.barriers.isOpen(a),
+        (id) => this.fixtureSpot(id),
+      );
+      if (!hint) return;
+      const food = hint.food ? sim.content.items.get(hint.food) : null;
+      this.bubbles.show(view.id, 'thought', hint.pictos, 2.6, food, null);
+      this.hintsShown.push(hint.secret);
+      if (this.hintsShown.length > 20) this.hintsShown.shift();
+      return;
+    }
     const food = thought.food ? this.sim.content.items.get(thought.food) : null;
     const friend = thought.friend ? this.sim.content.bugs.get(thought.friend) : null;
     this.bubbles.show(view.id, 'thought', thought.pictos, 2.6, food, friend);
+  }
+
+  /** Secrets bugs have hinted at in thought bubbles, newest last (test hook). */
+  readonly hintsShown: string[] = [];
+  private fixtureSpots: Map<string, { x: number }> | null = null;
+
+  /** A fixture's world x, by ID. */
+  private fixtureSpot(id: string): { x: number } | null {
+    if (!this.fixtureSpots) {
+      this.fixtureSpots = new Map();
+      for (const a of this.sim.content.areas.all)
+        for (const f of a.fixtures ?? []) this.fixtureSpots.set(f.id, { x: a.xStart + f.x });
+    }
+    return this.fixtureSpots.get(id) ?? null;
   }
 
   /** The bug this one likes best, among bugs in the world. */
@@ -1644,6 +1691,17 @@ export class WorldView extends Container {
   }
 
   /** The ambient critters drawn this frame, in every area on screen (test hook). */
+  /** M10 (test hook): pictures on Gnome Hollow's lost-toy shelf, and fireworks in the air. */
+  get hiddenLook(): { pictures: number; fireworks: number } {
+    let pictures = 0;
+    let fireworks = 0;
+    for (const l of this.lives) {
+      if (l instanceof HollowLive) pictures = l.pictureCount;
+      if (l instanceof FinaleLive) fireworks = l.live;
+    }
+    return { pictures, fireworks };
+  }
+
   get critters(): CritterInfo[] {
     return this.lives.flatMap((l) => (l instanceof CritterLive ? l.drawn : []));
   }
@@ -1680,9 +1738,21 @@ function makeLives(sim: Sim, surface: (xPx: number) => number | null): AreaLive[
   if (sunflower) out.push(new SunflowerLive(sunflower));
   const tunnel = sim.barriers.barrier('can_tunnel');
   if (tunnel && porch) out.push(new CanWallLive(tunnel, porch));
-  // Ambient critters in every area but the porch (which keeps its own in `PorchLive`).
+  // M10: the ant hill and the gnome's hat (the doorways), the depths, the hollow, and the finale.
+  const depths = area('area_ant_hill_depths');
+  const hollow = area('area_gnome_hollow');
+  if (plaza) out.push(new AntHillLive(plaza, sim.content.items.tryGet('item_sugar_cube') ?? null));
+  if (flowerbed) out.push(new GnomeLive(flowerbed));
+  if (depths) {
+    const pile = depths.solids?.find((s) => s.id === 'solid_pantry_pile')?.chain ?? [];
+    out.push(new DepthsLive(depths, pile));
+  }
+  if (hollow) out.push(new HollowLive(hollow, (id) => sim.content.items.tryGet(id)));
+  if (plaza) out.push(new FinaleLive(plaza, (id) => sim.content.bugs.tryGet(id)));
+  // Ambient critters in every area but the porch (which keeps its own in `PorchLive`) and the hidden ones.
   for (const a of sim.content.areas.all)
-    if (a.id !== 'area_under_porch') out.push(new CritterLive(a, sim, surface));
+    if (a.id !== 'area_under_porch' && !a.hidden) out.push(new CritterLive(a, sim, surface));
+  out.push(...clueLives(sim, surface));
   out.push(new LockView(sim.content.areas.all));
   return out;
 }

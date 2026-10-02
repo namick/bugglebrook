@@ -21,19 +21,14 @@ export const M11_ARTS: readonly ItemArt[] = [
   'hat_top',
   'hat_chef',
   'hat_wizard',
-  'hat_candle',
   'hat_eggshell',
   'hat_goo',
-  'hat_bubble',
   'sunglasses',
   'mustache',
-  'monocle',
   'bowtie',
   'scarf',
   'bandaid',
 ];
-
-const METAL = 0xc7d3e3;
 
 // --- Helpers ----------------------------------------------------------------
 
@@ -395,54 +390,6 @@ function hatWizard(g: Graphics, def: ItemDef, w: number, h: number): void {
     .stroke(stroke(3.5));
 }
 
-function candleParts(w: number, h: number): { band: number; cw: number; ct: number; cb: number } {
-  const band = h * 0.15;
-  return { band, cw: w * 0.42, ct: -h / 2 + h * 0.36, cb: h / 2 - band + 1 };
-}
-
-function hatCandle(g: Graphics, def: ItemDef, w: number, h: number): void {
-  const { band, cw, ct, cb } = candleParts(w, h);
-  // The candle: cream wax with pink stripes winding round it.
-  g.rect(-cw / 2, ct, cw, cb - ct).fill(0xfff6ea);
-  const slant = cw * 0.5;
-  for (let y = ct + slant + 3; y + 3 < cb; y += h * 0.13)
-    g.poly([-cw / 2, y, cw / 2, y - slant, cw / 2, y - slant + 3.5, -cw / 2, y + 3.5]).fill(def.color);
-  g.rect(-cw / 2, ct, cw, cb - ct).stroke(stroke(3));
-  // A drip of wax over the lip.
-  g.moveTo(-cw / 2, ct)
-    .lineTo(cw / 2, ct)
-    .lineTo(cw / 2, ct + 3)
-    .quadraticCurveTo(cw * 0.1, ct + 3, cw * 0.05, ct + h * 0.08)
-    .quadraticCurveTo(-cw * 0.05, ct + h * 0.1, -cw * 0.1, ct + 3)
-    .lineTo(-cw / 2, ct + 3)
-    .closePath()
-    .fill(0xfff6ea)
-    .stroke(stroke(2));
-  // The wick and its flame.
-  const fy = ct - h * 0.04;
-  g.moveTo(0, ct).lineTo(0, fy).stroke({ width: 2, color: OUTLINE, cap: 'round' });
-  const fh = ct - (-h / 2 + 1) - 3;
-  const fw = Math.min(w * 0.3, fh * 0.6);
-  const flame = (gg: Graphics, k: number): Graphics =>
-    gg
-      .moveTo(0, fy - fh * k)
-      .quadraticCurveTo(fw * 0.55 * k, fy - fh * 0.45 * k, fw * 0.5 * k, fy - fh * 0.2 * k)
-      .quadraticCurveTo(fw * 0.4 * k, fy + 2, 0, fy + 2)
-      .quadraticCurveTo(-fw * 0.4 * k, fy + 2, -fw * 0.5 * k, fy - fh * 0.2 * k)
-      .quadraticCurveTo(-fw * 0.55 * k, fy - fh * 0.45 * k, 0, fy - fh * k)
-      .closePath();
-  flame(g, 1).fill(0xff9a3c).stroke(stroke(2.5));
-  flame(g, 0.62).fill(def.accent);
-  // The little party band it stands on.
-  g.roundRect(-w / 2, h / 2 - band, w, band - 1, band / 2)
-    .fill(darken(def.color, 0.12))
-    .stroke(stroke(3));
-  for (let i = 0; i < 4; i++)
-    g.circle(-w / 2 + (w * (i + 0.5)) / 4, h / 2 - band / 2 - 0.5, Math.max(1.2, band * 0.16)).fill(
-      def.accent,
-    );
-}
-
 function eggshellPoly(w: number, h: number): number[] {
   const zig = h / 2 - h * 0.24;
   const pts = arcPts(0, zig, w / 2 - 1, zig + h / 2 - 1, Math.PI, Math.PI * 2, 22);
@@ -541,44 +488,6 @@ function hatGoo(g: Graphics, def: ItemDef, w: number, h: number, seedN: number):
     const [x, y, r] = d[d.length - 1]!;
     g.circle(x - r * 0.35, y - r * 0.3, r * 0.3).fill({ color: 0xffffff, alpha: 0.6 });
   }
-}
-
-function bubbleParts(w: number, h: number): { dome: number[]; collar: [number, number, number, number] } {
-  const ch = h * 0.17;
-  const collarTop = h / 2 - ch;
-  const dip = 0.5;
-  const ry = (collarTop + 2 + h / 2 - 2) / (1 + Math.sin(dip));
-  const cy = -h / 2 + 2 + ry;
-  return {
-    dome: arcPts(0, cy, w / 2 - 2, ry, Math.PI - dip, Math.PI * 2 + dip, 28),
-    collar: [-w * 0.38, collarTop, w * 0.76, ch - 1],
-  };
-}
-
-function hatBubble(g: Graphics, def: ItemDef, w: number, h: number): void {
-  const { dome, collar } = bubbleParts(w, h);
-  // Mostly clear, so whatever is inside shows through.
-  g.poly(dome).fill({ color: def.color, alpha: 0.22 }).stroke(stroke(3));
-  g.poly(dome).stroke({ width: 3, color: lighten(def.color, 0.3), alpha: 0.5, alignment: 1 });
-  // The highlight: a long curved gleam and a dot.
-  const top = -h / 2 + 2;
-  const mid = (top + collar[1]) / 2;
-  g.moveTo(-w * 0.34, mid + h * 0.08)
-    .quadraticCurveTo(-w * 0.32, top + h * 0.12, -w * 0.1, top + h * 0.07)
-    .stroke({ width: Math.max(3, w * 0.07), color: def.accent, alpha: 0.85, cap: 'round' });
-  g.circle(w * 0.04, top + h * 0.1, Math.max(1.5, w * 0.035)).fill({ color: def.accent, alpha: 0.85 });
-  g.moveTo(w * 0.36, mid + h * 0.04)
-    .quadraticCurveTo(w * 0.37, mid + h * 0.18, w * 0.3, mid + h * 0.26)
-    .stroke({ width: 2, color: def.accent, alpha: 0.5, cap: 'round' });
-  // The collar it sits on, with two rivets.
-  const [x, y, cw, chh] = collar;
-  g.roundRect(x, y, cw, chh, chh / 2)
-    .fill(METAL)
-    .stroke(stroke(3));
-  g.moveTo(x + chh / 2, y + chh * 0.35)
-    .lineTo(x + cw - chh / 2, y + chh * 0.35)
-    .stroke({ width: 1.5, color: 0xffffff, alpha: 0.7, cap: 'round' });
-  for (const s of [-1, 1]) g.circle(s * cw * 0.32, y + chh * 0.55, Math.max(1.2, chh * 0.15)).fill(0x8e9bb0);
 }
 
 // --- Face and back things ---------------------------------------------------
@@ -714,35 +623,6 @@ function mustache(g: Graphics, def: ItemDef, w: number, h: number): void {
     2,
     0.4,
   );
-}
-
-function monocleLens(w: number, h: number): Circle {
-  const r = Math.min(w / 2 - 2.5, h * 0.36);
-  return [0, -h / 2 + r + 2.5, r];
-}
-
-function monocle(g: Graphics, def: ItemDef, w: number, h: number): void {
-  const [cx, cy, r] = monocleLens(w, h);
-  // The string, hanging from the rim to a little bead.
-  const end: Pt = [-w * 0.18, h / 2 - 4];
-  g.moveTo(cx + r * 0.6, cy + r * 0.8)
-    .bezierCurveTo(cx + r * 0.9, h * 0.35, -w * 0.05, h * 0.05, end[0], end[1])
-    .stroke({ width: 1.8, color: OUTLINE, cap: 'round' });
-  g.circle(end[0], end[1], 2.6).fill(def.color).stroke(stroke(1.6));
-  // The glass, then the gold rim round it.
-  g.circle(cx, cy, r).fill({ color: def.accent, alpha: 0.55 });
-  g.circle(cx, cy, r).stroke({ width: Math.max(6, r * 0.42) + 3, color: OUTLINE });
-  g.circle(cx, cy, r).stroke({ width: Math.max(3, r * 0.42) - 1, color: def.color });
-  g.circle(cx, cy, r)
-    .stroke({ width: 1.2, color: lighten(def.color, 0.5), alpha: 0.8 })
-    .moveTo(cx - r * 0.5, cy + r * 0.05)
-    .quadraticCurveTo(cx - r * 0.5, cy - r * 0.45, cx - r * 0.05, cy - r * 0.5)
-    .stroke({ width: 2.5, color: 0xffffff, alpha: 0.85, cap: 'round' });
-  g.circle(cx + r * 0.3, cy + r * 0.25, Math.max(1, r * 0.1)).fill({ color: 0xffffff, alpha: 0.8 });
-  // The little loop the string ties to.
-  g.circle(cx + r * 0.72, cy + r * 0.72, 2)
-    .fill(def.color)
-    .stroke(stroke(1.4));
 }
 
 function bowWing(g: Graphics, w: number, h: number, s: number): Graphics {
@@ -921,26 +801,17 @@ export function drawItemArt11(g: Graphics, def: ItemDef, w: number, h: number, s
     case 'hat_wizard':
       hatWizard(g, def, w, h);
       return true;
-    case 'hat_candle':
-      hatCandle(g, def, w, h);
-      return true;
     case 'hat_eggshell':
       hatEggshell(g, def, w, h, seedN);
       return true;
     case 'hat_goo':
       hatGoo(g, def, w, h, seedN);
       return true;
-    case 'hat_bubble':
-      hatBubble(g, def, w, h);
-      return true;
     case 'sunglasses':
       sunglasses(g, def, w, h);
       return true;
     case 'mustache':
       mustache(g, def, w, h);
-      return true;
-    case 'monocle':
-      monocle(g, def, w, h);
       return true;
     case 'bowtie':
       bowtie(g, def, w, h);
@@ -991,13 +862,6 @@ export function outlineItemArt11(g: Graphics, def: ItemDef, w: number, h: number
       wizardPath(g, w, h);
       g.ellipse(0, h / 2 - h * 0.08, w / 2 - 1, h * 0.075);
       return true;
-    case 'hat_candle': {
-      const { band, cw, ct } = candleParts(w, h);
-      g.roundRect(-w / 2, h / 2 - band, w, band - 1, band / 2);
-      g.rect(-cw / 2, ct, cw, h / 2 - band - ct);
-      g.ellipse(0, (ct + -h / 2) / 2, Math.min(w * 0.15, cw * 0.4), (ct + h / 2) / 2);
-      return true;
-    }
     case 'hat_eggshell':
       g.poly(eggshellPoly(w, h));
       return true;
@@ -1007,23 +871,12 @@ export function outlineItemArt11(g: Graphics, def: ItemDef, w: number, h: number
       for (const [x, y, r] of drips.flat()) g.circle(x, y, r);
       return true;
     }
-    case 'hat_bubble': {
-      const { dome, collar } = bubbleParts(w, h);
-      g.poly(dome);
-      g.roundRect(collar[0], collar[1], collar[2], collar[3], collar[3] / 2);
-      return true;
-    }
     case 'sunglasses':
       for (const [x0, x1] of glassesLenses(w)) lensPath(g, x0, x1, -h / 2 + 1.5, h / 2 - 1.5);
       return true;
     case 'mustache':
       for (const [x, y, r] of [...mustacheHalf(w, h, -1), ...mustacheHalf(w, h, 1)]) g.circle(x, y, r);
       return true;
-    case 'monocle': {
-      const [cx, cy, r] = monocleLens(w, h);
-      g.circle(cx, cy, r + 2);
-      return true;
-    }
     case 'bowtie':
       bowWing(g, w, h, -1);
       bowWing(g, w, h, 1);

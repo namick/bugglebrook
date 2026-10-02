@@ -77,7 +77,24 @@ export class Bounds {
   /** Drop a lost thing in from the sky over the open stretch nearest to `fromX`. */
   private bringBack(e: Entity, fromX: number): void {
     const sim = this.sim;
-    const spot = skySpot(sim, fromX, sim.halfHeight(e));
+    const half = sim.halfHeight(e);
+    // One-of-a-kind things go home, where they first appeared (M10).
+    if (e.home) {
+      const x = e.home.x;
+      const y = Math.min(e.home.y, sim.surfaceY(x) - half - 0.05);
+      sim.bringBack(e, x, y);
+      sim.events.emit('entity_returned', {
+        id: e.id,
+        kind: e.kind,
+        defId: e.defId,
+        fromX: Number.isFinite(fromX) ? fromX : x,
+        x,
+        y,
+      });
+      return;
+    }
+    // Lost in a hidden area (M10), it comes back inside that area.
+    const spot = skySpot(sim, fromX, half);
     sim.bringBack(e, spot.x, spot.y);
     sim.events.emit('entity_returned', {
       id: e.id,
@@ -96,7 +113,8 @@ export class Bounds {
  * under the roof indoors. `step` is how far apart the spots tried are.
  */
 export function skySpot(sim: Sim, fromX: number, half: number, step = TRY_STEP): { x: number; y: number } {
-  const span = sim.barriers.span();
+  // In a hidden area (M10), that area's own stretch.
+  const span = sim.barriers.span(Number.isFinite(fromX) ? fromX : undefined);
   const setups = sim.bugWorld().setups;
   const spots = dropSpots(fromX, span.x0 + EDGE_MARGIN, span.x1 - EDGE_MARGIN, step);
   for (const x of spots) {

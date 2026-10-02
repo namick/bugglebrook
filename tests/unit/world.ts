@@ -20,3 +20,9 @@ export const POND = (() => {
     middle: pond.xStart + (w.x0 + w.x1) / 2,
   };
 })();
+
+/** Where the Ant Hill Depths start in world meters (M10: past the treehouse, sealed). */
+export const DEPTHS_X = CONTENT.areas.get('area_ant_hill_depths').xStart;
+
+/** Where Gnome Hollow starts in world meters (M10: past the depths, sealed). */
+export const HOLLOW_X = CONTENT.areas.get('area_gnome_hollow').xStart;

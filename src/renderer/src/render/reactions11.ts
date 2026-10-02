@@ -261,6 +261,27 @@ export const HATTED: Readonly<Record<BugArt, Triple>> = {
     { eyes: 'squint', mouth: 'flat', pictos: ['hat', 'dots'], emotion: 'meh', move: 'none', seconds: 2.4 },
     { eyes: 'wide', mouth: 'o', pictos: ['dots'], emotion: 'gasp', move: 'none', seconds: 2.4 },
   ),
+  // Wubbo pats it, delighted, and laughs.
+  tardigrade: three(
+    {
+      eyes: 'happy',
+      mouth: 'grin',
+      blush: true,
+      pictos: ['hat', 'laugh'],
+      emotion: 'giggle',
+      move: 'wiggle',
+      seconds: 1.6,
+    },
+    { eyes: 'wide', mouth: 'whee', pictos: ['hat', 'heart'], emotion: 'love', move: 'hop', seconds: 1.6 },
+    {
+      eyes: 'happy',
+      mouth: 'tongue',
+      pictos: ['laugh', 'star'],
+      emotion: 'giggle',
+      move: 'spin',
+      seconds: 1.6,
+    },
+  ),
   // Buzzes a businesslike lap and gets back to work.
   bee: three(
     {

@@ -223,7 +223,7 @@ test('after the first ingredient the ladle goes round by itself, and the hand tu
   }
 });
 
-test('a secret found by hand stamps the discovery strip, which fades when the hand is away and keeps it in the save', async () => {
+test('a secret found by hand stamps the journal button, which fades when the hand is away and keeps it in the save', async () => {
   const bb = await launchApp();
   const { page } = bb;
   try {

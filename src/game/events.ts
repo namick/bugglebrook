@@ -237,6 +237,63 @@ export interface GameEvents {
   /** A secret was found for the first time in this world. */
   secret_found: { id: string; x: number; y: number };
 
+  // --- M10 clues ------------------------------------------------------------
+  /** Three clicks tipped the sunken boot: a tiny key on a cork floats up. */
+  boot_tipped: { id: EntityId; x: number; y: number };
+  /** The tiny key opened the stump's little door: a map scrap and a coin pop out. */
+  nook_opened: { x: number; y: number };
+  /** Three coins in the teacup: the frog king surfaces and spits out a bubble hat. */
+  frog_king: { id: EntityId; x: number; y: number };
+  /** The frog eyes were poked (`count` in a row). */
+  frog_blinked: { x: number; y: number; count: number };
+  /** Five pokes: a huge ribbit ripples the pond and every bug jumps. */
+  frog_ribbited: { x: number; y: number };
+  /** Three bugs on one raft reached the far bank: a reed horn, cheering. */
+  regatta_won: { id: EntityId; riders: EntityId[]; x: number; y: number };
+  /** Something bounced on a ring mushroom (`index` 0 to 2 is its note). */
+  mushroom_bounced: { fixture: string; index: number; id: EntityId; x: number; y: number };
+  /** All three ring mushrooms rang within a beat: a chord and rainbow spores. */
+  mushroom_chord: { x: number; y: number };
+  /** Four dancers for sixteen beats: it starts to rain. */
+  rain_danced: { x: number; y: number };
+  /** A jar at the rainbow's end filled with rainbow paint. */
+  rainbow_caught: { id: EntityId; jar: EntityId; x: number; y: number };
+  /** The flashlight on the porch's back wall at night: a shadow puppet of something with eight legs. */
+  shadow_puppet: { x: number; y: number };
+  /** Three lights by the porch lamp at night: moths swirl into a spiral. */
+  moths_swirled: { x: number; y: number };
+  /** Eight marble hits in a row on the xylophone: it plays them back as a tune. */
+  marble_tune: { x: number; y: number };
+  /** Three claw prizes in a row: a victory spin and a candle hat. */
+  claw_spun: { id: EntityId; x: number; y: number };
+  /** Something rode the leaf slide to the bottom (`count` rides in all). */
+  slide_ridden: { id: EntityId; count: number; x: number; y: number };
+  /** The tenth slide ride brought back a map scrap. */
+  slide_souvenir: { id: EntityId; x: number; y: number };
+  /** The treehouse window was tapped (`count` in a row). */
+  window_tapped: { x: number; y: number; count: number };
+  /** The window telescope zoomed in on where a secret waits (or on nothing left to find). */
+  telescope_peeked: { secret: string | null; area: string | null; hint: string[]; x: number; y: number };
+  /** A jar carried up to the rain cloud caught a bit of it. */
+  cloud_caught: { id: EntityId; x: number; y: number };
+  /** The cloud jar was opened: rain. */
+  cloud_jar_opened: { id: EntityId; x: number; y: number };
+  /** The four map scraps snapped together into the treasure map. */
+  map_assembled: { id: EntityId; x: number; y: number };
+  /** The clover patch was clicked; `found` when the golden marble came up. */
+  clover_dug: { x: number; y: number; found: boolean };
+  /** A bug flung up at night left the sky, and came back with a moon crumb. */
+  orbit_launched: { id: EntityId; x: number; y: number };
+  orbit_returned: { id: EntityId; crumb: EntityId; x: number; y: number };
+  /** At night the moss jar squeaked at the hand: something tiny lives in there. */
+  moss_squeaked: { x: number; y: number };
+  /** The giant potion on the moss tuft grew Wubbo to bug size. */
+  wubbo_grew: { id: EntityId; x: number; y: number };
+  /** Wubbo patted a dizzy bug, who gets over it faster. */
+  bug_patted: { id: EntityId; targetId: EntityId; x: number; y: number };
+  /** Three bugs walked across Twig lying over a gap. */
+  twig_bridged: { id: EntityId; x: number; y: number };
+
   // --- Photo mode (M11) --------------------------------------------------
   /** The camera came out: bugs in view (x0 to x1) react, then the world freezes. */
   photo_mode_opened: { x0: number; x1: number };
@@ -282,6 +339,12 @@ export interface GameEvents {
     x: number;
     y: number;
   };
+  /** The plaza's earthworm took a hat down its hole (`secret_worm_hat`). */
+  worm_hatted: { itemId: EntityId; defId: string; x: number; y: number };
+  /** Two minutes later it came up on the pond's bank, still wearing it. */
+  worm_resurfaced: { itemId: EntityId; defId: string; x: number; y: number };
+  /** And went back down, leaving the hat on the bank. */
+  worm_left_hat: { itemId: EntityId; defId: string; x: number; y: number };
   /** Prim looked a hat over: a sparkle (`approve`) or a raised eyebrow. */
   hat_judged: {
     judge: EntityId;
@@ -309,6 +372,8 @@ export interface GameEvents {
   honey_made: { id: EntityId; itemId: EntityId; x: number; y: number };
   /** Fiddle started playing his own legs for this many beats. */
   bug_fiddled: { id: EntityId; defId: string; beats: number; x: number; y: number };
+  /** Luma danced in the stage's spotlight at night, moths swirling round her. */
+  moth_spotlit: { id: EntityId; x: number; y: number };
   /** Luma looped round a light (`own`: her own headlamp, round and round). */
   moth_circled: { id: EntityId; x: number; y: number; own: boolean };
   /** Every found bug wears a hat at once: Prim leads a parade (`secret_fashion_parade`). */
@@ -503,6 +568,57 @@ export interface GameEvents {
   };
   /** The bug scope showed a thing's hidden tag (or nothing on the dish). */
   scope_viewed: { defId: string | null; tag: string | null; x: number; y: number };
+  // --- M10 hidden areas --------------------------------------------------------
+  /**
+   * The player went through a doorway (`travel`): from fixture `from` at
+   * (x, y) to fixture `to` in `area`, coming out at (toX, toY). `carried` is
+   * what the hand brought along.
+   */
+  doorway_used: {
+    from: string;
+    to: string;
+    area: string;
+    x: number;
+    y: number;
+    toX: number;
+    toY: number;
+    carried: EntityId | null;
+  };
+  /** Ants found the player's sugar cube by their hill and started carrying it in. */
+  ants_took_sugar: { id: EntityId; x: number; y: number };
+  /** The sugar went in and the ant hill's hole crumbled wide into a doorway. */
+  ant_hill_opened: { x: number; y: number };
+  /** A click on the ant hill (ants scatter; once open, it is a doorway). */
+  ant_hill_poked: { x: number; y: number; open: boolean };
+  /** Something small landed on the depths' ant line and is being passed to the pantry. */
+  conveyor_took: { id: EntityId; defId: string; x: number; y: number };
+  /** The ant queen ate something sweet and danced. `first`: the first time (her gift follows). */
+  queen_fed: { defId: string; x: number; y: number; first: boolean };
+  /** The queen gave the player a present (her monocle). */
+  queen_gave: { id: EntityId; defId: string; x: number; y: number };
+  queen_poked: { x: number; y: number };
+  /** A big bug pulled the root knot free in the depths' dead end. */
+  root_pulled: { id: EntityId; defId: string; x: number; y: number };
+  /** A click on the root knot: it creaks (`stuck`) or just sways. */
+  root_poked: { x: number; y: number; stuck: boolean };
+  /** A sleeping larva in the nursery wiggled at a poke. */
+  larva_wiggled: { fixture: string; x: number; y: number };
+  /** Music reached the depths through the bluebell speakers: the ants started a conga. */
+  ants_conga: { x: number; y: number };
+  /** At night, with the ants asleep, the map scrap showed on the pantry's pile. */
+  pantry_scrap_found: { x: number; y: number };
+  /** The gnome got his nose back and sneezed; his hat flips open. */
+  gnome_sneezed: { x: number; y: number };
+  /** The player looked through Gnome Hollow's telescope. */
+  telescope_viewed: { x: number; y: number };
+  pedestal_poked: { x: number; y: number };
+  /** The golden marble settled in the moon pedestal's cup. */
+  marble_seated: { id: EntityId; x: number; y: number };
+  /** The finale began: the telescope opens and every bug heads for the plaza. (x, y) is over the stump. */
+  finale_started: { x: number; y: number };
+  /** A bug-shaped firework burst over the stump (the `n`th of the finale). */
+  firework_burst: { defId: string; x: number; y: number; n: number };
+  finale_ended: Record<string, never>;
 
   // Playtest F1: the trash can. F2: tidying up.
   /**

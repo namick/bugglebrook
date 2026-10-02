@@ -154,3 +154,25 @@ describe('the setup rule against things flying', () => {
     expect(find(log, 'bonked').filter((e) => caps.includes(e.id))).toEqual([]);
   });
 });
+
+describe('the setup rule when a bug sets something down', () => {
+  it('a bug puts what it carries down on its far side, never against a player stack', () => {
+    const sim = Sim.empty({ seed: 'set-down' });
+    const x = PLAZA_X + 6.3;
+    const caps = buildStack(sim, x);
+    const start = caps.map((id) => sim.view(id)!);
+    const dot = sim.spawn('bug', 'bug_ladybug_dot', x + 0.85, GROUND_Y - 0.6);
+    const berry = sim.spawn('item', 'item_berry_red', x + 2.5, GROUND_Y - 0.3);
+    sim.run(30);
+    dot.bug!.facing = -1;
+    // As if Dot had picked it up: in her front legs, then she lets go.
+    dot.bug!.carrying = berry.id;
+    sim.carried.set(berry.id, dot.id);
+    dot.bug!.carrying = null;
+    sim.run(60);
+    expect(sim.view(berry.id)!.x).toBeGreaterThan(sim.view(dot.id)!.x);
+    caps.forEach((c, i) =>
+      expect(Math.hypot(sim.view(c)!.x - start[i]!.x, sim.view(c)!.y - start[i]!.y)).toBeLessThan(0.03),
+    );
+  });
+});

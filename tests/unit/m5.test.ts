@@ -695,13 +695,15 @@ describe('menu and pocket layout (pure)', () => {
     expect(p).toBe(1);
   });
 
-  it('badges a slot with the bug fed most and fills the jar with the bugs fed', () => {
+  it('badges a slot with the bug fed most and fills the jar with the secrets found', () => {
     const sim = Sim.create();
     sim.counters.fed = { bug_pillbug_rollo: 4, bug_ladybug_dot: 2 };
     const pic = slotPicture(saveOf(sim));
     expect(pic.badge).toBe('bug_pillbug_rollo');
     expect(pic.bugs).toHaveLength(5);
-    expect(pic.fill).toBeCloseTo(2 / 5);
+    expect(pic.fill).toBe(0);
+    sim.findSecret('secret_sun_shades', 70, 5);
+    expect(slotPicture(saveOf(sim)).fill).toBeGreaterThan(0);
     sim.counters.fed = {};
     expect(slotPicture(saveOf(sim)).badge).toBeNull();
   });
