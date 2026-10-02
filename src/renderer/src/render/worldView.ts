@@ -12,6 +12,7 @@ import { CompostLive } from './areaArt/compostLive';
 import { FlowerbedLive } from './areaArt/flowerbedLive';
 import type { AreaLive } from './areaArt/live';
 import { BenchLive } from './areaArt/benchLive';
+import type { BenchLook } from './areaArt/benchLive';
 import { CauldronLive } from './areaArt/cauldronLive';
 import type { AreaFrame, AreaSound } from './areaArt/live';
 import { PorchLive } from './areaArt/porchLive';
@@ -254,6 +255,12 @@ export class WorldView extends Container {
 
   /** The areas' live views: flowers, the porch, the compost lab, the arcade, the barriers, locked previews. */
   private readonly lives: AreaLive[];
+
+  /** What the Tinker Bench shows (tray glows, its phase, its cork board), for tests. */
+  benchLook(): BenchLook | null {
+    const bench = this.lives.find((l): l is BenchLive => l instanceof BenchLive);
+    return bench ? bench.look() : null;
+  }
   private areaFrame: AreaFrame | null = null;
   /** Ambient sounds from the areas (bees, drips, steam, arcade blips). */
   onAmbient: ((name: AreaSound, strength: number) => void) | null = null;
@@ -750,9 +757,9 @@ export class WorldView extends Container {
   }
 
   /**
-   * While the player holds a thing (M8): the bench's empty trays and the
-   * cauldron's mouth glow softly nearby, and the one it would go in glows
-   * bright. A potion lights up mouths; a paint drop the bug it would paint.
+   * While the player holds a thing (M8): the cauldron's mouth glows softly
+   * nearby, and brightly when it would go in (the bench's trays light up in
+   * `BenchLive`). A potion lights up mouths; a paint drop the bug it would paint.
    */
   private drawTargets(g: Graphics): void {
     const held = this.sim.physics.grabbed;
@@ -776,17 +783,11 @@ export class WorldView extends Container {
           alpha: 0.5 * (1 - pulse) + 0.2,
         });
     };
-    // The bench's trays and the cauldron, when the held thing is close.
-    for (const c of [...this.sim.bench.candidates(), ...this.sim.cauldron.candidates()]) {
+    // The cauldron, when the held thing is close. The bench's trays light up themselves (BenchLive).
+    for (const c of this.sim.cauldron.candidates()) {
       if (Math.hypot(c.x - v.x, c.y - v.y) > 3.5) continue;
       const hot = target?.kind === c.kind && target.entityId === c.entityId;
-      ring(
-        c.x * PPM,
-        c.y * PPM,
-        c.kind === 'cauldron' ? 70 : 34,
-        c.kind === 'cauldron' ? 0x9be86b : 0xffd23f,
-        hot,
-      );
+      ring(c.x * PPM, c.y * PPM, 70, 0x9be86b, hot);
     }
     if (!target) return;
     if (target.kind === 'mouth' && this.sim.isPotion(e)) {

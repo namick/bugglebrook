@@ -55,6 +55,8 @@ import { OffScreen } from './systems/offscreen';
 import type { DropCandidate, DropTarget } from './systems/dropTargets';
 import { pickDropTarget } from './systems/dropTargets';
 import { Terrain } from './world/terrain';
+import type { Placed } from './world/startLayout';
+import { leanAgainst, stackTop } from './world/startLayout';
 import { Bench } from './systems/bench';
 import { Cauldron } from './systems/cauldron';
 import { Bounds } from './systems/bounds';
@@ -421,27 +423,40 @@ export class Sim {
   populate(areas: readonly AreaDef[]): void {
     for (const area of areas) {
       if (!this.built.includes(area.id)) this.built.push(area.id);
+      // Start things placed so far, for piles: what stacks on them and leans on them.
+      const placed: Placed[] = [];
       for (const s of area.start) {
-        const x = area.xStart + s.x;
-        const half =
-          s.kind === 'bug'
-            ? this.content.bugs.get(s.defId).radius
-            : halfExtents(this.content.items.get(s.defId).shape, 0).h;
+        let x = area.xStart + s.x;
+        const shape = s.kind === 'item' ? this.content.items.get(s.defId).shape : null;
+        const half = shape ? halfExtents(shape, 0).h : this.content.bugs.get(s.defId).radius;
         // A hidden bug that was found already (in a save) does not come back.
         if (s.kind === 'bug' && s.pending && this.cast.present(s.defId)) continue;
         const water = s.onWater ? this.environment.waterAt(x) : null;
         // Floaters start sitting in the water, skaters standing on it.
-        const y =
+        let y =
           s.pin !== undefined && s.y !== undefined
             ? s.y
             : water
               ? water.level - half * (s.kind === 'bug' ? 1 : 0.4)
               : (s.y ?? this.surfaceY(x)) - (s.lift ?? 0) - half - 0.01;
+        let angle = s.pin ?? 0;
+        const prev = placed[placed.length - 1];
+        if (shape && s.lean && prev) {
+          const corner = s.lean === 1 ? prev.x0 : prev.x1;
+          ({ x, y, angle } = leanAgainst(prev, shape, s.lean, this.surfaceY(corner)));
+        } else if (shape && s.stack) {
+          const top = stackTop(placed, x, halfExtents(shape, 0).w);
+          if (top !== null) y = top - half - 0.01;
+        }
         const e = this.spawn(s.kind, s.defId, x, y);
+        if (angle !== 0) this.physics.place(e.id, x, y, angle);
         if (s.pin !== undefined) {
-          this.physics.place(e.id, x, y, s.pin);
           this.physics.setPinned(e.id, true);
           e.pinned = true;
+        }
+        if (shape) {
+          const ext = halfExtents(shape, angle);
+          placed.push({ x0: x - ext.w, x1: x + ext.w, top: y - ext.h });
         }
         if (s.pending && e.bug) {
           e.bug.pending = s.pending;
@@ -563,7 +578,7 @@ export class Sim {
         if (!this.content.items.has(st.defId)) continue;
         const x = area.xStart + st.x;
         const half = halfExtents(this.content.items.get(st.defId).shape, 0).h;
-        this.spawn('item', st.defId, x, this.surfaceY(x) - half - 0.3);
+        this.spawn('item', st.defId, x, (st.y ?? this.surfaceY(x)) - half - 0.3);
         have.add(st.defId);
       }
   }

@@ -178,6 +178,8 @@ export interface TestHook {
   };
   /** M8: the Tinker Bench's trays (entity IDs), whether it is shaking, and recipes made and hinted. */
   bench(): { trays: (number | null)[]; busy: boolean; made: string[]; hinted: string[]; nudged: string[] };
+  /** M8 (R09, R10): how the bench looks: each tray's glow (0 to 1), its phase, and its cork board's cards. */
+  benchLook(): { trays: number[]; phase: string; cards: string[] } | null;
   /** M8: what is in the cauldron, how far it is stirred (0 to 1), and whether it is bubbling. */
   cauldron(): { contents: string[]; progress: number; bubbling: boolean; brewed: number };
   /**
@@ -458,6 +460,7 @@ export function installTestHook(game: Game): void {
         nudged: [...b.state.nudged],
       };
     },
+    benchLook: () => game.session?.view.benchLook() ?? null,
     cauldron: () => {
       const c = game.session?.sim.cauldron;
       if (!c) return { contents: [], progress: 0, bubbling: false, brewed: 0 };

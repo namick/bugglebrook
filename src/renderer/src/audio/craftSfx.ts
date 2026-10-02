@@ -9,6 +9,8 @@ export type CraftSfx =
   | 'tray_out'
   | 'hammer'
   | 'bench_clunk'
+  | 'bench_rattle'
+  | 'craft_pop'
   | 'craft_tada'
   | 'uncraft'
   | 'fail_raspberry'
@@ -156,11 +158,11 @@ export function craftTones(name: CraftSfx, j: number, intensity: number, random:
         { freq: 500 * j, to: 900 * j, dur: 0.07, wave: 'triangle', gain: 0.12, delay: 0.03 },
       ];
     case 'hammer': {
-      // Woody knocks across about 1.2 s; more and harder when it is strong.
+      // Woody knocks across about a second, stopping for the hit-stop; more and harder when strong.
       const n = intensity > 0.5 ? 8 : 6;
       const level = 0.6 + 0.5 * intensity;
       return Array.from({ length: n }, (_, k) => {
-        const at = (k * 1.15) / (n - 1) + (random() - 0.5) * 0.04;
+        const at = (k * 0.95) / (n - 1) + (random() - 0.5) * 0.04;
         const f = (260 + (k % 3) * 40) * j;
         return [
           { freq: f, to: f * 0.8, dur: 0.07, wave: 'triangle' as const, gain: 0.3 * level, delay: at },
@@ -176,6 +178,55 @@ export function craftTones(name: CraftSfx, j: number, intensity: number, random:
         ];
       }).flat();
     }
+    case 'bench_rattle': {
+      // Under the hammering (R09): bolts and caps rattling faster and faster, a hiss of steam
+      // building, and a little kettle whistle at the top. It stops just before the pop (the
+      // hit-stop), so the pop lands in a beat of quiet.
+      const tones: Tone[] = [];
+      let at = 0.12;
+      for (let k = 0; at < 1.02; k++) {
+        const f = (2600 + (k % 4) * 450) * j;
+        tones.push({
+          freq: f,
+          to: f * 0.7,
+          dur: 0.025,
+          wave: 'noise',
+          q: 5,
+          gain: 0.07 + 0.08 * at,
+          delay: at,
+        });
+        if (k % 3 === 1)
+          tones.push({
+            freq: (1700 + random() * 900) * j,
+            dur: 0.05,
+            wave: 'sine',
+            gain: 0.05,
+            delay: at + 0.01,
+          });
+        at += Math.max(0.03, 0.11 - at * 0.08) * (intensity > 0.5 ? 0.8 : 1);
+      }
+      tones.push(
+        {
+          freq: 3000 * j,
+          to: 6500 * j,
+          dur: 0.8,
+          wave: 'noise',
+          q: 0.8,
+          gain: 0.06,
+          attack: 0.5,
+          delay: 0.25,
+        },
+        { freq: 1100 * j, to: 1650 * j, dur: 0.35, wave: 'sine', gain: 0.05, attack: 0.15, delay: 0.7 },
+      );
+      return tones;
+    }
+    case 'craft_pop':
+      // The pop as the new thing comes out: a soft pomf of air and a bright cork pop.
+      return [
+        { freq: 190 * j, to: 60 * j, dur: 0.16, wave: 'sine', gain: 0.32 },
+        { freq: 900 * j, to: 200 * j, dur: 0.14, wave: 'noise', q: 0.7, gain: 0.22 },
+        { freq: 650 * j, to: 1300 * j, dur: 0.06, wave: 'triangle', gain: 0.16, delay: 0.02 },
+      ];
     case 'bench_clunk':
       return [
         { freq: 150 * j, to: 90 * j, dur: 0.18, wave: 'triangle', gain: 0.35 },

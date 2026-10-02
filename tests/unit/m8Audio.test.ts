@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { Rng, Sim } from '../../src/game';
+import { Rng, SIM_HZ, Sim } from '../../src/game';
+import { BENCH_SHAKE } from '../../src/game/systems/bench';
+import { HIT_STOP } from '../../src/renderer/src/render/areaArt/benchLive';
 import type { GameEvents } from '../../src/game';
 import { BUGS } from '../../src/game/data/bugs';
 import { noteFreq, noteTones, timbreOf } from '../../src/renderer/src/audio/craftSfx';
@@ -141,6 +143,18 @@ describe('M8 sounds', () => {
     const end = Math.max(...backend.played.map((t) => (t.delay ?? 0) + t.dur));
     expect(end).toBeGreaterThan(1);
     expect(end).toBeLessThan(1.5);
+  });
+
+  it('rattles and steams up to the pop, then goes quiet for the hit-stop before it (R09)', () => {
+    const { sim, backend, sfx } = setup();
+    sim.events.emit('bench_pulled', { empty: false, helpers: [], strong: false, ...p });
+    expect(sfx.log).toContain('bench_rattle');
+    expect(backend.played.some((t) => t.wave === 'noise' && (t.to ?? 0) > t.freq)).toBe(true);
+    const end = Math.max(...backend.played.map((t) => (t.delay ?? 0) + t.dur));
+    expect(end).toBeLessThan((BENCH_SHAKE - HIT_STOP) / SIM_HZ + 0.02);
+    sfx.log.length = 0;
+    sim.events.emit('crafted', { recipe: 'r', id: 1, defId: 'd', first: false, ...p });
+    expect(sfx.log).toEqual(['craft_pop', 'craft_tada']);
   });
 
   it('floods of the same sound are limited', () => {

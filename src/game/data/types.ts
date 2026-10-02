@@ -32,6 +32,14 @@ export interface StartEntity {
   y?: number;
   /** Start pinned to the pegboard at this angle (radians). */
   pin?: number;
+  /** Start on top of the highest thing already placed under it (a junk pile). */
+  stack?: boolean;
+  /**
+   * Start leaning against the thing placed just before it: 1 leans right
+   * against its left side, -1 leans left against its right side. `x` is
+   * only roughly where it ends up; the lean is worked out from the shapes.
+   */
+  lean?: 1 | -1;
 }
 
 /** How a hidden bug waits to be found: see `StartEntity.pending`. */

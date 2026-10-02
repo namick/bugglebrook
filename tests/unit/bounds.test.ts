@@ -171,8 +171,9 @@ describe('lost things come back (R01)', () => {
     const porch = sim.content.areas.get('area_under_porch');
     const pebble = sim.spawn('item', 'item_pebble', porch.xStart + 10, 5);
     sim.physics.place(pebble.id, sim.worldWidth + 30, GROUND_Y - 1, 0);
-    // The right end's nearest open stretch is the treehouse; pretend the porch is the far end.
-    const span = { x0: sim.barriers.span().x0, x1: porch.xStart + 12 };
+    // The right end's nearest open stretch is the treehouse; pretend the porch is the far end
+    // (by the flowerpot, where the floor is clear: shelves hang over the junk pile further in).
+    const span = { x0: sim.barriers.span().x0, x1: porch.xStart + 7.4 };
     sim.barriers.span = () => span;
     sim.run(SWEEP_TICKS + 1);
     expect(log).toHaveLength(1);

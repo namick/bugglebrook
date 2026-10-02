@@ -8,15 +8,23 @@ import { OUTLINE, mix, stroke } from '../palette';
 import { soft } from './common';
 import { AreaLive } from './live';
 import type { AreaFrame, LightFn } from './live';
-import { BOARDS, PORCH } from './porch';
+import { PORCH_LID } from '../../../../game/data/areas';
+import { BOARDS, PORCH, drawLidFront, porchGaps } from './porch';
+import { lampPool, shaftSlant, shaftStrength } from './porchLook';
 
 const PPM = PIXELS_PER_METER;
+/** The porch floor, in world px. */
+const FLOOR = 900;
 
 interface Mote {
+  /** Across the beam (0 to 1) and down it (0 to 1). */
   x: number;
   y: number;
   vx: number;
   vy: number;
+  /** Which beam it floats in. */
+  beam: number;
+  size: number;
 }
 
 interface Fish {
@@ -24,13 +32,22 @@ interface Fish {
   dir: 1 | -1;
   t: number;
   wait: number;
+  /** The shadow it is darting to next (world px). */
+  to: number;
 }
 
-/** Where the day's light shaft falls (world px in the porch), drifting across the floor through the day. */
-export function shaftX(x0: number, hour: number): number {
-  const t = Math.min(1, Math.max(0, (hour - 7) / 11));
-  return x0 + 1300 + t * 800;
+/** A sunbeam through a gap in the boards: where it comes in, and how wide and bright it is. */
+interface Beam {
+  x: number;
+  width: number;
+  strength: number;
 }
+
+/** Floor shadows silverfish hide in (area-local px): under the junk pile, the shelf, the bench, the pots. */
+const HIDEOUTS = [1040, 1300, 1720, 2200, 2560, 2850] as const;
+
+/** The lamp's five bulbs, left to right. */
+const LAMP_COLORS = [0xffe3a3, 0xff9fb8, 0xb6ff8a, 0x9fd8ff, 0xffd166] as const;
 
 /**
  * Under the porch, alive: a warm shaft of daylight through the boards with
@@ -45,6 +62,8 @@ export class PorchLive extends AreaLive {
   private readonly fg = new Graphics();
   private readonly shaft = new Graphics();
   private readonly ax: number;
+  private readonly beams: Beam[] = [];
+  private readonly gaps: number[];
   private motes: Mote[] = [];
   private readonly fish: Fish[] = [];
   private spiderDrop = 0;
@@ -61,10 +80,28 @@ export class PorchLive extends AreaLive {
     this.back.addChild(this.g);
     this.front.addChild(this.fg);
     this.glow.addChild(this.shaft);
-    for (let i = 0; i < 40; i++) this.motes.push({ x: Math.random(), y: Math.random(), vx: 0, vy: 0 });
+    this.gaps = porchGaps(area);
+    // Sunbeams come through the floor gaps (strong) and every third board gap (faint).
+    const floorGaps = this.fx('floor_gap').map((g) => g.x);
+    this.gaps.forEach((x, i) => {
+      const main = floorGaps.some((g) => Math.abs(g - x) < 2);
+      if (main || i % 3 === 1) this.beams.push({ x, width: main ? 26 : 12, strength: main ? 1 : 0.45 });
+    });
+    this.beams.forEach((b, beam) => {
+      for (let i = 0; i < (b.strength > 0.6 ? 16 : 6); i++)
+        this.motes.push({
+          x: Math.random(),
+          y: Math.random(),
+          vx: 0,
+          vy: 0,
+          beam,
+          size: 1.4 + Math.random() * 1.8,
+        });
+    });
     this.fish.push(
-      { x: this.ax + 600, dir: 1, t: 0, wait: 2 },
-      { x: this.ax + 2400, dir: -1, t: 0, wait: 5 },
+      { x: this.ax + 1040, dir: 1, t: 0, wait: 2, to: this.ax + 1300 },
+      { x: this.ax + 2560, dir: -1, t: 0, wait: 5, to: this.ax + 2200 },
+      { x: this.ax + 1720, dir: 1, t: 0, wait: 9, to: this.ax + 2200 },
     );
     for (let i = 0; i < 7; i++)
       this.moths.push({ a: Math.random() * 6, r: 60 + Math.random() * 90, s: 1.5 + Math.random() * 1.5 });
@@ -100,34 +137,13 @@ export class PorchLive extends AreaLive {
     const hour = timeOfDay(f.sim.weather.clock) / HOUR;
     const day = f.look.dapple;
     const open = f.sim.barriers.isOpen(this.area.id);
-    // The light shaft through a gap in the boards, by day.
-    const sx = shaftX(this.ax, hour);
-    if (day > 0.05) {
-      sh.poly([sx - 30, BOARDS.bottom, sx + 30, BOARDS.bottom, sx + 190, 905, sx - 50, 905]).fill({
-        color: PORCH.light,
-        alpha: 0.1 * day,
-      });
-      // Dust motes swirl in it; anything moving through stirs them.
-      const stir = f.views.some((v) => Math.abs(v.x * PPM - sx - 70) < 140 && Math.hypot(v.vx, v.vy) > 0.5);
-      for (const m of this.motes) {
-        m.vx += (Math.random() - 0.5) * 0.02 + (stir ? (Math.random() - 0.5) * 0.3 : 0);
-        m.vy += (Math.random() - 0.5) * 0.02 - 0.002;
-        m.vx *= 0.96;
-        m.vy *= 0.96;
-        m.x = (m.x + m.vx * f.dt + 1) % 1;
-        m.y = (m.y + m.vy * f.dt + 1) % 1;
-        const y = BOARDS.bottom + m.y * (905 - BOARDS.bottom);
-        const t = (y - BOARDS.bottom) / (905 - BOARDS.bottom);
-        const x = sx - 30 + t * -20 + m.x * (60 + t * 180);
-        sh.circle(x, y, 2.2).fill({ color: 0xfff6d8, alpha: 0.6 * day });
-      }
-    }
+    // Sunbeams through the gaps between the boards, slanting with the hour, gone at night.
+    const sun = day * shaftStrength(hour) * (1 - 0.7 * f.weather.rain);
+    if (sun > 0.03) this.drawBeams(sh, f, hour, sun);
     // Light through the floor gaps (and drips through them in the rain).
     for (const gap of this.fx('floor_gap')) {
-      g.rect(gap.x - 3, BOARDS.top, 6, BOARDS.bottom - BOARDS.top).fill({
-        color: day > 0.1 ? PORCH.light : 0x2a2438,
-        alpha: 0.85,
-      });
+      if (sun <= 0.1)
+        g.rect(gap.x - 3, BOARDS.top, 6, BOARDS.bottom - BOARDS.top).fill({ color: 0x1e1620, alpha: 0.85 });
       if (f.weather.rain > 0.3 && Math.random() < f.dt * 1.5 * f.weather.rain) {
         f.particles.drip(gap.x, BOARDS.bottom + 4, 0xbfe4ff);
         this.puddles[gap.x] = Math.min(1, (this.puddles[gap.x] ?? 0) + 0.15);
@@ -146,7 +162,77 @@ export class PorchLive extends AreaLive {
     this.drawSpider(g, f);
     this.drawFish(g, f);
     this.drawWeb(fg, f);
+    drawLidFront(fg, this.ax + PORCH_LID.x0 * PPM, this.ax + PORCH_LID.x1 * PPM);
     this.drawPotEyes(g, f, open);
+  }
+
+  /** Where a beam meets the floor this hour (world px). */
+  private beamFoot(b: Beam, hour: number): number {
+    return b.x + shaftSlant(hour) * (FLOOR - BOARDS.bottom);
+  }
+
+  /**
+   * The sunbeams: soft slanting wedges of warm light from each gap, a bright
+   * sliver in the gap itself, and dust motes floating in them that swirl
+   * when something moves through.
+   */
+  private drawBeams(sh: Graphics, f: AreaFrame, hour: number, sun: number): void {
+    const slant = shaftSlant(hour);
+    const drop = FLOOR - BOARDS.bottom;
+    const stirred = this.beams.map((b) => {
+      const foot = this.beamFoot(b, hour);
+      return f.views.some((v) => {
+        const vx = v.x * PPM;
+        const vy = v.y * PPM;
+        if (vy < BOARDS.bottom || Math.hypot(v.vx, v.vy) < 0.5) return false;
+        const along = b.x + (foot - b.x) * ((vy - BOARDS.bottom) / drop);
+        return Math.abs(vx - along) < b.width * 2 + 40;
+      });
+    });
+    this.beams.forEach((b, i) => {
+      if (b.x < f.left - 400 || b.x > f.right + 400) return;
+      const foot = this.beamFoot(b, hour);
+      const k = sun * b.strength;
+      sh.rect(b.x - 4, BOARDS.top, 4, BOARDS.bottom - BOARDS.top).fill({ color: 0xfff1c4, alpha: 0.9 * k });
+      // Three nested wedges for a soft edge, widening toward the floor.
+      for (const [spread, alpha] of [
+        [3.2, 0.035],
+        [2.1, 0.05],
+        [1.2, 0.07],
+      ] as const) {
+        const top = b.width * 0.5 * spread * 0.5;
+        const bottom = b.width * spread + 30 * spread;
+        sh.poly([
+          b.x - 2 - top,
+          BOARDS.bottom,
+          b.x - 2 + top,
+          BOARDS.bottom,
+          foot + bottom / 2,
+          FLOOR,
+          foot - bottom / 2,
+          FLOOR,
+        ]).fill({ color: PORCH.light, alpha: alpha * k });
+      }
+      sh.ellipse(foot, FLOOR - 2, b.width * 2 + 40, 9).fill({ color: PORCH.light, alpha: 0.22 * k });
+      if (stirred[i]) for (const m of this.motes) if (m.beam === i) m.vx += (Math.random() - 0.5) * 0.25;
+    });
+    for (const m of this.motes) {
+      const b = this.beams[m.beam]!;
+      m.vx += (Math.random() - 0.5) * 0.015;
+      m.vy += (Math.random() - 0.5) * 0.015 - 0.001;
+      m.vx *= 0.97;
+      m.vy *= 0.97;
+      m.x = (m.x + m.vx * f.dt + 1) % 1;
+      m.y = (m.y + m.vy * f.dt * 0.4 + 1) % 1;
+      const y = BOARDS.bottom + m.y * drop;
+      const center = b.x + slant * (y - BOARDS.bottom);
+      const half = (b.width * 0.6 + (b.width * 2 + 30) * m.y) / 2;
+      const x = center + (m.x - 0.5) * 2 * half;
+      // Brightest in the middle of the beam, twinkling as they turn.
+      const edge = 1 - Math.abs(m.x - 0.5) * 2;
+      const tw = 0.6 + 0.4 * Math.sin(f.time * 3 + m.size * 7 + m.beam);
+      sh.circle(x, y, m.size).fill({ color: 0xfff6d8, alpha: 0.75 * sun * b.strength * edge * tw });
+    }
   }
 
   private drawLamp(g: Graphics, f: AreaFrame): void {
@@ -165,7 +251,7 @@ export class PorchLive extends AreaLive {
     g.moveTo(x0 - 20, BOARDS.bottom);
     for (const [x, y] of pts) g.lineTo(x, y);
     g.lineTo(x0 + lamp.w + 20, BOARDS.bottom).stroke({ width: 3, color: 0x2b2438 });
-    const colors = [0xffe3a3, 0xff9fb8, 0xb6ff8a, 0x9fd8ff, 0xffd166];
+    const colors = LAMP_COLORS;
     pts.forEach(([x, y], i) => {
       g.rect(x - 6, y - 4, 12, 10)
         .fill(0x6a6878)
@@ -175,16 +261,25 @@ export class PorchLive extends AreaLive {
         .stroke(stroke(3));
       if (on) g.ellipse(x - 4, y + 13, 4, 6).fill({ color: 0xffffff, alpha: 0.8 });
     });
-    // Moths come to a lit lamp at night.
+    // Moths come to a lit lamp at night: fuzzy, pale, flapping round the bulbs.
     if (on && f.look.glow > 0.3)
       for (const m of this.moths) {
         m.a += f.dt * m.s;
         const mx = lamp.x + Math.cos(m.a) * m.r;
         const my = lamp.y + 40 + Math.sin(m.a * 1.3) * m.r * 0.4;
         const flap = Math.abs(Math.sin(f.time * 18 + m.r));
-        g.ellipse(mx - 5, my, 6, 3 + flap * 4).fill({ color: 0xe8dcf8, alpha: Math.min(1, f.look.glow) });
-        g.ellipse(mx + 5, my, 6, 3 + flap * 4).fill({ color: 0xe8dcf8, alpha: Math.min(1, f.look.glow) });
-        g.circle(mx, my, 2.5).fill({ color: 0x6b5ba6, alpha: Math.min(1, f.look.glow) });
+        const alpha = Math.min(1, (f.look.glow - 0.3) * 2);
+        const face = Math.cos(m.a) > 0 ? -1 : 1;
+        for (const side of [-1, 1]) {
+          g.ellipse(mx + side * 6, my - 1, 7, 2 + flap * 6).fill({ color: 0xf2e6ff, alpha });
+          g.ellipse(mx + side * 4, my + 4, 4, 1 + flap * 3).fill({ color: 0xd8c8f0, alpha });
+        }
+        g.ellipse(mx, my + 1, 3, 5).fill({ color: 0x8a76b8, alpha });
+        g.moveTo(mx + face * 1, my - 4)
+          .lineTo(mx + face * 5, my - 10)
+          .moveTo(mx - face * 1, my - 4)
+          .lineTo(mx - face * 3, my - 10)
+          .stroke({ width: 1, color: 0x6b5ba6, alpha });
       }
   }
 
@@ -239,31 +334,52 @@ export class PorchLive extends AreaLive {
     g.circle(x + 14, y + 6, 4).fill({ color: 0xff8fab, alpha: 0.7 });
   }
 
-  /** Silverfish dart between the shadows along the floor, now and then. */
+  /**
+   * Silverfish dart from one shadow to the next along the floor (under the
+   * junk pile, the shelf, the bench, the pots), wiggling as they go, and
+   * wait there, just their feelers twitching.
+   */
   private drawFish(g: Graphics, f: AreaFrame): void {
     for (const s of this.fish) {
-      if (s.wait > 0) {
-        s.wait -= f.dt;
-        continue;
+      let moving = false;
+      if (s.wait > 0) s.wait -= f.dt;
+      else {
+        moving = true;
+        s.t += f.dt;
+        const d = s.to - s.x;
+        const step =
+          Math.sign(d) * Math.min(Math.abs(d), 380 * f.dt * (0.6 + 0.4 * Math.abs(Math.sin(s.t * 9))));
+        s.x += step;
+        s.dir = d >= 0 ? 1 : -1;
+        if (Math.abs(s.to - s.x) < 2) {
+          s.wait = 2 + Math.random() * 7;
+          const here = HIDEOUTS.indexOf(Math.round(s.to - this.ax) as (typeof HIDEOUTS)[number]);
+          const next = Math.max(0, Math.min(HIDEOUTS.length - 1, here + (Math.random() < 0.5 ? -1 : 1)));
+          s.to = this.ax + HIDEOUTS[next === here ? (here + 1) % HIDEOUTS.length : next]!;
+        }
       }
-      s.t += f.dt;
-      s.x += s.dir * 420 * f.dt * (0.5 + 0.5 * Math.abs(Math.sin(s.t * 6)));
-      if (s.t > 2 + Math.random()) {
-        s.t = 0;
-        s.wait = 3 + Math.random() * 8;
-        s.dir = s.dir === 1 ? -1 : 1;
+      if (s.x < f.left - 100 || s.x > f.right + 100) continue;
+      const y = FLOOR - 4;
+      const wig = moving ? Math.sin(s.t * 30) * 2.5 : 0;
+      const d = s.dir;
+      // Tapering segments, head first.
+      for (let k = 0; k < 5; k++) {
+        const kx = s.x - d * k * 6;
+        const ky = y + Math.sin(k * 1.2 + s.t * 30) * (moving ? 1.2 : 0);
+        g.ellipse(kx, ky, 6 - k * 0.6, 4.4 - k * 0.5).fill(k % 2 ? 0xb8bfcf : 0xd2d8e4);
       }
-      s.x = Math.max(this.ax + 560, Math.min(this.ax + 2950, s.x));
-      const y = 898;
-      g.ellipse(s.x, y, 16, 5).fill(0xc7ccd8).stroke(soft(1.5, 0.6));
-      g.moveTo(s.x - s.dir * 16, y)
-        .lineTo(s.x - s.dir * 30, y - 5)
-        .moveTo(s.x - s.dir * 16, y)
-        .lineTo(s.x - s.dir * 30, y + 4)
-        .stroke({ width: 1.5, color: 0xc7ccd8 });
-      g.moveTo(s.x + s.dir * 15, y - 2)
-        .lineTo(s.x + s.dir * 26, y - 9)
-        .stroke({ width: 1.5, color: 0xc7ccd8 });
+      g.ellipse(s.x - d * 12, y, 17, 5.5).stroke({ width: 1.5, color: OUTLINE, alpha: 0.5 });
+      // Three tail bristles and two long feelers.
+      for (const a of [-0.35, 0, 0.35])
+        g.moveTo(s.x - d * 28, y)
+          .lineTo(s.x - d * (40 + Math.abs(a) * -6), y + a * 18 + wig)
+          .stroke({ width: 1.3, color: 0xc7ccd8 });
+      const tw = moving ? 0 : Math.sin(f.time * 11 + s.x) * 3;
+      for (const a of [-1, 1])
+        g.moveTo(s.x + d * 5, y - 2)
+          .quadraticCurveTo(s.x + d * 16, y - 12 + a * 2, s.x + d * 26, y - 8 + a * 5 + tw * a)
+          .stroke({ width: 1.3, color: 0xc7ccd8 });
+      g.circle(s.x + d * 3, y - 1.5, 1.4).fill(OUTLINE);
     }
   }
 
@@ -322,16 +438,31 @@ export class PorchLive extends AreaLive {
   override lights(f: AreaFrame, light: LightFn): void {
     if (!this.shows(f)) return;
     const hour = timeOfDay(f.sim.weather.clock) / HOUR;
-    const day = f.look.dapple;
-    if (day > 0.05) light(shaftX(this.ax, hour) + 70, 900, 160, PORCH.light, 0.35 * day, 1.6, 0.35);
+    const sun = f.look.dapple * shaftStrength(hour) * (1 - 0.7 * f.weather.rain);
+    // Warm pools where the sunbeams land.
+    if (sun > 0.03)
+      for (const b of this.beams) {
+        const foot = this.beamFoot(b, hour);
+        if (foot < f.left - 300 || foot > f.right + 300) continue;
+        light(foot, FLOOR - 6, 70 + b.width * 2, PORCH.light, 0.4 * sun * b.strength, 1.8, 0.32);
+      }
+    // The lamp: the bulbs glow, and at night their pool of light is the room's focal point (R19).
     const lamp = this.fx('porch_lamp')[0];
     if (lamp && f.sim.places.state.lampOn) {
-      const k = 0.35 + f.look.glow * 0.65;
-      for (let i = 0; i < 5; i++)
-        light(lamp.x - lamp.w / 2 + ((i + 0.5) / 5) * lamp.w, lamp.y + 30, 140, 0xffe3a3, k * 0.7);
-      light(lamp.x, 700, 420, 0xffd9a0, k * 0.4, 1.3, 0.9);
+      const glow = f.look.glow;
+      const pool = lampPool(glow);
+      const flicker = 0.97 + 0.03 * Math.sin(f.time * 7.3) * Math.sin(f.time * 3.1);
+      for (let i = 0; i < 5; i++) {
+        const t = (i + 0.5) / 5;
+        const bx = lamp.x - lamp.w / 2 + t * lamp.w;
+        const by = BOARDS.bottom + 30 + Math.sin(t * Math.PI) * 50;
+        light(bx, by + 18, 70 + glow * 40, LAMP_COLORS[i]!, (0.3 + glow * 0.25) * flicker);
+        light(bx, by + 18, 20, 0xffffff, 0.25 + glow * 0.2);
+      }
+      light(lamp.x, 600, pool.radius, 0xffc98a, pool.alpha * flicker, 1.3, 0.95);
+      light(lamp.x, 560, pool.radius * 0.45, 0xffe3a3, pool.alpha * 0.5 * flicker, 1.5, 0.8);
+      // Where it falls on the floor.
+      light(lamp.x, FLOOR - 4, pool.radius * 0.75, 0xffd9a0, pool.alpha * 0.7 * flicker, 1.5, 0.25);
     }
-    for (const gap of this.fx('floor_gap'))
-      if (day > 0.1) light(gap.x, BOARDS.bottom + 30, 40, PORCH.light, day * 0.5, 0.4, 1.6);
   }
 }

@@ -4,6 +4,7 @@
 
 import { VIEW_WIDTH_PX } from '../../../game/constants';
 import type { ChatTopic, Fidget } from '../../../game/events';
+import { CRAFT_POP } from './areaArt/benchLive';
 import { ItemSprite } from './draw/item';
 import type { Move, Picto } from './reactions';
 import { weatherTarget } from './skyLook';
@@ -525,6 +526,20 @@ export function listenPotions(view: WorldView): Array<() => void> {
       view.particles.sparkles(px(e.x), px(e.y) - 20, 2);
     }),
     ev.on('blob_squeaked', (e) => view.juiceFor(e.id).squash.kick(1.3, 0.75)),
+    // The bench's pop (R09): the new thing grows out of a puff with a stretch and a bounce.
+    ev.on('crafted', (e) => {
+      const j = view.juiceFor(e.id);
+      j.size = { value: CRAFT_POP.from, v: CRAFT_POP.speed };
+      j.squash.kick(CRAFT_POP.sx, CRAFT_POP.sy);
+      view.particles.puff(px(e.x), px(e.y) + 20, 0xfff6e0, 14, 0, -40, 30);
+      view.shake(3, 0.14);
+    }),
+    ev.on('bench_failed', (e) => {
+      if (e.blobId === null) return;
+      const j = view.juiceFor(e.blobId);
+      j.size = { value: CRAFT_POP.from, v: CRAFT_POP.speed };
+      j.squash.kick(CRAFT_POP.sy, CRAFT_POP.sx);
+    }),
     ev.on('blob_split', (e) => {
       view.particles.puff(px(e.x), px(e.y), 0xd6cce8, 10, 0, -30, 22);
       view.particles.sparkles(px(e.x), px(e.y), 8);

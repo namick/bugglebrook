@@ -80,7 +80,7 @@ export async function clickSlot(page: Page, slot: number): Promise<void> {
       // Not in yet: the click may have landed while the menu was still settling.
     }
   }
-  await waitForScene(page, 'world');
+  await expect.poll(() => page.evaluate(() => window.__bb!.scene()), { timeout: 60_000 }).toBe('world');
 }
 
 export const entities = (page: Page): Promise<EntityView[]> => page.evaluate(() => window.__bb!.entities());
