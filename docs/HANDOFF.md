@@ -32,30 +32,33 @@ Other docs, as needed:
 
 ## Where things stand
 
-All twelve design milestones (M1 to M12 in `docs/03-game-design.md` section 19) have been built except the final pieces of M12. Main is green on CI (latest: run 37018893500 at `7540359`). About 1,400 unit tests and about 100 E2E tests.
+All twelve design milestones (M1 to M12 in `docs/03-game-design.md` section 19) have been built. The four branches that were in flight at the last handoff (sound samples, sim performance, save robustness, gameplay fixes) all landed on main on 2026-10-02, each through a PR that was green on CI. Every pre-release review item now has a status, and the save version is still 16. About 1,400 unit tests and about 115 E2E tests.
 
 On main:
 - The full game: 8 areas (2 hidden), all 16 bugs, about 170 items, 32 recipes, 33 potions, 67 secrets (all with triggers) and 4 mysteries, the journal, photo mode, 29 wearables, music toys and the mushroom sequencer, trash can and tidy whistle, day/night/weather, 3 save slots (save version 16).
 - The art pipeline: Krita `.ora` templates for every bug, importer, cutout renderer, `pnpm art:watch`, Art Lab, credits board.
 - Music: adaptive player built from Suno stems. Two real tracks exist (`main_menu`, `stump_plaza_day`); everything else plays a procedural pad.
-- Release engineering: app hardening, updater (off for Steam builds), installers at version 1.0.0 (not tagged), draft-release workflow tested.
+- Sound: synthesized effects, plus a recorded-sample system (`pnpm sfx:import`) that falls back to the synth for any sound without a recording, and ambience beds. No recordings exist yet.
+- Saves: locked slots for saves that won't open (never deleted), a badge and retries when a save fails, a save before every quit, two backups per slot, real fixtures for versions 11, 15, and 16.
+- Release engineering: app hardening, updater (off for Steam builds and on macOS), installers at version 1.0.0 (not tagged), draft-release workflow tested, a macOS smoke job on CI.
 
-## In flight: unmerged branches on GitHub
+## Open questions for the owner
 
-The last session ended while four agents were mid-task. Their work is pushed to these branches. None of it is on main yet.
+These came out of the 2026-10-02 merges. None blocks the others.
 
-| Branch | State | What it holds | What's left |
-|---|---|---|---|
-| `m12-sfx-perf` (draft PR #7) | 2 commits, CI was green on part A | The recorded sound-effect system (`pnpm sfx:import`, sample player with variation and synth fallback, ambience beds) | Part B, sim performance, was being done on `m12-perf`. Merge that in or land A on its own, then rebase onto main, get CI green, fast-forward main. |
-| `m12-perf` | 3 commits ("Settle things at rest...", "Share the sorted entity lists...", "WIP docs"), based on an older main (`4f479ce`) | Sim performance work (R12 / P-08, P-28) | Measure against the target (crowded plaza under 3 ms avg / 8 ms p99 on CI; it regressed to 5.07 / 11.25). Tighten the perf test thresholds (P-28). Merge into `m12-sfx-perf` or land separately. |
-| `final-fixes-robustness` | One WIP commit `9f2e2d8`, **untested** | Saves and robustness items P-01, P-02, P-10 to P-13, P-20 to P-22, P-25, P-27, P-29 to P-31, P-33, plus the macOS soak finding (below). New files: `src/main/quitFlow.ts`, `saveVerdict.ts`, `renderer/.../saveTrouble.ts`, `ui/saveIcons.ts`, `tests/unit/saveSafety.test.ts` | Review what's done, finish, test, and merge. |
-| `final-fixes-gameplay` | One WIP commit `8270dd7`, **untested** | Gameplay items P-04 to P-06 (unobtainable items, jars), P-14 to P-19, P-23, P-24, P-26, P-32, P-34, P-35. Includes a new `tests/unit/obtainable.test.ts` | Review what's done, finish, test, and merge. |
+- **Save-failure badge (P-02).** The review asked for a red cloud over the home stump. The agent made a rain cloud in a red ring by the pause button, because a plain cloud read as weather. Screens: `pnpm shots -g "save trouble"`.
+- **Photo thumbnails (P-20).** Moving them out of the save into their own file would make saves smaller, but it changes the save format. Deferred unless he wants it.
+- **Completion jar (P-35).** Each item now counts as a quarter of an entry, not a whole one. The design doc was updated to match.
+- **Night sleep (P-14).** Day bugs now sleep from 21:00 to 04:30, and a bug the player wakes stays up a minute.
+- **Closer camera (P-15).** Only the first scene opens zoomed in. A closer camera during all play needs a real camera zoom across input and rendering.
 
-The WIP commits were made by the coordinator to save the work; they may not compile. Check each branch's diff against its scope before continuing.
+## Known loose ends
 
-The macOS soak finding: on the release dry run, the 30-minute soak unit test (`m4soak`) reported `sim.rescues = 1` on macOS and 0 on Linux, which points to cross-platform physics nondeterminism (likely transcendental `Math` functions). Nothing was lost, since the rescue system worked, but it needs a decision: make the sim deterministic across platforms, or relax the test's guarantee to "nothing is permanently lost" and document why. Saves are snapshots, not replays.
-
-Stale things to clean up: the `pre-release-review` remote branch (already on main), and the local worktrees under `.claude/worktrees/`. Remove a worktree only after its branch is pushed (all four are). Don't touch `~/.t3/worktrees/tocabocaclone/t3code-476538b7` (branch `t3code/create-dot-character-art`): it belongs to a separate thread, probably the artist's Dot work.
+- **Renderer performance (P-08).** The sim step is about 38% faster, but drawing has had no perf work and has no perf check: views snapshotted twice a frame, `mouthOwners` rescans, sprites for off-screen things, Graphics rebuilt every frame.
+- **Local flakes under load.** On this machine when it's busy, the m2 "disliked food is spat out" E2E fails about half the time, and the m6 puddles and m4 soak unit tests can time out. All pass on CI. `pnpm test:perf` goes over its CI bars here under load; that's expected.
+- **Cross-platform physics.** The 30-minute soak saw one rescue on macOS and none on Linux. The test now allows a few rescues and checks that nothing is lost; `docs/04-architecture.md` explains why bit-identical physics across platforms isn't required.
+- **An Xvfb display on this machine (:109) is broken.** If `pnpm test:e2e` fails with "Missing X server or $DISPLAY", run through `xvfb-run -n <free number>`.
+- Don't touch `~/.t3/worktrees/tocabocaclone/t3code-476538b7` (branch `t3code/create-dot-character-art`): it belongs to a separate thread, probably the artist's Dot work.
 
 ## Owner decisions made on 2026-10-02
 
@@ -66,8 +69,8 @@ Stale things to clean up: the `pre-release-review` remote branch (already on mai
 
 ## What's left before v1.0
 
-1. Land the four branches above. Get main green.
-2. Re-check the review doc's Status column: every P0/P1 fixed or explicitly deferred by the owner. P-03 (music) waits on the owner's tracks. P-07 (credits) is deferred. P-09 (Mac signing) is deferred, with the workaround documented and Mac auto-update off.
+1. Answer or defer the open questions above.
+2. P-03 (music) waits on the owner's tracks. P-07 (credits) and P-09 (Mac signing) are deferred; the Mac workaround is in `CHANGELOG.md` and Mac auto-update is off.
 3. Import the owner's new Suno tracks as they arrive.
 4. A last quick playtest pass (scripted plus screenshots) on the merged main.
 5. Cut the draft: follow `RELEASING.md` (tag `v1.0.0`, CI builds a **draft** release). **Never publish a release.** The owner reviews and publishes.

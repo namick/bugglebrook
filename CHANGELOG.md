@@ -48,7 +48,8 @@ The first public version of Bugglebrook. It's a sandbox about tiny bugs in a bac
 ### The app
 
 - Builds for Windows (a one-click installer), macOS (dmg and zip, unsigned), and Linux (AppImage and deb).
-- Updates itself from GitHub Releases. When an update has downloaded, a small toast with a restart button appears. Otherwise it installs the next time you quit.
+- Updates itself from GitHub Releases on Windows and on Linux (AppImage). When an update has downloaded, a small toast with a restart button appears. Otherwise it installs the next time you quit. The macOS build is unsigned and can't update itself, so Mac players download each new version.
+- macOS: the first time you open the game, right-click the app in Applications and choose Open, then Open again in the dialog. On recent macOS you may need System Settings, Privacy & Security, "Open Anyway". If macOS says the app is damaged, run `xattr -dr com.apple.quarantine /Applications/Bugglebrook.app` in Terminal.
 - Opens fullscreen. In a window, it remembers its size and position, and recenters if that monitor is gone.
 - A crash shows an "oops, bugs got loose" screen with a reload button instead of a frozen game. A crashed renderer reloads on its own.
 - Writes a local log to the app's data folder (`logs/main.log`) for bug reports. Nothing is sent anywhere.
