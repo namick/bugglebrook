@@ -27,6 +27,7 @@ test('launches to the menu with three slot buttons and a locked-down renderer', 
     expect(surface.require).toBe('undefined');
     expect(surface.process).toBe('undefined');
     expect(surface.api).toEqual([
+      'logError',
       'onFlushRequest',
       'photos',
       'platform',
@@ -34,6 +35,7 @@ test('launches to the menu with three slot buttons and a locked-down renderer', 
       'saves',
       'settings',
       'testMode',
+      'updates',
     ]);
 
     const canvas = await page.locator('canvas#game').boundingBox();

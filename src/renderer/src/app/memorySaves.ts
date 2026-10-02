@@ -55,5 +55,7 @@ export function memoryApi(): BugglebrookApi {
     photos: { save: () => Promise.reject(new Error('No Pictures folder in the browser')) },
     quit: () => window.close(),
     onFlushRequest: () => undefined,
+    logError: (text) => console.error(text),
+    updates: { onReady: () => undefined, restart: () => undefined },
   };
 }

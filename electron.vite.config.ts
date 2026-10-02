@@ -2,9 +2,15 @@ import { resolve } from 'node:path';
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import { artWatchPlugin } from './scripts/art/vitePlugin.ts';
 
-export default defineConfig({
+// A build for a store that updates games itself (Steam) leaves the
+// auto-updater out: `electron-vite build --mode steam`, or set
+// BUGGLEBROOK_UPDATER=off. See docs/09-steam-readiness.md.
+export default defineConfig(({ mode }) => ({
   main: {
     plugins: [externalizeDepsPlugin()],
+    define: {
+      __BB_UPDATER__: JSON.stringify(mode !== 'steam' && process.env.BUGGLEBROOK_UPDATER !== 'off'),
+    },
     build: {
       rollupOptions: { input: { index: resolve('src/main/index.ts') } },
     },
@@ -28,4 +34,4 @@ export default defineConfig({
       chunkSizeWarningLimit: 2000,
     },
   },
-});
+}));

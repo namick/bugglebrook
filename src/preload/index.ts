@@ -3,11 +3,20 @@ import { IPC } from '../shared/ipc';
 import type { BugglebrookApi } from '../shared/ipc';
 
 let flushHandler: (() => Promise<void>) | null = null;
+let updateHandler: ((version: string) => void) | null = null;
+let updateWaiting: string | null = null;
 
 ipcRenderer.on(IPC.flushRequest, () => {
   const done = (): void => ipcRenderer.send(IPC.flushDone);
   if (!flushHandler) return done();
   flushHandler().then(done, done);
+});
+
+// An update can finish downloading before the game has asked to hear about it.
+ipcRenderer.on(IPC.updateReady, (_e, version: unknown) => {
+  if (typeof version !== 'string') return;
+  updateWaiting = version;
+  updateHandler?.(version);
 });
 
 const api: BugglebrookApi = {
@@ -31,6 +40,14 @@ const api: BugglebrookApi = {
   quit: () => ipcRenderer.send(IPC.quit),
   onFlushRequest(handler) {
     flushHandler = handler;
+  },
+  logError: (text) => ipcRenderer.send(IPC.logError, String(text)),
+  updates: {
+    onReady(handler) {
+      updateHandler = handler;
+      if (updateWaiting) handler(updateWaiting);
+    },
+    restart: () => ipcRenderer.send(IPC.updateRestart),
   },
 };
 

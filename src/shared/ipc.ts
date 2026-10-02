@@ -18,6 +18,12 @@ export const IPC = {
   flushRequest: 'app:flush-request',
   /** renderer -> main: flush finished. */
   flushDone: 'app:flush-done',
+  /** renderer -> main: an uncaught error, for the log file in userData. */
+  logError: 'app:log-error',
+  /** main -> renderer: an update is downloaded (its version). */
+  updateReady: 'app:update-ready',
+  /** renderer -> main: the update toast's restart button. */
+  updateRestart: 'app:update-restart',
 } as const;
 
 export const SLOT_COUNT = 3;
@@ -61,4 +67,13 @@ export interface BugglebrookApi {
   quit(): void;
   /** Register the handler main calls before quitting so the game can save. */
   onFlushRequest(handler: () => Promise<void>): void;
+  /** Write an uncaught renderer error to the log file (`<userData>/logs/main.log`). */
+  logError(text: string): void;
+  /** Auto-updates (off in dev, tests, and Steam builds). */
+  readonly updates: {
+    /** Called with the version when an update has downloaded and waits for a restart. */
+    onReady(handler: (version: string) => void): void;
+    /** Quit and install the waiting update. Main ignores it when none is waiting. */
+    restart(): void;
+  };
 }
