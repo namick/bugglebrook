@@ -414,7 +414,10 @@ export class Sfx {
       bus.on('balloon_deflated', () => this.play('deflate')),
       bus.on('shattered', () => this.limited('shatter', 100)),
       bus.on('toasted', () => this.limited('sizzle', 250)),
-      bus.on('note_played', (e) => this.playNote(e.defId, e.note)),
+      // With the music toys running (M9), they play notes on the beat; this only logs them.
+      bus.on('note_played', (e) =>
+        this.toysPlayNotes ? this.logOnly('note') : this.playNote(e.defId, e.note),
+      ),
       bus.on('toy_used', (e) => this.limited(TOY_SOUND[e.action], 100)),
       bus.on('scope_viewed', () => this.play('scope')),
     ];
@@ -1386,6 +1389,15 @@ export class Sfx {
       }
     })();
     this.emit(name, tones, v, log);
+  }
+
+  /** The music toys play `note_played` on the music clock instead (set by `Game`). */
+  toysPlayNotes = false;
+
+  /** Log a sound something else played. */
+  logOnly(name: SfxName): void {
+    this.log.push(name);
+    if (this.log.length > 50) this.log.shift();
   }
 
   /** A musical thing's note: `step` on a pentatonic scale, in its instrument's voice. */

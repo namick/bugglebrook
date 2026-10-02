@@ -1,4 +1,9 @@
 import type { Container } from 'pixi.js';
+import type { MusicReport } from '../audio/musicEngine';
+import type { SequencerReport } from '../audio/musicDirector';
+import { WebAudioMusicSink, fetchBytes } from '../audio/musicPlayer';
+import type { NoteLog } from '../audio/musicToys';
+import { SEQ_COLS, SEQ_ROWS, cellCenter } from '../../../game/systems/sequencer';
 import { VIEW_WIDTH_PX } from '../../../game/constants';
 import type { Command, EntityView } from '../../../game';
 import type { ReactionType } from '../../../game/events';
@@ -261,6 +266,44 @@ export interface TestHook extends ArtHook {
     cauldron: { x: number; y: number };
     scope: { x: number; y: number };
   } | null;
+  /**
+   * M9: what the music is doing: the target and playing track, the layer
+   * gains and why, the tempo, key, and scale, and the beat on the music
+   * clock (the null sink's clock in test mode).
+   */
+  music(): MusicReport;
+  /** M9: the toy notes scheduled lately (newest last): time, beat, MIDI note, key, and source. */
+  musicNotes(): NoteLog[];
+  /**
+   * M9: the mushroom sequencer: the pattern playing, the playhead column,
+   * and world points for each cap (row, col) and its controls.
+   */
+  sequencer():
+    | (SequencerReport & {
+        caps: { x: number; y: number }[][];
+        tufts: { x: number; y: number }[];
+        stone: { x: number; y: number };
+        knob: { x: number; y: number };
+        seed: { x: number; y: number };
+      })
+    | null;
+  /**
+   * M9: fetch one of the shipped music files and decode it offline, to check
+   * the packaged path works: its byte size and decoded length in samples.
+   */
+  musicProbe(
+    file: string,
+  ): Promise<{ bytes: number; samples: number; channels: number; rate: number } | { error: string }>;
+  /**
+   * M9: play a track through the real WebAudio music player into an offline
+   * context for `seconds`, starting `beforeSeam` seconds before its loop
+   * wraps, and measure the mix: peak, RMS, and whether the loop wrapped.
+   */
+  musicRender(
+    track: string,
+    seconds: number,
+    beforeSeam: number,
+  ): Promise<{ peak: number; rms: number; wrapped: boolean } | { error: string }>;
   /** Set an entity's bites or paint directly, to show those looks (test mode only). */
   debugEntity(id: number, fields: { bites?: number; paint?: string[] }): void;
   /** Rain drops, leaves, and light sprites being drawn now (particle budgets). */
@@ -745,6 +788,68 @@ export function installTestHook(game: Game): void {
         b.reaction = { ...patch.reaction, tick: sim.tick };
         b.mode = 'st_react';
         b.timer = 150;
+      }
+    },
+    music: () => game.music.report(),
+    musicNotes: () => game.music.notes(),
+    sequencer: () => {
+      const sim = game.session?.sim;
+      const report = game.music.sequencerReport();
+      const l = sim?.places.sequencerLayout();
+      if (!sim || !report || !l) return null;
+      const caps = Array.from({ length: SEQ_ROWS }, (_r, row) =>
+        Array.from({ length: SEQ_COLS }, (_c, col) => cellCenter(l, row, col)),
+      );
+      const tufts = Array.from({ length: SEQ_ROWS }, (_r, row) => ({
+        x: l.tuftX,
+        y: cellCenter(l, row, 0).y,
+      }));
+      const at = (p: { x: number; y: number }): { x: number; y: number } => ({ x: p.x, y: p.y });
+      return { ...report, caps, tufts, stone: at(l.stone), knob: at(l.knob), seed: at(l.seed) };
+    },
+    musicProbe: async (file) => {
+      try {
+        const bytes = await fetchBytes(`music/${file}`);
+        const ctx = new OfflineAudioContext(2, 48000, 48000);
+        const buf = await ctx.decodeAudioData(bytes.slice(0));
+        return {
+          bytes: bytes.byteLength,
+          samples: buf.length,
+          channels: buf.numberOfChannels,
+          rate: buf.sampleRate,
+        };
+      } catch (err) {
+        return { error: String(err) };
+      }
+    },
+    musicRender: async (id, seconds, beforeSeam) => {
+      try {
+        const t = game.music.engine.library.track(id);
+        if (!t) return { error: `no track ${id}` };
+        const offset = t.loop.samples / 48000 - beforeSeam;
+        const ctx = new OfflineAudioContext(2, Math.round(48000 * seconds), 48000);
+        const sink = new WebAudioMusicSink(ctx, ctx.destination);
+        await sink.load(id, t.layers);
+        const gains = Object.fromEntries(Object.keys(t.layers).map((k) => [k, 1]));
+        sink.start(id, { start: t.loop.start, samples: t.loop.samples }, 0, offset, gains, 1);
+        const out = await ctx.startRendering();
+        let peak = 0;
+        let sum = 0;
+        const n = out.length;
+        for (let c = 0; c < out.numberOfChannels; c++) {
+          const d = out.getChannelData(c);
+          for (let i = 0; i < n; i++) {
+            peak = Math.max(peak, Math.abs(d[i]!));
+            sum += d[i]! * d[i]!;
+          }
+        }
+        return {
+          peak,
+          rms: Math.sqrt(sum / (n * out.numberOfChannels)),
+          wrapped: offset + seconds > t.loop.samples / 48000,
+        };
+      } catch (err) {
+        return { error: String(err) };
       }
     },
     clearLogs: () => {

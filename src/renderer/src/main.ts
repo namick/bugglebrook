@@ -8,6 +8,7 @@ import { SpriteBugView } from './art/spriteBug';
 import './art/hot';
 import { memoryApi } from './app/memorySaves';
 import { WebAudioBackend } from './audio/synth';
+import { NullMusicSink } from './audio/musicPlayer';
 import { installTestHook } from './debug/testHook';
 import { fitViewport } from './render/viewport';
 
@@ -62,7 +63,10 @@ async function boot(): Promise<void> {
   window.addEventListener('resize', resize);
   resize();
 
-  const game = new Game(app, api, new WebAudioBackend());
+  const audio = new WebAudioBackend();
+  // Tests decode no music: the null sink keeps time and reports what would play.
+  const music = api.testMode ? new NullMusicSink() : (audio.musicSink() ?? new NullMusicSink());
+  const game = new Game(app, api, audio, music);
   game.softwareRenderer = software;
   game.setLiteRender = (on) => {
     lite = on;

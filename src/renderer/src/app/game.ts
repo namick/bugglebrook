@@ -10,6 +10,9 @@ import { Sfx } from '../audio/sfx';
 import type { Material, SfxName } from '../audio/sfx';
 import { soundMaterial } from '../audio/sfx';
 import { BugVoices } from '../audio/voices';
+import { MusicDirector } from '../audio/musicDirector';
+import type { MusicSink } from '../audio/musicPlayer';
+import { NullMusicSink } from '../audio/musicPlayer';
 import { PointerController } from '../input/pointerController';
 import { Camera } from '../render/camera';
 import { GhostHand, HintMarks } from '../render/hintView';
@@ -123,6 +126,8 @@ export class Game {
   readonly settings: SettingsService;
   readonly sfx: Sfx;
   readonly voices: BugVoices;
+  /** The background music and the music toys (M9). */
+  readonly music: MusicDirector;
   /** Milliseconds of work (update and render) for recent frames, newest last. */
   readonly frameTimes: number[] = [];
   /** Milliseconds spent in the update half of recent frames (input, sim, drawing setup). */
@@ -173,10 +178,12 @@ export class Game {
     readonly app: Application,
     readonly api: BugglebrookApi,
     readonly audio: AudioBackend,
+    musicSink: MusicSink = new NullMusicSink(),
   ) {
     this.saves = new SaveService(api.saves);
     this.settings = new SettingsService(api.settings);
     this.sfx = new Sfx(audio);
+    this.music = new MusicDirector(audio, musicSink);
     this.voices = new BugVoices(audio, CONTENT.bugs);
     this.introEnabled = !api.testMode;
     this.settings.onChange((s) => this.applySettings(s));
@@ -186,6 +193,7 @@ export class Game {
     document.addEventListener('visibilitychange', () => this.setHidden(document.hidden));
     window.addEventListener('keydown', (e) => {
       this.session?.hints.noteInput();
+      this.music.input();
       // Escape opens pause as a convenience (the button is always on screen too).
       if (e.key === 'Escape') {
         if (this.photo) this.closePhoto();
@@ -280,6 +288,7 @@ export class Game {
     // Hand-drawn art: tests start code-drawn and switch it on when they are about it.
     if (this.api.testMode) artStore.setMode('code');
     await artStore.loadBundled().catch((err: unknown) => console.error('Art failed to load', err));
+    void this.music.load();
     await this.showMenu();
     const lab = import.meta.env.DEV ? import.meta.env.VITE_BB_ART_LAB : undefined;
     if (lab) this.openArtLab(lab === '1' ? 'bug_ladybug_dot' : lab);
@@ -323,6 +332,7 @@ export class Game {
     stage.on('pointerdown', (e: FederatedPointerEvent) => {
       this.audio.resume();
       this.session?.hints.noteInput();
+      this.music.input();
       const s = this.session;
       if (s && !this.overlaid) {
         const view = { x: e.global.x, y: e.global.y };
@@ -337,7 +347,10 @@ export class Game {
     stage.on('globalpointermove', (e: FederatedPointerEvent) => {
       // Pixi replays the last move on its ticker; only a real move counts as input for the hints.
       const was = this.pointer;
-      if (!was || Math.hypot(e.global.x - was.x, e.global.y - was.y) > 0.5) this.session?.hints.noteInput();
+      if (!was || Math.hypot(e.global.x - was.x, e.global.y - was.y) > 0.5) {
+        this.session?.hints.noteInput();
+        this.music.input();
+      }
       this.pointer = { x: e.global.x, y: e.global.y };
       this.pointerMoveFrame = this.frameCount;
       this.cursor.visible = true;
@@ -378,6 +391,7 @@ export class Game {
     });
     stage.on('wheel', (e: FederatedWheelEvent) => {
       this.session?.hints.noteInput();
+      this.music.input();
       if (!this.overlaid) this.session?.input.wheel(e.deltaX, e.deltaY);
     });
   }
@@ -506,6 +520,10 @@ export class Game {
     cover.alpha = intro ? 1 : 0;
     const hints = new HintDirector(sim, camera, input);
     view.hints = hints.affordance;
+    view.music = () => {
+      const seq = this.music.sequencerReport();
+      return { seqColumn: seq?.column ?? -1, seqVolume: seq?.volume ?? 0, beat: this.music.report().beat };
+    };
     const marks = new HintMarks();
     const ghost = new GhostHand((defId) => sim.content.items.tryGet(defId));
     const stamps = new StampStrip(sim);
@@ -529,6 +547,8 @@ export class Game {
     this.sfx.attach(sim.events, materialOf, (defId) =>
       sim.content.items.has(defId) ? sim.content.items.get(defId).tags : [],
     );
+    this.sfx.toysPlayNotes = true;
+    this.music.attach(sim);
     this.voices.attach(
       sim.events,
       (id) => sim.view(id)?.bug?.mood,
@@ -610,6 +630,7 @@ export class Game {
     this.album?.destroy({ children: true });
     this.album = null;
     this.sfx.detach();
+    this.music.detach();
     this.voices.detach();
     this.session.hints.dispose();
     this.session.sim.events.clear();
@@ -930,7 +951,10 @@ export class Game {
     this.refreshCursor();
     if (this.pointer) this.cursor.update(dt, this.pointer.x, this.pointer.y);
     const s = this.session;
-    if (!s) return;
+    if (!s) {
+      if (this.menu) this.music.menuFrame(dt);
+      return;
+    }
     if (!this.paused) {
       s.input.frame(dt);
       this.stepper.advance(dt, () => s.sim.step());
@@ -956,6 +980,13 @@ export class Game {
     const hideUi = this.photo !== null || this.closingPhotos.length > 0;
     s.ui.visible = !hideUi;
     s.album.visible = s.photos.length > 0 || this.album !== null;
+    this.music.worldFrame(dt, {
+      sim: s.sim,
+      x0: s.camera.x,
+      x1: s.camera.x + VIEW_WIDTH_M,
+      handBusy: s.input.mode === 'hold',
+      paused: this.panel !== null,
+    });
     // Home shows only away from the plaza.
     const area = s.sim.areaOf(s.camera.centerX).id;
     s.home.visible = area !== PLAZA.id;

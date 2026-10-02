@@ -1,4 +1,5 @@
 import { Container, Graphics } from 'pixi.js';
+import type { AreaMusic } from './areaArt/live';
 import type { Renderer } from 'pixi.js';
 import { PIXELS_PER_METER, VIEW_WIDTH_PX } from '../../../game/constants';
 import type { EntityId } from '../../../game/core/entities';
@@ -187,6 +188,8 @@ export class WorldView extends Container {
   private reduced = false;
   /** Affordance wobbles and glints, set by the game (`render/hints.ts`). */
   hints: HintLook = NO_HINTS;
+  /** The music's beat and the sequencer's playhead, set by the game (M9). */
+  music: (() => AreaMusic | null) | null = null;
   /** Shakes asked for, and the biggest shake offset drawn, since `resetShakeStats` (test hook). */
   readonly shakeStats = { requests: 0, max: 0 };
   private lastHover: Point | null = null;
@@ -627,6 +630,7 @@ export class WorldView extends Container {
       drag: this.pointer?.fixtureDrag ?? null,
       hints: this.hints,
       reduced: this.reduced,
+      music: this.music?.() ?? null,
     };
     for (const live of this.lives) {
       live.update(this.areaFrame);

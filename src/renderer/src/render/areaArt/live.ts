@@ -53,6 +53,17 @@ export interface AreaFrame {
   hints?: HintLook;
   /** Reduce motion is on. */
   reduced?: boolean;
+  /** The music (M9): the sequencer's playhead column and how loud it plays here, and the beat. */
+  music?: AreaMusic | null;
+}
+
+export interface AreaMusic {
+  /** The sequencer's playhead column, 0 to 7. */
+  seqColumn: number;
+  /** The sequencer's volume where the camera is (0 when silent). */
+  seqVolume: number;
+  /** Beats on the music clock, for bobbing on the beat. */
+  beat: number;
 }
 
 /**

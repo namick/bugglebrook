@@ -1,3 +1,6 @@
+import type { MusicSink } from './musicPlayer';
+import { WebAudioMusicSink } from './musicPlayer';
+
 export type Wave = 'sine' | 'square' | 'triangle' | 'sawtooth';
 
 /** One synthesized note: a pitch glide with a quick attack and decay. */
@@ -73,6 +76,14 @@ export class WebAudioBackend implements AudioBackend {
   private noise: AudioBuffer | null = null;
   private muted = false;
   private active = 0;
+  private sink: WebAudioMusicSink | null = null;
+
+  /** The background music's player, on this context's music bus (M9). Null without WebAudio. */
+  musicSink(): MusicSink | null {
+    const ctx = this.context();
+    if (!ctx || !this.buses) return null;
+    return (this.sink ??= new WebAudioMusicSink(ctx, this.buses.music));
+  }
 
   private context(): AudioContext | null {
     if (!this.ctx) {
@@ -89,7 +100,7 @@ export class WebAudioBackend implements AudioBackend {
       sfx.gain.value = this.volumes.sfx;
       const voice = ctx.createGain();
       voice.gain.value = this.volumes.voice;
-      // M9's background music (Suno stems, docs/05-music-brief.md) plays through this bus.
+      // The background music (Suno stems, docs/05-music-brief.md) plays through this bus.
       const music = ctx.createGain();
       music.gain.value = this.volumes.music;
       sfx.connect(master);
