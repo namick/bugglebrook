@@ -100,6 +100,28 @@ describe('feeding', () => {
     expect(find(log, 'bug_reacted').some((r) => r.reaction === 'fed_liked')).toBe(true);
   });
 
+  it("finishes its meal when it stands on the player's things, instead of hopping off and dropping it", () => {
+    const { sim, bug } = world();
+    const log = record(sim);
+    const berry = dropNearMouth(sim, bug, 'item_berry_red', 0, -0.3);
+    expect(sim.view(bug)!.bug!.mode).toBe('st_eat');
+    // Mid-meal, a button the player set down ends up under the bug's front.
+    const at = sim.view(bug)!;
+    const button = sim.spawn('item', 'item_button', at.x + 0.25, GROUND_Y - 0.13);
+    sim.setup.touch(button.id);
+    let under = false;
+    for (let i = 0; i < 120; i++) {
+      sim.step();
+      under ||= sim.physics.contactsOf(bug).some((c) => c.other === button.id && c.ny > 0.5);
+      if (sim.view(bug)!.bug!.mode !== 'st_eat') break;
+    }
+    expect(under).toBe(true);
+    expect(find(log, 'bug_ate')).toMatchObject([{ id: bug, itemId: berry }]);
+    // Fed, it hops off them.
+    sim.run(30);
+    expect(find(log, 'bug_hopped').some((h) => h.id === bug)).toBe(true);
+  });
+
   it('a berry dropped more than 50 px from the mouth just falls', () => {
     const { sim, bug } = world();
     const log = record(sim);

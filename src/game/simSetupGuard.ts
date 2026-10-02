@@ -8,6 +8,9 @@ import { SIM_HZ } from './core/loop';
 import type { Sim } from './sim';
 import { halfExtents } from './simShared';
 
+/** Modes in which a bug standing on the player's things is not hopped off them. */
+const NO_HOP: ReadonlySet<string> = new Set(['st_airborne', 'st_use', 'st_swim', 'st_eat']);
+
 /**
  * The setup rule's walk-force cap (game design doc, section 5): a bug
  * walking, turning, or standing against a player setup (or anything
@@ -28,7 +31,8 @@ export function capWalkForces(sim: Sim): void {
     for (const c of sim.physics.contactsOf(bug.id)) {
       // The thing in the player's hand is the player's doing; the one in its mouth is its meal.
       if (!linked.has(c.other) || sim.physics.grabbed === c.other || b.mouthful === c.other) continue;
-      if (c.ny > 0.5 && b.mode !== 'st_airborne' && b.mode !== 'st_use' && b.mode !== 'st_swim') {
+      // Mid-meal it stays put (a hop would drop its food) and only keeps its weight off them.
+      if (c.ny > 0.5 && !NO_HOP.has(b.mode)) {
         // Standing on the player's things: hop off, clear of them.
         const o = sim.physics.getState(c.other);
         const boxes = [...linked].map((id) => sim.boxOf(id));
