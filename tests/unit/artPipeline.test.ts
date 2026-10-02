@@ -306,6 +306,20 @@ describe('validation', () => {
     ]);
   });
 
+  it('warns about a leg drawn sideways, a feeler drawn down, and a leg much longer than its guide', () => {
+    const swap = (name: string, img: ReturnType<typeof rect>) =>
+      goodParts().map((p) => (p.name === name ? layer(name, img) : p));
+    expect(texts(oraOf(swap('leg_upper', rect(64, 64, 40, 38, 20, 4, [0, 0, 0, 255]))))).toEqual([
+      'warning: "leg_upper" doesn\'t go straight down from its dot. Draw it pointing straight down, as long as the guide line: the game turns it into place.',
+    ]);
+    expect(texts(oraOf(swap('antenna', rect(64, 64, 42, 24, 4, 12, [0, 0, 0, 255]))))).toEqual([
+      'warning: "antenna" doesn\'t go straight up from its dot. Draw it pointing straight up, as long as the guide line: the game turns it into place.',
+    ]);
+    expect(texts(oraOf(swap('leg_upper', rect(64, 64, 38, 40, 4, 20, [0, 0, 0, 255]))))).toEqual([
+      'warning: "leg_upper" is 20 pixels long but its guide is 8. Make it about as long as the guide line, or it will look stretched or squashed when it moves.',
+    ]);
+  });
+
   it('rejects a filled background', () => {
     const parts = goodParts().map((p) =>
       p.name === 'body' ? layer('body', rect(64, 64, 0, 0, 64, 64, [255, 255, 255, 255])) : p,

@@ -413,6 +413,38 @@ function checkCover(
   return true;
 }
 
+/** How far a limb or feeler may differ from its guide's length before it looks stretched or cut off. */
+export const LENGTH_RANGE = [0.6, 1.6] as const;
+
+/**
+ * Legs are drawn straight down from their dot and feelers straight up; the
+ * game turns them. A piece drawn sideways, or much longer or shorter than the
+ * guide, bends in the wrong place or stretches.
+ */
+function checkReach(part: RigPart, px: PartPixels, say: (m: ArtMessage) => void): void {
+  const name = part.name;
+  const len = part.length!;
+  const up = part.kind === 'rope';
+  const along = up ? part.pivot.y - px.y : px.y + px.img.h - part.pivot.y;
+  const back = up ? px.y + px.img.h - part.pivot.y : part.pivot.y - px.y;
+  const side = Math.max(part.pivot.x - px.x, px.x + px.img.w - part.pivot.x);
+  const way = up ? 'up' : 'down';
+  if (along < len * 0.5 && (side > along || back > along)) {
+    say({
+      level: 'warning',
+      layer: name,
+      text: `"${name}" doesn't go straight ${way} from its dot. Draw it pointing straight ${way}, as long as the guide line: the game turns it into place.`,
+    });
+    return;
+  }
+  if (along > len * LENGTH_RANGE[1] || along < len * LENGTH_RANGE[0])
+    say({
+      level: 'warning',
+      layer: name,
+      text: `"${name}" is ${Math.round(along)} pixels long but its guide is ${Math.round(len)}. Make it about as long as the guide line, or it will look stretched or squashed when it moves.`,
+    });
+}
+
 function checkPart(
   part: RigPart,
   px: PartPixels,
@@ -436,6 +468,7 @@ function checkPart(
       layer: name,
       text: `"${name}" doesn't start at its dot ("${name}" on the pivots guide). Start the drawing right on the dot, or it will float away from the body when it moves.`,
     });
+  else if (reaches && part.length) checkReach(part, px, say);
   if (part.tintable || /_tint$/.test(name)) {
     const sat = meanSaturation(px.img);
     if (sat > MAX_TINT_SATURATION)
