@@ -11,6 +11,7 @@ import { springLaunched } from './systems/bugAi';
 import { SHATTER_SPEED } from './systems/potions';
 import type { Sim } from './sim';
 import { THROWN_TICKS } from './simShared';
+import { inAir } from './simSetupGuard';
 
 export function handleImpacts(sim: Sim, impacts: Impact[]): void {
   const bonked = new Map<EntityId, number>();
@@ -141,7 +142,8 @@ export function trySpring(
  * would stand the bug on it).
  */
 function droppedPast(sim: Sim, a: EntityId, b: EntityId, ny: number): boolean {
-  const bug = sim.entities.get(a)?.bug ?? sim.entities.get(b)?.bug;
-  if (!bug || (bug.mode !== 'st_airborne' && bug.mode !== 'st_use')) return false;
+  const ea = sim.entities.get(a);
+  const bug = ea?.bug ? ea : sim.entities.get(b);
+  if (!bug?.bug || !inAir(sim, bug)) return false;
   return sim.softContact(a, b, ny);
 }

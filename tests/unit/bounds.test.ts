@@ -241,6 +241,26 @@ describe('save version 10', () => {
 });
 
 describe('soak: nothing is ever lost (R01)', () => {
+  it('the hand never presses what it holds into the end wall', () => {
+    const sim = Sim.empty({ seed: 'end-wall' });
+    openAll(sim);
+    const x = sim.worldWidth - 3;
+    const ruler = sim.spawn('item', 'item_ruler_ramp', x, sim.surfaceY(x) - 0.5);
+    sim.run(30);
+    const v = sim.view(ruler.id)!;
+    sim.send({ type: 'grab', x: v.x, y: v.y });
+    sim.step();
+    for (let i = 0; i < 60; i++) {
+      sim.send({ type: 'drag', x: sim.worldWidth + 2, y: v.y - 1 });
+      sim.step();
+    }
+    const box = sim.boxOf(ruler.id);
+    expect(box.x1).toBeLessThan(sim.worldWidth + 0.05);
+    sim.send({ type: 'release', vx: 0, vy: 0 });
+    sim.run(30);
+    expect(sim.bounds.sweep()).toBe(0);
+  });
+
   it('survives three minutes of fast drags and flings in every open area', () => {
     const sim = Sim.create({ seed: 'soak' });
     openAll(sim);

@@ -726,6 +726,8 @@ export class Sim {
     this.gawk();
     this.rescueBuried();
     this.bounds.update();
+    if (this.tick % 60 === 0)
+      for (const [k, t] of this.passing) if (t < this.tick - 1) this.passing.delete(k);
     if (this.tick > 0 && this.tick % RESPAWN_TICKS === 0) this.respawn();
     this.tick++;
   }
@@ -1176,6 +1178,8 @@ export class Sim {
   }
 
   linkedCache: { tick: number; ids: Set<EntityId> } | null = null;
+  /** Bug and setup pairs passing through each other (the setup rule), and the last tick they did. Not saved. */
+  readonly passing = new Map<number, number>();
 
   /**
    * Player setups plus every item touching them, directly or through other

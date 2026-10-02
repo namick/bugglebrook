@@ -54,13 +54,17 @@ export function apply(sim: Sim, command: Command): void {
       return;
     }
     case 'drag': {
-      // The hand cannot push what it holds through a locked area's wall.
+      // The hand cannot push what it holds through a locked area's wall, or into an end wall.
       const held = sim.physics.grabbed;
       let x = command.x;
       if (held !== null) {
         const span = sim.barriers.span();
         const at = sim.physics.position(held).x;
-        if (at >= span.x0 && at <= span.x1) x = Math.min(span.x1 - 0.05, Math.max(span.x0 + 0.05, x));
+        const e = sim.entities.get(held);
+        const box = e?.kind === 'item' ? sim.boxOf(held) : null;
+        const half = box ? Math.min((box.x1 - box.x0) / 2, (span.x1 - span.x0) / 4) : 0;
+        if (at >= span.x0 && at <= span.x1)
+          x = Math.min(span.x1 - half - 0.05, Math.max(span.x0 + half + 0.05, x));
       }
       sim.physics.moveGrab(x, command.y);
       return;

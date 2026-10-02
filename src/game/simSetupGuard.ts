@@ -64,6 +64,12 @@ export function capWalkForces(sim: Sim): void {
   }
 }
 
+/** Is this bug in the air on its own (hopping, or on a machine)? */
+export function inAir(_sim: Sim, bug: Entity): boolean {
+  const mode = bug.bug?.mode;
+  return mode === 'st_airborne' || mode === 'st_use';
+}
+
 /**
  * A walking bug brushing the side of a player setup (or anything leaning
  * on one) slips past it instead of shoving it: the walk-force cap. Standing
@@ -75,12 +81,18 @@ export function softContact(sim: Sim, a: EntityId, b: EntityId, ny: number): boo
   const bug = ea?.bug ? ea : eb?.bug ? eb : null;
   const item = ea?.kind === 'item' ? ea : eb?.kind === 'item' ? eb : null;
   if (!bug?.bug || !item) return false;
-  // A bug hopping about on its own drops past the player's things; one walking only slides past their sides.
-  const hopping = bug.bug.mode === 'st_airborne' || bug.bug.mode === 'st_use';
-  if (!hopping && Math.abs(ny) > 0.95) return false;
   if (sim.byPlayer(bug)) return false;
   if (sim.physics.grabbed === item.id) return false;
-  return sim.setupLinked().has(item.id);
+  if (!sim.setupLinked().has(item.id)) return false;
+  // Once a bug is passing through a setup, it keeps passing until they part, even if it
+  // lands on something else part way (a friend's head) and stops being in the air.
+  const key = bug.id * 100003 + item.id;
+  const passing = (sim.passing.get(key) ?? -9) >= sim.tick - 1;
+  // A bug hopping about on its own drops past the player's things; one walking only slides past their sides.
+  const air = inAir(sim, bug);
+  if (!passing && !air && Math.abs(ny) > 0.95) return false;
+  if (air || passing) sim.passing.set(key, sim.tick);
+  return true;
 }
 
 /** Is this bug moving because the player just grabbed, flung, or poked it? Then it hits for real. */
