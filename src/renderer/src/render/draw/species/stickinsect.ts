@@ -3,6 +3,7 @@ import { PIXELS_PER_METER } from '../../../../../game/constants';
 import { CHEEK, OUTLINE, darken, stroke } from '../../palette';
 import type { BugFrame } from '../bug';
 import { drawEye, drawMouth } from '../face';
+import { twigTell } from '../../pendingLife';
 import { BasePainter } from './base';
 import type { Adjust, AntennaSpring, Box, PainterArgs, Pt } from './common';
 import { RIM, limb, rigLook, springAntenna, tintHead } from './common';
@@ -108,12 +109,23 @@ export class StickinsectPainter extends BasePainter {
     const cy = this.stickY(frame);
     const end = TWIG_W / 2;
     if (lying) {
-      // A twig. Except, now and then, for two tiny eyes.
-      if (frame.peeking) {
-        const sx = frame.facing;
+      // A twig. Except, now and then, for two tiny eyes (the sim's peeks, and his
+      // own tells: a blink every third time) or a feeler that twitches.
+      const tell = frame.pending === 'disguised' ? twigTell(frame.time, 0) : { twitch: 0, eyes: 0 };
+      const sx = frame.facing;
+      const open = frame.peeking ? 1 : tell.eyes;
+      this.life = Math.max(open, tell.twitch);
+      if (open > 0.05) {
         const look = rigLook(frame);
         for (const x of [end - 30, end - 18])
-          drawEye(g, sx * x, cy - 0.5, 4.2, 'open', look, 1, def.body, frame.time, 2.2);
+          drawEye(g, sx * x, cy - 0.5, 4.2, 'open', look, open, def.body, frame.time, 2.2);
+      }
+      if (tell.twitch > 0.02) {
+        const tip: Pt = [sx * (end + 12), cy - 3 - tell.twitch * 13];
+        this.L.antennae
+          .moveTo(sx * (end - 3), cy - 2)
+          .quadraticCurveTo(sx * (end + 6), cy - 4 - tell.twitch * 4, tip[0], tip[1])
+          .stroke({ width: 2.4, color: darken(def.body, 0.3), cap: 'round' });
       }
       return { tilt: 0, bob: 0, still: true };
     }

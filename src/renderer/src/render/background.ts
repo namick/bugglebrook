@@ -805,7 +805,7 @@ export class Background {
   private drawBackProps(g: Graphics, rng: Rng): void {
     const gy = 905;
     // The weather vane and the sundial are drawn live by `FixtureArt`.
-    // Ant hill: a soft brown mound with a dark doorway and a line of ants.
+    // Ant hill: a soft brown mound with a dark doorway.
     {
       const x = 290;
       g.moveTo(x - 190, gy + 4)
@@ -821,14 +821,7 @@ export class Background {
           rng.range(2, 4),
         ).fill({ color: 0x8a6440, alpha: 0.6 });
       g.ellipse(x, gy - 150, 26, 18).fill(OUTLINE);
-      for (let i = 0; i < 7; i++) {
-        const ax = x + 60 + i * 34;
-        const ay = gy - 60 + i * 9;
-        g.circle(ax, ay, 5)
-          .fill(OUTLINE)
-          .circle(ax + 7, ay, 4)
-          .fill(OUTLINE);
-      }
+      // The ants themselves are alive: `CritterLive`.
     }
     // Mushroom ring behind the toy pile.
     for (const [x, h, r] of MUSHROOMS) {

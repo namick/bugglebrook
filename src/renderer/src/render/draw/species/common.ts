@@ -87,6 +87,8 @@ export interface SpeciesPainter {
   crown(frame: BugFrame): { x: number; y: number };
   /** Legs, face, antennae, and anything else that moves. */
   update(frame: BugFrame, springs: readonly AntennaSpring[]): Adjust;
+  /** A bug waiting to be found: how strong its sign of life is right now, 0 to 1 (test hook). */
+  readonly life?: number;
 }
 
 export interface PainterArgs {

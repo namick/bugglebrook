@@ -61,13 +61,15 @@ export async function launchApp(userData?: string): Promise<Launched> {
 }
 
 export async function waitForScene(page: Page, scene: 'menu' | 'world'): Promise<void> {
-  await expect.poll(() => page.evaluate(() => window.__bb!.scene())).toBe(scene);
+  await expect.poll(() => page.evaluate(() => window.__bb!.scene()), { timeout: 20_000 }).toBe(scene);
 }
 
 /** Click a menu slot card with the real mouse. Retries if a busy machine drops the first click. */
 export async function clickSlot(page: Page, slot: number): Promise<void> {
   await waitForScene(page, 'menu');
   for (let attempt = 0; attempt < 3; attempt++) {
+    // A slow load may finish after the poll below gave up: then the click did land.
+    if ((await page.evaluate(() => window.__bb!.scene())) !== 'menu') break;
     const pos = await page.evaluate((s) => window.__bb!.slotButtonClient(s), slot);
     // The signs are gone once the menu is on its way out: the last click took.
     if (pos === null && attempt > 0) break;

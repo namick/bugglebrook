@@ -7,7 +7,9 @@ import type { Settings } from '../../../shared/settings';
 import type { Game, SceneName } from '../app/game';
 import type { Point } from '../render/camera';
 import { LEVER_LENGTH, LEVER_PIVOT, LEVER_REST } from '../render/areaArt/benchLive';
+import type { CritterInfo } from '../render/areaArt/critterLive';
 import type { BubbleInfo } from '../render/bubbles';
+import { BugSprite } from '../render/draw/bug';
 import type { CursorPose } from '../ui/cursor';
 import type { ToggleKey, VolumeKey } from '../ui/settingsPanel';
 
@@ -138,6 +140,12 @@ export interface TestHook {
   areaAt(x: number): string;
   /** Soap bubbles floating right now. */
   soapBubbles(): number;
+  /** Ambient critters drawn this frame (world meters), and whether each is dodging the hand or a bug. */
+  critters(): CritterInfo[];
+  /** Bugs waiting to be found on screen, and the strength of their sign of life this frame (0 to 1). */
+  pendingLife(): { id: number; defId: string; pending: string; life: number }[];
+  /** Bug sprites' moving parts redrawn and skipped since launch (R36's pose cache). */
+  bugRedraws(): { drawn: number; skipped: number };
   /** How much two bug defs like each other now, -1 to 1. */
   affinity(a: string, b: string): number;
   /**
@@ -381,6 +389,9 @@ export function installTestHook(game: Game): void {
     areaAsleep: (areaId) => game.session?.sim.isAreaAsleep(areaId) ?? false,
     areaAt: (x) => game.session?.sim.areaOf(x).id ?? '',
     soapBubbles: () => game.session?.view.soapBubbleCount ?? 0,
+    critters: () => game.session?.view.critters ?? [],
+    pendingLife: () => game.session?.view.pendingLife() ?? [],
+    bugRedraws: () => ({ ...BugSprite.redraws }),
     affinity: (a, b) => game.session?.sim.affinityOf(a, b) ?? 0,
     sky: () => {
       const sim = game.session?.sim;

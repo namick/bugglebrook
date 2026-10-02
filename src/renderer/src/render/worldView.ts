@@ -9,6 +9,8 @@ import { Background } from './background';
 import { ArcadeLive } from './areaArt/arcadeLive';
 import { CanWallLive, LockView, SunflowerLive } from './areaArt/barrierLive';
 import { CompostLive } from './areaArt/compostLive';
+import { CritterLive } from './areaArt/critterLive';
+import type { CritterInfo } from './areaArt/critterLive';
 import { FlowerbedLive } from './areaArt/flowerbedLive';
 import type { AreaLive } from './areaArt/live';
 import { BenchLive } from './areaArt/benchLive';
@@ -195,7 +197,7 @@ export class WorldView extends Container {
     this.weather = new WeatherView(sim, this.water);
     this.fixtures = new FixtureArt(sim);
     this.entityLayer.sortableChildren = true;
-    this.lives = makeLives(sim);
+    this.lives = makeLives(sim, (x) => this.water.surfaceAt(x));
     for (const live of this.lives) live.glow.blendMode = 'add';
     this.graded.addChild(
       bg.near,
@@ -1461,6 +1463,22 @@ export class WorldView extends Container {
     super.destroy({ children: true });
   }
 
+  /** Bugs waiting to be found, and how strong their sign of life is this frame (test hook). */
+  pendingLife(): { id: number; defId: string; pending: string; life: number }[] {
+    const out: { id: number; defId: string; pending: string; life: number }[] = [];
+    for (const [id, sprite] of this.sprites) {
+      if (!(sprite instanceof BugSprite) || !sprite.visible) continue;
+      const v = this.sim.view(id);
+      if (v?.bug?.pending) out.push({ id, defId: v.defId, pending: v.bug.pending, life: sprite.life });
+    }
+    return out;
+  }
+
+  /** The ambient critters drawn this frame, in every area on screen (test hook). */
+  get critters(): CritterInfo[] {
+    return this.lives.flatMap((l) => (l instanceof CritterLive ? l.drawn : []));
+  }
+
   /** Floating soap bubbles alive now (test hook). */
   get soapBubbleCount(): number {
     return this.soapBubbles.count;
@@ -1468,7 +1486,7 @@ export class WorldView extends Container {
 }
 
 /** The live views for whatever areas and barriers the world has. */
-function makeLives(sim: Sim): AreaLive[] {
+function makeLives(sim: Sim, surface: (xPx: number) => number | null): AreaLive[] {
   const out: AreaLive[] = [];
   const area = (id: string): AreaDef | undefined => sim.content.areas.tryGet(id);
   const flowerbed = area('area_flowerbed_stage');
@@ -1490,6 +1508,9 @@ function makeLives(sim: Sim): AreaLive[] {
   if (sunflower) out.push(new SunflowerLive(sunflower));
   const tunnel = sim.barriers.barrier('can_tunnel');
   if (tunnel && porch) out.push(new CanWallLive(tunnel, porch));
+  // Ambient critters in every area but the porch (which keeps its own in `PorchLive`).
+  for (const a of sim.content.areas.all)
+    if (a.id !== 'area_under_porch') out.push(new CritterLive(a, sim, surface));
   out.push(new LockView(sim.content.areas.all));
   return out;
 }

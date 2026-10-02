@@ -2,6 +2,8 @@ import { Container, Graphics } from 'pixi.js';
 import { PIXELS_PER_METER } from '../../../../game/constants';
 import type { BugDef, PendingState } from '../../../../game/data/types';
 import type { BugMode } from '../../../../game/core/entities';
+import type { RedrawStats } from '../bugCache';
+import { PartCache, antennaeKey, faceKey, fxKey, legsKey, paintedKey, wingsKey } from '../bugCache';
 import type { BugFace } from '../bugFace';
 import { bugFace } from '../bugFace';
 import type { BugPose } from '../bugPose';
@@ -11,7 +13,7 @@ import type { MovePose } from '../reactions';
 import type { Look } from './face';
 import { drawEye, drawMouth, spiral } from './face';
 import { drawPaintPatches, paintColors } from './paint';
-import type { Box, SpeciesPainter } from './species/common';
+import type { Adjust, Box, SpeciesPainter } from './species/common';
 import { AntennaSpring, TINTS } from './species/common';
 import { makePainter } from './species';
 
@@ -113,6 +115,19 @@ export class BugSprite extends Container {
   readonly foot: number;
   private staticKey = '';
   private paintKey = '';
+  /** Redraws and skips of the moving parts, over every bug sprite (R36; the test hook reads it). */
+  static readonly redraws: RedrawStats = { drawn: 0, skipped: 0 };
+  /** Each moving part's last key: a part is redrawn only when what it shows changed. */
+  private readonly cache = {
+    legs: new PartCache(BugSprite.redraws),
+    wings: new PartCache(BugSprite.redraws),
+    antennae: new PartCache(BugSprite.redraws),
+    face: new PartCache(BugSprite.redraws),
+    fx: new PartCache(BugSprite.redraws),
+    painted: new PartCache(BugSprite.redraws),
+  };
+  /** What the painter asked for last time it drew, reused while its drawing is cached. */
+  private lastAdjust: Adjust = { tilt: 0, bob: 0, still: false };
 
   constructor(readonly def: BugDef) {
     super();
@@ -1083,12 +1098,22 @@ export class BugSprite extends Container {
     this.rim.visible = (frame.rim ?? 0) > 0;
     this.rim.alpha = frame.rim ?? 0;
 
-    this.drawLegs(pose, frame);
-    this.drawWings(frame);
-    this.drawAntennae(frame);
-    this.drawFace(frame);
-    this.drawStars(frame);
+    // Breathing and bobbing are the containers' transforms above; the
+    // Graphics are redrawn only when what they show changes.
+    const form = `${this.form}`;
+    const art = this.def.art;
+    const c = this.cache;
+    if (c.legs.stale(legsKey(frame, form))) this.drawLegs(pose, frame);
+    if (c.wings.stale(wingsKey(frame, form))) this.drawWings(frame);
+    if (c.antennae.stale(antennaeKey(frame, form, art, r, this.springs))) this.drawAntennae(frame);
+    if (c.face.stale(faceKey(frame, form, art, r, this.springs))) this.drawFace(frame);
+    if (c.fx.stale(fxKey(frame))) this.drawStars(frame);
     this.drawPaint(frame, frame.paint, () => `${this.form}`);
+  }
+
+  /** A waiting bug's sign of life this frame, 0 to 1 (Moose's flailing, Barty's fiddling, Twig's tells). */
+  get life(): number {
+    return this.painter?.life ?? 0;
   }
 
   /** A bug drawn by its species painter: the same rig, with the painter filling in the art. */
@@ -1121,11 +1146,16 @@ export class BugSprite extends Container {
     this.ball.rotation = frame.angle;
     this.ball.scale.set(frame.squashX, frame.squashY);
 
-    this.legsBack.clear();
-    this.legsFront.clear();
-    this.antennae.clear();
-    this.faceG.clear();
-    const adj = p.update(frame, this.springs);
+    // Calm bugs redraw at `CALM_HZ` or when their face, look, or feelers change.
+    const calm = paintedKey(frame, this.springs);
+    if (this.cache.painted.stale(calm === null ? null : `${key}|${calm}`)) {
+      this.legsBack.clear();
+      this.legsFront.clear();
+      this.antennae.clear();
+      this.faceG.clear();
+      this.lastAdjust = p.update(frame, this.springs);
+    }
+    const adj = this.lastAdjust;
     const rest = { bob: 0, tilt: 0, sx: 1, sy: 1, flip: 1 };
     const move = adj.still ? rest : (frame.move ?? rest);
     const pose = adj.still ? { sx: 1, sy: 1, tilt: 0, bob: 0 } : frame.pose;
@@ -1136,7 +1166,7 @@ export class BugSprite extends Container {
       frame.facing * (Math.abs(move.flip) < 0.08 ? Math.sign(move.flip || 1) * 0.08 : move.flip);
     this.rim.visible = (frame.rim ?? 0) > 0;
     this.rim.alpha = frame.rim ?? 0;
-    this.drawStars(frame, p.crown(frame));
+    if (this.cache.fx.stale(fxKey(frame))) this.drawStars(frame, p.crown(frame));
     if (p.paintsItself(frame)) this.drawPaint(frame, [], () => '');
     else
       this.drawPaint(

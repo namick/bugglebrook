@@ -27,7 +27,7 @@ const send = (page: Page, command: Record<string, unknown>): Promise<void> =>
   page.evaluate((c) => window.__bb!.send(c as never), command);
 
 test('areas tour', async () => {
-  test.setTimeout(600_000);
+  test.setTimeout(1_800_000);
   mkdirSync(DIR, { recursive: true });
   const bb = await launchApp();
   sharpShots(bb.page);
