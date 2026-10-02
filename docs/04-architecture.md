@@ -432,6 +432,17 @@ Section 14 of the design doc. The camera button (top right, left of the album) o
 - The shutter: `renderer.extract.canvas` renders `scene` at 1920x1080 whatever the screen's resolution, so the PNG is always full size. The flash is a white cover that fades (a quarter-strength fade with reduce motion), the sound is `shutter`, and the picture flies as a polaroid to the album button, which wiggles when it lands. The renderer sends `photo_taken` (frame, filter, sticker count, zoom, bugs in frame) at once and `photo_saved` when main answers; a failed write shows a red x on the polaroid and in the album. Each photo is a `PhotoRecord` (time, a 320x180 JPEG thumb, the file path or null, frame, filter) in `session.photos`, saved as `meta.photos` (the last 60).
 - The album (`AlbumBoard`) stands in for the journal's photos page until M10 ships it: a corkboard in a wooden frame over the paused world, with the recent photos pinned up as polaroids, newest first, six to a page, page dots along the bottom, and a pinned note with a camera doodle when there are none yet.
 
+### Art pipeline
+
+Hand-drawn bugs come in through the art pipeline (`docs/06-art-guide.md`, Part B). The pieces:
+
+- `render/rig/bugRig.ts` is the skeleton, pure: `rigFor(def)` lists a bug's art layers with their pivots, and `legJoints`, `antennaPaths`, `facePlacement`, `wingState`, and `walkJoints` say where the joints are each frame. `BugSprite` draws from it. `tests/unit/bugDraw.test.ts` pins every bug's drawing call by call, so a change to the rig that moves a pixel fails.
+- `pnpm art:templates` builds the app and runs `tests/art/template.spec.ts`, which asks the game (`__bb.artTemplate`) to draw each template's guides. `scripts/art/template.ts` writes the `.ora` and its `rig.json` to `art/src/`. It never overwrites a source: `--refresh-guides` swaps only the guides.
+- `scripts/art/` is the importer, plain TypeScript that Node runs directly. It reads ORA (`ora.ts`, `png.ts` on `fflate`), checks it (`validate.ts`), and trims, halves, rims, and packs it (`image.ts`, `pack.ts`, `build.ts`). Output goes to `src/renderer/art/` and is byte-for-byte deterministic. `pnpm art:check` rebuilds in memory and is part of `pnpm lint`.
+- At run time, `art/artStore.ts` loads the bundled manifest and pages, and `art/bugViews.ts` gives each bug a `SpriteBugView` (`art/spriteBug.ts`) when its art is complete and its species is wired up, otherwise a `BugSprite`. `SpriteBugView` subclasses `BugSprite`, so `WorldView` treats both the same. When `artStore.version` changes, `WorldView` rebuilds every bug's view. Faces come from `art/faceKit.ts`. A missing kit piece is drawn by `face.ts`, one eye or mouth at a time.
+- `pnpm art:watch` runs `electron-vite dev` with the art plugin (`scripts/art/vitePlugin.ts`), which rebuilds a saved `.ora` and sends it over the HMR socket to `art/hot.ts`. `VITE_BB_ART_LAB` opens the Art Lab (`art/artLab.ts`). Production builds have no `import.meta.hot`, and an E2E test checks the bundle.
+- Tests start with art switched off (`__bb.artMode('code')`). `tests/e2e/fixtures/art/` holds a crude test Dot and face kit (`make.ts` draws them). `tests/e2e/art.spec.ts` loads them through `__bb.loadArtPack`.
+
 ### Menu, pause, and the first scene
 
 Section 17 of the design doc. All of it is wordless and drawn in code.

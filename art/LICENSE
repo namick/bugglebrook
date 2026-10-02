@@ -1,0 +1,22 @@
+Bugglebrook artwork
+
+Copyright (c) 2026 the artist. All rights reserved.
+
+This license covers every file in art/ and the atlases generated from them in
+src/renderer/art/. The artist owns all of it outright.
+
+The artwork is not part of the Bugglebrook code. Whatever license covers the
+code, now or later, does not cover these files. If the code is ever released
+under an open-source license, art/ and src/renderer/art/ stay excluded.
+
+Bugglebrook builds include the artwork with the artist's permission. No one
+may copy, change, or use it anywhere else, including other games, merchandise,
+or AI training, without her written permission.
+
+The plan, as of October 2026: the artist publishes Bugglebrook herself once
+she is 18, so she needs no license to her own art, and the code is licensed
+to her by its author. If anyone else publishes the game, that publisher needs
+a separate written agreement with the artist, signed after her 18th birthday.
+
+This file records ownership. It is not legal advice; have the final wording
+checked before the game is sold.

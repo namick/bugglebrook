@@ -480,7 +480,7 @@ While you work, the game can run on your computer in **developer mode** and relo
 pnpm art:watch
 ```
 
-(That's the planned name. The engineer who builds it will confirm the final command.)
+(`art/START-HERE.md` walks through it step by step.)
 
 It opens the game with an **Art Lab** screen. Pick a bug, and it shows your drawing doing everything: idle, walking, hopping, flying, being held, every eye and mouth, every form. Press `Ctrl+S` in Krita, and within a second or two the bug in the Art Lab updates. You can also jump into the real world to watch your bug play with the others.
 
@@ -569,7 +569,8 @@ Draw everything in **daylight**. The game tints the whole scene for dawn, dusk, 
 ## A8. Your art is yours
 
 - **You own your drawings.** Putting them in the game doesn't change that.
-- Your art gets its own license, separate from the game's code, in `art/LICENSE`. It says the game may use your art in Bugglebrook (the game, its trailers, screenshots, and store pages), and that it stays yours. Nobody can reuse it elsewhere without asking you. Since you're under 18, a parent signs it with you.
+- Your art sits in its own part of the project, `art/`, with its own `art/LICENSE`. That file says the art is yours and isn't covered by anything that covers the code. Nobody may copy it or use it outside Bugglebrook without your written permission.
+- You'll most likely publish Bugglebrook yourself once you turn 18. Then you need no license from yourself: the art is already yours, and your dad licenses the code to you. Any real agreements get signed after your birthday, by you, with no co-signer (`docs/07-steam-market-research.md`, section 8).
 - If the game's code is ever shared publicly, your art doesn't come along. It stays under your license.
 - **Credits.** The game gets a credits board with your name, written the way you want it (real name, artist name, or both). You decide.
 - Keep your files. The `.ora` and `.kra` files are your originals. Back them up somewhere besides the game's folder.
@@ -583,15 +584,15 @@ This is the milestone that makes hand-drawn bugs work. Backgrounds and items are
 ## B1. Decisions this milestone needs
 
 1. **The owner amends the Art row** in `00-decisions.md` (owner only). Suggested text: "Characters, and later backgrounds and items, may use hand-drawn art from Krita, imported through the art pipeline (`docs/06-art-guide.md`). Code-drawn art stays as the fallback and for everything not yet drawn." Don't start the milestone before that.
-2. **AGENTS.md changes with it.** "All art is drawn in code ... Don't add image or audio files" becomes: art files go only through the pipeline (`art/src/` sources, generated atlases in `src/renderer/public/art/`). No hand-placed images anywhere else.
-3. **Licensing.** The owner and the artist (with a parent) agree on `art/LICENSE` before her art ships in a build.
+2. **AGENTS.md changes with it.** "All art is drawn in code ... Don't add image or audio files" becomes: art files go only through the pipeline (`art/src/` sources, generated atlases in `src/renderer/art/`). No hand-placed images anywhere else.
+3. **Licensing.** The artist owns her art outright and will most likely publish the game herself once she turns 18, with the code licensed to her by the owner (`07-steam-market-research.md`, section 8). `art/LICENSE` records that the art is hers and separate from the code. The real agreements (the code license, and an art license only if someone else ends up publishing) get signed after her 18th birthday.
 
 ## B2. Overview
 
 ```
 template generator          Krita                     importer                       runtime
 (pnpm art:template)  ->  artist draws  ->  art/src/*.ora  ->  (pnpm art:build)  ->  atlases + manifest  ->  SpriteBugView
-  renders guides from                                       validates, flattens,       src/renderer/public/art/   (falls back to BugSprite)
+  renders guides from                                       validates, flattens,       src/renderer/art/   (falls back to BugSprite)
   the procedural bug                                        trims, pivots, packs
 ```
 
@@ -620,7 +621,7 @@ scripts/art/
   validate.mjs                 the validation rules (pure, unit-tested)
   pack.mjs                     atlas packing (pure, unit-tested)
   watch.mjs                    art:watch
-src/renderer/public/art/
+src/renderer/art/
   manifest.json
   bugs/<bug_id>@1x.png, <bug_id>@1x.json, <bug_id>@2x.png, <bug_id>@2x.json
   faces/face_kit@1x.png, ... (and per-bug face overrides go in the bug's own atlas)
@@ -632,7 +633,7 @@ src/renderer/src/render/rig/
   bugRig.ts                    pure: part anchors and joint positions per species
 ```
 
-`package.json` scripts: `art:template`, `art:build`, `art:check`, `art:watch`.
+`package.json` scripts: `art:templates`, `art:build`, `art:check`, `art:watch`.
 
 New dev dependencies: `fflate` (zip read and write, pure JS) and `fast-xml-parser` (stack.xml). Image work uses `@napi-rs/canvas`, which is already a dev dependency: PNG decode and encode, compositing, and resampling. A maxrects packer is about 150 lines. Write it instead of adding a dependency, so packing is deterministic and tested.
 
@@ -651,7 +652,7 @@ Move them into `render/rig/bugRig.ts`, pure, no Pixi:
 
 Then make `BugSprite` and the painters draw from these functions. That refactor changes no pixels. Prove it with the shots tour (`pnpm shots`, before and after, compare the PNGs) and unit tests that pin a few joint positions per species.
 
-## B5. Template generator (`pnpm art:template <bug_id|face_kit|all>`)
+## B5. Template generator (`pnpm art:templates [bug_id|face_kit ...]`)
 
 Rendering the guide needs Pixi, so the generator runs the real app like `pnpm shots` does: a Playwright spec (`tests/art/template.spec.ts`, run by a dedicated config) launches the built app in test mode and calls a new hook, `__bb.artTemplate(bugId)`. The hook:
 
@@ -676,7 +677,7 @@ Rules:
 
 - **Never overwrite a source.** New templates go to `art/templates/`. To update guides in a file she's already drawing in, `--refresh-guides art/src/bugs/<id>.ora` rewrites only the `guides` group and `rig.json`, keeping every other layer byte for byte.
 - If the rig changes after she has drawn (a new part, a moved pivot), bump the rig hash. The importer then reports "template out of date" with what changed.
-- `face_kit.ora` uses a fixed 2048 x 1024 canvas: one cell per face piece, each cell with a reference circle (the eye white at radius 96 px) and a mouth width guide (256 px), labeled.
+- `face_kit.ora` uses a fixed 2048 x 1152 canvas: one 292 x 256 cell per face piece in four rows, and a band for notes. Each cell has a reference circle (the eye white at radius 72 px) or a mouth width guide (160 px), labeled. Smaller references than first planned, so brows and open mouths fit in their cells.
 
 ## B6. Importer (`pnpm art:build`, `pnpm art:check`)
 
@@ -719,7 +720,7 @@ Per frame:
 - **Shell and wings.** `shell` rotates on its hinge by `wingState`. `wing` twice, behind the shell, flapped by `scale.y` like `drawWings`.
 - **Forms.** Show and hide sets by `frame.face.form`, `frame.morph`, and `frame.pending`: `ball`, `ball_tint`, `shell_closed`, `cocoon`, the butterfly set, and Twig flat (the `stick` with legs hidden). The ball rotates with `frame.angle`, as today.
 - **Moose on his back.** Mirror the body sprites on the line `stagbeetle.ts` mirrors about. Head stays upright.
-- **Faces.** `faceKit.ts` places the near eye at its anchor and the far eye at the far anchor, scaled by each eye's radius over the kit's reference radius. `eye_white` gets `scale.y = eyeOpen`. `eye_pupil` is offset by `look`, using the same reach as `drawEye`. Eye openness under 0.35 shows `eye_closed`. `eye_spiral` rotates at `time * 9`. `eye_heart` scales with the beat in `drawEye`. `eye_sleepy_lid` is tinted with the bug's lid color. Mouths are scaled by mouth width over the kit's 256 px reference. `chew` and `wobble` swap frames at 8 Hz. `aah` pulses with the current formula. Per-bug overrides from the bug's own atlas win.
+- **Faces.** `faceKit.ts` places the near eye at its anchor and the far eye at the far anchor, scaled by each eye's radius over the kit's reference radius. `eye_white` gets `scale.y = eyeOpen`. `eye_pupil` is offset by `look`, using the same reach as `drawEye`. Eye openness under 0.35 shows `eye_closed`. `eye_spiral` rotates at `time * 9`. `eye_heart` scales with the beat in `drawEye`. `eye_sleepy_lid` is tinted with the bug's lid color. Mouths are scaled by mouth width over the kit's 160 px reference. `chew` and `wobble` swap frames at 8 Hz. `aah` pulses with the current formula. Per-bug overrides from the bug's own atlas win.
 - **Face tint.** Green and red washes: set the head sprite's tint toward `TINTS[tint]` (mix by alpha). No mask needed.
 - **Paint.** Patches drawn as now into `paintG`, masked by a sprite of `body` (or `shield`, `abdomen`, segments for Munch). `paintBox` comes from the rig.
 - **Tintable parts.** `_tint` sprites get `tint` every frame from the existing color function (Barty's `sheenColors`). `shine` sits above them untinted.
@@ -739,7 +740,7 @@ Tinting multiplies, so the rules for the artist (A4) are: light greys for color,
 ## B9. Hot reload
 
 - `pnpm art:watch` runs `electron-vite dev` with `BB_ART_LAB=1` and a watcher (`fs.watch`, debounced 300 ms, waiting until the file size is stable, since Krita writes the zip in steps).
-- On change: rebuild that one asset, write to `src/renderer/public/art/`, update the manifest, print the report.
+- On change: rebuild that one asset, write to `src/renderer/art/`, update the manifest, print the report.
 - A small Vite plugin in `electron.vite.config.ts` (dev only) sends `bb:art-changed` with the asset ID over the HMR socket. `ArtStore` listens via `import.meta.hot`, reloads that bug's pages with a cache-busting query, and rebuilds its views in place. The sim is untouched, so bugs keep doing what they were doing.
 - Production builds contain none of this. A test checks that `import.meta.hot` code is stripped.
 - `BB_ART_SRC` can point the watcher at another folder, for example a synced folder on the artist's laptop. The build reads `art/src/` only.
@@ -775,7 +776,7 @@ Every message names the file and the layer, says what's wrong in plain words, an
 | A part covers more than 90% of the canvas with opaque pixels | error ("a filled background on this layer?") |
 | A leg, antenna, or arm doesn't reach its pivot (no opaque pixel within 24 px of it) | warning |
 | A `_tint` layer is too colorful | warning |
-| `rig.json` hash differs from the current rig | error: "This template is out of date. Run `pnpm art:template --refresh-guides`." |
+| `rig.json` hash differs from the current rig | error: "This template is out of date. Run `pnpm art:templates --refresh-guides`." |
 | File over 8 MB | warning |
 
 ## B11. Tests
@@ -814,9 +815,9 @@ Decision:
 
 ## B13. Licensing in the repo
 
-- `art/LICENSE`: the artist keeps copyright. She grants the project a non-exclusive, royalty-free license to use, adapt (resize, recolor, cut into parts, animate), and distribute the art inside Bugglebrook and in material promoting it (trailers, screenshots, store pages). No other use without her written permission. A parent or guardian co-signs while she's a minor. The owner should get the final wording checked; this doc isn't legal advice.
-- The generated atlases in `src/renderer/public/art/` are derived from her art and fall under the same license. Say so in `art/LICENSE` and in a short `README` in that folder.
-- `package.json` stays `UNLICENSED`. If the code is ever released under an open-source license, state in writing that `art/` and `src/renderer/public/art/` are excluded, as the music brief already does for the music.
+- `art/LICENSE`: the artist owns the copyright in her art outright, all rights reserved. It isn't covered by the code's license, and nothing in the repo grants anyone else rights to it. The game's builds include it with her permission. She will most likely be the publisher herself once she's 18, which needs no license to herself; the owner licenses the code to her. If someone else publishes instead, that publisher needs a written license from her, with a royalty (`07-steam-market-research.md`, 8.2). Sign real agreements after her 18th birthday. This doc isn't legal advice; get the wording checked.
+- The generated atlases in `src/renderer/art/` are derived from her art and fall under the same license. Say so in `art/LICENSE` and in a short `README` in that folder.
+- `package.json` stays `UNLICENSED`. If the code is ever released under an open-source license, state in writing that `art/` and `src/renderer/art/` are excluded, as the music brief already does for the music.
 - **Credits board.** Add a small credits board to the menu (the same plank board style as settings, with `markUi`), reachable from the main menu, listing art, music, and code. The artist's credit name comes from `art/CREDITS.json` so she controls the text. Give it an E2E test that opens it with the real mouse.
 
 ## B14. Backgrounds (follow-up milestone, sketch)
@@ -848,7 +849,19 @@ Out of scope: backgrounds, items, fixtures, UI art, the cursor.
 
 Done when: the crude test Dot plays through every state in the Art Lab and in the world without a visual glitch at 1x and 2x, every other bug falls back cleanly, all four standard commands plus `art:check` pass on all three CI platforms, and the artist has run `pnpm art:watch` on her own machine and seen a save show up in the game.
 
-## B16. What we're unsure about
+## B16. What the first build of the pipeline does
+
+Built on 2026-10-01. Where it differs from the plan above:
+
+- Generated atlases and the manifest live in `src/renderer/art/`, bundled with `import.meta.glob` (PNG pages inlined as data URLs, since the sandboxed renderer loads from `file://`). `pnpm art:check` is part of `pnpm lint`. It rebuilds everything in memory and compares bytes, so a stale or hand-edited atlas fails.
+- PNG and zip work is plain TypeScript on `fflate` (`scripts/art/png.ts`, `ora.ts`), not `@napi-rs/canvas`, so output is byte-for-byte deterministic and `art:check` needs no native code. Downscaling is a premultiplied 2x2 box filter in halving steps. Templates are trimmed to 4-pixel boundaries so 1x and 2x pivots stay exact.
+- The scripts are TypeScript run directly by Node 26 (type stripping). `rig.json` and the manifest types are shared with the game through `src/renderer/src/art/rigFile.ts` and `kit.ts`, which have no imports.
+- A template's rig hash is stored as a hidden `guide_rig_<hash>` layer, because Krita keeps layer names but drops unknown `stack.xml` attributes. A unit test fails when the game's rig no longer matches a committed `rig.json`.
+- New bugs' templates go straight into `art/src/` (nothing to lose); an existing source gets a fresh copy in `art/templates/`, or its guides swapped in place with `--refresh-guides`.
+- `SpriteBugView` animates Dot and Flick (the beetle rig) so far. Every bug has a template, a part list, and pivots, but the other ten fall back to code with the reason "the cutout renderer can't animate <name> yet" until their joints are wired up. The species painters (M7 bugs) share the tripod walk through `walkJoints`; the rest of their joint math is still inside each painter, and their template pivots come from a table in `bugRig.ts`.
+- Not built yet: the Krita-saved fixture (needs Krita 5.3 to make), Twig and the twig item sharing a texture, Barty's sheen on tint layers, the credits board and `art/CREDITS.json`, and a frame-time check with all bugs drawn.
+
+## B17. What we're unsure about
 
 | Question | What we know | What the spec does about it |
 |---|---|---|
