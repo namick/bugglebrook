@@ -552,6 +552,8 @@ export class Places {
         if (Math.abs(st.x - web.x) > half) continue;
         const bottom = st.y + sim.halfHeight(e);
         if (bottom < web.fixture.y - 0.4 || bottom > web.fixture.y + 0.45) continue;
+        // A bug still dropping in is caught once it has settled in the web, so it naps there.
+        if (e.bug && Math.hypot(st.vx, st.vy) > 1.5 && this.state.web[String(e.id)] === undefined) continue;
         const key = String(e.id);
         on.add(key);
         // Letting go: nudge it awake so it starts to sink through, slowly.

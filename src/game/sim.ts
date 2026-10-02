@@ -2151,8 +2151,10 @@ export class Sim {
         // Never drop onto the player's things, nor close enough to bounce into them from the sky.
         const setups = this.bugWorld().setups;
         const clear = RESPAWN_CLEAR;
-        for (let tries = 0; tries < 8 && setups.some((b) => x > b.x0 - clear && x < b.x1 + clear); tries++)
-          x = this.rng.range(area.xStart + 1, area.xEnd - 1);
+        const near = (at: number): boolean => setups.some((b) => at > b.x0 - clear && at < b.x1 + clear);
+        for (let tries = 0; tries < 8 && near(x); tries++) x = this.rng.range(area.xStart + 1, area.xEnd - 1);
+        // The player's things fill the area: no drop this time.
+        if (near(x)) continue;
         const entity = this.spawn('item', entry.item, x, -0.5);
         this.events.emit('item_respawned', { id: entity.id, defId: entity.defId, x, y: -0.5 });
       }

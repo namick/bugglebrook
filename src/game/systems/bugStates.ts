@@ -517,6 +517,21 @@ export function seek(
     if (id !== null) remember(brain, id, false, tick);
     brain.social = null;
     brain.carrying = null;
+    // Stopped short against a sleeper (Dot on her bottle cap): tiptoe back off rather than stand there.
+    const sleeper = world
+      .bugs()
+      .find(
+        (o) =>
+          o.id !== me &&
+          o.brain.mode === 'st_sleep' &&
+          Math.abs(o.y - state.y) < 1.5 &&
+          Math.abs(o.x - state.x) - def.radius - o.def.radius < SLEEPER_SPACE,
+      );
+    if (sleeper && n) {
+      const away = state.x >= sleeper.x ? 1 : -1;
+      startWander(brain, ctx, sleeper.x + away * (def.radius + sleeper.def.radius + SLEEPER_SPACE + 0.4));
+      return out;
+    }
     enterIdle(brain, rng, def);
     out.velocity = n ? grip(n) : null;
     return out;
