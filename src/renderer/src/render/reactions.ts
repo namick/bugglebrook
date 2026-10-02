@@ -49,7 +49,9 @@ export type Picto =
   | 'sun'
   | 'rain'
   | 'moon'
-  | 'hat';
+  | 'hat'
+  /** A hint thought's journal glyph, drawn by the bubble (like `food` and `friend`). */
+  | 'glyph';
 
 /** A short body move that plays with the reaction. */
 export type Move =

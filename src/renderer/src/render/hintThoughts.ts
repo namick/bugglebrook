@@ -1,4 +1,6 @@
 import type { Content } from '../../../game/data';
+import { isGlyph } from '../../../game/data/glyphs';
+import type { Glyph } from '../../../game/data/glyphs';
 import type { Picto } from './reactions';
 
 /**
@@ -48,6 +50,15 @@ export const SECRET_SPOTS: Readonly<Record<string, string>> = {
   secret_zipline_souvenir: 'fix_leaf_slide',
   secret_window_telescope: 'fix_treehouse_window',
   secret_golden_marble: 'fix_clover',
+  // Secrets with nothing to see in the world until they happen (P-23): a
+  // bug nearby thinks of them instead.
+  secret_bug_totem: 'fix_ring_mushroom_1',
+  secret_fling_orbit: 'fix_weather_vane',
+  secret_giant_launch: 'fix_bucket_lift',
+  secret_sludge_burp: 'fix_compost_heap',
+  secret_ghost_lattice: 'fix_lattice',
+  secret_upside_tea: 'fix_cobweb_hammock',
+  secret_twig_bridge: 'fix_rubber_boot',
 };
 
 /** A bug this close (m) to a waiting secret's spot may think of it. */
@@ -73,6 +84,8 @@ export interface HintThought {
   pictos: Picto[];
   /** An item in the hint, pictured as a mini item. */
   food: string | null;
+  /** A journal glyph no picto can show, drawn as the journal draws it. */
+  glyph: Glyph | null;
 }
 
 /**
@@ -102,12 +115,17 @@ export function hintThought(
   const def = content.secrets.get(best.secret);
   const pictos: Picto[] = [];
   let food: string | null = null;
+  let glyph: Glyph | null = null;
   for (const g of def.hint) {
     if (content.items.has(g) && !food) {
       food = g;
       pictos.push('food');
     } else if (PICTO_OF[g]) pictos.push(PICTO_OF[g]);
+    else if (isGlyph(g) && !glyph) {
+      glyph = g;
+      pictos.push('glyph');
+    }
   }
   if (pictos.length === 0) return null;
-  return { secret: best.secret, pictos: pictos.slice(0, 2), food };
+  return { secret: best.secret, pictos: pictos.slice(0, 2), food, glyph };
 }

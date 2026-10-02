@@ -351,6 +351,7 @@ export function drawPicto(g: Graphics, picto: Picto, x: number, y: number, s: nu
     }
     case 'food':
     case 'friend':
+    case 'glyph':
       return;
   }
 }

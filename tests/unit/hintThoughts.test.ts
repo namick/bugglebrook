@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CONTENT } from '../../src/game';
+import { CONTENT, isGlyph } from '../../src/game';
 import { HINT_REACH, SECRET_SPOTS, hintThought } from '../../src/renderer/src/render/hintThoughts';
 
 // Bugs hint too (game design doc, section 12): a bug idle near a waiting
@@ -41,5 +41,44 @@ describe('hint thoughts', () => {
     // Not in a locked area.
     const reeds = spotOf('fix_reeds')!;
     expect(hintThought(CONTENT, reeds.x, [], (a) => a !== 'area_puddle_pond', spotOf)).toBeNull();
+  });
+
+  it('gives the secrets with no tell in the world a thought at a spot of their own (P-23)', () => {
+    const quiet = [
+      'secret_bug_totem',
+      'secret_fling_orbit',
+      'secret_giant_launch',
+      'secret_ghost_lattice',
+      'secret_upside_tea',
+      'secret_sludge_burp',
+      'secret_twig_bridge',
+    ];
+    const others = CONTENT.secrets.all.map((d) => d.id);
+    for (const id of quiet) {
+      const spot = spotOf(SECRET_SPOTS[id]!);
+      expect(spot, id).not.toBeNull();
+      // With everything else found, a bug at the spot thinks of this one, in pictures it can draw.
+      const t = hintThought(
+        CONTENT,
+        spot!.x,
+        others.filter((o) => o !== id),
+        all,
+        spotOf,
+      );
+      expect(t?.secret, id).toBe(id);
+      for (const p of t!.pictos) {
+        if (p === 'glyph') expect(isGlyph(t!.glyph ?? ''), id).toBe(true);
+        if (p === 'food') expect(t!.food, id).not.toBeNull();
+      }
+    }
+    // The ones whose hint has no picto draw the journal's glyph.
+    const tea = hintThought(
+      CONTENT,
+      spotOf('fix_cobweb_hammock')!.x,
+      others.filter((o) => o !== 'secret_upside_tea'),
+      all,
+      spotOf,
+    );
+    expect(tea).toMatchObject({ pictos: ['glyph'], glyph: 'flip', food: null });
   });
 });

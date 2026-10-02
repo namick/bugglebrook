@@ -1280,7 +1280,7 @@ export class WorldView extends Container {
       );
       if (!hint) return;
       const food = hint.food ? sim.content.items.get(hint.food) : null;
-      this.bubbles.show(view.id, 'thought', hint.pictos, 2.6, food, null);
+      this.bubbles.show(view.id, 'thought', hint.pictos, 2.6, food, null, hint.glyph);
       this.hintsShown.push(hint.secret);
       if (this.hintsShown.length > 20) this.hintsShown.shift();
       return;

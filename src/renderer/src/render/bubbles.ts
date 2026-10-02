@@ -1,6 +1,8 @@
 import { Container, Graphics } from 'pixi.js';
 import type { EntityId } from '../../../game/core/entities';
 import type { BugDef, ItemDef } from '../../../game/data/types';
+import type { Glyph } from '../../../game/data/glyphs';
+import { drawGlyph } from './draw/glyphs';
 import { ItemSprite } from './draw/item';
 import { drawFriend, drawPicto } from './draw/pictogram';
 import { stroke } from './palette';
@@ -46,9 +48,12 @@ class Bubble extends Container {
     readonly life: number,
     food: ItemDef | null,
     friend: BugDef | null = null,
+    glyph: Glyph | null = null,
   ) {
     super();
-    const pictos = info.pictos.filter((p) => (p !== 'food' || food) && (p !== 'friend' || friend));
+    const pictos = info.pictos.filter(
+      (p) => (p !== 'food' || food) && (p !== 'friend' || friend) && (p !== 'glyph' || glyph),
+    );
     this.w = PAD + pictos.length * SLOT;
     this.addChild(this.g, this.icons);
     const { w, h } = this;
@@ -98,6 +103,11 @@ class Bubble extends Container {
         drawFriend(face, friend, x, y + 2, SLOT * 0.72);
         this.addChild(face);
       }
+      if (p === 'glyph' && glyph) {
+        const art = new Graphics();
+        drawGlyph(art, glyph, x, y + 2, SLOT * 0.8);
+        this.addChild(art);
+      }
     });
     this.pictos = pictos;
   }
@@ -110,7 +120,7 @@ class Bubble extends Container {
     this.pivot.y = Math.sin(this.age * 3) * 2;
     this.icons.clear();
     this.pictos.forEach((p, i) => {
-      if (p === 'food' || p === 'friend') return;
+      if (p === 'food' || p === 'friend' || p === 'glyph') return;
       const x = -this.w / 2 + PAD / 2 + SLOT / 2 + i * SLOT;
       drawPicto(this.icons, p, x, -this.h / 2, SLOT * 0.72, this.age);
     });
@@ -132,10 +142,11 @@ export class Bubbles extends Container {
     seconds: number,
     food: ItemDef | null = null,
     friend: BugDef | null = null,
+    glyph: Glyph | null = null,
   ): void {
     if (pictos.length === 0) return;
     this.hide(bugId);
-    const b = new Bubble({ bugId, kind, pictos }, seconds, food, friend);
+    const b = new Bubble({ bugId, kind, pictos }, seconds, food, friend, glyph);
     this.bubbles.set(bugId, b);
     this.addChild(b);
   }
