@@ -205,18 +205,18 @@ export class BugSprite extends Container {
   private drawRim(form: BugFace['form']): void {
     const { r } = this;
     const g = this.rim.clear();
-    // Each path is stroked twice: the soft glow, then the crisp rim.
-    const rim = (path: Graphics): void => {
-      for (const style of RIM_STYLES) path.stroke({ ...style });
+    // Each path is traced and stroked once per style: the soft glow, then the crisp rim.
+    const rim = (trace: () => Graphics): void => {
+      for (const style of RIM_STYLES) trace().stroke({ ...style });
     };
     if (form === 'curled') return;
     if (this.def.art === 'snail') {
       if (form === 'in_shell') {
-        rim(g.circle(0, 0, r * 0.98));
+        rim(() => g.circle(0, 0, r * 0.98));
         return;
       }
-      rim(g.circle(-r * 0.35, -r * 0.08, r * 0.86));
-      rim(
+      rim(() => g.circle(-r * 0.35, -r * 0.08, r * 0.86));
+      rim(() =>
         g
           .moveTo(-r * 1.6, r * 0.93)
           .lineTo(r * 0.9, r * 1.0)
@@ -226,25 +226,25 @@ export class BugSprite extends Container {
       return;
     }
     if (this.def.art === 'strider') {
-      rim(g.poly(this.striderBody()));
-      rim(g.circle(r * 0.88, -r * 0.3, r * 0.3));
+      rim(() => g.poly(this.striderBody()));
+      rim(() => g.circle(r * 0.88, -r * 0.3, r * 0.3));
       return;
     }
     if (this.def.art === 'grasshopper') {
-      rim(g.poly(this.hopperBody()));
-      rim(g.ellipse(r * 0.78, -r * 0.18, r * 0.5, r * 0.46));
-      rim(g.ellipse(-r * 0.62, -r * 0.3, r * 0.5, r * 0.32));
+      rim(() => g.poly(this.hopperBody()));
+      rim(() => g.ellipse(r * 0.78, -r * 0.18, r * 0.5, r * 0.46));
+      rim(() => g.ellipse(-r * 0.62, -r * 0.3, r * 0.5, r * 0.32));
       return;
     }
     if (BEETLES.has(this.def.art)) {
-      rim(g.poly(this.dome(-r * 0.15, r * 0.34, r * 1.02, r * 1.14)));
-      rim(g.circle(r * 0.8, r * 0.12, r * 0.55));
-      rim(g.ellipse(-r * 0.1, r * 0.42, r * 0.95, r * 0.34));
+      rim(() => g.poly(this.dome(-r * 0.15, r * 0.34, r * 1.02, r * 1.14)));
+      rim(() => g.circle(r * 0.8, r * 0.12, r * 0.55));
+      rim(() => g.ellipse(-r * 0.1, r * 0.42, r * 0.95, r * 0.34));
       return;
     }
-    rim(g.poly(this.dome(-r * 0.05, r * 0.52, r * 1.28, r * 1.08)));
-    rim(g.circle(r * 1.14, r * 0.36, r * 0.5));
-    rim(g.ellipse(-r * 0.05, r * 0.6, r * 1.2, r * 0.2));
+    rim(() => g.poly(this.dome(-r * 0.05, r * 0.52, r * 1.28, r * 1.08)));
+    rim(() => g.circle(r * 1.14, r * 0.36, r * 0.5));
+    rim(() => g.ellipse(-r * 0.05, r * 0.6, r * 1.2, r * 0.2));
   }
 
   /** Wash the face green (grossed out) or red (hot), over the head. */

@@ -171,8 +171,12 @@ export class ItemSprite extends Container {
       default:
         if (!drawItemArt7(this.g, def, w, h, seed)) drawItemArt8(this.g, def, w, h, seed);
     }
-    const traced = this.outline(this.rim, w, h);
-    for (const style of RIM_STYLES) this.rim.stroke({ ...style });
+    // Traced once per style (the soft glow, then the crisp rim): a stroke uses up its path.
+    let traced = false;
+    for (const style of RIM_STYLES) {
+      traced = this.outline(this.rim, w, h);
+      this.rim.stroke({ ...style });
+    }
     // Small loose things get a heavier outline (review R05): a dark stroke
     // along the silhouette behind the art, so they read like the bugs do.
     if (traced && def.mass !== undefined) {
