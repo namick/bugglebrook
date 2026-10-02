@@ -245,7 +245,7 @@ export function machineAdverts(me: EntityId, brain: BugBrain, ctx: BugContext): 
       can.ground,
       'rummage',
       24,
-      can.count > 0 ? 10 : 3,
+      can.count > 0 ? 14 : 5,
     );
 
   // The treehouse: up the leaf and slide down it, or a wade through the beads.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GROUND_Y, Sim } from '../../src/game';
-import type { Entity, GameEvents } from '../../src/game';
+import type { GameEvents } from '../../src/game';
+import type { Entity } from '../../src/game/core/entities';
 import { Rng } from '../../src/game/core/rng';
 import { CONTENT } from '../../src/game/data';
 import { SAVE_VERSION } from '../../src/game/save/schema';

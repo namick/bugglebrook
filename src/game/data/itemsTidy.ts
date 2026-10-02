@@ -9,7 +9,7 @@ export const TIDY_ITEMS: readonly ItemDef[] = [
   {
     id: 'item_tidy_whistle',
     name: 'Tidy whistle',
-    shape: { type: 'box', width: 0.5, height: 0.26 },
+    shape: { type: 'box', width: 0.62, height: 0.3 },
     material: 'mat_plastic',
     density: 0.9,
     friction: 0.6,
