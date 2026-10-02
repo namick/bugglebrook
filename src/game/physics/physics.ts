@@ -131,6 +131,10 @@ const WAKE_SPEED = 0.5;
 const WAKE_FAST = 2;
 /** How many things deep a hard knock wakes a settled pile at once; the next step takes it further if it is still going. */
 const KNOCK_SPREAD = 3;
+/** A one-piece thing no thicker than this (half its thinnest size, m) is put back on the ground if pushed past its line. */
+const THIN_LIFT = 0.1;
+/** How far past the ground line (m) a thin thing is put back; deeper is the sim's rescue. */
+const THIN_LIFT_DEPTH = 0.25;
 /** A bug must be going this fast (flung or falling, not walking or hopping) to wake settled things. */
 const WALKER_WAKE_SPEED = 6;
 
@@ -1238,7 +1242,32 @@ export class Physics {
     if (this.slipCarry.size > 0)
       for (const [key, until] of this.slipCarry) if (until < this.steps) this.slipCarry.delete(key);
     this.world.step(dt, VELOCITY_ITERATIONS, POSITION_ITERATIONS);
+    this.liftThin();
     this.settle();
+  }
+
+  /**
+   * A bug landing on the end of a twig can press it into the ground until
+   * its middle passes the ground's line. The ground is a chain of edges, and
+   * past that line an edge pushes it down instead of up, so it sank until
+   * the sim's rescue popped it out. Put a thin one-piece thing that has just
+   * crossed the line back on top, lying where it was.
+   */
+  private liftThin(): void {
+    for (let b = this.world.getBodyList(); b; b = b.getNext()) {
+      if (!b.isDynamic() || !b.isAwake() || !b.isActive() || b.getUserData() == null) continue;
+      const f = b.getFixtureList();
+      if (!f || f.getNext() !== null) continue;
+      const thin = this.sizeOf(b).thin;
+      if (thin > THIN_LIFT) continue;
+      const c = b.getWorldCenter();
+      const floor = this.terrain.surfaceY(c.x);
+      if (c.y <= floor || c.y > floor + THIN_LIFT_DEPTH) continue;
+      const p = b.getPosition();
+      b.setPosition(Vec2(p.x, p.y - (c.y - floor) - thin));
+      const v = b.getLinearVelocity();
+      if (v.y > 0) b.setLinearVelocity(Vec2(v.x, 0));
+    }
   }
 
   /**

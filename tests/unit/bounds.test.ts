@@ -182,6 +182,30 @@ describe('lost things come back (R01)', () => {
     expect(sim.view(pebble.id)!.y).toBeGreaterThan(GROUND_Y - 1);
   });
 
+  it('keeps a twig on top of the ground when a bug lands on its end', () => {
+    // A bug that lands on a twig's end used to press its middle past the ground's line, and the
+    // ground's edge then pulled it under until the rescue popped it out.
+    for (const bugId of ['bug_ladybug_dot', 'bug_pillbug_rollo'])
+      for (const off of [0.4, 0.45, 0.5, 0.6])
+        for (const h of [1.2, 3, 5]) {
+          const sim = Sim.empty({ seed: 'twig' });
+          sim.step();
+          const x = PLAZA_X + 9.4;
+          const floor = sim.surfaceY(x);
+          const twig = sim.spawn('item', 'item_twig', x, floor - 0.1);
+          sim.run(120);
+          sim.spawn('bug', bugId, x + off, floor - h);
+          let deepest = -Infinity;
+          for (let i = 0; i < 120; i++) {
+            sim.step();
+            const v = sim.view(twig.id)!;
+            deepest = Math.max(deepest, v.y - sim.surfaceY(v.x));
+          }
+          expect(deepest, `${bugId} ${off} m along, from ${h} m`).toBeLessThan(0);
+          expect(sim.rescues).toBe(0);
+        }
+  });
+
   it('lets a lost bug fall back onto its feet, not dizzy', () => {
     const sim = Sim.create({ seed: 'bug' });
     const dot = sim.entities.ofKind('bug').find((e) => e.defId === 'bug_ladybug_dot')!;

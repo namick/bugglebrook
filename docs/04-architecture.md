@@ -387,6 +387,8 @@ A bug walking about on its own (`setGentle`: not held, flung, or curled up) slip
 
 Two things players can see changed. A thing slower than 0.5 m/s, or slower than 2 m/s and less than half the mass of what it hits, bounces off a settled thing as it would off the ground. And walking bugs no longer bump small resting things along. Settling is not saved: a loaded world starts with every body dynamic, and things settle again within a second.
 
+A thin one-piece thing (half its thinnest size under 0.1 m: a twig, a leaf) that something presses past the ground's line is put back on top at once (`liftThin`). The ground is a chain of edges, and past that line an edge pushes a body further down; a bug landing on a twig's end used to sink it until the sim's rescue popped it out.
+
 ### Area sleep
 
 The renderer sends `focus {x0, x1}` when the camera moves more than 0.25 m. An area sleeps when a whole screen (19.2 m) or more of space separates it from the view. Its bodies are switched off, and its water and fixtures pause. Held, mouthed, and carried things never sleep. With only two areas, the pond sleeps only when the camera is at the plaza's far right. Without a focus (tests, headless runs) nothing sleeps.
