@@ -18,7 +18,7 @@ import {
 } from './icons';
 
 export type VolumeKey = 'music' | 'sfx' | 'voices';
-export type ToggleKey = 'fullscreen' | 'reduceMotion' | 'edgeScroll';
+export type ToggleKey = 'fullscreen' | 'reduceMotion' | 'edgeScroll' | 'recordedVoices';
 
 const BOARD_W = 980;
 const BOARD_H = 660;
@@ -30,6 +30,8 @@ export interface PanelHooks {
   /** A soft UI sound: a tick for a slider (pitched by value), a pop for a toggle. */
   sound(kind: 'tick' | 'toggle' | 'open' | 'close', value?: number): void;
   resume(): void;
+  /** The artist recorded voices: show the toggle between them and the synth voices. */
+  recordedVoices?: boolean;
   /** Back to the main menu. Absent on the menu's own settings board. */
   toMenu?: () => void;
 }
@@ -120,6 +122,8 @@ export class SettingsPanel extends Container {
       ['reduceMotion', calmIcon],
       ['edgeScroll', edgeIcon],
     ];
+    // Her recorded voices (docs/08-sound-brief.md, part 4), only once there are some.
+    if (this.hooks.recordedVoices) toggles.push(['recordedVoices', mouthIcon]);
     toggles.forEach(([key, icon], i) => {
       const t = new Toggle(icon(new Graphics(), 70), s[key]);
       t.position.set(-BOARD_W / 2 + 150 + i * 170, BOARD_H / 2 - 150);

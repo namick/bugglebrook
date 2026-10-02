@@ -4,59 +4,62 @@ import type { Tone } from './synth';
  * Sounds for the Tinker Bench, the cauldron, potions, and crafted toys (M8).
  * `Sfx` maps the events to these names; this module only builds the tones.
  */
-export type CraftSfx =
-  | 'tray_clink'
-  | 'tray_out'
-  | 'hammer'
-  | 'bench_clunk'
-  | 'bench_rattle'
-  | 'craft_pop'
-  | 'craft_tada'
-  | 'uncraft'
-  | 'fail_raspberry'
-  | 'fail_boing'
-  | 'chomp_burp'
-  | 'sad_squeak'
-  | 'shrug'
-  | 'refuse'
-  | 'shimmer'
-  | 'nudge'
-  | 'blueprint'
-  | 'wish'
-  | 'blob_split'
-  | 'blob_squeak'
-  | 'cauldron_plop'
-  | 'cauldron_full'
-  | 'slosh'
-  | 'brew_bubble'
-  | 'cork_pop'
-  | 'fanfare'
-  | 'pour'
-  | 'gulp'
-  | 'smash'
-  | 'grow'
-  | 'shrink'
-  | 'float_up'
-  | 'potion_twinkle'
-  | 'potion_whoosh'
-  | 'poof'
-  | 'fizzle'
-  | 'bubble_burp'
-  | 'sludge_burp'
-  | 'stomp'
-  | 'achoo'
-  | 'deflate'
-  | 'shatter'
-  | 'sizzle'
-  | 'note'
-  | 'twang'
-  | 'toy_whoosh'
-  | 'boing'
-  | 'air_hiss'
-  | 'tinkle'
-  | 'tie_zip'
-  | 'thwack'
-  | 'scope';
+export const CRAFT_SFX = [
+  'tray_clink',
+  'tray_out',
+  'hammer',
+  'bench_clunk',
+  'bench_rattle',
+  'craft_pop',
+  'craft_tada',
+  'uncraft',
+  'fail_raspberry',
+  'fail_boing',
+  'chomp_burp',
+  'sad_squeak',
+  'shrug',
+  'refuse',
+  'shimmer',
+  'nudge',
+  'blueprint',
+  'wish',
+  'blob_split',
+  'blob_squeak',
+  'cauldron_plop',
+  'cauldron_full',
+  'slosh',
+  'brew_bubble',
+  'cork_pop',
+  'fanfare',
+  'pour',
+  'gulp',
+  'smash',
+  'grow',
+  'shrink',
+  'float_up',
+  'potion_twinkle',
+  'potion_whoosh',
+  'poof',
+  'fizzle',
+  'bubble_burp',
+  'sludge_burp',
+  'stomp',
+  'achoo',
+  'deflate',
+  'shatter',
+  'sizzle',
+  'note',
+  'twang',
+  'toy_whoosh',
+  'boing',
+  'air_hiss',
+  'tinkle',
+  'tie_zip',
+  'thwack',
+  'scope',
+] as const;
+
+export type CraftSfx = (typeof CRAFT_SFX)[number];
 
 /** Semitones of a major pentatonic scale. */
 const PENTATONIC = [0, 2, 4, 7, 9] as const;

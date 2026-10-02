@@ -1,5 +1,6 @@
 import type { MusicSink } from './musicPlayer';
 import { WebAudioMusicSink } from './musicPlayer';
+import { WebAudioSampleSink } from './samplePlayer';
 
 export type Wave = 'sine' | 'square' | 'triangle' | 'sawtooth';
 
@@ -101,12 +102,20 @@ export class WebAudioBackend implements AudioBackend {
   private sink: WebAudioMusicSink | null = null;
   /** Making the context failed (no audio device): stay quiet until the next click tries again. */
   private failed = false;
+  private samples: WebAudioSampleSink | null = null;
 
   /** The background music's player, on this context's music bus (M9). Null without WebAudio. */
   musicSink(): MusicSink | null {
     const ctx = this.context();
     if (!ctx || !this.buses) return null;
     return (this.sink ??= new WebAudioMusicSink(ctx, this.buses.music));
+  }
+
+  /** Recorded sound samples and the ambience beds, on the sfx and voice buses. Null without WebAudio. */
+  sampleSink(): WebAudioSampleSink | null {
+    const ctx = this.context();
+    if (!ctx || !this.buses) return null;
+    return (this.samples ??= new WebAudioSampleSink(ctx, this.buses.sfx, this.buses.voice));
   }
 
   private context(): AudioContext | null {

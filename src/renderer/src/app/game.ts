@@ -12,7 +12,12 @@ import { soundMaterial } from '../audio/sfx';
 import { BugVoices } from '../audio/voices';
 import { MusicDirector } from '../audio/musicDirector';
 import type { MusicSink } from '../audio/musicPlayer';
-import { NullMusicSink } from '../audio/musicPlayer';
+import { NullMusicSink, fetchJson } from '../audio/musicPlayer';
+import { SampleEngine } from '../audio/sampleEngine';
+import type { SampleSink } from '../audio/samplePlayer';
+import { NullSampleSink } from '../audio/samplePlayer';
+import { AmbiencePlayer } from '../audio/ambiencePlayer';
+import { HOUR, timeOfDay } from '../../../game/systems/sky';
 import { PointerController } from '../input/pointerController';
 import { Camera } from '../render/camera';
 import { GhostHand, HintMarks } from '../render/hintView';
@@ -29,7 +34,7 @@ import { cameraButton } from '../ui/photoButtons';
 import { PocketTray } from '../ui/pocketTray';
 import { CreditsBoard } from '../ui/creditsBoard';
 import { UpdateToast } from '../ui/updateToast';
-import { CREDITS } from '../ui/credits';
+import { CREDITS, soundCreditLines } from '../ui/credits';
 import { SettingsPanel } from '../ui/settingsPanel';
 import { HiddenDirector } from './hiddenDirector';
 import { HintDirector } from './hintDirector';
@@ -138,6 +143,8 @@ export class Game {
   panel: SettingsPanel | null = null;
   /** The credits board, over the menu. */
   credits: CreditsBoard | null = null;
+  /** Attribution lines for recorded sounds, from `sfx/credits.json` (empty while all is synthesized). */
+  soundCredits: string[] = [];
   private closingCredits: CreditsBoard[] = [];
   /** Photo mode, while the camera is out. */
   photo: PhotoMode | null = null;
@@ -147,6 +154,10 @@ export class Game {
   readonly settings: SettingsService;
   readonly sfx: Sfx;
   readonly voices: BugVoices;
+  /** Recorded sound samples (docs/08-sound-brief.md); the synth covers anything without one. */
+  readonly samples: SampleEngine;
+  /** The areas' and the weather's ambience beds. */
+  readonly ambience: AmbiencePlayer;
   /** The background music and the music toys (M9). */
   readonly music: MusicDirector;
   /** Milliseconds of work (update and render) for recent frames, newest last. */
@@ -209,13 +220,20 @@ export class Game {
     readonly api: BugglebrookApi,
     readonly audio: AudioBackend,
     musicSink: MusicSink = new NullMusicSink(),
+    sampleSink: SampleSink = new NullSampleSink(),
   ) {
     this.saves = new SaveService(api.saves);
     this.saves.onProblem = (text) => api.logError(`Save: ${text}`);
     this.settings = new SettingsService(api.settings);
-    this.sfx = new Sfx(audio);
+    this.samples = new SampleEngine(sampleSink);
+    this.ambience = new AmbiencePlayer(this.samples);
+    this.sfx = new Sfx(audio, Math.random, () => performance.now(), this.samples);
+    this.sfx.covered = (name) => this.ambience.covers(name);
     this.music = new MusicDirector(audio, musicSink);
     this.voices = new BugVoices(audio, CONTENT.bugs);
+    this.voices.samples = this.samples;
+    // The ambience dips under a bug's line.
+    this.voices.onLine = (_id, _emotion, seconds) => this.ambience.duck('voice', seconds);
     this.introEnabled = !api.testMode;
     this.settings.onChange((s) => this.applySettings(s));
     this.wireInput();
@@ -347,6 +365,10 @@ export class Game {
     if (this.api.testMode) artStore.setMode('code');
     await artStore.loadBundled().catch((err: unknown) => console.error('Art failed to load', err));
     void this.music.load();
+    void this.samples.load();
+    void fetchJson('sfx/credits.json')
+      .then((data) => (this.soundCredits = soundCreditLines(data)))
+      .catch(() => undefined);
     await this.showMenu();
     const lab = import.meta.env.DEV ? import.meta.env.VITE_BB_ART_LAB : undefined;
     if (lab) this.openArtLab(lab === '1' ? 'bug_ladybug_dot' : lab);
@@ -372,6 +394,8 @@ export class Game {
   /** Settings take effect at once: volumes, reduce motion, edge scroll. */
   private applySettings(s: Settings): void {
     this.audio.setVolumes(volumesFrom(s));
+    this.samples.sfxVolume = s.sfx / 100;
+    this.voices.recorded = s.recordedVoices;
     const session = this.session;
     if (session) {
       session.view.reduceMotion = s.reduceMotion;
@@ -627,9 +651,20 @@ export class Game {
       kind === 'bug' || !sim.content.items.has(defId)
         ? 'bug'
         : soundMaterial(sim.content.items.get(defId).material);
-    this.sfx.attach(sim.events, materialOf, (defId) =>
-      sim.content.items.has(defId) ? sim.content.items.get(defId).tags : [],
+    this.sfx.attach(
+      sim.events,
+      materialOf,
+      (defId) => (sim.content.items.has(defId) ? sim.content.items.get(defId).tags : []),
+      (id) => {
+        const v = sim.view(id);
+        return v ? { x: v.x, y: v.y } : null;
+      },
     );
+    // Sounds pan by where they happen on screen.
+    this.samples.screen = (x) => (x - camera.x) / VIEW_WIDTH_M;
+    // The ambience dips under a secret or an unlock (the music ducks for the stinger too).
+    sim.events.on('secret_found', () => this.ambience.duck('stinger', 2.5));
+    sim.events.on('area_unlocked', () => this.ambience.duck('stinger', 3));
     this.sfx.toysPlayNotes = true;
     this.music.attach(sim);
     this.voices.attach(
@@ -725,6 +760,8 @@ export class Game {
     this.sfx.detach();
     this.music.detach();
     this.voices.detach();
+    this.ambience.stop();
+    this.samples.screen = null;
     this.session.hints.dispose();
     this.session.hidden.dispose();
     this.session.sim.events.clear();
@@ -745,7 +782,7 @@ export class Game {
   openCredits(): void {
     if (this.credits || this.panel || !this.menu) return;
     this.sfx.play('ui_open');
-    this.credits = new CreditsBoard(CREDITS, () => this.closeCredits());
+    this.credits = new CreditsBoard(CREDITS, () => this.closeCredits(), this.soundCredits);
     this.app.stage.addChild(this.credits);
     this.raiseOverlays();
   }
@@ -785,6 +822,7 @@ export class Game {
         else this.sfx.play(kind === 'open' ? 'ui_open' : 'ui_close');
       },
       resume: () => this.closePanel(),
+      recordedVoices: this.samples.library.hasVoices,
       toMenu: inWorld
         ? () => {
             this.sfx.play('ui_pop');
@@ -1167,6 +1205,20 @@ export class Game {
       x0: s.camera.x,
       x1: s.camera.x + VIEW_WIDTH_M,
       handBusy: s.input.mode === 'hold',
+      paused: this.panel !== null,
+    });
+    this.ambience.update(dt, {
+      areas: s.sim.content.areas.all.map((a) => ({
+        mood: a.mood,
+        x0: a.xStart,
+        x1: a.xEnd,
+        open: s.sim.barriers.isOpen(a.id),
+        hidden: !!a.hidden,
+      })),
+      x: s.camera.centerX,
+      hour: timeOfDay(s.sim.weather.clock) / HOUR,
+      rain: s.view.weatherMix.rain,
+      wind: s.view.weatherMix.wind,
       paused: this.panel !== null,
     });
     // Home shows only away from the plaza.

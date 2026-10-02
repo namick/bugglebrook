@@ -34,6 +34,7 @@
     "icon": "node scripts/make-icon.mjs",
     "music:import": "node scripts/music/import.ts",
     "music:check": "node scripts/music/check.ts",
+    "sfx:import": "node scripts/sfx/import.ts",
     "dist:linux": "electron-vite build && electron-builder --linux --publish never",
     "dist:appimage": "electron-vite build && electron-builder --linux AppImage --publish never",
     "dist:win": "electron-vite build && electron-builder --win --publish never",

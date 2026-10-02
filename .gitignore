@@ -16,6 +16,21 @@ assets/music/**/*.flac
 assets/music/**/*.zip
 assets/music/import-report.txt
 
+# Raw sound effects and the artist's voice recordings (docs/08-sound-brief.md, part 3.4).
+# Their source.txt files and assets/sfx/config.json are committed.
+assets/sfx/**/*.wav
+assets/sfx/**/*.flac
+assets/sfx/**/*.mp3
+assets/sfx/**/*.ogg
+assets/sfx/**/*.zip
+assets/sfx/import-report.txt
+assets/voices/**/*.wav
+assets/voices/**/*.flac
+assets/voices/**/*.mp3
+assets/voices/**/*.ogg
+assets/voices/**/*.m4a
+assets/voices/**/*.zip
+
 # Art pipeline: fresh templates for comparing, and Krita working files (docs/06-art-guide.md, B12)
 art/templates/
 *.kra

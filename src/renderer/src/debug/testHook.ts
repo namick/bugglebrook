@@ -28,6 +28,11 @@ import { withSeen } from '../journal/layout';
 import { DAY, HOUR } from '../../../game/systems/sky';
 import type { ToggleKey, VolumeKey } from '../ui/settingsPanel';
 import type { ErrorBoundary, OopsState } from '../ui/oops';
+import type { AmbienceReport } from '../audio/ambiencePlayer';
+import type { SoundPlay } from '../audio/sampleEngine';
+import { WebAudioSampleSink } from '../audio/samplePlayer';
+import { fixtureManifest, fixtureTone } from '../audio/sfxFixture';
+import { SfxLibrary } from '../audio/sfxManifest';
 
 /**
  * Named UI controls the tests can find: buttons, sliders' tracks, toggles,
@@ -50,6 +55,7 @@ export type UiName =
   | 'update_restart'
   | 'credits'
   | 'credits_close'
+  | 'credits_sounds'
   | 'bin'
   | 'stamps'
   | `toggle_${ToggleKey}`
@@ -141,6 +147,10 @@ export interface TestHook extends ArtHook {
   panelOpen(): boolean;
   /** The credits board's lines (role and name), or null when it is closed. */
   credits(): { role: string; name: string }[] | null;
+  /** The credits board's page (0 the makers, 1 the sounds) and its sound lines, or null when closed. */
+  creditsPage(): { page: number; sounds: string[] } | null;
+  /** Staging: the attribution lines the next credits board shows (as if from `sfx/credits.json`). */
+  setSoundCredits(lines: string[]): void;
   /** The settings as the game has them now. */
   settings(): Settings;
   /** How far the screen shake moves the world this frame, in pixels. */
@@ -197,6 +207,26 @@ export interface TestHook extends ArtHook {
   freezeNextWorld(on: boolean): void;
   isPaused(): boolean;
   sfxLog(): string[];
+  /**
+   * Recent sounds with how they played (docs/08-sound-brief.md, 6.8): the
+   * sample folder, take, rate, gain (dB), and pan, or `synth`, or `skipped`.
+   */
+  sfxSamples(): SoundPlay[];
+  /** The ambience beds: every bed's target gain, the ones sounding, the night mix, and the bus. */
+  ambience(): AmbienceReport;
+  /**
+   * Install the stand-in sample manifest (every folder, or these), with her
+   * voice clips if `voices`; `null` goes back to the shipped manifest's
+   * empty state. The test sink "decodes" every file at once.
+   */
+  sfxFixture(folders: string[] | 'all' | null, voices?: boolean): Promise<void>;
+  /**
+   * Play generated tones through the real WebAudio sample player into an
+   * offline context: a one-shot panned hard left, and a 0.3 s bed that must
+   * keep looping. Returns the left and right RMS of the shot's first 0.1 s
+   * and of the bed from 0.6 to 1 s.
+   */
+  sampleRender(): Promise<{ shot: [number, number]; bed: [number, number] }>;
   /** Recent gibberish lines: which bug and in what mood. */
   voiceLog(): { defId: string; emotion: string }[];
   /** Recent sim events, newest last. */
@@ -605,6 +635,8 @@ export function installTestHook(game: Game, boundary?: ErrorBoundary): void {
         return game.menu?.heart ?? null;
       case 'credits_close':
         return game.credits?.close ?? null;
+      case 'credits_sounds':
+        return game.credits?.more ?? null;
       case 'bin':
         return game.menu?.bin ?? null;
       case 'stamps':
@@ -647,6 +679,10 @@ export function installTestHook(game: Game, boundary?: ErrorBoundary): void {
     homeButtonClient: () => centerOf(game.session?.home),
     uiClient: (name) => centerOf(uiControl(name)),
     credits: () => (game.credits ? game.credits.lines.map((l) => ({ ...l })) : null),
+    creditsPage: () => (game.credits ? { page: game.credits.page, sounds: [...game.credits.sounds] } : null),
+    setSoundCredits: (lines) => {
+      game.soundCredits = [...lines];
+    },
     photo: () => {
       const p = game.photo;
       const s = game.session;
@@ -841,6 +877,44 @@ export function installTestHook(game: Game, boundary?: ErrorBoundary): void {
     },
     isPaused: () => game.paused,
     sfxLog: () => [...game.sfx.log],
+    sfxSamples: () => game.sfx.plays.map((p) => ({ ...p })),
+    ambience: () => structuredClone(game.ambience.report),
+    sfxFixture: async (folders, voices = false) => {
+      await game.samples.setLibrary(
+        new SfxLibrary(
+          folders === null ? null : fixtureManifest(folders === 'all' ? undefined : folders, 3, voices),
+        ),
+      );
+    },
+    sampleRender: async () => {
+      const sr = 48000;
+      const render = async (play: (sink: WebAudioSampleSink, ctx: OfflineAudioContext) => void) => {
+        const ctx = new OfflineAudioContext(2, sr, sr);
+        const sink = new WebAudioSampleSink(ctx, ctx.destination, ctx.destination);
+        play(sink, ctx);
+        const out = await ctx.startRendering();
+        return (c: number, from: number, to: number): number => {
+          const d = out.getChannelData(c);
+          let s = 0;
+          for (let i = Math.round(from * sr); i < Math.round(to * sr); i++) s += d[i]! * d[i]!;
+          return Math.sqrt(s / Math.max(1, Math.round((to - from) * sr)));
+        };
+      };
+      const buffer = (ctx: OfflineAudioContext, file: string, seconds: number): AudioBuffer => {
+        const b = ctx.createBuffer(1, Math.round(seconds * sr), sr);
+        b.copyToChannel(fixtureTone(file, seconds), 0);
+        return b;
+      };
+      const shot = await render((sink, ctx) => {
+        sink.put('shot.ogg', buffer(ctx, 'shot.ogg', 0.4));
+        sink.start({ file: 'shot.ogg', bus: 'sfx', delay: 0, rate: 1, gain: 1, pan: -1 });
+      });
+      const bed = await render((sink, ctx) => {
+        sink.put('bed.ogg', buffer(ctx, 'bed.ogg', 0.3));
+        sink.setBed('amb', { file: 'bed.ogg', loopStart: 0, loopDur: 0.3 }, 1, 0.01);
+      });
+      return { shot: [shot(0, 0, 0.1), shot(1, 0, 0.1)], bed: [bed(0, 0.6, 1), bed(1, 0.6, 1)] };
+    },
     voiceLog: () => game.voices.log.map((l) => ({ ...l })),
     events: () => game.eventLog.map((e) => ({ ...e })),
     lastRelease: () => game.session?.input.lastRelease ?? null,

@@ -1,11 +1,20 @@
 import { Container, Graphics, Text } from 'pixi.js';
-import type { FederatedPointerEvent } from 'pixi.js';
+import type { FederatedPointerEvent, FederatedWheelEvent } from 'pixi.js';
 import { VIEW_HEIGHT_PX, VIEW_WIDTH_PX } from '../../../game/constants';
 import { OUTLINE } from '../render/palette';
 import { Bounce, PictureButton, markUi } from './button';
 import { drawBoard } from './controls';
 import type { CreditLine, CreditRole } from './credits';
-import { brushIcon, heartIcon, noteIcon, playIcon, screenIcon, token } from './icons';
+import {
+  brushIcon,
+  heartIcon,
+  mouthIcon,
+  noteIcon,
+  playIcon,
+  screenIcon,
+  shellSpeakerIcon,
+  token,
+} from './icons';
 
 const BOARD_W = 900;
 const ROW_H = 120;
@@ -13,6 +22,8 @@ const ROW_H = 120;
 const ICONS: Record<CreditRole, (g: Graphics, s: number) => Graphics> = {
   art: brushIcon,
   music: noteIcon,
+  sound: shellSpeakerIcon,
+  voices: mouthIcon,
   code: screenIcon,
 };
 
@@ -32,10 +43,20 @@ export class CreditsBoard extends Container {
   private time = 0;
   private closing = false;
   onClosed: (() => void) | null = null;
+  /** 0: the makers; 1: the recorded sounds' attributions (only when there are some). */
+  page = 0;
+  /** The attributions page's toggle, or null with no recorded sounds. */
+  readonly more: PictureButton | null = null;
+  private readonly names = new Container();
+  private readonly list = new Container();
+  private scroll = 0;
+  private listH = 0;
 
   constructor(
     readonly lines: readonly CreditLine[],
     private readonly onClose: () => void,
+    /** Attribution lines for recorded sounds (docs/08-sound-brief.md, part 5.2). */
+    readonly sounds: readonly string[] = [],
   ) {
     super();
     markUi(this);
@@ -78,8 +99,47 @@ export class CreditsBoard extends Container {
       // Long names shrink to fit the board.
       name.scale.set(Math.min(1, (BOARD_W - 260) / Math.max(1, name.width)));
       name.label = `credit_name_${line.role}`;
-      this.board.addChild(plate, name);
+      this.names.addChild(plate, name);
     });
+    this.board.addChild(this.names);
+    if (sounds.length > 0) {
+      // The second page: every credited sound, scrolled with the wheel.
+      const text = new Text({
+        text: sounds.join('\n'),
+        style: {
+          fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+          fontSize: 24,
+          fill: 0xfffbef,
+          stroke: { color: OUTLINE, width: 5, join: 'round' },
+          wordWrap: true,
+          wordWrapWidth: BOARD_W - 140,
+          lineHeight: 34,
+        },
+      });
+      text.label = 'credit_sounds';
+      this.list.addChild(text);
+      const top = -h / 2 + 140;
+      this.listH = h - 300;
+      const mask = new Graphics().rect(-BOARD_W / 2 + 60, top, BOARD_W - 120, this.listH).fill(0xffffff);
+      this.list.position.set(-BOARD_W / 2 + 70, top);
+      this.list.mask = mask;
+      this.list.visible = false;
+      this.board.addChild(mask, this.list);
+      this.board.on('wheel', (e: FederatedWheelEvent) => {
+        if (this.page !== 1) return;
+        this.scroll = Math.max(
+          0,
+          Math.min(Math.max(0, text.height - this.listH), this.scroll + e.deltaY * 0.5),
+        );
+        this.list.y = top - this.scroll;
+      });
+      const art = token(new Graphics(), 52, 0xe6f4d9);
+      shellSpeakerIcon(art, 80);
+      this.more = new PictureButton(art, 120, 120, () => this.turn());
+      this.more.position.set(-BOARD_W / 2 + 80, h / 2 - 80);
+      this.more.label = 'credits_sounds';
+      this.board.addChild(this.more);
+    }
     const art = token(new Graphics(), 52, 0xfff1c7);
     playIcon(art, 84);
     this.close = new PictureButton(art, 120, 120, () => this.onClose());
@@ -92,6 +152,14 @@ export class CreditsBoard extends Container {
   }
 
   private readonly boardH: number;
+
+  /** Flip between the makers and the sounds' attributions. */
+  turn(): void {
+    if (this.sounds.length === 0) return;
+    this.page = 1 - this.page;
+    this.names.visible = this.page === 0;
+    this.list.visible = this.page === 1;
+  }
 
   /** Slide away, then call `onClosed`. */
   slideAway(): void {
@@ -116,6 +184,7 @@ export class CreditsBoard extends Container {
     // The heart beats.
     this.heart.scale.set(1 + 0.06 * Math.max(0, Math.sin(this.time * 6)));
     this.close.update(dt);
+    this.more?.update(dt);
     if (this.closing && k < 0.05) {
       this.visible = false;
       this.onClosed?.();

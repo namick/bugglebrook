@@ -15,6 +15,11 @@ export interface Settings {
   reduceMotion: boolean;
   /** Pan the camera while carrying something to the screen's edge. */
   edgeScroll: boolean;
+  /**
+   * Bugs speak in the artist's recorded voice where she recorded the
+   * emotion (docs/08-sound-brief.md, part 4). Off: the synthesized voices.
+   */
+  recordedVoices: boolean;
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
@@ -24,10 +29,11 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   fullscreen: true,
   reduceMotion: false,
   edgeScroll: true,
+  recordedVoices: false,
 };
 
 const VOLUMES = ['music', 'sfx', 'voices'] as const;
-const TOGGLES = ['fullscreen', 'reduceMotion', 'edgeScroll'] as const;
+const TOGGLES = ['fullscreen', 'reduceMotion', 'edgeScroll', 'recordedVoices'] as const;
 
 /**
  * Turn anything (a parsed file, an IPC argument) into valid settings.

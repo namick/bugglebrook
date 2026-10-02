@@ -7,5 +7,5 @@
     "erasableSyntaxOnly": true,
     "noEmit": true
   },
-  "include": ["scripts/music/**/*.ts", "src/shared/music.ts"]
+  "include": ["scripts/music/**/*.ts", "scripts/sfx/**/*.ts", "src/shared/music.ts", "src/shared/sfx.ts"]
 }

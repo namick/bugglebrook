@@ -4,6 +4,8 @@ import type { BugDef, VoiceProfile } from '../../../game/data/types';
 import type { ChatTopic, GameEvents, Mood } from '../../../game/events';
 import { reactionLook } from '../render/reactions';
 import type { AudioBackend, Tone } from './synth';
+import type { SampleEngine } from './sampleEngine';
+import { recordedLine } from './voiceSamples';
 
 export type Emotion =
   | 'happy'
@@ -326,7 +328,15 @@ export function voiceLine(
  */
 export class BugVoices {
   /** Recent lines (bug def and emotion), newest last. The test hook reads this. */
-  readonly log: { defId: string; emotion: Emotion }[] = [];
+  readonly log: { defId: string; emotion: Emotion; recorded?: boolean }[] = [];
+  /**
+   * Speak in the artist's recorded voice where the bank has the emotion
+   * (docs/08-sound-brief.md, part 4). Off by default: the synth voices are
+   * the game's own.
+   */
+  recorded = false;
+  /** Where her clips come from; null without samples. */
+  samples: SampleEngine | null = null;
   private busyUntil = new Map<number, number>();
   private lines = new Map<number, number>();
   private offs: Array<() => void> = [];
@@ -425,9 +435,20 @@ export class BugVoices {
     );
     const length = Math.max(...tones.map((tn) => (tn.delay ?? 0) + tn.dur));
     this.busyUntil.set(id, t + length * 1000 + 150);
-    for (const tone of tones) this.backend.play(tone);
+    const clips = this.recorded && this.samples ? this.samples.voiceClips(emotion) : [];
+    if (clips.length > 0) {
+      const line = recordedLine(
+        tones,
+        clips,
+        def.voice.wave,
+        new Rng(`${id}:${n}:clips`),
+        accentFor(def.art) === 'tremble',
+      );
+      for (const tone of line.tones) this.backend.play(tone);
+      for (const play of line.plays) this.samples!.sink.start(play);
+    } else for (const tone of tones) this.backend.play(tone);
     this.onLine?.(id, emotion, length);
-    this.log.push({ defId, emotion });
+    this.log.push(clips.length > 0 ? { defId, emotion, recorded: true } : { defId, emotion });
     if (this.log.length > 50) this.log.shift();
     return true;
   }

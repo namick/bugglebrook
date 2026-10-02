@@ -1,151 +1,163 @@
 import type { EventBus } from '../../../game/core/events';
 import type { GameEvents } from '../../../game/events';
-import { craftTones, noteTones, type CraftSfx } from './craftSfx';
-import { clueSounds, clueTones, isClueSfx, type ClueSfx } from './clueSfx';
-import { hiddenTones, isHiddenSfx, type HiddenSfx } from './hiddenSfx';
-import { isTidySfx, tidyTones, type TidySfx } from './tidySfx';
-import { isWearSfx, wearTones, type WearSfx } from './wearSfx';
+import { CRAFT_SFX, craftTones, noteTones, type CraftSfx } from './craftSfx';
+import { CLUE_SFX, clueSounds, clueTones, isClueSfx, type ClueSfx } from './clueSfx';
+import { HIDDEN_SFX, hiddenTones, isHiddenSfx, type HiddenSfx } from './hiddenSfx';
+import { TIDY_SFX, isTidySfx, tidyTones, type TidySfx } from './tidySfx';
+import { WEAR_SFX, isWearSfx, wearTones, type WearSfx } from './wearSfx';
 import type { AudioBackend, Tone } from './synth';
+import { EventBus as Relay } from '../../../game/core/events';
+import type { SampleEngine, SoundPlay, WorldPoint } from './sampleEngine';
 
 export type Material = 'wood' | 'metal' | 'rubber' | 'stone' | 'glass' | 'leaf' | 'food' | 'bug';
 
-export type SfxName =
-  | 'grab'
-  | 'grab_bug'
-  | 'drop'
-  | 'fling'
-  | `impact_${Material}`
-  | 'dizzy'
-  | 'poke'
-  | 'spring'
-  | 'nom'
-  | 'chomp'
-  | 'gag'
-  | 'ptoo'
-  | 'sneeze'
-  | 'burp'
-  | 'flame'
-  | 'chill'
-  | 'sparkle'
-  | 'tickle'
-  | 'wriggle'
-  | 'shake'
-  | 'swish'
-  | 'pan'
-  | 'scroll'
-  | 'edge'
-  | 'hover'
-  | 'hop'
-  | 'whistle'
-  | 'ui_pop'
-  | 'splash'
-  | 'plop'
-  | 'plip'
-  | 'tsss'
-  | 'freeze'
-  | 'thaw'
-  | 'squelch'
-  | 'pop'
-  | 'clink'
-  | 'bubble'
-  | 'stink'
-  | 'shake_dry'
-  | 'click_on'
-  | 'click_off'
-  | 'blub'
-  | 'squish'
-  | 'bzzt'
-  | 'trickle'
-  | 'boop'
-  | 'tag'
-  | 'toss'
-  | 'catch'
-  | 'pat'
-  | 'snore'
-  | 'ta_da'
-  | 'slide'
-  | 'pick'
-  | 'sniff'
-  | 'crash'
-  | 'curl'
-  | 'pocket_in'
-  | 'pocket_out'
-  | 'ui_tick'
-  | 'ui_open'
-  | 'ui_close'
-  | 'toggle_on'
-  | 'toggle_off'
-  | 'bin_shut'
-  | 'whoosh_in'
-  | 'dial'
-  | 'dial_done'
-  | 'rain'
-  | 'wind'
-  | 'cricket'
-  | 'vane'
-  | 'gust'
-  | 'secret'
-  | 'stamp'
-  | 'twinkle'
-  | 'knock'
-  | 'blink'
-  | 'light_on'
-  | 'light_off'
-  | 'slurp'
-  | 'unlock'
-  | 'creak'
-  | 'latch'
-  | 'lift'
-  | 'bell'
-  | 'paint'
-  | 'knock_back'
-  | 'rustle'
-  | 'hum'
-  | 'web'
-  | 'jar'
+/** The core sound names (the M8 to M10 and tidy modules list their own). */
+export const BASE_SFX = [
+  'grab',
+  'grab_bug',
+  'drop',
+  'fling',
+  'impact_wood',
+  'impact_metal',
+  'impact_rubber',
+  'impact_stone',
+  'impact_glass',
+  'impact_leaf',
+  'impact_food',
+  'impact_bug',
+  'dizzy',
+  'poke',
+  'spring',
+  'nom',
+  'chomp',
+  'gag',
+  'ptoo',
+  'sneeze',
+  'burp',
+  'flame',
+  'chill',
+  'sparkle',
+  'tickle',
+  'wriggle',
+  'shake',
+  'swish',
+  'pan',
+  'scroll',
+  'edge',
+  'hover',
+  'hop',
+  'whistle',
+  'ui_pop',
+  'splash',
+  'plop',
+  'plip',
+  'tsss',
+  'freeze',
+  'thaw',
+  'squelch',
+  'pop',
+  'clink',
+  'bubble',
+  'stink',
+  'shake_dry',
+  'click_on',
+  'click_off',
+  'blub',
+  'squish',
+  'bzzt',
+  'trickle',
+  'boop',
+  'tag',
+  'toss',
+  'catch',
+  'pat',
+  'snore',
+  'ta_da',
+  'slide',
+  'pick',
+  'sniff',
+  'crash',
+  'curl',
+  'pocket_in',
+  'pocket_out',
+  'ui_tick',
+  'ui_open',
+  'ui_close',
+  'toggle_on',
+  'toggle_off',
+  'bin_shut',
+  'whoosh_in',
+  'dial',
+  'dial_done',
+  'rain',
+  'wind',
+  'cricket',
+  'vane',
+  'gust',
+  'secret',
+  'stamp',
+  'twinkle',
+  'knock',
+  'blink',
+  'light_on',
+  'light_off',
+  'slurp',
+  'unlock',
+  'creak',
+  'latch',
+  'lift',
+  'bell',
+  'paint',
+  'knock_back',
+  'rustle',
+  'hum',
+  'web',
+  'jar',
   // M11, photo mode: the camera coming out and going away, the shutter, stickers.
-  | 'camera_open'
-  | 'camera_close'
-  | 'shutter'
-  | 'sticker_peel'
-  | 'sticker_stick'
-  | 'snap'
-  | 'claw'
-  | 'domino'
-  | 'stink_puff'
-  | 'chop'
-  | 'nibble'
-  | 'cocoon'
-  | 'freed'
-  | 'band'
-  | 'stage'
-  | 'bee_hum'
-  | 'birdsong'
-  | 'board_patter'
-  | 'drip'
-  | 'bubble_blorp'
-  | 'steam_hiss'
-  | 'arcade_blip'
-  | 'leaf_rustle'
-  | 'scratch'
-  | 'tulip_hum'
-  | 'peek_twig'
+  'camera_open',
+  'camera_close',
+  'shutter',
+  'sticker_peel',
+  'sticker_stick',
+  'snap',
+  'claw',
+  'domino',
+  'stink_puff',
+  'chop',
+  'nibble',
+  'cocoon',
+  'freed',
+  'band',
+  'stage',
+  'bee_hum',
+  'birdsong',
+  'board_patter',
+  'drip',
+  'bubble_blorp',
+  'steam_hiss',
+  'arcade_blip',
+  'leaf_rustle',
+  'scratch',
+  'tulip_hum',
+  'peek_twig',
   // M8: the bench's lever and the cauldron's ladle (gestures), and crafting and potions.
-  | 'lever'
-  | 'stir'
+  'lever',
+  'stir',
   // M10, the journal: a page turning, the book opening and shutting, an entry coming into color.
-  | 'page_flip'
-  | 'book_open'
-  | 'book_close'
-  | 'reveal'
-  | CraftSfx
-  | ClueSfx
+  'page_flip',
+  'book_open',
+  'book_close',
+  'reveal',
   // M10: the hidden areas and the finale.
-  | HiddenSfx
   // Playtest F1 and F2: the trash can and the tidy whistle.
-  | TidySfx
-  // M11: hats and accessories, and the music bugs.
-  | WearSfx;
+] as const;
+
+export type SfxName = (typeof BASE_SFX)[number] | CraftSfx | ClueSfx | HiddenSfx | TidySfx | WearSfx;
+
+/** Every sound name, for the sample catalog's checks. */
+export const SFX_NAMES: readonly SfxName[] = [
+  ...new Set<SfxName>([...BASE_SFX, ...CRAFT_SFX, ...CLUE_SFX, ...HIDDEN_SFX, ...TIDY_SFX, ...WEAR_SFX]),
+];
 
 /**
  * The impact sound for a material. Soft materials (cloth, paper) thud like
@@ -247,10 +259,26 @@ export class Sfx {
   private lastBonk = -Infinity;
   private unsubscribers: Array<() => void> = [];
 
+  /**
+   * Recent plays with how they were made (a sample's folder, take, rate,
+   * gain, and pan, or the synth), newest last. The test hook reads this.
+   */
+  readonly plays: SoundPlay[] = [];
+  /** Where the event being handled happened, so its sound pans (world meters). */
+  private eventAt: WorldPoint | null = null;
+  private positionOf: (id: number) => WorldPoint | null = () => null;
+  /**
+   * Whether a weather or area bed now covers a synth tick (`rain`, `wind`,
+   * `board_patter`): the ambience player says so once the bed is playing.
+   */
+  covered: (name: SfxName) => boolean = () => false;
+
   constructor(
     private readonly backend: AudioBackend,
     private readonly random: () => number = Math.random,
     private readonly now: () => number = () => performance.now(),
+    /** Recorded samples (docs/08-sound-brief.md); without them everything is synthesized. */
+    readonly samples: SampleEngine | null = null,
   ) {}
 
   private material: MaterialLookup = (kind) => (kind === 'bug' ? 'bug' : 'wood');
@@ -258,14 +286,28 @@ export class Sfx {
   private tagsOf: (defId: string) => readonly string[] = () => [];
 
   attach(
-    bus: EventBus<GameEvents>,
+    events: EventBus<GameEvents>,
     material?: MaterialLookup,
     tagsOf?: (itemDefId: string) => readonly string[],
+    positionOf?: (id: number) => WorldPoint | null,
   ): void {
     this.detach();
     if (material) this.material = material;
     if (tagsOf) this.tagsOf = tagsOf;
+    if (positionOf) this.positionOf = positionOf;
+    // Every handler hears the game's events through this relay, which notes
+    // where each event happened so the sound it plays can pan.
+    const bus = new Relay<GameEvents>();
     this.unsubscribers = [
+      events.onAny((name, payload) => {
+        this.eventAt = this.where(payload);
+        try {
+          bus.emit(name, payload as never);
+        } finally {
+          this.eventAt = null;
+        }
+      }),
+      () => bus.clear(),
       bus.on('item_grabbed', (e) =>
         e.kind === 'bug' ? this.play('grab_bug') : this.play('grab', 1, this.material(e.kind, e.defId)),
       ),
@@ -516,6 +558,16 @@ export class Sfx {
     this.unsubscribers = [];
   }
 
+  /** Where an event happened: its x and y, the middle of its span, or its entity's position. */
+  private where(payload: unknown): WorldPoint | null {
+    const p = payload as Record<string, unknown> | null;
+    if (!p || typeof p !== 'object') return null;
+    if (typeof p.x === 'number') return { x: p.x, y: typeof p.y === 'number' ? p.y : undefined };
+    if (typeof p.x0 === 'number' && typeof p.x1 === 'number') return { x: (p.x0 + p.x1) / 2 };
+    if (typeof p.id === 'number') return this.positionOf(p.id);
+    return null;
+  }
+
   private jitter(amount = 0.08): number {
     return 1 + (this.random() * 2 - 1) * amount;
   }
@@ -537,7 +589,21 @@ export class Sfx {
     this.play(name, intensity, 'wood', false);
   }
 
-  play(name: SfxName, intensity = 1, material: Material = 'wood', log = true): void {
+  play(
+    name: SfxName,
+    intensity = 1,
+    material: Material = 'wood',
+    log = true,
+    at: WorldPoint | null = this.eventAt,
+  ): void {
+    // A bed already plays the rain, the wind, or the patter on the boards.
+    if (this.covered(name)) return;
+    const sample = this.samples?.play(name, intensity, material, at);
+    if (sample) {
+      this.record(sample);
+      if (log) this.logOnly(name);
+      return;
+    }
     const j = this.jitter();
     const v = 10 ** ((this.random() * 2 - 1) * 0.1); // about +-2 dB
     const tones: Tone[] = (() => {
@@ -1537,8 +1603,14 @@ export class Sfx {
   /** Things swooshed home since the whistle last blew: each swoosh is a step higher. */
   private swooshes = 0;
 
+  private record(play: SoundPlay): void {
+    this.plays.push(play);
+    if (this.plays.length > 50) this.plays.shift();
+  }
+
   private emit(name: SfxName, tones: readonly Tone[], v: number, log: boolean): void {
     for (const tone of tones) this.backend.play({ ...tone, gain: (tone.gain ?? 0.3) * v, bus: 'sfx' });
+    this.record({ name, folder: null, take: -1, rate: 1, gain: 20 * Math.log10(v), pan: 0, source: 'synth' });
     if (!log) return;
     this.log.push(name);
     if (this.log.length > 50) this.log.shift();

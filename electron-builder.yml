@@ -16,6 +16,10 @@ asarUnpack: []
 # No file types or URL schemes belong to the game.
 fileAssociations: []
 protocols: []
+# The recorded sounds' attributions (docs/08-sound-brief.md, part 5.2), next to the app.
+extraFiles:
+  - from: src/renderer/public/sfx/THIRD-PARTY-SOUNDS.txt
+    to: THIRD-PARTY-SOUNDS.txt
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 
 publish:

@@ -8,6 +8,7 @@ import { SpriteBugView } from './art/spriteBug';
 import './art/hot';
 import { memoryApi } from './app/memorySaves';
 import { WebAudioBackend } from './audio/synth';
+import { NullSampleSink } from './audio/samplePlayer';
 import { NullMusicSink } from './audio/musicPlayer';
 import { installTestHook } from './debug/testHook';
 import { fitViewport } from './render/viewport';
@@ -74,7 +75,9 @@ async function boot(): Promise<void> {
   const audio = new WebAudioBackend();
   // Tests decode no music: the null sink keeps time and reports what would play.
   const music = api.testMode ? new NullMusicSink() : (audio.musicSink() ?? new NullMusicSink());
-  const game = new Game(app, api, audio, music);
+  // Tests decode no samples either: the null sink treats every file as loaded and records each play.
+  const samples = api.testMode ? new NullSampleSink(true) : (audio.sampleSink() ?? new NullSampleSink());
+  const game = new Game(app, api, audio, music, samples);
   boundary.onCrash = () => {
     app.ticker.stop();
     audio.setMuted(true);
