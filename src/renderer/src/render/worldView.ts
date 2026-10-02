@@ -7,6 +7,7 @@ import type { Liking } from '../../../game/events';
 import type { EntityView, Sim } from '../../../game/sim';
 import { likingOf } from '../../../game/systems/bugAi';
 import { Background } from './background';
+import { clueLives } from './areaArt/cluesLive';
 import { ArcadeLive } from './areaArt/arcadeLive';
 import { CanWallLive, LockView, SunflowerLive } from './areaArt/barrierLive';
 import { CompostLive } from './areaArt/compostLive';
@@ -1552,6 +1553,7 @@ function makeLives(sim: Sim, surface: (xPx: number) => number | null): AreaLive[
   // Ambient critters in every area but the porch (which keeps its own in `PorchLive`).
   for (const a of sim.content.areas.all)
     if (a.id !== 'area_under_porch') out.push(new CritterLive(a, sim, surface));
+  out.push(...clueLives(sim, surface));
   out.push(new LockView(sim.content.areas.all));
   return out;
 }

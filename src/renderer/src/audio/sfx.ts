@@ -1,6 +1,7 @@
 import type { EventBus } from '../../../game/core/events';
 import type { GameEvents } from '../../../game/events';
 import { craftTones, noteTones, type CraftSfx } from './craftSfx';
+import { clueSounds, clueTones, isClueSfx, type ClueSfx } from './clueSfx';
 import type { AudioBackend, Tone } from './synth';
 
 export type Material = 'wood' | 'metal' | 'rubber' | 'stone' | 'glass' | 'leaf' | 'food' | 'bug';
@@ -129,7 +130,8 @@ export type SfxName =
   // M8: the bench's lever and the cauldron's ladle (gestures), and crafting and potions.
   | 'lever'
   | 'stir'
-  | CraftSfx;
+  | CraftSfx
+  | ClueSfx;
 
 /**
  * The impact sound for a material. Soft materials (cloth, paper) thud like
@@ -420,6 +422,7 @@ export class Sfx {
       ),
       bus.on('toy_used', (e) => this.limited(TOY_SOUND[e.action], 100)),
       bus.on('scope_viewed', () => this.play('scope')),
+      ...clueSounds(bus, (name, intensity) => this.play(name, intensity)),
     ];
   }
 
@@ -1385,7 +1388,9 @@ export class Sfx {
             { freq: 140 * j, dur: 0.15, wave: 'sine', gain: 0.08, delay: 0.05 },
           ];
         default:
-          return craftTones(name, j, intensity, this.random);
+          return isClueSfx(name)
+            ? clueTones(name, j, intensity)
+            : craftTones(name, j, intensity, this.random);
       }
     })();
     this.emit(name, tones, v, log);

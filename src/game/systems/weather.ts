@@ -150,6 +150,15 @@ export class Weather {
     this.syncEnv();
   }
 
+  /**
+   * Start rain now, as if the sky decided to (a rain dance, the cloud jar),
+   * for `ticks`. It ends the usual way, maybe in a rainbow.
+   */
+  startRain(ticks: number): void {
+    this.change('weather_rain', true);
+    this.state.next = this.sim.tick + Math.max(1, Math.round(ticks));
+  }
+
   /** Debug and tests: jump to `hour` (0 to 24) on the current day. May go backward. */
   setTime(hour: number): void {
     if (!Number.isFinite(hour)) return;

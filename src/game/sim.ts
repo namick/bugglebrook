@@ -60,6 +60,7 @@ import { leanAgainst, stackTop } from './world/startLayout';
 import { Bench } from './systems/bench';
 import { Cauldron } from './systems/cauldron';
 import { Journal } from './systems/journal';
+import { Clues } from './systems/clues';
 import { journalBook } from './systems/journalBook';
 import type { JournalBook } from './systems/journalBook';
 import { Bounds } from './systems/bounds';
@@ -340,6 +341,8 @@ export class Sim {
   readonly toys: Toys;
   /** Brings back anything that leaves the world. */
   readonly bounds: Bounds;
+  /** M10's clues and secrets in the open areas (saved as `world.clues`). */
+  readonly clues: Clues;
   /** The journal's memory (M10): what the player met, found, and saw (saved as `world.journal`). */
   readonly journal: Journal;
   /** Where the player's hand is over the world, or null. Sent by the renderer (`hand`). */
@@ -371,6 +374,7 @@ export class Sim {
     this.toys = new Toys(this);
     this.bounds = new Bounds(this);
     this.journal = new Journal(this);
+    this.clues = new Clues(this);
     this.buildFixtures();
     this.buildSolids();
     this.barriers.build();
@@ -556,6 +560,7 @@ export class Sim {
     if (save.places) sim.places.restore(clone(save.places));
     if (save.bench) sim.bench.restore(clone(save.bench));
     if (save.journal) sim.journal.restore(clone(save.journal));
+    if (save.clues) sim.clues.restore(clone(save.clues));
     if (save.cauldron) sim.cauldron.restore(clone(save.cauldron));
     // Areas new since the save get their starting things (M7's four areas, in older saves).
     sim.built = save.built ? [...save.built] : sim.content.areas.all.map((a) => a.id);
@@ -718,6 +723,7 @@ export class Sim {
     const impacts = this.physics.takeImpacts();
     this.handleImpacts(impacts);
     this.toys.impacts(impacts);
+    this.clues.impacts(impacts);
     this.environment.afterPhysics(impacts);
     this.catchThrows();
     this.setup.update();
@@ -725,6 +731,7 @@ export class Sim {
     this.rescueBuried();
     this.bounds.update();
     if (this.tick > 0 && this.tick % RESPAWN_TICKS === 0) this.respawn();
+    this.clues.update();
     this.journal.update();
     this.tick++;
   }
@@ -1997,7 +2004,7 @@ export class Sim {
     const def = this.content.items.get(entity.defId);
     const tags = [...def.tags, 'item'];
     if (this.isPotion(entity)) tags.push('potion');
-    if (def.paint) tags.push('paint');
+    if (def.paint || def.id === 'item_paint_rainbow') tags.push('paint');
     return tags;
   }
 
@@ -2359,6 +2366,7 @@ export class Sim {
       bench: this.bench.serialize(),
       cauldron: this.cauldron.serialize(),
       journal: this.journal.serialize(),
+      clues: this.clues.serialize(),
     };
   }
 }

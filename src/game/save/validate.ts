@@ -354,6 +354,22 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
     const problems = benchProblems(world.bench);
     if (problems.length > 0) errors.push(`world.bench is invalid: ${problems.join(', ')}`);
   }
+  if (world.clues !== undefined) {
+    const c = world.clues;
+    const ok =
+      isObj(c) &&
+      typeof c.bootTipped === 'boolean' &&
+      typeof c.nook === 'boolean' &&
+      isNum(c.slides) &&
+      isNum(c.clawStreak) &&
+      isNum(c.orbit) &&
+      ['boot', 'frog', 'mushrooms', 'ringers', 'window', 'crossed'].every(
+        (k) => Array.isArray(c[k]) && (c[k] as unknown[]).every(isNum),
+      ) &&
+      isNumMap(c.riding) &&
+      isNumMap(c.thrown);
+    if (!ok) errors.push('world.clues is invalid');
+  }
   if (world.journal !== undefined) {
     const problems = journalProblems(world.journal);
     if (problems.length > 0) errors.push(`world.journal is invalid: ${problems.join(', ')}`);

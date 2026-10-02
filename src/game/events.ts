@@ -237,6 +237,57 @@ export interface GameEvents {
   /** A secret was found for the first time in this world. */
   secret_found: { id: string; x: number; y: number };
 
+  // --- M10 clues ------------------------------------------------------------
+  /** Three clicks tipped the sunken boot: a tiny key on a cork floats up. */
+  boot_tipped: { id: EntityId; x: number; y: number };
+  /** The tiny key opened the stump's little door: a map scrap and a coin pop out. */
+  nook_opened: { x: number; y: number };
+  /** Three coins in the teacup: the frog king surfaces and spits out a bubble hat. */
+  frog_king: { id: EntityId; x: number; y: number };
+  /** The frog eyes were poked (`count` in a row). */
+  frog_blinked: { x: number; y: number; count: number };
+  /** Five pokes: a huge ribbit ripples the pond and every bug jumps. */
+  frog_ribbited: { x: number; y: number };
+  /** Three bugs on one raft reached the far bank: a reed horn, cheering. */
+  regatta_won: { id: EntityId; riders: EntityId[]; x: number; y: number };
+  /** Something bounced on a ring mushroom (`index` 0 to 2 is its note). */
+  mushroom_bounced: { fixture: string; index: number; id: EntityId; x: number; y: number };
+  /** All three ring mushrooms rang within a beat: a chord and rainbow spores. */
+  mushroom_chord: { x: number; y: number };
+  /** Four dancers for sixteen beats: it starts to rain. */
+  rain_danced: { x: number; y: number };
+  /** A jar at the rainbow's end filled with rainbow paint. */
+  rainbow_caught: { id: EntityId; jar: EntityId; x: number; y: number };
+  /** The flashlight on the porch's back wall at night: a shadow puppet of something with eight legs. */
+  shadow_puppet: { x: number; y: number };
+  /** Three lights by the porch lamp at night: moths swirl into a spiral. */
+  moths_swirled: { x: number; y: number };
+  /** Eight marble hits in a row on the xylophone: it plays them back as a tune. */
+  marble_tune: { x: number; y: number };
+  /** Three claw prizes in a row: a victory spin and a candle hat. */
+  claw_spun: { id: EntityId; x: number; y: number };
+  /** Something rode the leaf slide to the bottom (`count` rides in all). */
+  slide_ridden: { id: EntityId; count: number; x: number; y: number };
+  /** The tenth slide ride brought back a map scrap. */
+  slide_souvenir: { id: EntityId; x: number; y: number };
+  /** The treehouse window was tapped (`count` in a row). */
+  window_tapped: { x: number; y: number; count: number };
+  /** The window telescope zoomed in on where a secret waits (or on nothing left to find). */
+  telescope_peeked: { secret: string | null; area: string | null; hint: string[]; x: number; y: number };
+  /** A jar carried up to the rain cloud caught a bit of it. */
+  cloud_caught: { id: EntityId; x: number; y: number };
+  /** The cloud jar was opened: rain. */
+  cloud_jar_opened: { id: EntityId; x: number; y: number };
+  /** The four map scraps snapped together into the treasure map. */
+  map_assembled: { id: EntityId; x: number; y: number };
+  /** The clover patch was clicked; `found` when the golden marble came up. */
+  clover_dug: { x: number; y: number; found: boolean };
+  /** A bug flung up at night left the sky, and came back with a moon crumb. */
+  orbit_launched: { id: EntityId; x: number; y: number };
+  orbit_returned: { id: EntityId; crumb: EntityId; x: number; y: number };
+  /** Three bugs walked across Twig lying over a gap. */
+  twig_bridged: { id: EntityId; x: number; y: number };
+
   // --- Photo mode (M11) --------------------------------------------------
   /** The camera came out: bugs in view (x0 to x1) react, then the world freezes. */
   photo_mode_opened: { x0: number; x1: number };

@@ -172,7 +172,11 @@ export type FixtureKind =
   | 'cauldron'
   | 'bug_scope'
   // M9: the mushroom sequencer.
-  | 'sequencer';
+  | 'sequencer'
+  // M10's clues: the plaza's ring mushrooms and clover patch, the pond's frog eyes.
+  | 'ring_mushroom'
+  | 'clover'
+  | 'frog_eyes';
 
 /** A fixed part of an area. Positions are area-local x and world y, in meters. */
 export interface FixtureDef {

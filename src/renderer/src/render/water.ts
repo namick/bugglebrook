@@ -152,28 +152,7 @@ export class WaterView {
       for (let i = 0; i < 5; i++)
         g.circle(x - 40 + i * 20, y - 38 + (i % 2) * 8, 5).fill({ color: tint(0x6fa8dc), alpha: 0.9 });
     }
-    // The rubber boot on its side, at the boot fixture.
-    const boot = (area.fixtures ?? []).find((f) => f.kind === 'rubber_boot');
-    if (boot) {
-      const x = ax + boot.x * PPM;
-      const y = ground(x) + 4;
-      const c = mix(0xf2c230, C.deep, 0.35);
-      g.moveTo(x - 60, y)
-        .lineTo(x - 60, y - 48)
-        .lineTo(x + 10, y - 58)
-        .quadraticCurveTo(x + 58, y - 60, x + 70, y - 30)
-        .lineTo(x + 76, y)
-        .closePath()
-        .fill(c)
-        .stroke(soft(4, 0.5));
-      g.ellipse(x - 60, y - 24, 12, 26)
-        .fill(darken(c, 0.5))
-        .stroke(soft(3, 0.5));
-      g.rect(x - 50, y - 8, 124, 8).fill(darken(c, 0.25));
-      g.moveTo(x - 30, y - 44)
-        .lineTo(x + 20, y - 50)
-        .stroke({ width: 5, color: lighten(c, 0.4), alpha: 0.7, cap: 'round' });
-    }
+    // The rubber boot is drawn by `PondCluesLive`: it tips over when clicked three times (M10).
   }
 
   /** Surfaces from the sim, refreshed each frame. */
@@ -325,7 +304,6 @@ export class WaterView {
     for (const p of this.ponds) {
       const s = p.surface;
       if (!s) continue;
-      const ax = p.area.xStart * PPM;
       // Pond weed swaying on the bottom.
       for (let i = 0; i < 16; i++) {
         const x = s.left * PPM + 90 + i * (((s.right - s.left) * PPM - 180) / 15) + (i % 3) * 17;
@@ -365,27 +343,7 @@ export class WaterView {
         g.ellipse(t.x, t.y, 11, 8).fill(0x243040);
         g.circle(t.x + dir * 4, t.y - 3, 2).fill({ color: 0xffffff, alpha: 0.8 });
       }
-      // Frog eyes peeking over the surface near the far-left reeds. Blinks, does nothing else.
-      {
-        const fx = ax + (p.area.water!.x0 + 1.6) * PPM;
-        const fy = s.level * PPM + swell(fx, this.time);
-        if (fx > left && fx < right) {
-          const blink = this.time % 5.3 < 0.14;
-          for (const dx of [-16, 16]) {
-            g.circle(fx + dx, fy - 8, 13)
-              .fill(0x6fbf4a)
-              .stroke(soft(3, 0.6));
-            if (blink)
-              g.moveTo(fx + dx - 8, fy - 9)
-                .lineTo(fx + dx + 8, fy - 9)
-                .stroke({ width: 3, color: OUTLINE, cap: 'round' });
-            else {
-              g.circle(fx + dx, fy - 10, 8).fill(0xffffff);
-              g.circle(fx + dx + 1, fy - 10, 4.5).fill(OUTLINE);
-            }
-          }
-        }
-      }
+      // The frog eyes (fix_frog_eyes) are drawn by `PondCluesLive`, which makes them answer pokes.
     }
     this.drawDragonfly(g, dt);
   }

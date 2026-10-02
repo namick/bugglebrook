@@ -152,6 +152,10 @@ const SOAPED = ['tag_sticky', 'tag_slimy', 'tag_smelly', 'tag_painted', 'tag_mud
 
 /** Fixtures a click does something to. */
 const CLICKABLE: ReadonlySet<FixtureDef['kind']> = new Set<FixtureDef['kind']>([
+  // M10's clues (`Clues.poke`).
+  'window',
+  'frog_eyes',
+  'clover',
   'hose_tap',
   'rubber_boot',
   'teacup',
@@ -319,7 +323,7 @@ export class Environment {
       if (Math.hypot(x - sun.x, y - sun.y) <= SUN_SPOT) this.sim.weather.clickSun(sun.x, sun.y);
     } else if (f.kind === 'knothole') {
       this.sim.weather.pokeKnothole(f);
-    } else this.sim.places.poke(f);
+    } else if (!this.sim.clues.poke(f)) this.sim.places.poke(f);
     return true;
   }
 

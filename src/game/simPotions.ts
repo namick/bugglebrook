@@ -88,6 +88,14 @@ export function shatter(sim: Sim, e: Entity, into: string, count: number): void 
 export function paintFromDrop(sim: Sim, bugId: EntityId, drop: Entity): void {
   const bug = sim.entities.get(bugId);
   const paint = sim.content.items.get(drop.defId).paint;
+  // Rainbow paint (M10, the rainbow's end) gives a bug all five colors at once: a patchwork bug.
+  if (bug && drop.defId === 'item_paint_rainbow') {
+    const s = sim.physics.getState(bugId);
+    sim.remove(drop.id);
+    for (const c of ['paint_red', 'paint_blue', 'paint_yellow', 'paint_white', 'paint_black'])
+      sim.places.paint(bug, c, s.x, s.y);
+    return;
+  }
   if (!bug || !paint) return;
   const s = sim.physics.getState(bugId);
   sim.remove(drop.id);

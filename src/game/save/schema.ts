@@ -8,6 +8,7 @@ import type { TagState } from '../systems/tags';
 import type { BarrierState } from '../systems/barriers';
 import type { PlaceState } from '../systems/places';
 import type { JournalState } from '../systems/journal';
+import type { ClueState } from '../systems/clues';
 import type { BenchState } from '../systems/bench';
 import type { CauldronState } from '../systems/cauldron';
 import type { Brew } from '../systems/brewing';
@@ -83,6 +84,8 @@ export interface WorldSave {
   cauldron?: CauldronState;
   /** The journal's memory: bugs met, items found, observations, and what is new. Absent before version 14. */
   journal?: JournalState;
+  /** M10's clue state: the boot, the stump's door, streaks and counts. Absent before version 14. */
+  clues?: ClueState;
 }
 
 /** Running counts about how the world has been played. */
