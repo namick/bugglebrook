@@ -236,7 +236,10 @@ test('at night tired day bugs go to sleep within 60 s; a click wakes one, groggy
     const woke = await events(page, 'bug_woke');
     expect(woke.map((e) => e.payload.id)).toEqual([glorp.id]);
     expect((await entity(page, glorp.id))!.bug!.groggy).toBe(true);
-    await frames(page, 40 * 60);
+    // Woken by the player, he stays up a minute (P-14), then goes back to bed.
+    await frames(page, 30 * 60);
+    expect((await entity(page, glorp.id))!.bug!.mode).not.toBe('st_sleep');
+    await frames(page, 60 * 60);
     expect((await entity(page, glorp.id))!.bug!.mode).toBe('st_sleep');
     // Nobody woke up on their own in the night (a bump from a falling thing may still wake one).
     expect((await events(page, 'bug_woke')).filter((e) => e.payload.early === false)).toEqual([]);
