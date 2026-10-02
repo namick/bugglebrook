@@ -3,8 +3,21 @@ import { CHEEK, OUTLINE, darken, lighten, stroke } from '../../palette';
 import type { BugFrame } from '../bug';
 import { drawMouth } from '../face';
 import { BasePainter } from './base';
-import type { Adjust, AntennaSpring, Box, Pt } from './common';
-import { NO_ADJUST, RIM, eyePair, politeBrows, springAntenna, tintHead, walkLegs } from './common';
+import type { EyeSpot } from '../../rig/bugRig';
+import type { Skeleton, SkeletonFace, SkeletonItem } from '../../rig/skeleton';
+import { pt, rest, tipOn } from '../../rig/skeleton';
+import type { Adjust, AntennaSpring, Box, Pt, WalkLegsOptions } from './common';
+import {
+  NO_ADJUST,
+  RIM,
+  eyePair,
+  limbItem,
+  politeBrows,
+  springTip,
+  tintHead,
+  walkLegs,
+  walkPoses,
+} from './common';
 
 /**
  * Whiff the stink bug: a shield-shaped olive body with a row of orange dots
@@ -106,15 +119,15 @@ export class StinkbugPainter extends BasePainter {
     return { x: this.r * 0.6, y: -this.r * 1.3 };
   }
 
-  update(frame: BugFrame, springs: readonly AntennaSpring[]): Adjust {
+  /** The six legs: a tripod walk, and the front pair held out when carrying. */
+  private legOptions(frame: BugFrame): WalkLegsOptions {
     const { r, def } = this;
-    const [hx, hy, hr] = this.head;
     const hips: Pt[] = [
       [-r * 0.7, r * 0.5],
       [-r * 0.2, r * 0.52],
       [r * 0.3, r * 0.5],
     ];
-    walkLegs(this.L.legsBack, this.L.legsFront, frame, {
+    return {
       r,
       hips,
       farShift: [r * 0.12, -r * 0.04],
@@ -127,41 +140,115 @@ export class StinkbugPainter extends BasePainter {
         const hip: Pt = far ? [hips[2]![0] + r * 0.12, hips[2]![1] - r * 0.04] : hips[2]!;
         return { hip, knee: [r * 0.75, r * 0.35], foot: [r * 0.98, -r * 0.05] };
       },
-    });
-    // Jointed feelers, drooping politely forward.
-    const a = this.L.antennae;
+    };
+  }
+
+  /** Each jointed feeler: its base, the curves to the elbow and the tip, and where they end. */
+  private feelers(
+    frame: BugFrame,
+    springs: readonly AntennaSpring[],
+  ): { base: Pt; mid: Pt; tip: Pt; mid2: Pt; end: Pt }[] {
+    const { r } = this;
+    const [hx, hy, hr] = this.headAt();
     const bases: Pt[] = [
       [hx - hr * 0.35, hy - hr * 0.85],
       [hx + hr * 0.15, hy - hr * 0.9],
     ];
-    bases.forEach((base, i) => {
+    return bases.map((base, i) => {
       const s = springs[i]!;
       const elbow: Pt = [base[0] + r * (0.12 + i * 0.12), base[1] - r * 0.42];
-      const tip = springAntenna(a, frame, s, base, [base[0] + r * 0.02, base[1] - r * 0.25], elbow, 4, 0.5);
-      const end = springAntenna(
-        a,
-        frame,
-        s,
-        tip,
-        [tip[0] + r * 0.18, tip[1] - r * 0.08],
-        [tip[0] + r * 0.32, tip[1] + r * 0.1],
-        3.5,
-        1,
-      );
-      a.circle(tip[0], tip[1], 2.6).fill(OUTLINE);
-      a.circle(end[0], end[1], r * 0.06).fill(OUTLINE);
+      const mid: Pt = [base[0] + r * 0.02, base[1] - r * 0.25];
+      const tip = springTip(frame, s, base, elbow, 0.5);
+      const mid2: Pt = [tip[0] + r * 0.18, tip[1] - r * 0.08];
+      const end = springTip(frame, s, tip, [tip[0] + r * 0.32, tip[1] + r * 0.1], 1);
+      return { base, mid, tip, mid2, end };
     });
+  }
+
+  private headAt(): [number, number, number] {
+    const { r } = this;
+    return [r * 1.02, r * 0.12, r * 0.46];
+  }
+
+  /** Small eyes, a shy blush that never quite goes away, and a small mouth. */
+  private faceSpots(frame: BugFrame): SkeletonFace {
+    const { def } = this;
+    const [hx, hy, hr] = this.headAt();
+    const f = frame.face;
+    const lid = lighten(def.body, 0.3);
+    const eye = (x: number, y: number, er: number, line: number, far: boolean) =>
+      ({ x, y, r: er, shape: f.eyes, lid, line, far }) as const;
+    return {
+      tint: f.tint ? { x: hx, y: hy, rx: hr * 0.95, ry: hr * 0.95, circle: true } : null,
+      eyes: [
+        eye(hx - hr * 0.4, hy - hr * 0.1, hr * 0.3, 3, true),
+        eye(hx + hr * 0.3, hy - hr * 0.06, hr * 0.36, 3.5, false),
+      ],
+      polite: true,
+      cheek: { x: hx + hr * 0.72, y: hy + hr * 0.38, r: hr * 0.2, alpha: f.blush ? 0.95 : 0.6 },
+      mouth: { x: hx + hr * 0.22, y: hy + hr * 0.5, s: hr * 0.62, shape: f.mouth, color: OUTLINE, line: 3.5 },
+    };
+  }
+
+  update(frame: BugFrame, springs: readonly AntennaSpring[]): Adjust {
+    const [hx, hy, hr] = this.head;
+    walkLegs(this.L.legsBack, this.L.legsFront, frame, this.legOptions(frame));
+    // Jointed feelers, drooping politely forward.
+    const a = this.L.antennae;
+    for (const { base, mid, tip, mid2, end } of this.feelers(frame, springs)) {
+      a.moveTo(base[0], base[1])
+        .quadraticCurveTo(mid[0], mid[1], tip[0], tip[1])
+        .stroke({ width: 4, color: OUTLINE, cap: 'round' });
+      a.moveTo(tip[0], tip[1])
+        .quadraticCurveTo(mid2[0], mid2[1], end[0], end[1])
+        .stroke({ width: 3.5, color: OUTLINE, cap: 'round' });
+      a.circle(tip[0], tip[1], 2.6).fill(OUTLINE);
+      a.circle(end[0], end[1], this.r * 0.06).fill(OUTLINE);
+    }
     // Face: small eyes, worried brows, a shy blush that never quite goes away.
     const g = this.L.face;
     const f = frame.face;
     tintHead(g, f.tint, hx, hy, hr * 0.95);
-    const far: [number, number, number] = [hx - hr * 0.4, hy - hr * 0.1, hr * 0.3];
-    const near: [number, number, number] = [hx + hr * 0.3, hy - hr * 0.06, hr * 0.36];
-    const lid = lighten(def.body, 0.3);
-    eyePair(g, frame, far, near, lid, 3.5);
+    const spot = this.faceSpots(frame);
+    const [fe, ne] = spot.eyes as [EyeSpot, EyeSpot];
+    const far: [number, number, number] = [fe.x, fe.y, fe.r];
+    const near: [number, number, number] = [ne.x, ne.y, ne.r];
+    eyePair(g, frame, far, near, ne.lid, 3.5);
     politeBrows(g, f.eyes, far, near, 3.5);
-    g.circle(hx + hr * 0.72, hy + hr * 0.38, hr * 0.2).fill({ color: CHEEK, alpha: f.blush ? 0.95 : 0.6 });
-    drawMouth(g, hx + hr * 0.22, hy + hr * 0.5, hr * 0.62, f.mouth, frame.time, OUTLINE, 3.5);
+    const c = spot.cheek!;
+    g.circle(c.x, c.y, c.r).fill({ color: CHEEK, alpha: c.alpha });
+    const m = spot.mouth!;
+    drawMouth(g, m.x, m.y, m.s, f.mouth, frame.time, OUTLINE, 3.5);
     return NO_ADJUST;
+  }
+
+  skeleton(frame: BugFrame, springs: readonly AntennaSpring[]): Skeleton {
+    const rig = this.bones;
+    const items: SkeletonItem[] = [rest(rig, 'belly', 'body'), rest(rig, 'head', 'body')];
+    items.push(rest(rig, 'shield', 'shell'));
+    for (const { far, leg } of walkPoses(frame, this.legOptions(frame)))
+      items.push(limbItem('leg_upper', 'leg_lower', leg, far));
+    for (const { base, tip, end } of this.feelers(frame, springs)) {
+      items.push({
+        kind: 'limb',
+        part: 'antenna_base',
+        lower: 'antenna_end',
+        slot: 'top',
+        hip: pt(base),
+        knee: pt(tip),
+        foot: pt(end),
+      });
+      items.push(tipOn([pt(tip), pt(end)], 'antenna_tip'));
+    }
+    return {
+      items,
+      face: this.faceSpots(frame),
+      headPart: 'head',
+      ball: null,
+      paint: [{ mask: 2, box: this.paintBox(), colors: null }],
+      extras: [],
+      adjust: NO_ADJUST,
+      crown: pt([this.crown().x, this.crown().y]),
+    };
   }
 }

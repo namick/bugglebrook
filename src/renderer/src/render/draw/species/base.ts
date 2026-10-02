@@ -1,5 +1,8 @@
 import type { Graphics } from 'pixi.js';
 import type { BugDef } from '../../../../../game/data/types';
+import type { BugRig } from '../../rig/bugRig';
+import { rigFor } from '../../rig/bugRig';
+import type { Skeleton } from '../../rig/skeleton';
 import type { BugFrame } from '../bug';
 import type { Adjust, AntennaSpring, Box, PainterArgs, SpeciesLayers, SpeciesPainter } from './common';
 
@@ -10,6 +13,8 @@ export abstract class BasePainter implements SpeciesPainter {
   readonly foot: number;
   readonly curls: boolean = false;
   protected readonly L: SpeciesLayers;
+  /** The skeleton the template and the cutout renderer share. */
+  protected readonly bones: BugRig;
   /** How strong a waiting bug's sign of life is this frame, 0 to 1 (test hook). */
   life = 0;
 
@@ -18,6 +23,7 @@ export abstract class BasePainter implements SpeciesPainter {
     this.r = args.r;
     this.L = args.layers;
     this.foot = foot;
+    this.bones = rigFor(args.def);
   }
 
   key(frame: BugFrame): string {
@@ -36,4 +42,5 @@ export abstract class BasePainter implements SpeciesPainter {
   abstract mask(g: Graphics, frame: BugFrame): void;
   abstract paintBox(frame: BugFrame): Box | null;
   abstract update(frame: BugFrame, springs: readonly AntennaSpring[]): Adjust;
+  abstract skeleton(frame: BugFrame, springs: readonly AntennaSpring[]): Skeleton;
 }

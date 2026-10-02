@@ -4,8 +4,22 @@ import type { BugFrame } from '../bug';
 import { drawMouth } from '../face';
 import { mooseFlail } from '../../pendingLife';
 import { BasePainter } from './base';
-import type { Adjust, AntennaSpring, Box, LegPose, Pt } from './common';
-import { RIM, bezierAt, dome, eyePair, springAntenna, tintHead, tube, walkLegs } from './common';
+import type { EyeSpot } from '../../rig/bugRig';
+import type { PieceItem, Skeleton, SkeletonFace, SkeletonItem } from '../../rig/skeleton';
+import { pivotOf, pt, rest } from '../../rig/skeleton';
+import type { Adjust, AntennaSpring, Box, LegPose, Pt, WalkLegsOptions } from './common';
+import {
+  RIM,
+  bezierAt,
+  dome,
+  eyePair,
+  limbItem,
+  springTip,
+  tintHead,
+  tube,
+  walkLegs,
+  walkPoses,
+} from './common';
 
 /**
  * Moose the stag beetle: a big, glossy red-brown gentle giant with a white
@@ -171,23 +185,27 @@ export class StagbeetlePainter extends BasePainter {
     return { x: this.r * 0.5, y: this.stuck(frame) ? -this.r * 1.0 : -this.r * 1.15 };
   }
 
-  update(frame: BugFrame, springs: readonly AntennaSpring[]): Adjust {
+  /** Advance the stuck legs' wave by this frame: bursts of frantic flailing, then tired little waves. */
+  private advance(frame: BugFrame): ReturnType<typeof mooseFlail> {
+    const stuck = this.stuck(frame);
+    const flail = mooseFlail(frame.time, 0);
+    this.life = stuck ? flail.amp : 0;
+    if (stuck) this.wave += Math.min(0.25, Math.max(0, frame.time - this.waveAt)) * 7.5 * flail.speed;
+    this.waveAt = frame.time;
+    return flail;
+  }
+
+  private legOptions(frame: BugFrame, flail: ReturnType<typeof mooseFlail>): WalkLegsOptions {
     const { r, def } = this;
     const stuck = this.stuck(frame);
     const y = this.ys(stuck);
-    const [hx, hy, hrx, hry] = this.head(stuck);
     const hips: Pt[] = [
       [-r * 0.72, y(r * 0.5)],
       [-r * 0.25, y(r * 0.52)],
       [r * 0.32, y(r * 0.48)],
     ];
     const farShift: Pt = [r * 0.12, stuck ? r * 0.04 : -r * 0.04];
-    // Stuck: bursts of frantic flailing, then tired little waves.
-    const flail = mooseFlail(frame.time, 0);
-    this.life = stuck ? flail.amp : 0;
-    if (stuck) this.wave += Math.min(0.25, Math.max(0, frame.time - this.waveAt)) * 7.5 * flail.speed;
-    this.waveAt = frame.time;
-    walkLegs(this.L.legsBack, this.L.legsFront, frame, {
+    return {
       r,
       hips,
       farShift,
@@ -220,49 +238,148 @@ export class StagbeetlePainter extends BasePainter {
         if (frame.carrying) return { hip, knee: [r * 0.75, r * 0.3], foot: [r * 0.98, -r * 0.08] };
         return null;
       },
-    });
-    // Elbowed feelers with little combs at the ends.
-    const a = this.L.antennae;
-    [
+    };
+  }
+
+  /** Each elbowed feeler: base, elbow, and the springy tip. */
+  private feelers(
+    frame: BugFrame,
+    springs: readonly AntennaSpring[],
+  ): { base: Pt; elbow: Pt; mid: Pt; tip: Pt }[] {
+    const { r } = this;
+    const [hx, hy, hrx, hry] = this.head(this.stuck(frame));
+    const bases: Pt[] = [
       [hx - hrx * 0.25, hy - hry * 0.8],
       [hx + hrx * 0.2, hy - hry * 0.88],
-    ].forEach(([bx, by], i) => {
-      const s = springs[i]!;
-      const elbow: Pt = [bx! + r * 0.05, by! - r * 0.32];
-      a.moveTo(bx!, by!).lineTo(elbow[0], elbow[1]).stroke({ width: 4.5, color: OUTLINE, cap: 'round' });
-      const tip = springAntenna(
-        a,
+    ];
+    return bases.map((base, i) => {
+      const elbow: Pt = [base[0] + r * 0.05, base[1] - r * 0.32];
+      const mid: Pt = [elbow[0] + r * 0.12, elbow[1] - r * 0.06];
+      const tip = springTip(
         frame,
-        s,
+        springs[i]!,
         elbow,
-        [elbow[0] + r * 0.12, elbow[1] - r * 0.06],
         [elbow[0] + r * (0.26 + i * 0.05), elbow[1] + r * 0.02],
-        4,
         0.6,
       );
+      return { base, elbow, mid, tip };
+    });
+  }
+
+  /** Small, kind eyes; worried on his back. */
+  private faceSpots(frame: BugFrame): SkeletonFace {
+    const { r, def } = this;
+    const [hx, hy, hrx, hry] = this.head(this.stuck(frame));
+    const f = frame.face;
+    const lid = lighten(def.body, 0.12);
+    return {
+      tint: f.tint ? { x: hx, y: hy, rx: hrx * 0.95, ry: hry * 0.95, circle: false } : null,
+      eyes: [
+        { x: hx - hrx * 0.22, y: hy - hry * 0.2, r: r * 0.085, shape: f.eyes, lid, line: 3, far: true },
+        { x: hx + hrx * 0.3, y: hy - hry * 0.15, r: r * 0.1, shape: f.eyes, lid, line: 3.5, far: false },
+      ],
+      cheek: { x: hx + hrx * 0.62, y: hy + hry * 0.3, r: r * 0.06, alpha: f.blush ? 0.95 : 0.55 },
+      mouth: {
+        x: hx + hrx * 0.18,
+        y: hy + hry * 0.42,
+        s: r * 0.24,
+        shape: f.mouth,
+        color: 0xffd0b8,
+        line: 3.5,
+      },
+    };
+  }
+
+  private adjustFor(frame: BugFrame, flail: ReturnType<typeof mooseFlail>): Adjust {
+    return {
+      tilt: this.stuck(frame) ? Math.sin(frame.time * 2.4) * 0.05 + flail.rock : 0,
+      bob: 0,
+      still: false,
+    };
+  }
+
+  update(frame: BugFrame, springs: readonly AntennaSpring[]): Adjust {
+    const { r } = this;
+    const flail = this.advance(frame);
+    walkLegs(this.L.legsBack, this.L.legsFront, frame, this.legOptions(frame, flail));
+    // Elbowed feelers with little combs at the ends.
+    const a = this.L.antennae;
+    for (const { base, elbow, mid, tip } of this.feelers(frame, springs)) {
+      a.moveTo(base[0], base[1])
+        .lineTo(elbow[0], elbow[1])
+        .stroke({ width: 4.5, color: OUTLINE, cap: 'round' });
+      a.moveTo(elbow[0], elbow[1])
+        .quadraticCurveTo(mid[0], mid[1], tip[0], tip[1])
+        .stroke({ width: 4, color: OUTLINE, cap: 'round' });
       for (let k = 0; k < 3; k++)
         a.moveTo(tip[0] - r * 0.02 + k * r * 0.035, tip[1] - r * 0.02)
           .lineTo(tip[0] + k * r * 0.035, tip[1] + r * 0.06)
           .stroke({ width: 3.5, color: OUTLINE, cap: 'round' });
-    });
+    }
     // Face: small, kind eyes; worried on his back.
     const g = this.L.face;
     const f = frame.face;
+    const [hx, hy, hrx, hry] = this.head(this.stuck(frame));
     tintHead(g, f.tint, hx, hy, hrx * 0.95, hry * 0.95);
-    eyePair(
-      g,
-      frame,
-      [hx - hrx * 0.22, hy - hry * 0.2, r * 0.085],
-      [hx + hrx * 0.3, hy - hry * 0.15, r * 0.1],
-      lighten(def.body, 0.12),
-      3.5,
+    const spot = this.faceSpots(frame);
+    const [fe, ne] = spot.eyes as [EyeSpot, EyeSpot];
+    eyePair(g, frame, [fe.x, fe.y, fe.r], [ne.x, ne.y, ne.r], ne.lid, 3.5);
+    const c = spot.cheek!;
+    g.circle(c.x, c.y, c.r).fill({ color: CHEEK, alpha: c.alpha });
+    const m = spot.mouth!;
+    drawMouth(g, m.x, m.y, m.s, f.mouth, frame.time, m.color, 3.5);
+    return this.adjustFor(frame, flail);
+  }
+
+  skeleton(frame: BugFrame, springs: readonly AntennaSpring[]): Skeleton {
+    const rig = this.bones;
+    const flail = this.advance(frame);
+    const stuck = this.stuck(frame);
+    // On his back, the body is mirrored about the flip line and the head stays upright.
+    const body = (part: string): PieceItem => {
+      const q = pivotOf(rig, part);
+      return stuck
+        ? { kind: 'piece', part, slot: 'body', at: { x: q.x, y: this.flipLine - q.y }, sy: -1 }
+        : rest(rig, part, 'body');
+    };
+    const items: SkeletonItem[] = [body('belly'), body('shell'), body('thorax')];
+    const [hx, hy] = this.head(stuck);
+    const [far, near] = this.antlerSpots(hx, hy) as [[number, number, number], [number, number, number]];
+    items.push(
+      {
+        kind: 'piece',
+        part: 'antler',
+        slot: 'shell',
+        at: pt([far[0], far[1]]),
+        sx: far[2],
+        sy: far[2],
+        far: true,
+      },
+      { kind: 'piece', part: 'head', slot: 'shell', at: pt([hx, hy]) },
+      { kind: 'piece', part: 'antler', slot: 'shell', at: pt([near[0], near[1]]) },
     );
-    g.circle(hx + hrx * 0.62, hy + hry * 0.3, r * 0.06).fill({ color: CHEEK, alpha: f.blush ? 0.95 : 0.55 });
-    drawMouth(g, hx + hrx * 0.18, hy + hry * 0.42, r * 0.24, f.mouth, frame.time, 0xffd0b8, 3.5);
+    for (const { far: f, leg } of walkPoses(frame, this.legOptions(frame, flail)))
+      items.push(limbItem('leg_upper', 'leg_lower', leg, f));
+    for (const { base, elbow, tip } of this.feelers(frame, springs))
+      items.push({
+        kind: 'limb',
+        part: 'antenna_base',
+        lower: 'antenna_end',
+        slot: 'top',
+        hip: pt(base),
+        knee: pt(elbow),
+        foot: pt(tip),
+      });
+    const crown = this.crown(frame);
     return {
-      tilt: stuck ? Math.sin(frame.time * 2.4) * 0.05 + flail.rock : 0,
-      bob: 0,
-      still: false,
+      items,
+      face: this.faceSpots(frame),
+      headPart: 'head',
+      ball: null,
+      paint: [{ mask: 1, box: this.paintBox(frame), colors: null }],
+      extras: [],
+      adjust: this.adjustFor(frame, flail),
+      crown: pt([crown.x, crown.y]),
     };
   }
 }

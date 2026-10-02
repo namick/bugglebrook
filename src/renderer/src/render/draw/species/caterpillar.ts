@@ -5,13 +5,23 @@ import type { BugFrame } from '../bug';
 import { drawMouth } from '../face';
 import { paintColors } from '../paint';
 import { BasePainter } from './base';
-import type { Adjust, AntennaSpring, Box, Pt } from './common';
-import { NO_ADJUST, RIM, eyePair, limb, springAntenna, tintHead } from './common';
+import type { EyeSpot } from '../../rig/bugRig';
+import type { Skeleton, SkeletonFace } from '../../rig/skeleton';
+import { pt, quadRope, rest, tipOn } from '../../rig/skeleton';
+import type { Adjust, AntennaSpring, Box, LegPose, Pt } from './common';
+import { NO_ADJUST, RIM, eyePair, limb, limbItem, springTip, tintHead } from './common';
 
 const WING_ORANGE = 0xff9f1c;
 const WING_TEAL = 0x2ec4b6;
 const SILK = 0xf2eed6;
 const SILK_SHADE = 0xd9d0a8;
+
+/** The silk thread Munch's cocoon hangs from, up into the air. */
+export function drawThread(g: Graphics, r: number): void {
+  g.moveTo(0, -r * 1.5)
+    .bezierCurveTo(r * 0.12, -r * 1.8, -r * 0.1, -r * 2.05, r * 0.04, -r * 2.4)
+    .stroke({ width: 2.5, color: 0xffffff, alpha: 0.75, cap: 'round' });
+}
 
 interface Segment {
   x: number;
@@ -61,10 +71,7 @@ export class CaterpillarPainter extends BasePainter {
   private drawCocoon(): void {
     const { r, def } = this;
     const s = this.L.shell;
-    // The thread it hangs from, up into the air.
-    s.moveTo(0, -r * 1.5)
-      .bezierCurveTo(r * 0.12, -r * 1.8, -r * 0.1, -r * 2.05, r * 0.04, -r * 2.4)
-      .stroke({ width: 2.5, color: 0xffffff, alpha: 0.75, cap: 'round' });
+    drawThread(s, r);
     this.cocoonPath(s).fill(SILK).stroke(stroke());
     // A hint of green showing through, and silk wrapped round and round.
     s.ellipse(r * 0.05, r * 0.1, r * 0.42, r * 0.75).fill({ color: def.body, alpha: 0.18 });
@@ -210,21 +217,11 @@ export class CaterpillarPainter extends BasePainter {
     const back = this.L.legsBack;
     const front = this.L.legsFront;
     const rim = this.L.rim.clear();
-    const colors = paintColors(frame.paint);
-    const painted = (i: number): number | null => {
-      const n = colors.length;
-      if (n === 0) return null;
-      if (n === 1) return i === 2 || i === 3 ? colors[0]! : null;
-      if (n < 5) return i <= n ? colors[i % n]! : null;
-      return colors[i % n]!;
-    };
+    const painted = this.painted(frame);
     // Stub feet: the far ones behind, the near ones in front.
-    segs.forEach((s, i) => {
-      for (const far of [true, false]) {
+    for (const { i, far, fx, fy, wig } of this.feet(frame, segs)) {
+      {
         const g = far ? back : front;
-        const fx = s.x + (far ? r * 0.1 : -r * 0.02);
-        const wig = frame.pose.flail ? Math.sin(frame.time * 14 + i + (far ? 1 : 0)) * r * 0.05 : 0;
-        const fy = s.y + s.rad * 0.8 + (far ? -r * 0.03 : 0);
         if (i < 2) {
           // True legs: tiny dark points under the front segments.
           limb(
@@ -242,7 +239,7 @@ export class CaterpillarPainter extends BasePainter {
           .fill(far ? darken(def.body, 0.35) : darken(def.body, 0.15))
           .stroke(stroke(3));
       }
-    });
+    }
     // A little orange tail horn.
     const tail = segs[5]!;
     b.moveTo(tail.x - tail.rad * 0.2, tail.y - tail.rad * 0.85)
@@ -277,10 +274,7 @@ export class CaterpillarPainter extends BasePainter {
       if (frame.rim) rim.circle(s.x, s.y, s.rad).stroke(RIM);
     }
     // The round head, riding on the first segment.
-    const [hx0, hy0, hr] = this.head();
-    const s0 = segs[0]!;
-    const hx = hx0 + (s0.x - r * 0.36) * 0.8;
-    const hy = hy0 + (s0.y - (r * 0.9 - r * 0.38)) * 0.8 + (frame.mode === 'st_swim' ? -r * 0.1 : 0);
+    const [hx, hy, hr] = this.headOn(frame, segs);
     b.circle(hx, hy, hr).fill(lighten(def.body, 0.12)).stroke(stroke());
     b.ellipse(hx - hr * 0.25, hy - hr * 0.62, hr * 0.38, hr * 0.13).fill({ color: 0xffffff, alpha: 0.5 });
     if (frame.rim) rim.circle(hx, hy, hr).stroke(RIM);
@@ -316,49 +310,123 @@ export class CaterpillarPainter extends BasePainter {
   ): void {
     const { r, def } = this;
     const a = this.L.antennae;
-    [
-      [hx - hr * 0.35, hy - hr * 0.85],
-      [hx + hr * 0.2, hy - hr * 0.92],
-    ].forEach(([bx, by], i) => {
-      const tip = springAntenna(
-        a,
-        frame,
-        springs[i]!,
-        [bx!, by!],
-        [bx! - r * 0.02, by! - r * 0.2],
-        [bx! + r * (0.02 + i * 0.1), by! - r * 0.34],
-        4.5,
-        0.6,
-      );
+    for (const { base, mid, tip } of this.feelers(frame, springs, hx, hy, hr)) {
+      a.moveTo(base[0], base[1])
+        .quadraticCurveTo(mid[0], mid[1], tip[0], tip[1])
+        .stroke({ width: 4.5, color: OUTLINE, cap: 'round' });
       a.circle(tip[0], tip[1], r * 0.09)
         .fill(def.accent)
         .stroke(stroke(3));
+    }
+  }
+
+  /** The caterpillar's short feelers: base, bend, and springy tip. */
+  private feelers(
+    frame: BugFrame,
+    springs: readonly AntennaSpring[],
+    hx: number,
+    hy: number,
+    hr: number,
+  ): { base: Pt; mid: Pt; tip: Pt }[] {
+    const { r } = this;
+    const bases: Pt[] = [
+      [hx - hr * 0.35, hy - hr * 0.85],
+      [hx + hr * 0.2, hy - hr * 0.92],
+    ];
+    return bases.map(([bx, by], i) => ({
+      base: [bx, by] as Pt,
+      mid: [bx - r * 0.02, by - r * 0.2] as Pt,
+      tip: springTip(frame, springs[i]!, [bx, by], [bx + r * (0.02 + i * 0.1), by - r * 0.34], 0.6),
+    }));
+  }
+
+  /** Where the round head rides this frame, on the first segment. */
+  private headOn(frame: BugFrame, segs: Segment[]): [number, number, number] {
+    const { r } = this;
+    const [hx0, hy0, hr] = this.head();
+    const s0 = segs[0]!;
+    const hx = hx0 + (s0.x - r * 0.36) * 0.8;
+    const hy = hy0 + (s0.y - (r * 0.9 - r * 0.38)) * 0.8 + (frame.mode === 'st_swim' ? -r * 0.1 : 0);
+    return [hx, hy, hr];
+  }
+
+  /** The stub feet (and the two pairs of true legs at the front), far side first under each segment. */
+  private feet(
+    frame: BugFrame,
+    segs: Segment[],
+  ): { i: number; far: boolean; fx: number; fy: number; wig: number }[] {
+    const { r } = this;
+    const out: { i: number; far: boolean; fx: number; fy: number; wig: number }[] = [];
+    segs.forEach((s, i) => {
+      for (const far of [true, false]) {
+        const fx = s.x + (far ? r * 0.1 : -r * 0.02);
+        const wig = frame.pose.flail ? Math.sin(frame.time * 14 + i + (far ? 1 : 0)) * r * 0.05 : 0;
+        const fy = s.y + s.rad * 0.8 + (far ? -r * 0.03 : 0);
+        out.push({ i, far, fx, fy, wig });
+      }
     });
+    return out;
+  }
+
+  /** Which segments paint lands on, and in which color. */
+  private painted(frame: BugFrame): (i: number) => number | null {
+    const colors = paintColors(frame.paint);
+    return (i: number): number | null => {
+      const n = colors.length;
+      if (n === 0) return null;
+      if (n === 1) return i === 2 || i === 3 ? colors[0]! : null;
+      if (n < 5) return i <= n ? colors[i % n]! : null;
+      return colors[i % n]!;
+    };
   }
 
   /** Big round eyes and a massive smile. */
-  private face(frame: BugFrame, hx: number, hy: number, hr: number, closed = false): void {
-    const { def } = this;
+  private face(frame: BugFrame, hx: number, hy: number, hr: number): void {
     const g = this.L.face;
     const f = frame.face;
     tintHead(g, f.tint, hx, hy, hr * 0.95);
-    const lid = lighten(def.body, 0.12);
+    const spot = this.faceSpots(frame, hx, hy, hr);
+    const [fe, ne] = spot.eyes as [EyeSpot, EyeSpot];
     eyePair(
       g,
       frame,
-      [hx - hr * 0.32, hy - hr * 0.2, hr * 0.32],
-      [hx + hr * 0.28, hy - hr * 0.16, hr * 0.38],
-      lid,
+      [fe.x, fe.y, fe.r],
+      [ne.x, ne.y, ne.r],
+      ne.lid,
       4,
       f.eyes,
       undefined,
-      closed ? 0 : frame.pose.eyeOpen,
+      frame.pose.eyeOpen,
     );
-    g.circle(hx + hr * 0.72, hy + hr * 0.3, hr * 0.16).fill({ color: CHEEK, alpha: f.blush ? 0.95 : 0.7 });
-    g.circle(hx - hr * 0.62, hy + hr * 0.32, hr * 0.13).fill({ color: CHEEK, alpha: f.blush ? 0.8 : 0.55 });
+    for (const c of [spot.cheek!, ...spot.cheeks!])
+      g.circle(c.x, c.y, c.r).fill({ color: CHEEK, alpha: c.alpha });
+    const m = spot.mouth!;
+    drawMouth(g, m.x, m.y, m.s, f.mouth, frame.time, OUTLINE, 4);
+  }
+
+  /** Big round eyes, two blushes, and a massive smile. */
+  private faceSpots(frame: BugFrame, hx: number, hy: number, hr: number): SkeletonFace {
+    const f = frame.face;
+    const lid = lighten(this.def.body, 0.12);
     // His smile is huge.
     const big = f.mouth === 'smile' || f.mouth === 'grin' || f.mouth === 'lick';
-    drawMouth(g, hx + hr * 0.08, hy + hr * 0.38, hr * (big ? 1.15 : 0.8), f.mouth, frame.time, OUTLINE, 4);
+    return {
+      tint: f.tint ? { x: hx, y: hy, rx: hr * 0.95, ry: hr * 0.95, circle: true } : null,
+      eyes: [
+        { x: hx - hr * 0.32, y: hy - hr * 0.2, r: hr * 0.32, shape: f.eyes, lid, line: 3.5, far: true },
+        { x: hx + hr * 0.28, y: hy - hr * 0.16, r: hr * 0.38, shape: f.eyes, lid, line: 4, far: false },
+      ],
+      cheek: { x: hx + hr * 0.72, y: hy + hr * 0.3, r: hr * 0.16, alpha: f.blush ? 0.95 : 0.7 },
+      cheeks: [{ x: hx - hr * 0.62, y: hy + hr * 0.32, r: hr * 0.13, alpha: f.blush ? 0.8 : 0.55 }],
+      mouth: {
+        x: hx + hr * 0.08,
+        y: hy + hr * 0.38,
+        s: hr * (big ? 1.15 : 0.8),
+        shape: f.mouth,
+        color: OUTLINE,
+        line: 4,
+      },
+    };
   }
 
   private updateCocoon(frame: BugFrame): Adjust {
@@ -474,10 +542,7 @@ export class CaterpillarPainter extends BasePainter {
 
   private updateButterfly(frame: BugFrame, springs: readonly AntennaSpring[]): Adjust {
     const { r, def } = this;
-    const flying = frame.mode === 'st_airborne' || frame.mode === 'st_use';
-    const speed = flying ? 16 : frame.pose.flail ? 11 : 2.2;
-    const flap = 0.5 + 0.5 * Math.sin(frame.time * speed);
-    const open = flying || frame.pose.flail ? 0.2 + 0.8 * flap : 0.38 + 0.2 * flap;
+    const { flying, speed, open } = this.flutter(frame);
     // Far pair (mirrored) behind the body, near pair in front.
     const w = this.L.wings.clear();
     const s = this.L.shell.clear();
@@ -495,10 +560,48 @@ export class CaterpillarPainter extends BasePainter {
     // Six thin legs: standing, or tucked up while he flutters.
     const legs = this.L.legsFront;
     const back = this.L.legsBack;
+    for (const { far, leg } of this.butterflyLegs(frame)) {
+      const g = far ? back : legs;
+      limb(
+        g,
+        leg.hip,
+        leg.knee,
+        leg.foot,
+        far ? 3 : 3.5,
+        far ? darken(def.body, 0.4) : OUTLINE,
+        far ? 0.8 : 1,
+      );
+    }
+    const [hx, hy, hr] = this.butterflyHead();
+    // Long feelers with clubbed tips.
+    const a = this.L.antennae;
+    for (const { base, mid, tip } of this.butterflyFeelers(frame, springs)) {
+      a.moveTo(base[0], base[1])
+        .quadraticCurveTo(mid[0], mid[1], tip[0], tip[1])
+        .stroke({ width: 3.5, color: OUTLINE, cap: 'round' });
+      a.ellipse(tip[0], tip[1], r * 0.08, r * 0.06).fill(OUTLINE);
+    }
+    this.face(frame, hx, hy, hr);
+    return { tilt: 0, bob: flying ? Math.sin(frame.time * speed) * 3 : 0, still: false };
+  }
+
+  /** How fast the butterfly's wings beat and how far open they are. */
+  private flutter(frame: BugFrame): { flying: boolean; speed: number; open: number } {
+    const flying = frame.mode === 'st_airborne' || frame.mode === 'st_use';
+    const speed = flying ? 16 : frame.pose.flail ? 11 : 2.2;
+    const flap = 0.5 + 0.5 * Math.sin(frame.time * speed);
+    const open = flying || frame.pose.flail ? 0.2 + 0.8 * flap : 0.38 + 0.2 * flap;
+    return { flying, speed, open };
+  }
+
+  /** Six thin legs: standing, or tucked up while he flutters. */
+  private butterflyLegs(frame: BugFrame): { far: boolean; leg: LegPose }[] {
+    const { r } = this;
+    const flying = frame.mode === 'st_airborne' || frame.mode === 'st_use';
     const tucked = flying || frame.pose.flail;
+    const out: { far: boolean; leg: LegPose }[] = [];
     [r * 0.15, r * 0.32, r * 0.48].forEach((hx, i) => {
       for (const far of [true, false]) {
-        const g = far ? back : legs;
         const ph = frame.pose.legPhase + i * 2.1 + (far ? Math.PI : 0);
         const step = Math.sin(ph) * frame.pose.stride * r * 0.15;
         const hip: Pt = [hx + (far ? r * 0.06 : 0), r * 0.32];
@@ -506,30 +609,174 @@ export class CaterpillarPainter extends BasePainter {
           ? [hx + (i - 1) * r * 0.25 + Math.sin(frame.time * 8 + i) * r * 0.04, r * 0.72]
           : [hx + (i - 1) * r * 0.35 + step, r - Math.max(0, Math.cos(ph)) * frame.pose.stride * r * 0.1];
         const knee: Pt = [(hip[0] + foot[0]) / 2 + (i - 1) * r * 0.12, (hip[1] + foot[1]) / 2 - r * 0.12];
-        limb(g, hip, knee, foot, far ? 3 : 3.5, far ? darken(def.body, 0.4) : OUTLINE, far ? 0.8 : 1);
+        out.push({ far, leg: { hip, knee, foot } });
       }
     });
+    return out;
+  }
+
+  /** The butterfly's long feelers: base, bend, and springy tip. */
+  private butterflyFeelers(
+    frame: BugFrame,
+    springs: readonly AntennaSpring[],
+  ): { base: Pt; mid: Pt; tip: Pt }[] {
+    const { r } = this;
     const [hx, hy, hr] = this.butterflyHead();
-    // Long feelers with clubbed tips.
-    const a = this.L.antennae;
-    [
+    const bases: Pt[] = [
       [hx - hr * 0.2, hy - hr * 0.85],
       [hx + hr * 0.25, hy - hr * 0.9],
-    ].forEach(([bx, by], i) => {
-      const tip = springAntenna(
-        a,
+    ];
+    return bases.map(([bx, by], i) => ({
+      base: [bx, by] as Pt,
+      mid: [bx + r * 0.05, by - r * 0.5] as Pt,
+      tip: springTip(
         frame,
         springs[i]!,
-        [bx!, by!],
-        [bx! + r * 0.05, by! - r * 0.5],
-        [bx! + r * (0.3 + i * 0.12), by! - r * (0.75 - i * 0.05)],
-        3.5,
+        [bx, by],
+        [bx + r * (0.3 + i * 0.12), by - r * (0.75 - i * 0.05)],
         1.1,
-      );
-      a.ellipse(tip[0], tip[1], r * 0.08, r * 0.06).fill(OUTLINE);
+      ),
+    }));
+  }
+
+  // --- The cutout pose -----------------------------------------------------
+
+  skeleton(frame: BugFrame, springs: readonly AntennaSpring[]): Skeleton {
+    const { r } = this;
+    const rig = this.bones;
+    const crownAt = this.crown(frame);
+    const sk: Skeleton = {
+      items: [],
+      face: null,
+      headPart: 'head',
+      ball: null,
+      paint: [],
+      extras: [],
+      adjust: NO_ADJUST,
+      crown: pt([crownAt.x, crownAt.y]),
+    };
+    const items = sk.items;
+    if (frame.morph === 'cocoon') {
+      items.push(rest(rig, 'cocoon', 'shell'));
+      sk.extras.push({ kind: 'thread' });
+      sk.headPart = null;
+      // Two closed eyes and a sleepy smile (or a snore) in the window.
+      const hx = r * 0.12;
+      const hy = -r * 0.6;
+      const f = frame.face;
+      const eye = (x: number, far: boolean) =>
+        ({ x, y: hy, r: r * 0.09, shape: f.eyes, lid: this.def.body, line: 3.5, far, open: 0 }) as const;
+      const snore = f.mouth === 'o';
+      sk.face = {
+        tint: null,
+        eyes: [eye(hx - r * 0.15, true), eye(hx + r * 0.16, false)],
+        cheek: { x: hx + r * 0.32, y: hy + r * 0.08, r: r * 0.05, alpha: 0.7 },
+        mouth: {
+          x: hx + r * 0.02,
+          y: hy + r * 0.1,
+          s: r * (snore ? 0.1 : 0.16),
+          shape: snore ? 'o' : 'smile',
+          color: OUTLINE,
+          line: 3,
+        },
+      };
+      const box = this.paintBox(frame);
+      if (box) sk.paint.push({ mask: 0, box, colors: null });
+      const k = frame.pose.flail ? 0.16 : 0.05;
+      sk.adjust = { tilt: Math.sin(frame.time * 1.3) * k, bob: 0, still: false };
+      return sk;
+    }
+    if (frame.morph === 'butterfly') {
+      const { flying, speed, open } = this.flutter(frame);
+      const px = r * 0.28;
+      const py = r * 0.05;
+      // Far pair (mirrored) behind the body, near pair in front.
+      for (const part of ['bf_wing_hind', 'bf_wing_fore'])
+        items.push({
+          kind: 'piece',
+          part,
+          slot: 'wings',
+          at: { x: px + r * 0.06, y: py - r * 0.02 },
+          rotation: open * 0.9,
+          sx: -1,
+        });
+      items.push(rest(rig, 'bf_body', 'body'));
+      const [hx, hy, hr] = this.butterflyHead();
+      const k = hr / this.head()[2];
+      items.push({ kind: 'piece', part: 'head', slot: 'body', at: { x: hx, y: hy }, sx: k, sy: k });
+      for (const part of ['bf_wing_hind', 'bf_wing_fore'])
+        items.push({ kind: 'piece', part, slot: 'shell', at: { x: px, y: py }, rotation: -open * 0.9 });
+      for (const { far, leg } of this.butterflyLegs(frame)) items.push(limbItem('bf_leg', null, leg, far));
+      for (const { base, mid, tip } of this.butterflyFeelers(frame, springs)) {
+        const pts = quadRope(pt(base), pt(mid), pt(tip));
+        items.push({ kind: 'rope', part: 'bf_antenna', slot: 'top', pts }, tipOn(pts, 'bf_antenna_tip'));
+      }
+      sk.face = this.faceSpots(frame, hx, hy, hr);
+      const box = this.paintBox(frame);
+      if (box) sk.paint.push({ mask: 2, box, colors: null });
+      sk.adjust = { tilt: 0, bob: flying ? Math.sin(frame.time * speed) * 3 : 0, still: false };
+      return sk;
+    }
+    // The caterpillar: feet, the tail horn, six segments, and the head riding the first.
+    const segs = this.segments(frame);
+    for (const { i, far, fx, fy, wig } of this.feet(frame, segs)) {
+      if (i < 2)
+        items.push(
+          limbItem(
+            'true_leg',
+            null,
+            { hip: [fx, fy - r * 0.05], knee: [fx, fy], foot: [fx + r * 0.02 + wig, fy + r * 0.17] },
+            far,
+          ),
+        );
+      else
+        items.push({
+          kind: 'piece',
+          part: 'foot',
+          slot: far ? 'back' : 'front',
+          far,
+          at: { x: fx + wig, y: fy + r * 0.06 },
+        });
+    }
+    const tail = segs[5]!;
+    const rest5 = r * 0.28;
+    items.push({
+      kind: 'piece',
+      part: 'tail_horn',
+      slot: 'body',
+      at: { x: tail.x - tail.rad * 0.2, y: tail.y - tail.rad * 0.85 },
+      sx: tail.rad / rest5,
+      sy: tail.rad / rest5,
     });
-    this.face(frame, hx, hy, hr);
-    return { tilt: 0, bob: flying ? Math.sin(frame.time * speed) * 3 : 0, still: false };
+    const painted = this.painted(frame);
+    const restRad = r * 0.38;
+    for (let i = segs.length - 1; i >= 0; i--) {
+      const sg = segs[i]!;
+      const k = sg.rad / restRad;
+      items.push({
+        kind: 'piece',
+        part: i % 2 === 0 ? 'segment_a' : 'segment_b',
+        slot: 'body',
+        at: { x: sg.x, y: sg.y },
+        sx: k,
+        sy: k,
+      });
+      const color = painted(i);
+      if (color !== null)
+        sk.paint.push({
+          mask: items.length - 1,
+          box: { x0: sg.x - sg.rad, x1: sg.x + sg.rad, y0: sg.y - sg.rad * 0.1, y1: sg.y + sg.rad },
+          colors: [color],
+        });
+    }
+    const [hx, hy, hr] = this.headOn(frame, segs);
+    items.push({ kind: 'piece', part: 'head', slot: 'body', at: { x: hx, y: hy } });
+    for (const { base, mid, tip } of this.feelers(frame, springs, hx, hy, hr)) {
+      const pts = quadRope(pt(base), pt(mid), pt(tip));
+      items.push({ kind: 'rope', part: 'antenna', slot: 'top', pts }, tipOn(pts, 'antenna_tip'));
+    }
+    sk.face = this.faceSpots(frame, hx, hy, hr);
+    return sk;
   }
 
   private wingRim(g: Graphics, ox: number, oy: number, angle: number, mirror: boolean): void {

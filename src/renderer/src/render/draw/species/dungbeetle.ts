@@ -4,8 +4,22 @@ import type { BugFrame } from '../bug';
 import { drawEye, drawMouth } from '../face';
 import { bartyFiddle } from '../../pendingLife';
 import { BasePainter } from './base';
-import type { Adjust, AntennaSpring, Box, LegPose, Pt } from './common';
-import { RIM, dome, eyePair, limb, rigLook, springAntenna, tintHead, walkLegs } from './common';
+import type { EyeSpot } from '../../rig/bugRig';
+import type { Skeleton, SkeletonFace, SkeletonItem } from '../../rig/skeleton';
+import { NO_ADJUST, pt, quadRope, rest, tipOn } from '../../rig/skeleton';
+import type { Adjust, AntennaSpring, Box, LegPose, Pt, WalkLegsOptions } from './common';
+import {
+  RIM,
+  dome,
+  eyePair,
+  limb,
+  limbItem,
+  rigLook,
+  springTip,
+  tintHead,
+  walkLegs,
+  walkPoses,
+} from './common';
 
 const TEAL = 0x2e8b7a;
 const VIOLET = 0x6a4fa3;
@@ -154,28 +168,41 @@ export class DungbeetlePainter extends BasePainter {
     g.circle(0, 0, r).stroke(stroke());
   }
 
-  update(frame: BugFrame, springs: readonly AntennaSpring[]): Adjust {
-    const { r, def } = this;
+  /** The sheen runs faster as he moves. */
+  private advance(frame: BugFrame): void {
     const speed = Math.hypot(frame.vx, frame.vy);
     this.sheen += frame.dt * (0.5 + Math.min(4, speed) * 1.4);
-    if (frame.face.form === 'curled') {
-      this.drawBall(frame);
-      return { tilt: 0, bob: 0, still: false };
-    }
-    this.drawShell();
-    const rolling = !!frame.rolling && !frame.pose.flail;
-    const aloof = frame.pending === 'aloof' && !frame.pose.flail;
-    // Aloof, he fiddles while he waits: taps a foot, polishes a feeler, glances about.
-    const fid = aloof ? bartyFiddle(frame.time, 0) : { tap: 0, preen: 0, glance: 0 };
+  }
+
+  private aloof(frame: BugFrame): boolean {
+    return frame.pending === 'aloof' && !frame.pose.flail;
+  }
+
+  /** Aloof, he fiddles while he waits: taps a foot, polishes a feeler, glances about. */
+  private fiddle(frame: BugFrame): ReturnType<typeof bartyFiddle> {
+    const fid = this.aloof(frame) ? bartyFiddle(frame.time, 0) : { tap: 0, preen: 0, glance: 0 };
     this.life = Math.max(fid.tap, fid.preen, Math.abs(fid.glance));
-    const hips: Pt[] = [
-      [-r * 0.62, r * 0.48],
-      [-r * 0.18, r * 0.52],
-      [r * 0.28, r * 0.5],
-    ];
-    const farShift: Pt = [r * 0.12, -r * 0.04];
-    const knees: Pt[] = [];
-    walkLegs(this.L.legsBack, this.L.legsFront, frame, {
+    return fid;
+  }
+
+  private hips(): { hips: Pt[]; farShift: Pt } {
+    const { r } = this;
+    return {
+      hips: [
+        [-r * 0.62, r * 0.48],
+        [-r * 0.18, r * 0.52],
+        [r * 0.28, r * 0.5],
+      ],
+      farShift: [r * 0.12, -r * 0.04],
+    };
+  }
+
+  private legOptions(frame: BugFrame, fid: ReturnType<typeof bartyFiddle>): WalkLegsOptions {
+    const { r, def } = this;
+    const rolling = !!frame.rolling && !frame.pose.flail;
+    const aloof = this.aloof(frame);
+    const { hips, farShift } = this.hips();
+    return {
       r,
       hips,
       farShift,
@@ -190,26 +217,22 @@ export class DungbeetlePainter extends BasePainter {
         if (frame.pose.flail) return null;
         if (i === 0) {
           const lift = far ? -r * 0.08 : 0;
-          let leg: LegPose;
           if (rolling) {
             // Hind legs up on the ball behind him, pumping.
             const push = Math.sin(phase) * r * 0.08;
-            leg = {
+            return {
               hip,
               knee: [-r * 1.0 + push, -r * 0.12 + lift],
               foot: [-r * 1.3 + push * 1.5, r * 0.3 + lift * 2],
             };
-          } else {
-            const step = Math.sin(phase) * frame.pose.stride * r * 0.18;
-            const up = Math.max(0, Math.cos(phase)) * frame.pose.stride * r * 0.12;
-            leg = {
-              hip,
-              knee: [-r * 1.0 + step * 0.4, r * 0.12 + lift * 0.5],
-              foot: [-r * 1.08 + step, r - up],
-            };
           }
-          knees[far ? 0 : 1] = leg.knee;
-          return leg;
+          const step = Math.sin(phase) * frame.pose.stride * r * 0.18;
+          const up = Math.max(0, Math.cos(phase)) * frame.pose.stride * r * 0.12;
+          return {
+            hip,
+            knee: [-r * 1.0 + step * 0.4, r * 0.12 + lift * 0.5],
+            foot: [-r * 1.08 + step, r - up],
+          };
         }
         if (i === 2 && aloof && !far && fid.preen > 0) {
           const rub = Math.sin(frame.time * 16) * r * 0.05 * fid.preen;
@@ -228,6 +251,72 @@ export class DungbeetlePainter extends BasePainter {
         if (i === 2 && frame.carrying && !rolling)
           return { hip, knee: [r * 0.72, r * 0.32], foot: [r * 0.98, -r * 0.08] };
         return null;
+      },
+    };
+  }
+
+  /** The short feelers: base, bend, and springy tip. */
+  private feelers(frame: BugFrame, springs: readonly AntennaSpring[]): { base: Pt; mid: Pt; tip: Pt }[] {
+    const { r } = this;
+    const bases: Pt[] = [
+      [r * 0.72, -r * 0.18],
+      [r * 0.9, -r * 0.2],
+    ];
+    return bases.map(([bx, by], i) => ({
+      base: [bx, by] as Pt,
+      mid: [bx + r * 0.05, by - r * 0.25] as Pt,
+      tip: springTip(frame, springs[i]!, [bx, by], [bx + r * (0.2 + i * 0.1), by - r * 0.36], 0.6),
+    }));
+  }
+
+  /** The face on top of the shovel. Aloof, his nose is in the air and he glances about. */
+  private faceSpots(frame: BugFrame, fid: ReturnType<typeof bartyFiddle>): SkeletonFace {
+    const { r } = this;
+    const f = frame.face;
+    const lid = darken(TEAL, 0.25);
+    const look = this.aloof(frame)
+      ? { x: 0.3 + fid.glance * 0.6, y: -0.85 + Math.abs(fid.glance) * 0.55 }
+      : rigLook(frame);
+    return {
+      tint: f.tint ? { x: r * 0.88, y: r * 0.14, rx: r * 0.38, ry: r * 0.32, circle: false } : null,
+      eyes: [
+        { x: r * 0.74, y: r * 0.02, r: r * 0.15, shape: f.eyes, lid, line: 3, far: true },
+        { x: r * 0.98, y: r * 0.04, r: r * 0.17, shape: f.eyes, lid, line: 3.5, far: false },
+      ],
+      look,
+      cheek: { x: r * 1.12, y: r * 0.24, r: r * 0.07, alpha: f.blush ? 0.9 : 0.5 },
+      mouth: { x: r * 0.98, y: r * 0.32, s: r * 0.28, shape: f.mouth, color: 0xd8f5ee, line: 3.5 },
+    };
+  }
+
+  /** Rolling: head down, rear up. Aloof: nose in the air. */
+  private adjustFor(frame: BugFrame): Adjust {
+    const rolling = !!frame.rolling && !frame.pose.flail;
+    return {
+      tilt: rolling ? 0.16 : this.aloof(frame) ? -0.16 + Math.sin(frame.time * 1.2) * 0.02 : 0,
+      bob: rolling ? -2 : 0,
+      still: false,
+    };
+  }
+
+  update(frame: BugFrame, springs: readonly AntennaSpring[]): Adjust {
+    const { r, def } = this;
+    this.advance(frame);
+    if (frame.face.form === 'curled') {
+      this.drawBall(frame);
+      return { tilt: 0, bob: 0, still: false };
+    }
+    this.drawShell();
+    const fid = this.fiddle(frame);
+    const { hips, farShift } = this.hips();
+    const knees: Pt[] = [];
+    const opts = this.legOptions(frame, fid);
+    walkLegs(this.L.legsBack, this.L.legsFront, frame, {
+      ...opts,
+      custom: (i, far, phase) => {
+        const leg = opts.custom!(i, far, phase);
+        if (leg && i === 0) knees[far ? 0 : 1] = leg.knee;
+        return leg;
       },
     });
     // His strong hind legs: thick thighs with little spikes, over the thin legs.
@@ -257,20 +346,10 @@ export class DungbeetlePainter extends BasePainter {
     }
     // Short feelers with fan-shaped clubs.
     const a = this.L.antennae;
-    [
-      [r * 0.72, -r * 0.18],
-      [r * 0.9, -r * 0.2],
-    ].forEach(([bx, by], i) => {
-      const tip = springAntenna(
-        a,
-        frame,
-        springs[i]!,
-        [bx!, by!],
-        [bx! + r * 0.05, by! - r * 0.25],
-        [bx! + r * (0.2 + i * 0.1), by! - r * 0.36],
-        4,
-        0.6,
-      );
+    for (const { base, mid, tip } of this.feelers(frame, springs)) {
+      a.moveTo(base[0], base[1])
+        .quadraticCurveTo(mid[0], mid[1], tip[0], tip[1])
+        .stroke({ width: 4, color: OUTLINE, cap: 'round' });
       // Three little leaves fanned out.
       for (let k = -1; k <= 1; k++) {
         const ang = -Math.PI / 2 + k * 0.55 + 0.3;
@@ -283,31 +362,67 @@ export class DungbeetlePainter extends BasePainter {
           .lineTo(ex, ey)
           .stroke({ width: r * 0.11 - 4.5, color: def.accent, cap: 'round' });
       }
-    });
+    }
     // Face on top of the shovel.
     const g = this.L.face;
     const f = frame.face;
     tintHead(g, f.tint, r * 0.88, r * 0.14, r * 0.38, r * 0.32);
-    const look = aloof
-      ? { x: 0.3 + fid.glance * 0.6, y: -0.85 + Math.abs(fid.glance) * 0.55 }
-      : rigLook(frame);
-    eyePair(
-      g,
-      frame,
-      [r * 0.74, r * 0.02, r * 0.15],
-      [r * 0.98, r * 0.04, r * 0.17],
-      darken(TEAL, 0.25),
-      3.5,
-      f.eyes,
-      look,
-    );
-    g.circle(r * 1.12, r * 0.24, r * 0.07).fill({ color: CHEEK, alpha: f.blush ? 0.9 : 0.5 });
-    drawMouth(g, r * 0.98, r * 0.32, r * 0.28, f.mouth, frame.time, 0xd8f5ee, 3.5);
-    // Rolling: head down, rear up. Aloof: nose in the air.
+    const spot = this.faceSpots(frame, fid);
+    const [fe, ne] = spot.eyes as [EyeSpot, EyeSpot];
+    eyePair(g, frame, [fe.x, fe.y, fe.r], [ne.x, ne.y, ne.r], ne.lid, 3.5, f.eyes, spot.look);
+    const c = spot.cheek!;
+    g.circle(c.x, c.y, c.r).fill({ color: CHEEK, alpha: c.alpha });
+    const m = spot.mouth!;
+    drawMouth(g, m.x, m.y, m.s, f.mouth, frame.time, m.color, 3.5);
+    return this.adjustFor(frame);
+  }
+
+  skeleton(frame: BugFrame, springs: readonly AntennaSpring[]): Skeleton {
+    const rig = this.bones;
+    this.advance(frame);
+    const [c1, c2] = this.sheenColors();
+    const crownAt = this.crown();
+    const crown = pt([crownAt.x, crownAt.y]);
+    if (frame.face.form === 'curled')
+      return {
+        items: [],
+        face: null,
+        headPart: null,
+        ball: { part: 'ball_tint', tint: c1 },
+        paint: [],
+        extras: [],
+        adjust: NO_ADJUST,
+        crown,
+      };
+    const fid = this.fiddle(frame);
+    const items: SkeletonItem[] = [
+      rest(rig, 'belly', 'body'),
+      rest(rig, 'thorax_tint', 'shell', { tint: c2 }),
+      rest(rig, 'shell_tint', 'shell', { tint: c1 }),
+      rest(rig, 'shine', 'shell'),
+      rest(rig, 'head_tint', 'shell', { tint: darken(c1, 0.25) }),
+    ];
+    const thighs: SkeletonItem[] = [];
+    for (const { i, far, leg } of walkPoses(frame, this.legOptions(frame, fid))) {
+      items.push(limbItem('leg_upper', 'leg_lower', leg, far));
+      // The thick thigh over the thin back leg, hip to knee.
+      if (i === 0 && !frame.pose.flail)
+        thighs.push(limbItem('hindleg_thigh', null, { ...leg, foot: leg.knee }, far));
+    }
+    items.push(...thighs);
+    for (const { base, mid, tip } of this.feelers(frame, springs)) {
+      const pts = quadRope(pt(base), pt(mid), pt(tip));
+      items.push({ kind: 'rope', part: 'antenna', slot: 'top', pts }, tipOn(pts, 'antenna_tip'));
+    }
     return {
-      tilt: rolling ? 0.16 : aloof ? -0.16 + Math.sin(frame.time * 1.2) * 0.02 : 0,
-      bob: rolling ? -2 : 0,
-      still: false,
+      items,
+      face: this.faceSpots(frame, fid),
+      headPart: 'head_tint',
+      ball: null,
+      paint: [{ mask: 2, box: this.paintBox(), colors: null }],
+      extras: [],
+      adjust: this.adjustFor(frame),
+      crown,
     };
   }
 }

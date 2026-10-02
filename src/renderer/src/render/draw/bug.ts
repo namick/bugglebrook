@@ -105,7 +105,7 @@ export class BugSprite extends Container {
   protected lastV = { x: 0, y: 0 };
   protected form: BugFace['form'] | null = null;
   /** The species painter for bugs drawn in their own module (M7 and later), or null. */
-  private readonly painter: SpeciesPainter | null;
+  protected readonly painter: SpeciesPainter | null;
   /** Pixels from the root down to the ground: the radius, or half a box collider's height. */
   readonly foot: number;
   private staticKey = '';
@@ -672,20 +672,8 @@ export class BugSprite extends Container {
   }
 
   private drawFootRipple(pose: BugPose): void {
-    const { r, def } = this;
-    const g = this.legsFront;
     if (this.form === 'in_shell') return;
-    // Waves travelling along the sole while it slides.
-    const moving = pose.stride;
-    for (let i = 0; i < 4; i++) {
-      const t = (((pose.legPhase * 0.25 + i / 4) % 1) + 1) % 1;
-      const x = -r * 1.3 + t * r * 2.2;
-      const a = moving * 0.9;
-      if (a < 0.05) continue;
-      g.moveTo(x - r * 0.14, r * 0.97)
-        .quadraticCurveTo(x, r * (0.97 - 0.12 * a), x + r * 0.14, r * 0.97)
-        .stroke({ width: 3, color: darken(def.body, 0.35), alpha: a, cap: 'round' });
-    }
+    footRipple(this.legsFront, this.r, this.def.body, pose);
   }
 
   private drawAntennae(frame: BugFrame): void {
@@ -985,6 +973,20 @@ export class BugSprite extends Container {
   /** The lower half of the first five bugs' bodies, where paint goes. */
   private paintBox(): Box | null {
     return paintBox(this.bones, this.form ?? 'normal');
+  }
+}
+
+/** Glorp's foot ripples: waves travelling along the sole while it slides. */
+export function footRipple(g: Graphics, r: number, body: number, pose: BugPose): void {
+  const moving = pose.stride;
+  for (let i = 0; i < 4; i++) {
+    const t = (((pose.legPhase * 0.25 + i / 4) % 1) + 1) % 1;
+    const x = -r * 1.3 + t * r * 2.2;
+    const a = moving * 0.9;
+    if (a < 0.05) continue;
+    g.moveTo(x - r * 0.14, r * 0.97)
+      .quadraticCurveTo(x, r * (0.97 - 0.12 * a), x + r * 0.14, r * 0.97)
+      .stroke({ width: 3, color: darken(body, 0.35), alpha: a, cap: 'round' });
   }
 }
 

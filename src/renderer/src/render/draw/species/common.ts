@@ -6,6 +6,7 @@ import type { BugFrame } from '../bug';
 import type { Look } from '../face';
 import { drawEye } from '../face';
 import { walkJoints } from '../../rig/bugRig';
+import type { LimbItem, Skeleton } from '../../rig/skeleton';
 
 export const TINTS = {
   green: { color: 0x8fd14f, alpha: 0.6 },
@@ -88,6 +89,12 @@ export interface SpeciesPainter {
   crown(frame: BugFrame): { x: number; y: number };
   /** Legs, face, antennae, and anything else that moves. */
   update(frame: BugFrame, springs: readonly AntennaSpring[]): Adjust;
+  /**
+   * Where the artist's cutout parts go this frame, from the same joint math
+   * as `update` (instead of drawing). Advances the same state, so call one
+   * or the other each frame.
+   */
+  skeleton(frame: BugFrame, springs: readonly AntennaSpring[]): Skeleton;
   /** A bug waiting to be found: how strong its sign of life is right now, 0 to 1 (test hook). */
   readonly life?: number;
 }
@@ -287,15 +294,62 @@ export interface WalkLegsOptions {
  */
 export function walkLegs(back: Graphics, front: Graphics, frame: BugFrame, o: WalkLegsOptions): void {
   const { r } = o;
-  for (const j of walkJoints(frame.pose, o)) {
-    const { far } = j;
+  for (const { far, leg } of walkPoses(frame, o)) {
     const g = far ? back : front;
-    const leg = o.custom?.(j.i, far, j.phase) ?? { hip: j.hip, knee: j.knee, foot: j.foot };
     const color = far ? o.farColor : OUTLINE;
     const alpha = far ? 0.85 : 1;
     limb(g, leg.hip, leg.knee, leg.foot, far ? o.width * 0.85 : o.width, color, alpha);
     if (o.footR > 0) g.circle(leg.foot[0] + r * 0.02, leg.foot[1] - 1, o.footR).fill({ color, alpha });
   }
+}
+
+/** Each walking leg as `walkLegs` draws it (far side first), with `custom` applied. */
+export function walkPoses(
+  frame: BugFrame,
+  o: Omit<WalkLegsOptions, 'width' | 'footR' | 'farColor'>,
+): { i: number; far: boolean; leg: LegPose }[] {
+  return walkJoints(frame.pose, o).map((j) => ({
+    i: j.i,
+    far: j.far,
+    leg: o.custom?.(j.i, j.far, j.phase) ?? { hip: j.hip, knee: j.knee, foot: j.foot },
+  }));
+}
+
+/** How strong Prim's chop swoosh is this frame (0 when there is none). */
+export function swooshAlpha(frame: BugFrame): number {
+  const k = frame.karate;
+  if (!k?.chop || k.t <= 0.25 || k.t >= 0.6) return 0;
+  return 1 - (k.t - 0.25) / 0.35;
+}
+
+/** Prim's swoosh as a chop comes down: a white arc in front of her. */
+export function drawSwoosh(g: Graphics, r: number, alpha: number): void {
+  g.arc(r * 1.25, -r * 0.6, r * 0.95, -Math.PI * 0.35, Math.PI * 0.15).stroke({
+    width: 5,
+    color: 0xffffff,
+    alpha: 0.8 * alpha,
+    cap: 'round',
+  });
+}
+
+/** A leg as a cutout limb item: far legs behind the body, near ones in front. */
+export function limbItem(upper: string, lower: string | null, leg: LegPose, far: boolean): LimbItem {
+  return {
+    kind: 'limb',
+    part: upper,
+    lower,
+    slot: far ? 'back' : 'front',
+    far,
+    hip: { x: leg.hip[0], y: leg.hip[1] },
+    knee: { x: leg.knee[0], y: leg.knee[1] },
+    foot: { x: leg.foot[0], y: leg.foot[1] },
+  };
+}
+
+/** Where a springy antenna's tip is this frame: `tip` nudged by the spring and a gentle sway. */
+export function springTip(frame: BugFrame, spring: AntennaSpring, base: Pt, tip: Pt, give = 1): Pt {
+  const sway = Math.sin(frame.time * 2.1 + base[0] * 0.05) * 1.6;
+  return [tip[0] + spring.x * frame.facing * give + sway, tip[1] + spring.y * give];
 }
 
 /** A springy antenna: a curve from `base` bending through `mid` to a tip nudged by the spring. */
@@ -309,9 +363,7 @@ export function springAntenna(
   width: number,
   give = 1,
 ): Pt {
-  const sway = Math.sin(frame.time * 2.1 + base[0] * 0.05) * 1.6;
-  const tx = tip[0] + spring.x * frame.facing * give + sway;
-  const ty = tip[1] + spring.y * give;
+  const [tx, ty] = springTip(frame, spring, base, tip, give);
   g.moveTo(base[0], base[1])
     .quadraticCurveTo(mid[0], mid[1], tx, ty)
     .stroke({ width, color: OUTLINE, cap: 'round' });

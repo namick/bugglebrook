@@ -55,6 +55,8 @@ export interface EyeSpot {
   /** Outline width. */
   line: number;
   far: boolean;
+  /** How open this eye is, instead of the pose's blink (a wink, eyes shut tight). */
+  open?: number;
 }
 
 export interface FacePlacement {
