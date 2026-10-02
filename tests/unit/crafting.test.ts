@@ -82,7 +82,7 @@ function pull(sim: Sim): void {
   sim.run(BENCH_SHAKE + 2);
 }
 
-const items = (sim: Sim): Entity[] => sim.entities.ofKind('item');
+const items = (sim: Sim): readonly Entity[] => sim.entities.ofKind('item');
 
 describe('recipes (pure)', () => {
   it('has the 32 recipes from the design doc and the yarn scarf, each making something different', () => {

@@ -397,18 +397,23 @@ export class EntityStore {
     return this.map.size;
   }
 
-  /** All entities, ascending by ID. */
-  all(): Entity[] {
+  /**
+   * All entities, ascending by ID. The list is shared and read-only; it stays
+   * as it was when entities come or go (they get a new list), so it is safe to
+   * loop over it while removing or spawning.
+   */
+  all(): readonly Entity[] {
     this.sorted ??= [...this.map.values()].sort((a, b) => a.id - b.id);
-    return [...this.sorted];
+    return this.sorted;
   }
 
-  ofKind(kind: EntityKind): Entity[] {
+  /** Entities of one kind, ascending by ID: shared and read-only, like `all`. */
+  ofKind(kind: EntityKind): readonly Entity[] {
     let list = this.byKind.get(kind);
     if (!list) {
       list = this.all().filter((e) => e.kind === kind);
       this.byKind.set(kind, list);
     }
-    return [...list];
+    return list;
   }
 }
