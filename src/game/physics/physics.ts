@@ -10,6 +10,7 @@ import {
   Vec2,
   WeldJoint,
   World,
+  WorldManifold,
 } from 'planck';
 import type { Body, Contact, Joint } from 'planck';
 import type { EntityId } from '../core/entities';
@@ -221,7 +222,7 @@ export class Physics {
       const filter = this.passThrough;
       if (!filter) return;
       if (a == null || b == null) return;
-      const m = contact.getWorldManifold(null);
+      const m = this.manifold(contact);
       if (m && filter(a, b, m.normal.x, m.normal.y)) contact.setEnabled(false);
     };
     this.world.on('pre-solve', this.preSolve);
@@ -237,6 +238,18 @@ export class Physics {
    */
   set filterContacts(on: boolean) {
     this.filtering = on;
+  }
+
+  /** Filled in by `manifold`, so asking about contacts allocates nothing. */
+  private readonly worldManifold = new WorldManifold();
+
+  /**
+   * A touching contact's normal and points in world space, or null. The
+   * object is reused: read what you need before asking about another contact.
+   */
+  private manifold(contact: Contact): WorldManifold | null {
+    if (contact.getManifold().pointCount === 0) return null;
+    return contact.getWorldManifold(this.worldManifold) ?? null;
   }
 
   /** Contacts where a walking bug is slipping past the side of a thing at rest, until they part. */
@@ -275,7 +288,7 @@ export class Physics {
     if (!this.settled.has(item) && !(item.isDynamic() && this.stillFor(item) >= RESTING_STEPS)) return false;
     if (this.grabbedId !== null && item.getUserData() === this.grabbedId) return false;
     if (this.sizeOf(item).reach > SLIP_REACH) return false;
-    const m = contact.getWorldManifold(null);
+    const m = this.manifold(contact);
     if (!m || Math.abs(m.normal.y) > SLIP_NORMAL) return false;
     this.slipping.add(contact);
     return true;
@@ -305,7 +318,7 @@ export class Physics {
   private recordImpact(contact: Contact): void {
     const ba = contact.getFixtureA().getBody();
     const bb = contact.getFixtureB().getBody();
-    const manifold = contact.getWorldManifold(null);
+    const manifold = this.manifold(contact);
     if (!manifold) return;
     const n = manifold.normal;
     const point = manifold.points[0] ?? ba.getPosition();
@@ -803,7 +816,7 @@ export class Physics {
       const a = c.getFixtureA().getBody().getUserData() as EntityId | null;
       const b = c.getFixtureB().getBody().getUserData() as EntityId | null;
       if (a == null || b == null || a === b) continue;
-      const m = c.getWorldManifold(null);
+      const m = this.manifold(c);
       if (!m || Math.abs(m.normal.y) < 0.6) continue;
       const pair: [EntityId, EntityId] = a < b ? [a, b] : [b, a];
       const key = pairKey(pair[0], pair[1]);
@@ -870,7 +883,7 @@ export class Physics {
       if (!contact.isTouching() || this.slipping.has(contact)) continue;
       const other = edge.other ? (edge.other.getUserData() as EntityId | null) : null;
       if (other == null) continue;
-      const m = contact.getWorldManifold(null);
+      const m = this.manifold(contact);
       if (!m) continue;
       const sign = contact.getFixtureA().getBody() === body ? 1 : -1;
       out.push({ other, nx: m.normal.x * sign, ny: m.normal.y * sign });
@@ -913,7 +926,7 @@ export class Physics {
     const body = this.requireBody(a);
     for (let edge = body.getContactList(); edge; edge = edge.next ?? null) {
       if (edge.other?.getUserData() !== b || !edge.contact.isTouching()) continue;
-      const m = edge.contact.getWorldManifold(null);
+      const m = this.manifold(edge.contact);
       const p = m?.points[0];
       if (p) return { x: p.x, y: p.y };
     }
@@ -966,7 +979,7 @@ export class Physics {
       if (!contact.isTouching()) continue;
       const other = edge.other ? (edge.other.getUserData() as EntityId | null) : null;
       if (other == null) continue;
-      const m = contact.getWorldManifold(null);
+      const m = this.manifold(contact);
       if (!m) continue;
       const sign = contact.getFixtureA().getBody() === body ? -1 : 1;
       const ny = m.normal.y * sign;
@@ -990,7 +1003,7 @@ export class Physics {
     for (let edge = body.getContactList(); edge; edge = edge.next ?? null) {
       const contact = edge.contact;
       if (!contact.isTouching()) continue;
-      const manifold = contact.getWorldManifold(null);
+      const manifold = this.manifold(contact);
       if (!manifold) continue;
       // The normal points from fixture A to fixture B; flip it to point into this body.
       const sign = contact.getFixtureA().getBody() === body ? -1 : 1;
@@ -1041,7 +1054,7 @@ export class Physics {
       const other = edge.other;
       const otherId = other ? (other.getUserData() as EntityId | null) : null;
       if (otherId == null) continue;
-      const manifold = contact.getWorldManifold(null);
+      const manifold = this.manifold(contact);
       if (!manifold) continue;
       const sign = contact.getFixtureA().getBody() === body ? -1 : 1;
       // Low things (a bottle cap) touch a round bug near its bottom: count those too.
@@ -1546,7 +1559,7 @@ export class Physics {
         const c = edge.contact;
         const o = edge.other!;
         if (!this.settled.has(o) || !c.isTouching() || !c.isEnabled() || over.includes(o)) continue;
-        const m = c.getWorldManifold(null);
+        const m = this.manifold(c);
         const sign = c.getFixtureA().getBody() === bug ? 1 : -1;
         if (m && m.normal.y * sign < -0.3) over.push(o);
       }
@@ -1570,7 +1583,7 @@ export class Physics {
       if (o.isStatic() && (this.platformKeys.has(o) || (o.getUserData() != null && !this.settled.has(o))))
         return false;
       if (this.bugs.has(o)) {
-        const m = c.getWorldManifold(null);
+        const m = this.manifold(c);
         const sign = c.getFixtureA().getBody() === b ? 1 : -1;
         if (!m || m.normal.y * sign > 0.5) return false;
       }
@@ -1587,7 +1600,7 @@ export class Physics {
         const c = edge.contact;
         const o = edge.other!;
         if (!c.isTouching() || !c.isEnabled() || !(o.isStatic() || batch.has(o))) continue;
-        const m = c.getWorldManifold(null);
+        const m = this.manifold(c);
         if (!m) continue;
         const sign = c.getFixtureA().getBody() === body ? 1 : -1;
         const p = m.points[0] ?? body.getPosition();
