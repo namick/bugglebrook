@@ -41,10 +41,11 @@ function reloaded(sim: Sim): Sim {
 /** A quiet plaza with Dot standing still in the open. */
 function dotWorld(seed: string): { sim: Sim; dot: Entity } {
   const sim = Sim.create({ seed });
+  const dot = bug(sim, 'bug_ladybug_dot');
+  // Everyone else naps, so no spring launch or game of tag lands in the middle of a test.
   for (const b of sim.entities.ofKind('bug'))
     for (const need of ['need_hunger', 'need_fun', 'need_social', 'need_clean', 'need_energy'] as const)
-      sim.send({ type: 'set_need', id: b.id, need, value: 100 });
-  const dot = bug(sim, 'bug_ladybug_dot');
+      sim.send({ type: 'set_need', id: b.id, need, value: need === 'need_energy' && b !== dot ? 0 : 100 });
   sim.physics.place(dot.id, PLAZA_X + 28, GROUND_Y - 0.6, 0);
   sim.run(30);
   return { sim, dot };

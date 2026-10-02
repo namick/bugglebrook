@@ -222,7 +222,6 @@ describe('save version 10', () => {
     bug.body.y = 40;
     const migrated = MIGRATIONS[9]!(structuredClone(raw)) as typeof raw;
     expect(migrated.version).toBe(10);
-    expect(SAVE_VERSION).toBe(10);
     const after = (migrated.world as typeof world).entities;
     for (const e of [a, b, c, bug]) {
       const body = after.find((q) => q.id === e!.id)!.body;
@@ -291,7 +290,7 @@ describe('a real version 10 save', () => {
   it('loads with every area open, the potion still glowing, and nothing outside the world', () => {
     const raw = readFileSync(join(import.meta.dirname, 'fixtures', 'save-v10.json'), 'utf8');
     const save = loadSaveFile(raw);
-    expect(save.version).toBe(10);
+    expect(save.version).toBe(SAVE_VERSION);
     const sim = Sim.load(save.world);
     expect(sim.barriers.span()).toEqual({ x0: 0, x1: sim.worldWidth });
     const dot = sim.entities.ofKind('bug').find((e) => e.defId === 'bug_ladybug_dot')!;

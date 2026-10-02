@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 vi.setConfig({ testTimeout: 240_000 });
 import { GROUND_Y, Sim } from '../../src/game';
 import type { GameEvents } from '../../src/game';
+import { CONTENT } from '../../src/game/data';
+import { createRegistry } from '../../src/game/data/registry';
 import { SETUP_SECONDS } from '../../src/game/systems/setup';
 import { PLAZA_X } from './world';
 
@@ -99,7 +101,15 @@ describe('the setup rule over 10 minutes (M4 acceptance)', () => {
   });
 
   it('a stack of three player-placed things stays standing for 10 minutes with four bugs about', () => {
-    const sim = Sim.create({ seed: 'tower' });
+    // No snacks dropping from the sky: one bouncing off the spring into the stack is not a bug's doing.
+    const content = {
+      ...CONTENT,
+      areas: createRegistry(
+        'area',
+        CONTENT.areas.all.map((a) => ({ ...a, respawn: [] })),
+      ),
+    };
+    const sim = Sim.create({ seed: 'tower', content });
     lookAtPlaza(sim);
     const caps = buildStack(sim, PLAZA_X + 6.3);
     const before = caps.map((c) => sim.view(c)!);

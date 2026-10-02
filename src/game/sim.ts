@@ -109,6 +109,8 @@ import type { ActiveEffect, SavedPart, ToyState } from './core/entities';
 const ROLLED_RESTITUTION = 0.6;
 /** How often consumables drop back in when an area runs low. */
 export const RESPAWN_TICKS = 45 * SIM_HZ;
+/** How far (m) a respawn drop keeps from the player's setups: a jelly bean falling from the sky can bounce 4 m. */
+export const RESPAWN_CLEAR = 6;
 /** Anything this far below the surface is pulled back up. */
 const BURIED_DEPTH = 0.25;
 const NO_TAGS: readonly string[] = [];
@@ -2097,9 +2099,10 @@ export class Sim {
           }).length;
         if (have >= entry.count) continue;
         let x = this.rng.range(area.xStart + 1, area.xEnd - 1);
-        // Never drop onto the player's things.
+        // Never drop onto the player's things, nor close enough to bounce into them from the sky.
         const setups = this.bugWorld().setups;
-        for (let tries = 0; tries < 8 && setups.some((b) => x > b.x0 - 3 && x < b.x1 + 3); tries++)
+        const clear = RESPAWN_CLEAR;
+        for (let tries = 0; tries < 8 && setups.some((b) => x > b.x0 - clear && x < b.x1 + clear); tries++)
           x = this.rng.range(area.xStart + 1, area.xEnd - 1);
         const entity = this.spawn('item', entry.item, x, -0.5);
         this.events.emit('item_respawned', { id: entity.id, defId: entity.defId, x, y: -0.5 });
