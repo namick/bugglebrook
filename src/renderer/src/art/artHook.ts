@@ -1,10 +1,14 @@
 import { CONTENT } from '../../../game/data';
 import type { Game } from '../app/game';
+import type { Container } from 'pixi.js';
+import { Sprite } from 'pixi.js';
 import { BugSprite } from '../render/draw/bug';
+import { ItemSprite } from '../render/draw/item';
 import type { LabLook } from './artLab';
 import type { ArtMode, ArtPack } from './artStore';
 import { artStore } from './artStore';
 import { FACE_KIT_ID } from './kit';
+import { posesFor } from './poses';
 import type { ArtMessage } from './rigFile';
 import type { SpriteShown } from './spriteBug';
 import { SpriteBugView } from './spriteBug';
@@ -48,6 +52,14 @@ export interface ArtHook {
   artScale(scale: 1 | 2 | null): void;
   /** Run the Art Lab `n` frames at 60 Hz right now. */
   artLabFrames(n: number): void;
+  /**
+   * The texture an entity shows for a drawn part (for an item, its hand-drawn
+   * art), as a texture ID, or null when it is drawn by code. Two things with
+   * the same ID share one drawing.
+   */
+  partTexture(id: number, part: string): number | null;
+  /** The pose IDs the Art Lab shows for its bug, in order (its `focus` indexes them). */
+  artLabPoses(): string[];
 }
 
 export function artHook(game: Game): ArtHook {
@@ -103,5 +115,19 @@ export function artHook(game: Game): ArtHook {
     artLabFrames: (n) => {
       for (let i = 0; i < n; i++) game.artLab?.update(1 / 60);
     },
+    partTexture: (id, part) => {
+      const sprite = game.session?.view.sprites.get(id);
+      if (sprite instanceof ItemSprite) return sprite.artTexture?.uid ?? null;
+      if (!(sprite instanceof SpriteBugView)) return null;
+      let found: number | null = null;
+      const walk = (c: Container): void => {
+        if (!c.visible || found !== null) return;
+        if (c instanceof Sprite && c.label === part) found = c.texture.uid;
+        c.children.forEach((ch) => walk(ch as Container));
+      };
+      walk(sprite);
+      return found;
+    },
+    artLabPoses: () => (game.artLab ? posesFor(game.artLab.def).map((p) => p.id) : []),
   };
 }

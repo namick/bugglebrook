@@ -1,7 +1,7 @@
 import { Container, Graphics } from 'pixi.js';
 import type { Sim } from '../../../game';
 import { POCKET_SLOTS } from '../../../game/systems/pocket';
-import { makeBugView } from '../art/bugViews';
+import { itemArt, makeBugView } from '../art/bugViews';
 import { BugSprite, standaloneFrame } from '../render/draw/bug';
 import { bugSpan } from '../render/draw/species';
 import { ItemSprite } from '../render/draw/item';
@@ -183,7 +183,10 @@ export class PocketTray extends Container {
           size = bugSpan(def);
         } else {
           const def = this.sim.content.items.get(slot.defId);
-          sprite = new ItemSprite(def, slot.ids[slot.ids.length - 1]!);
+          const item = new ItemSprite(def, slot.ids[slot.ids.length - 1]!);
+          const art = itemArt(def);
+          if (art) item.useArt(art);
+          sprite = item;
           const s = def.shape;
           size = (s.type === 'circle' ? s.radius * 2 : Math.max(s.width, s.height)) * 100;
         }

@@ -1,4 +1,5 @@
-import { Container, Graphics } from 'pixi.js';
+import type { Texture } from 'pixi.js';
+import { Container, Graphics, Sprite } from 'pixi.js';
 import { PIXELS_PER_METER } from '../../../../game/constants';
 import type { ItemDef } from '../../../../game/data/types';
 import { OUTLINE, RIM_STYLES, darken, lighten, mix, stroke } from '../palette';
@@ -26,6 +27,16 @@ const PAINT_COLORS: Readonly<Record<string, number>> = {
   paint_black: 0x2b2438,
 };
 
+/** A hand-drawn texture to show instead of the code-drawn item, with its pivot and scale. */
+export interface ItemArt {
+  texture: Texture;
+  anchor: { x: number; y: number };
+  /** Game pixels per texture pixel. */
+  k: number;
+  /** The white hover silhouette, if there is one. */
+  rim: { texture: Texture; anchor: { x: number; y: number } } | null;
+}
+
 /**
  * A physics prop drawn from its item definition. The root sits at the body
  * center and rotates with it; `art` is squashed and stretched by the view.
@@ -41,6 +52,11 @@ export class ItemSprite extends Container {
   private readonly g = new Graphics();
   /** A white rim light behind the art, shown on hover. */
   private readonly rim = new Graphics();
+  /** The heavier outline behind small things. */
+  private backing: Graphics | null = null;
+  /** Hand-drawn art shown instead of `g` (the twig, from Twig's stick), and its rim. */
+  private artSprite: Sprite | null = null;
+  private artRim: Sprite | null = null;
   /** Stink lines and a fly, while the thing is smelly. */
   private readonly fx = new Graphics();
   private stink = false;
@@ -183,6 +199,7 @@ export class ItemSprite extends Container {
     // along the silhouette behind the art, so they read like the bugs do.
     if (traced && def.mass !== undefined) {
       const backing = new Graphics();
+      this.backing = backing;
       this.outline(backing, w, h);
       backing.stroke(stroke(SMALL_OUTLINE));
       this.art.addChildAt(backing, this.art.getChildIndex(this.g));
@@ -280,8 +297,38 @@ export class ItemSprite extends Container {
 
   /** Show or hide the hover rim; `pulse` is its opacity (60 to 100 percent). */
   setRim(on: boolean, pulse = 1): void {
-    this.rim.visible = on;
-    this.rim.alpha = pulse;
+    const rim = this.artRim ?? this.rim;
+    rim.visible = on;
+    rim.alpha = pulse;
+  }
+
+  /**
+   * Draw this item from hand-drawn art instead of code: the twig item uses
+   * Twig's `stick`, so a disguised Twig and a real twig always match.
+   */
+  useArt(art: ItemArt): void {
+    this.g.visible = false;
+    this.rim.visible = false;
+    if (this.backing) this.backing.visible = false;
+    const s = new Sprite(art.texture);
+    s.anchor.set(art.anchor.x, art.anchor.y);
+    s.scale.set(art.k);
+    s.label = 'item art';
+    this.artSprite = s;
+    if (art.rim) {
+      const rim = new Sprite(art.rim.texture);
+      rim.anchor.set(art.rim.anchor.x, art.rim.anchor.y);
+      rim.scale.set(art.k);
+      rim.visible = false;
+      this.artRim = rim;
+      this.art.addChild(rim);
+    }
+    this.art.addChild(s);
+  }
+
+  /** The hand-drawn texture this item shows, or null when it is code-drawn (test hook). */
+  get artTexture(): Texture | null {
+    return this.artSprite?.texture ?? null;
   }
 
   private sugarCube(w: number, h: number, seed: number): void {

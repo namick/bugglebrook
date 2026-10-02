@@ -28,7 +28,7 @@ import { bugPose } from './bugPose';
 import type { Camera, Point } from './camera';
 import { BugSprite } from './draw/bug';
 import { artStore } from '../art/artStore';
-import { makeBugView } from '../art/bugViews';
+import { itemArt, makeBugView } from '../art/bugViews';
 import type { BugFrame } from './draw/bug';
 import type { Look } from './draw/face';
 import { ItemSprite } from './draw/item';
@@ -655,7 +655,8 @@ export class WorldView extends Container {
     if (this.artVersion !== artStore.version) {
       this.artVersion = artStore.version;
       for (const [id, sprite] of this.sprites) {
-        if (!(sprite instanceof BugSprite)) continue;
+        const drawnItem = sprite instanceof ItemSprite && sprite.def.art === 'twig';
+        if (!(sprite instanceof BugSprite) && !drawnItem) continue;
         sprite.destroy({ children: true });
         this.sprites.delete(id);
       }
@@ -1464,10 +1465,15 @@ export class WorldView extends Container {
   }
 
   private createSprite(view: EntityView): BugSprite | ItemSprite {
-    const sprite =
-      view.kind === 'bug'
-        ? makeBugView(this.sim.content.bugs.get(view.defId))
-        : new ItemSprite(this.sim.content.items.get(view.defId), view.id);
+    let sprite: BugSprite | ItemSprite;
+    if (view.kind === 'bug') sprite = makeBugView(this.sim.content.bugs.get(view.defId));
+    else {
+      const def = this.sim.content.items.get(view.defId);
+      const item = new ItemSprite(def, view.id);
+      const art = itemArt(def);
+      if (art) item.useArt(art);
+      sprite = item;
+    }
     // Keep draw order equal to ID order so hit testing (highest ID) matches.
     sprite.zIndex = view.id;
     this.entityLayer.addChild(sprite);
