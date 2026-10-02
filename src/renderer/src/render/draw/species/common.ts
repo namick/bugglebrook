@@ -5,6 +5,7 @@ import { OUTLINE, stroke } from '../../palette';
 import type { BugFrame } from '../bug';
 import type { Look } from '../face';
 import { drawEye } from '../face';
+import { walkJoints } from '../../rig/bugRig';
 
 export const TINTS = {
   green: { color: 0x8fd14f, alpha: 0.6 },
@@ -286,37 +287,14 @@ export interface WalkLegsOptions {
  */
 export function walkLegs(back: Graphics, front: Graphics, frame: BugFrame, o: WalkLegsOptions): void {
   const { r } = o;
-  const pose = frame.pose;
-  const reach = o.reach ?? 0.22;
-  const lift = o.lift ?? 0.14;
-  const n = o.hips.length;
-  for (const far of [true, false]) {
+  for (const j of walkJoints(frame.pose, o)) {
+    const { far } = j;
     const g = far ? back : front;
-    for (let i = 0; i < n; i++) {
-      const base = o.hips[i]!;
-      const hip: Pt = far ? [base[0] + o.farShift[0], base[1] + o.farShift[1]] : [base[0], base[1]];
-      const phase = (o.reverse ? -1 : 1) * pose.legPhase + i * 2.1 + (far ? Math.PI : 0);
-      let leg = o.custom?.(i, far, phase) ?? null;
-      if (!leg) {
-        let fx: number;
-        let fy: number;
-        if (pose.flail) {
-          fx = hip[0] + Math.sin(phase * 1.1) * r * 0.26;
-          fy = o.ground * 0.82 + Math.cos(phase) * r * 0.18;
-        } else {
-          fx = hip[0] + (i - (n - 1) / 2) * r * 0.08 + Math.sin(phase) * pose.stride * r * reach;
-          fy = o.ground - Math.max(0, Math.cos(phase)) * pose.stride * r * lift;
-        }
-        const out = i >= n / 2 ? 1 : -1;
-        const kx = (hip[0] + fx) / 2 + out * r * 0.14;
-        const ky = hip[1] + (fy - hip[1]) * 0.3 - r * 0.08;
-        leg = { hip, knee: [kx, ky], foot: [fx, fy] };
-      }
-      const color = far ? o.farColor : OUTLINE;
-      const alpha = far ? 0.85 : 1;
-      limb(g, leg.hip, leg.knee, leg.foot, far ? o.width * 0.85 : o.width, color, alpha);
-      if (o.footR > 0) g.circle(leg.foot[0] + r * 0.02, leg.foot[1] - 1, o.footR).fill({ color, alpha });
-    }
+    const leg = o.custom?.(j.i, far, j.phase) ?? { hip: j.hip, knee: j.knee, foot: j.foot };
+    const color = far ? o.farColor : OUTLINE;
+    const alpha = far ? 0.85 : 1;
+    limb(g, leg.hip, leg.knee, leg.foot, far ? o.width * 0.85 : o.width, color, alpha);
+    if (o.footR > 0) g.circle(leg.foot[0] + r * 0.02, leg.foot[1] - 1, o.footR).fill({ color, alpha });
   }
 }
 
