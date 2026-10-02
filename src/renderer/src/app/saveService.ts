@@ -1,5 +1,5 @@
-import { SAVE_VERSION, loadSaveFile } from '../../../game';
-import type { SaveFile, Sim, ViewSave } from '../../../game';
+import { PHOTO_KEEP, SAVE_VERSION, loadSaveFile } from '../../../game';
+import type { PhotoRecord, SaveFile, Sim, ViewSave } from '../../../game';
 import type { BugglebrookApi, SlotInfo } from '../../../shared/ipc';
 
 export interface SlotSummary extends SlotInfo {
@@ -72,7 +72,7 @@ export class SaveService {
     slot: number,
     sim: Sim,
     view: ViewSave,
-    meta: { createdAt?: string; thumb?: string | null } = {},
+    meta: { createdAt?: string; thumb?: string | null; photos?: readonly PhotoRecord[] } = {},
   ): Promise<SaveFile> {
     const savedAt = this.now().toISOString();
     const file: SaveFile = {
@@ -80,7 +80,12 @@ export class SaveService {
       savedAt,
       world: sim.serialize(),
       view,
-      meta: { createdAt: meta.createdAt ?? savedAt, thumb: meta.thumb ?? null },
+      meta: {
+        createdAt: meta.createdAt ?? savedAt,
+        thumb: meta.thumb ?? null,
+        // The last PHOTO_KEEP photos (game design doc, section 13), oldest first.
+        ...(meta.photos && meta.photos.length > 0 ? { photos: meta.photos.slice(-PHOTO_KEEP) } : {}),
+      },
     };
     await this.api.write(slot, JSON.stringify(file));
     return file;

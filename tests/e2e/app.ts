@@ -22,15 +22,26 @@ const root = resolve(import.meta.dirname, '../..');
  * Launch the built app (out/) in test mode with an isolated userData dir.
  * Pass an existing `userData` to relaunch into the same saves.
  */
-export async function launchApp(userData?: string): Promise<Launched> {
+export async function launchApp(
+  userData?: string,
+  options: { env?: Record<string, string> } = {},
+): Promise<Launched> {
   const dir = userData ?? mkdtempSync(join(tmpdir(), 'bugglebrook-e2e-'));
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
   // Some hosts (editors built on Electron) leak this; it turns Electron into plain Node.
   delete env.ELECTRON_RUN_AS_NODE;
+  // Photos go to a temp Pictures folder unless the test says where (never the real one).
+  const pictures = options.env?.BUGGLEBROOK_PICTURES ?? join(dir, 'Pictures', 'Bugglebrook');
   const app = await electron.launch({
     args: [...(process.env.BB_ELECTRON_ARGS?.split(' ').filter(Boolean) ?? []), root],
-    env: { ...env, BUGGLEBROOK_TEST: '1', BUGGLEBROOK_USER_DATA: dir },
+    env: {
+      ...env,
+      BUGGLEBROOK_TEST: '1',
+      BUGGLEBROOK_USER_DATA: dir,
+      BUGGLEBROOK_PICTURES: pictures,
+      ...options.env,
+    },
   });
   const page = await app.firstWindow();
   const errors: string[] = [];

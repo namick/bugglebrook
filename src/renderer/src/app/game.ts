@@ -1,6 +1,7 @@
 import type { Application, FederatedPointerEvent, FederatedWheelEvent } from 'pixi.js';
 import { Container, Graphics, Point, UPDATE_PRIORITY } from 'pixi.js';
 import { CONTENT, FixedStepper, Sim, VIEW_HEIGHT_PX, VIEW_WIDTH_M, VIEW_WIDTH_PX } from '../../../game';
+import type { PhotoRecord } from '../../../game';
 import type { BugglebrookApi } from '../../../shared/ipc';
 import type { Settings } from '../../../shared/settings';
 import type { AudioBackend } from '../audio/synth';
@@ -19,10 +20,13 @@ import type { CursorPose } from '../ui/cursor';
 import { HandCursor, cursorPose } from '../ui/cursor';
 import { MenuScene, homeButton, pauseButton } from '../ui/menu';
 import type { MenuSound } from '../ui/menu';
+import { AlbumButton, ALBUM_AT, cameraButton } from '../ui/photoButtons';
 import { PocketTray } from '../ui/pocketTray';
 import { SettingsPanel } from '../ui/settingsPanel';
 import { StampStrip } from '../ui/stampStrip';
 import { HintDirector } from './hintDirector';
+import { AlbumBoard } from '../photo/album';
+import { PhotoMode } from '../photo/photoMode';
 import { INTRO, Intro } from './intro';
 import { SaveService } from './saveService';
 import { SettingsService } from './settingsService';
@@ -53,7 +57,13 @@ interface WorldSession {
   ui: Container;
   pause: PictureButton;
   home: PictureButton;
+  /** The camera (photo mode) and the album, top right. They stay up while the rest of the UI hides. */
+  cameraButton: PictureButton;
+  album: AlbumButton;
+  topUi: Container;
   pocket: PocketTray;
+  /** The player's photos, oldest first (saved in `meta.photos`). */
+  photos: PhotoRecord[];
   /** Dark cover for the first scene's fade-in. */
   cover: Graphics;
   /** The camera x last sent to the sim as its focus. */
@@ -103,6 +113,10 @@ export class Game {
   session: WorldSession | null = null;
   /** The settings board, open over the world (pause) or the menu. */
   panel: SettingsPanel | null = null;
+  /** Photo mode, while the camera is out. */
+  photo: PhotoMode | null = null;
+  /** The photo album, while it is open over the world. */
+  album: AlbumBoard | null = null;
   readonly saves: SaveService;
   readonly settings: SettingsService;
   readonly sfx: Sfx;
@@ -172,7 +186,9 @@ export class Game {
       this.session?.hints.noteInput();
       // Escape opens pause as a convenience (the button is always on screen too).
       if (e.key === 'Escape') {
-        if (this.panel) this.closePanel();
+        if (this.photo) this.closePhoto();
+        else if (this.album) this.closeAlbum();
+        else if (this.panel) this.closePanel();
         else if (this.session) this.openPause();
       }
     });
@@ -201,7 +217,14 @@ export class Game {
 
   /** Is the sim stopped? Hidden window, open pause board, or frozen by a test. */
   get paused(): boolean {
-    return this.hidden || this.frozen || (this.panel !== null && this.session !== null);
+    return (
+      this.hidden || this.frozen || ((this.panel !== null || this.album !== null) && this.session !== null)
+    );
+  }
+
+  /** Something is open over the world that takes the pointer: the pause board, the album, or the camera. */
+  private get overlaid(): boolean {
+    return this.panel !== null || this.album !== null || this.photo !== null;
   }
 
   /** Hide the system cursor and draw the hand on top of everything instead. */
@@ -223,6 +246,12 @@ export class Game {
   /** The hand pose for the current pointer state. */
   cursorPoseNow(): CursorPose {
     const input = this.session?.input;
+    if (this.photo) {
+      const drag = this.photo.dragging;
+      if (drag === 'pan') return 'pan';
+      if (drag === 'sticker') return 'grab';
+      return this.overButton ? 'hover_poke' : 'open';
+    }
     return cursorPose({
       mode: input?.mode ?? 'none',
       holding: input?.holding ?? false,
@@ -271,7 +300,7 @@ export class Game {
       this.audio.resume();
       this.session?.hints.noteInput();
       const s = this.session;
-      if (s && !this.panel) {
+      if (s && !this.overlaid) {
         const view = { x: e.global.x, y: e.global.y };
         const slot = s.pocket.slotAt(view.x, view.y);
         if (slot !== null && s.sim.pocket.slots[slot]!.length > 0 && s.sim.physics.grabbed === null) {
@@ -289,7 +318,7 @@ export class Game {
       this.pointerMoveFrame = this.frameCount;
       this.cursor.visible = true;
       this.overButton = isUi(e.target) && e.target !== this.session?.pocket;
-      const input = this.panel ? undefined : this.session?.input;
+      const input = this.overlaid ? undefined : this.session?.input;
       if (input) {
         // Chromium merges fast moves into one event per frame. Replay the
         // merged ones so quick shakes and flicks keep every stroke.
@@ -307,11 +336,13 @@ export class Game {
     });
     const up = (e: FederatedPointerEvent): void => {
       const s = this.session;
-      if (s) {
+      if (s && !this.photo) {
         const slot = s.input.mode === 'hold' ? s.pocket.slotAt(e.global.x, e.global.y) : null;
         s.input.up(this.eventTime(e), { x: e.global.x, y: e.global.y });
         if (slot !== null) s.pocket.bump(slot);
       }
+      // A sticker let go over a button still lands (or goes back to the tray).
+      this.photo?.release({ x: e.global.x, y: e.global.y });
       this.refreshCursor();
     };
     stage.on('pointerup', up);
@@ -323,7 +354,7 @@ export class Game {
     });
     stage.on('wheel', (e: FederatedWheelEvent) => {
       this.session?.hints.noteInput();
-      if (!this.panel) this.session?.input.wheel(e.deltaX, e.deltaY);
+      if (!this.overlaid) this.session?.input.wheel(e.deltaX, e.deltaY);
     });
   }
 
@@ -439,7 +470,13 @@ export class Game {
       this.sfx.play('ui_pop');
       this.session?.camera.glideTo(START_CAMERA_X, 1);
     });
-    for (const b of [pause, home]) b.onHover = () => this.sfx.play('hover', 0.5);
+    const camButton = cameraButton(() => this.togglePhoto());
+    const album = new AlbumButton(() => {
+      this.sfx.play('ui_pop');
+      this.openAlbum();
+    });
+    album.visible = (save?.meta.photos?.length ?? 0) > 0;
+    for (const b of [pause, home, camButton, album]) b.onHover = () => this.sfx.play('hover', 0.5);
     const cover = new Graphics().rect(0, 0, VIEW_WIDTH_PX, VIEW_HEIGHT_PX).fill(0x2b1b2e);
     cover.eventMode = 'none';
     cover.alpha = intro ? 1 : 0;
@@ -452,6 +489,10 @@ export class Game {
     ui.addChild(pocket, pause, home, stamps);
     // The ghost hand goes over the UI, so it can reach into the pocket.
     root.addChild(view, marks, cover, ui, ghost);
+    ui.addChild(pocket, pause, home);
+    const topUi = new Container();
+    topUi.addChild(camButton, album);
+    root.addChild(view, cover, ui, topUi);
 
     this.menu?.destroy({ children: true });
     this.menu = null;
@@ -482,7 +523,11 @@ export class Game {
       ui,
       pause,
       home,
+      cameraButton: camButton,
+      album,
+      topUi,
       pocket,
+      photos: [...(save?.meta.photos ?? [])],
       cover,
       focusX: null,
       createdAt: save?.meta.createdAt,
@@ -536,6 +581,10 @@ export class Game {
 
   private closeWorld(): void {
     if (!this.session) return;
+    this.photo?.destroy({ children: true });
+    this.photo = null;
+    this.album?.destroy({ children: true });
+    this.album = null;
     this.sfx.detach();
     this.voices.detach();
     this.session.hints.dispose();
@@ -547,6 +596,8 @@ export class Game {
   /** Open the pause board: the world freezes and saves. */
   openPause(): void {
     if (!this.session || this.panel) return;
+    if (this.photo) this.closePhoto();
+    if (this.album) this.closeAlbum(true);
     this.openPanel(true);
     void this.saveNow();
   }
@@ -613,6 +664,95 @@ export class Game {
   }
 
   private closingPanels: SettingsPanel[] = [];
+  private closingPhotos: PhotoMode[] = [];
+  private closingAlbums: AlbumBoard[] = [];
+
+  /** The camera button: out, or away again. */
+  togglePhoto(): void {
+    if (this.photo) this.closePhoto();
+    else this.openPhoto();
+  }
+
+  /**
+   * Photo mode (game design doc, section 14): the camera comes out, bugs in
+   * frame react, then the world holds still (the sim does that itself on the
+   * `photo_mode` command). The world view moves inside the photo's scene so
+   * it can be zoomed, filtered, framed, and stuck with stickers.
+   */
+  openPhoto(): void {
+    const s = this.session;
+    if (!s || this.photo || this.switching) return;
+    this.closePanel(true);
+    this.closeAlbum(true);
+    s.input.leave();
+    s.camera.stopGlide();
+    s.camera.velocity = 0;
+    this.sfx.play('camera_open');
+    const photo = new PhotoMode(s.sim, s.camera, s.view, this.app.renderer, {
+      sound: (name, strength) => this.sfx.play(name, strength),
+      send: (command) => s.sim.send(command),
+      save: (png) => this.api.photos.save(png),
+      reduceMotion: () => this.settings.get().reduceMotion,
+      onPhoto: (record) => {
+        s.photos.push(record);
+        if (s.photos.length > 60) s.photos.shift();
+        void this.saveNow();
+      },
+      onLanded: () => {
+        s.album.visible = true;
+        s.album.bump();
+        this.sfx.play('pick', 0.7);
+      },
+      albumAt: () => ALBUM_AT,
+      now: () => new Date().toISOString(),
+    });
+    this.photo = photo;
+    s.root.addChildAt(photo, 1);
+    s.sim.send({ type: 'photo_mode', open: true });
+  }
+
+  /** Put the camera away: the world view comes back to the root and the world runs on. */
+  closePhoto(): void {
+    const photo = this.photo;
+    const s = this.session;
+    if (!photo || !s) return;
+    this.photo = null;
+    this.sfx.play('camera_close');
+    s.sim.send({ type: 'photo_mode', open: false });
+    s.root.addChildAt(s.view, 0);
+    photo.close();
+    photo.onClosed = () => photo.destroy({ children: true });
+    this.closingPhotos.push(photo);
+    void this.saveNow();
+  }
+
+  /** The album (the journal's photos page, for now): the world pauses under it. */
+  openAlbum(): void {
+    const s = this.session;
+    if (!s || this.album || this.photo || this.panel) return;
+    const album = new AlbumBoard(s.photos, {
+      close: () => this.closeAlbum(),
+      sound: (name) => this.sfx.play(name),
+    });
+    this.album = album;
+    this.stepper.reset();
+    this.app.stage.addChild(album);
+    this.raiseOverlays();
+  }
+
+  closeAlbum(now = false): void {
+    const album = this.album;
+    if (!album) return;
+    this.album = null;
+    this.stepper.reset();
+    if (now) {
+      album.destroy({ children: true });
+      return;
+    }
+    album.onClosed = () => album.destroy({ children: true });
+    album.close();
+    this.closingAlbums.push(album);
+  }
 
   /** Save the current world, with a fresh picture for its sign. Saves never interleave. */
   saveNow(): Promise<void> {
@@ -627,7 +767,7 @@ export class Game {
           session.slot,
           session.sim,
           { cameraX: session.camera.x },
-          { createdAt: session.createdAt, thumb },
+          { createdAt: session.createdAt, thumb, photos: session.photos },
         );
         session.createdAt = file.meta.createdAt;
       })
@@ -742,7 +882,18 @@ export class Game {
     this.frameCount++;
     if (this.menu && !this.menuFrozen) this.menu.update(dt);
     if (this.panel) this.panel.update(dt);
+    if (this.album) this.album.update(dt);
     this.closingPanels = this.closingPanels.filter((p) => {
+      if (p.destroyed) return false;
+      p.update(dt);
+      return !p.destroyed;
+    });
+    this.closingAlbums = this.closingAlbums.filter((a) => {
+      if (a.destroyed) return false;
+      a.update(dt);
+      return !a.destroyed;
+    });
+    this.closingPhotos = this.closingPhotos.filter((p) => {
       if (p.destroyed) return false;
       p.update(dt);
       return !p.destroyed;
@@ -769,11 +920,17 @@ export class Game {
       s.camera.glideTo(s.follow, 1.6);
       s.follow = null;
     }
-    s.camera.holding = s.input.mode === 'pan' || s.input.mode === 'hold';
+    if (!this.photo) s.camera.holding = s.input.mode === 'pan' || s.input.mode === 'hold';
     s.camera.update(dt);
     this.sendFocus(s);
     this.sendHand(s);
-    s.view.update(dt, s.camera);
+    // In photo mode the world holds still once the camera moment is over: no animation runs either.
+    const held = this.photo !== null && (s.sim.photo?.frozen ?? false);
+    s.view.update(held ? 0 : dt, s.camera);
+    if (this.photo) this.photo.update(dt);
+    const hideUi = this.photo !== null || this.closingPhotos.length > 0;
+    s.ui.visible = !hideUi;
+    s.album.visible = s.photos.length > 0 || this.album !== null;
     // Home shows only away from the plaza.
     const area = s.sim.areaOf(s.camera.centerX).id;
     s.home.visible = area !== PLAZA.id;
@@ -794,7 +951,7 @@ export class Game {
     const ghost = s.hints.update({
       dt,
       wallDt: Math.min(2, this.app.ticker.deltaMS / 1000),
-      blocked: this.paused || this.switching || s.intro !== null,
+      blocked: this.paused || this.switching || this.overlaid || s.intro !== null,
       pointer: this.pointer,
       reduced,
     });
@@ -802,11 +959,13 @@ export class Game {
     s.hintTime += dt;
     s.marks.update(s.camera.x, s.hintTime, s.hints.spots, s.hints.affordance, reduced);
     const tab = s.hints.affordance;
-    s.pocket.update(dt, this.panel ? null : s.sim.physics.grabbed, this.panel ? null : this.pointer, {
+    s.pocket.update(dt, this.overlaid ? null : s.sim.physics.grabbed, this.overlaid ? null : this.pointer, {
       demo: ghost?.tray ?? false,
       glint: tab.glint('pocket'),
       wobble: tab.wobble('pocket') * (reduced ? 0.4 : 1),
     });
-    s.stamps.update(dt, this.panel ? null : this.pointer, Math.min(2, this.app.ticker.deltaMS / 1000));
+    s.stamps.update(dt, this.overlaid ? null : this.pointer, Math.min(2, this.app.ticker.deltaMS / 1000));
+    s.cameraButton.update(dt);
+    s.album.update(dt);
   }
 }

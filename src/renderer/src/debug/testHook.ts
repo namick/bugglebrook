@@ -6,7 +6,10 @@ import type { SlotInfo } from '../../../shared/ipc';
 import type { Settings } from '../../../shared/settings';
 import type { Game, SceneName } from '../app/game';
 import type { DemoKind } from '../app/ghost';
+import type { PhotoRecord } from '../../../game';
 import type { Point } from '../render/camera';
+import type { StickerPlacement } from '../photo/photoMath';
+import { stickerHandle } from '../photo/photoMath';
 import { LEVER_LENGTH, LEVER_PIVOT, LEVER_REST } from '../render/areaArt/benchLive';
 import type { CritterInfo } from '../render/areaArt/critterLive';
 import type { BubbleInfo } from '../render/bubbles';
@@ -14,9 +17,60 @@ import { BugSprite } from '../render/draw/bug';
 import type { CursorPose } from '../ui/cursor';
 import type { ToggleKey, VolumeKey } from '../ui/settingsPanel';
 
-/** Named UI controls the tests can find: buttons, sliders' tracks, toggles, the bin. */
+/**
+ * Named UI controls the tests can find: buttons, sliders' tracks, toggles,
+ * the bin, and photo mode's camera, shutter, album, tray arrows, frame
+ * thumbnails (`frame_leaf`), filter tokens (`filter_warm`), and tray
+ * stickers (`sticker_crown`, on the tray's current page).
+ */
 export type UiName =
-  'pause' | 'home' | 'resume' | 'to_menu' | 'gear' | 'door' | 'bin' | 'stamps' | `toggle_${ToggleKey}`;
+  | 'pause'
+  | 'home'
+  | 'resume'
+  | 'to_menu'
+  | 'gear'
+  | 'door'
+  | 'bin'
+  | 'stamps'
+  | `toggle_${ToggleKey}`
+  | 'camera'
+  | 'shutter'
+  | 'album'
+  | 'album_prev'
+  | 'album_next'
+  | 'tray_prev'
+  | 'tray_next'
+  | `frame_${string}`
+  | `filter_${string}`
+  | `sticker_${string}`;
+
+/** Photo mode as the tests see it. */
+export interface PhotoInfo {
+  /** The camera is out. */
+  open: boolean;
+  /** The sim says the world holds still. */
+  frozen: boolean;
+  zoom: number;
+  cx: number;
+  cy: number;
+  frame: string;
+  filter: string;
+  stickers: StickerPlacement[];
+  selected: number;
+  trayPage: number;
+  trayPages: number;
+  /** How bright the flash got for the last photo (0 with reduce motion's fade). */
+  flashPeak: number;
+  /** Photos taken this visit. */
+  taken: number;
+  /** The newest photo's record, if any (its `file` fills in when the write finishes). */
+  last: PhotoRecord | null;
+  /** Photos kept in the session (what the save gets). */
+  photos: number;
+  albumOpen: boolean;
+  /** Bugs in the frame right now, nearest the middle first. */
+  bugs: string[];
+}
 
 /**
  * Test-only API on window.__bb. Installed only when the app is launched with
@@ -205,6 +259,14 @@ export interface TestHook {
   debugEntity(id: number, fields: { bites?: number; paint?: string[] }): void;
   /** Rain drops, leaves, and light sprites being drawn now (particle budgets). */
   weatherStats(): { drops: number; leaves: number; lights: number };
+  /** M11: photo mode's state. `open` false means the camera is away. */
+  photo(): PhotoInfo;
+  /** Where a placed sticker's middle is, in client pixels, or null. */
+  stickerClient(i: number): Point | null;
+  /** Where a placed sticker's corner handle is, in client pixels, or null. */
+  stickerHandleClient(i: number): Point | null;
+  /** Staging: stick a sticker on at view pixels (x, y). Returns its index, or -1. */
+  placeSticker(id: string, x: number, y: number, scale?: number, rotation?: number): number;
   /**
    * Screenshots only: patch a bug's brain and paint directly, to stage a look
    * the AI would take a long time to reach. `null` clears a field;
@@ -280,19 +342,41 @@ export function installTestHook(game: Game): void {
     const k = rect.width / VIEW_WIDTH_PX;
     return { x: rect.left + p.x * k, y: rect.top + p.y * k };
   };
+  const shown = (c: Container): boolean => {
+    for (let t: Container | null = c; t; t = t.parent) if (!t.visible) return false;
+    return true;
+  };
   const centerOf = (c: Container | undefined | null): Point | null => {
-    if (!c || c.destroyed || !c.visible || !c.parent) return null;
+    if (!c || c.destroyed || !c.parent || !shown(c)) return null;
     const g = c.getGlobalPosition();
     return logicalToClient({ x: g.x, y: g.y });
   };
   const uiControl = (name: UiName): Container | null => {
     const s = game.session;
     const panel = game.panel;
+    const photo = game.photo;
+    if (name.startsWith('frame_')) return photo?.frameButtons.get(name) ?? null;
+    if (name.startsWith('filter_')) return photo?.filterButtons.get(name) ?? null;
+    if (name.startsWith('sticker_')) return photo?.trayButtons.get(name) ?? null;
     switch (name) {
       case 'pause':
         return s?.pause ?? null;
       case 'home':
         return s?.home ?? null;
+      case 'camera':
+        return s?.cameraButton ?? null;
+      case 'album':
+        return s?.album ?? null;
+      case 'album_prev':
+        return game.album?.prev ?? null;
+      case 'album_next':
+        return game.album?.next ?? null;
+      case 'shutter':
+        return photo?.shutter ?? null;
+      case 'tray_prev':
+        return photo?.trayPrev ?? null;
+      case 'tray_next':
+        return photo?.trayNext ?? null;
       case 'resume':
         return panel?.buttons.get('resume') ?? null;
       case 'to_menu':
@@ -336,6 +420,38 @@ export function installTestHook(game: Game): void {
     slotButtonClient: (slot) => centerOf(game.menu?.sign(slot)),
     homeButtonClient: () => centerOf(game.session?.home),
     uiClient: (name) => centerOf(uiControl(name)),
+    photo: () => {
+      const p = game.photo;
+      const s = game.session;
+      return {
+        open: p !== null,
+        frozen: s?.sim.photo?.frozen ?? false,
+        zoom: p?.view.zoom ?? 1,
+        cx: p?.view.cx ?? VIEW_WIDTH_PX / 2,
+        cy: p?.view.cy ?? 540,
+        frame: p?.frame.id ?? 'frame_none',
+        filter: p?.filter.id ?? 'filter_none',
+        stickers: p ? p.stickers.map((st) => ({ ...st })) : [],
+        selected: p?.selected ?? -1,
+        trayPage: p?.trayPage ?? 0,
+        trayPages: p?.trayPages ?? 0,
+        flashPeak: p?.flashPeak ?? 0,
+        taken: p?.taken ?? 0,
+        last: p?.last ? { ...p.last } : (s?.photos.at(-1) ?? null),
+        photos: s?.photos.length ?? 0,
+        albumOpen: game.album !== null,
+        bugs: p?.bugsInFrame() ?? [],
+      };
+    },
+    stickerClient: (i) => {
+      const st = game.photo?.stickers[i];
+      return st ? logicalToClient({ x: st.x, y: st.y }) : null;
+    },
+    stickerHandleClient: (i) => {
+      const st = game.photo?.stickers[i];
+      return st ? logicalToClient(stickerHandle(st)) : null;
+    },
+    placeSticker: (id, x, y, scale, rotation) => game.photo?.place(id, x, y, scale, rotation) ?? -1,
     sliderClient: (key, value) => {
       const slider = game.panel?.sliders.get(key);
       if (!slider) return null;

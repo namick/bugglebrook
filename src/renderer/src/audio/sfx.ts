@@ -99,6 +99,12 @@ export type SfxName =
   | 'hum'
   | 'web'
   | 'jar'
+  // M11, photo mode: the camera coming out and going away, the shutter, stickers.
+  | 'camera_open'
+  | 'camera_close'
+  | 'shutter'
+  | 'sticker_peel'
+  | 'sticker_stick'
   | 'snap'
   | 'claw'
   | 'domino'
@@ -1196,6 +1202,49 @@ export class Sfx {
           return [
             { freq: 2093 * j, dur: 0.25, wave: 'sine', gain: 0.08 },
             { freq: 3136 * j, dur: 0.18, wave: 'sine', gain: 0.04 },
+          ];
+        case 'camera_open':
+          // A lens whirring out, then a bright ready blip.
+          return [
+            { freq: 180 * j, to: 420 * j, dur: 0.28, wave: 'noise', q: 6, gain: 0.14 },
+            { freq: 1320 * j, to: 1760 * j, dur: 0.08, wave: 'sine', gain: 0.18, delay: 0.26 },
+          ];
+        case 'camera_close':
+          return [
+            { freq: 420 * j, to: 160 * j, dur: 0.26, wave: 'noise', q: 6, gain: 0.12 },
+            { freq: 880 * j, to: 660 * j, dur: 0.08, wave: 'sine', gain: 0.14, delay: 0.2 },
+          ];
+        case 'shutter':
+          // Click-clack: a sharp tick, the shutter's clap, and the film motor.
+          return [
+            { freq: 4200 * j, to: 2600 * j, dur: 0.02, wave: 'square', gain: 0.16 },
+            { freq: 1800 * j, to: 500 * j, dur: 0.06, wave: 'noise', q: 1.2, gain: 0.4, delay: 0.015 },
+            { freq: 2600 * j, to: 1400 * j, dur: 0.03, wave: 'square', gain: 0.12, delay: 0.07 },
+            {
+              freq: 240 * j,
+              to: 300 * j,
+              dur: 0.35,
+              wave: 'noise',
+              q: 8,
+              gain: 0.07,
+              delay: 0.14,
+              attack: 0.05,
+            },
+          ];
+        case 'sticker_peel':
+          return [{ freq: 600 * j, to: 2400 * j, dur: 0.12, wave: 'noise', q: 2.5, gain: 0.2 * intensity }];
+        case 'sticker_stick':
+          return [
+            { freq: 700 * j, to: 1100 * j, dur: 0.05, wave: 'sine', gain: 0.3 * intensity },
+            {
+              freq: 2200 * j,
+              to: 900 * j,
+              dur: 0.04,
+              wave: 'noise',
+              q: 2,
+              gain: 0.18 * intensity,
+              delay: 0.02,
+            },
           ];
         case 'snap':
           return [
