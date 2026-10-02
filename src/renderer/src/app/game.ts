@@ -41,6 +41,9 @@ import { withSeen } from '../journal/layout';
 import { PhotoMode } from '../photo/photoMode';
 import { INTRO, Intro } from './intro';
 import { SaveService } from './saveService';
+import { SaveTrouble } from './saveTrouble';
+import { saveCloudIcon } from '../ui/saveIcons';
+import { token } from '../ui/icons';
 import { SettingsService } from './settingsService';
 import { captureThumb } from './thumbnail';
 
@@ -165,6 +168,11 @@ export class Game {
   introEnabled: boolean;
   /** Slot loads that fell back to the backup, for the test hook. */
   readonly recoveries: number[] = [];
+  /** Failed saves: the cloud badge by the pause button, and the retries (P-02). */
+  readonly saveTrouble = new SaveTrouble();
+  /** The cloud badge, while a world is open. */
+  saveCloud: Container | null = null;
+  private cloudTime = 0;
   /** Where the pointer is in logical pixels, or null when it left the window. */
   private pointer: { x: number; y: number } | null = null;
   private overButton = false;
@@ -203,6 +211,7 @@ export class Game {
     musicSink: MusicSink = new NullMusicSink(),
   ) {
     this.saves = new SaveService(api.saves);
+    this.saves.onProblem = (text) => api.logError(`Save: ${text}`);
     this.settings = new SettingsService(api.settings);
     this.sfx = new Sfx(audio);
     this.music = new MusicDirector(audio, musicSink);
@@ -211,7 +220,8 @@ export class Game {
     this.settings.onChange((s) => this.applySettings(s));
     this.wireInput();
     this.wireCursor();
-    api.onFlushRequest(() => this.saveNow().then(() => this.settings.flush()));
+    // Closing: save at once with the last picture. Capturing a new one can take seconds on a slow GPU.
+    api.onFlushRequest(() => this.saveNow({ thumb: false }).then(() => this.settings.flush()));
     api.updates.onReady((version) => this.showUpdateReady(version));
     document.addEventListener('visibilitychange', () => this.setHidden(document.hidden));
     window.addEventListener('keydown', (e) => {
@@ -591,7 +601,16 @@ export class Game {
     };
     const marks = new HintMarks();
     const ghost = new GhostHand((defId) => sim.content.items.tryGet(defId));
-    ui.addChild(pocket, pause, home, guideSkip);
+    const saveCloud = new Container();
+    // A badge, not weather: a rosy token with a red ring around the rain cloud, so it reads as "something's wrong".
+    const badge = token(new Graphics(), 46, 0xffe3de);
+    badge.circle(0, 0, 38).stroke({ width: 5, color: 0xe5484d });
+    saveCloud.addChild(badge, saveCloudIcon(new Graphics(), 64));
+    saveCloud.position.set(196, 80);
+    saveCloud.eventMode = 'none';
+    saveCloud.visible = this.saveTrouble.troubled;
+    this.saveCloud = saveCloud;
+    ui.addChild(pocket, pause, home, guideSkip, saveCloud);
     const topUi = new Container();
     topUi.addChild(camButton, journal);
     // The hint marks sit on the world; the ghost hand goes over the UI, so it can reach into the pocket.
@@ -698,6 +717,7 @@ export class Game {
 
   private closeWorld(): void {
     if (!this.session) return;
+    this.saveCloud = null;
     this.photo?.destroy({ children: true });
     this.photo = null;
     this.journal?.destroy({ children: true });
@@ -933,14 +953,20 @@ export class Game {
     s.camera.glideTo((area.xStart + area.xEnd) / 2 - VIEW_WIDTH_M / 2, 1.2);
   }
 
-  /** Save the current world, with a fresh picture for its sign. Saves never interleave. */
-  saveNow(): Promise<void> {
+  /**
+   * Save the current world, with a fresh picture for its sign (or the last
+   * one, with `thumb: false`, when closing). Saves never interleave. A save
+   * that fails puts up the cloud badge, goes in the log, and is tried again
+   * after a growing wait (`SaveTrouble`); the cloud goes when a save works.
+   */
+  saveNow(options: { thumb?: boolean } = {}): Promise<void> {
     const session = this.session;
     if (!session) return this.saving;
     this.sinceSave = 0;
     this.saving = this.saving
       .then(async () => {
-        const thumb = (await captureThumb(this.app.renderer, session.view)) ?? session.thumb;
+        const fresh = options.thumb === false ? null : await captureThumb(this.app.renderer, session.view);
+        const thumb = fresh ?? session.thumb;
         session.thumb = thumb;
         const file = await this.saves.save(
           session.slot,
@@ -951,8 +977,18 @@ export class Game {
         session.createdAt = file.meta.createdAt;
       })
       .then(
-        () => undefined,
-        (err: unknown) => console.error('Autosave failed', err),
+        () => {
+          if (this.saveTrouble.succeeded()) this.api.logError('Save: saving works again');
+        },
+        (err: unknown) => {
+          const reason = err instanceof Error ? err.message : String(err);
+          const wait = this.saveTrouble.failed(reason);
+          const n = this.saveTrouble.state().failures;
+          console.warn('Autosave failed', err);
+          this.api.logError(
+            `Save: autosave of slot ${session.slot} failed (${n} in a row): ${reason}; trying again in ${wait} s`,
+          );
+        },
       );
     return this.saving;
   }
@@ -1144,7 +1180,15 @@ export class Game {
           void this.saveNow();
         }
       }
-      if (this.sinceSave >= AUTOSAVE_SECONDS) void this.saveNow();
+      // While saves fail, the retry clock replaces the autosave's.
+      if (this.saveTrouble.troubled) {
+        if (this.saveTrouble.tick(dt)) void this.saveNow();
+      } else if (this.sinceSave >= AUTOSAVE_SECONDS) void this.saveNow();
+    }
+    if (this.saveCloud) {
+      this.saveCloud.visible = this.saveTrouble.troubled;
+      this.cloudTime += dt;
+      this.saveCloud.y = 80 + Math.sin(this.cloudTime * 1.6) * 4;
     }
     s.pause.update(dt);
     s.home.update(dt);

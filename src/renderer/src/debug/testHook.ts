@@ -155,13 +155,33 @@ export interface TestHook extends ArtHook {
   /** Every menu sign has popped up and stands at its spot. */
   menuSettled(): boolean;
   /** A menu sign's state, for tests that drag it. */
-  sign(slot: number): { x: number; y: number; pressed: boolean; dragging: boolean; picture: boolean } | null;
+  sign(slot: number): {
+    x: number;
+    y: number;
+    pressed: boolean;
+    dragging: boolean;
+    picture: boolean;
+    /** Why the slot will not open (a padlock), or null. */
+    locked: string | null;
+    /** Times a click on it was refused (the padlock shake). */
+    refusals: number;
+  } | null;
   /** Is reduce motion on in the world view? */
   reduceMotion(): boolean;
   /** Does each menu sign show a world picture (true), a saved world without one (false), or a sprout (null)? */
   slotPictures(): (boolean | null)[];
   /** Why recent slot loads failed. */
   saveProblems(): string[];
+  /** Which menu signs show a padlock, and why (`newer` or `broken`); null for a slot that opens. */
+  slotLocks(): (string | null)[];
+  /** P-02: the cloud badge for failed saves (shown, failures in a row, seconds to the next try, the reason). */
+  saveTrouble(): {
+    shown: boolean;
+    visible: boolean;
+    failures: number;
+    retryIn: number | null;
+    reason: string | null;
+  };
   /** Slots whose save would not load and came back from the backup. */
   recoveries(): number[];
   /** Play the first scene in new worlds (off by default in tests). */
@@ -786,12 +806,25 @@ export function installTestHook(game: Game, boundary?: ErrorBoundary): void {
     sign: (slot) => {
       const s = game.menu?.sign(slot);
       return s
-        ? { x: s.x, y: s.y, pressed: s.pressed, dragging: s.dragging, picture: s.picture !== null }
+        ? {
+            x: s.x,
+            y: s.y,
+            pressed: s.pressed,
+            dragging: s.dragging,
+            picture: s.picture !== null,
+            locked: s.locked,
+            refusals: s.refusals,
+          }
         : null;
     },
     slotPictures: () => game.menu?.signs.map((s) => (s.picture ? s.picture.thumb !== null : null)) ?? [],
     recoveries: () => [...game.recoveries],
     saveProblems: () => [...game.saves.problems],
+    slotLocks: () => game.menu?.signs.map((s) => s.locked) ?? [],
+    saveTrouble: () => ({
+      ...game.saveTrouble.state(),
+      visible: game.saveCloud?.visible === true && game.saveCloud.parent !== null,
+    }),
     enableIntro: (on) => {
       game.introEnabled = on;
     },
