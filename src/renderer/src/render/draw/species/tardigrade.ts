@@ -4,8 +4,11 @@ import type { BugFrame } from '../bug';
 import { drawMouth } from '../face';
 import { BasePainter } from './base';
 import type { Adjust, AntennaSpring, Box, Pt } from './common';
-import { NO_ADJUST, RIM, eyePair, tintHead } from './common';
-import { walkJoints } from '../../rig/bugRig';
+import { NO_ADJUST, RIM, eyePair, limbItem, tintHead, walkPoses } from './common';
+import type { LegPose } from './common';
+import type { EyeSpot } from '../../rig/bugRig';
+import type { Skeleton, SkeletonFace, SkeletonItem } from '../../rig/skeleton';
+import { pt, rest } from '../../rig/skeleton';
 
 /**
  * Wubbo the water bear (game design doc, section 4): a chubby, squishy,
@@ -26,12 +29,9 @@ export class TardigradePainter extends BasePainter {
       .closePath();
   }
 
-  private head: [number, number, number] = [0, 0, 0];
-
   drawStatic(_frame: BugFrame): void {
     const { r, def } = this;
     const b = this.L.body;
-    this.head = [r * 0.62, -r * 0.08, r * 0.42];
     // The translucent body: a soft glow inside, then the shell.
     this.bean(b).fill({ color: def.body, alpha: 0.92 }).stroke(stroke());
     b.ellipse(-r * 0.15, -r * 0.1, r * 0.82, r * 0.46).fill({ color: lighten(def.body, 0.45), alpha: 0.55 });
@@ -74,25 +74,50 @@ export class TardigradePainter extends BasePainter {
     return { x: this.r * 0.3, y: -this.r * 1.0 };
   }
 
-  update(frame: BugFrame, _springs: readonly AntennaSpring[]): Adjust {
-    const { r, def } = this;
-    const [hx, hy, hr] = this.head;
-    // Four stubby legs a side, each with tiny claws.
+  /** Four stubby legs a side. */
+  private legs(frame: BugFrame): { far: boolean; leg: LegPose }[] {
+    const { r } = this;
     const hips: Pt[] = [
       [-r * 0.95, r * 0.48],
       [-r * 0.45, r * 0.56],
       [r * 0.05, r * 0.56],
       [r * 0.5, r * 0.5],
     ];
+    return walkPoses(frame, { r, hips, farShift: [r * 0.14, -r * 0.05], ground: r * 0.98 });
+  }
+
+  private headAt(): [number, number, number] {
+    const { r } = this;
+    return [r * 0.62, -r * 0.08, r * 0.42];
+  }
+
+  /** Beady eyes, rosy cheeks, and a mouth that is nearly always laughing. */
+  private faceSpots(frame: BugFrame): SkeletonFace {
+    const { def } = this;
+    const [hx, hy, hr] = this.headAt();
+    const f = frame.face;
+    const lid = lighten(def.body, 0.2);
+    const eye = (x: number, y: number, er: number, far: boolean) =>
+      ({ x, y, r: er, shape: f.eyes, lid, line: 3, far }) as const;
+    return {
+      tint: f.tint ? { x: hx, y: hy, rx: hr, ry: hr, circle: true } : null,
+      eyes: [
+        eye(hx - hr * 0.2, hy - hr * 0.35, hr * 0.2, true),
+        eye(hx + hr * 0.35, hy - hr * 0.3, hr * 0.24, false),
+      ],
+      polite: false,
+      cheek: { x: hx + hr * 0.15, y: hy + hr * 0.3, r: hr * 0.2, alpha: f.blush ? 0.95 : 0.7 },
+      mouth: { x: hx + hr * 0.55, y: hy + hr * 0.38, s: hr * 0.5, shape: f.mouth, color: OUTLINE, line: 3 },
+    };
+  }
+
+  update(frame: BugFrame, _springs: readonly AntennaSpring[]): Adjust {
+    const { r, def } = this;
+    const [hx, hy, hr] = this.headAt();
     // Stubby, squishy legs: fat peach stumps from hip to foot, with tiny claws.
-    for (const leg of walkJoints(frame.pose, {
-      r,
-      hips,
-      farShift: [r * 0.14, -r * 0.05],
-      ground: r * 0.98,
-    })) {
-      const g = leg.far ? this.L.legsBack : this.L.legsFront;
-      const color = leg.far ? darken(def.body, 0.15) : def.body;
+    for (const { far, leg } of this.legs(frame)) {
+      const g = far ? this.L.legsBack : this.L.legsFront;
+      const color = far ? darken(def.body, 0.15) : def.body;
       const [hx0, hy0] = leg.hip;
       const [fx, fy] = leg.foot;
       g.moveTo(hx0, hy0)
@@ -106,15 +131,32 @@ export class TardigradePainter extends BasePainter {
           .lineTo(fx + r * dx + r * 0.04, fy + r * 0.15)
           .stroke({ width: 2, color: OUTLINE, cap: 'round' });
     }
-    // Face: beady eyes, rosy cheeks, and a mouth that is nearly always laughing.
     const g = this.L.face;
     const f = frame.face;
     tintHead(g, f.tint, hx, hy, hr);
-    const far: [number, number, number] = [hx - hr * 0.2, hy - hr * 0.35, hr * 0.2];
-    const near: [number, number, number] = [hx + hr * 0.35, hy - hr * 0.3, hr * 0.24];
-    eyePair(g, frame, far, near, lighten(def.body, 0.2), 3);
-    g.circle(hx + hr * 0.15, hy + hr * 0.3, hr * 0.2).fill({ color: CHEEK, alpha: f.blush ? 0.95 : 0.7 });
-    drawMouth(g, hx + hr * 0.55, hy + hr * 0.38, hr * 0.5, f.mouth, frame.time, OUTLINE, 3);
+    const spot = this.faceSpots(frame);
+    const [fe, ne] = spot.eyes as [EyeSpot, EyeSpot];
+    eyePair(g, frame, [fe.x, fe.y, fe.r], [ne.x, ne.y, ne.r], ne.lid, 3);
+    const c = spot.cheek!;
+    g.circle(c.x, c.y, c.r).fill({ color: CHEEK, alpha: c.alpha });
+    const m = spot.mouth!;
+    drawMouth(g, m.x, m.y, m.s, f.mouth, frame.time, OUTLINE, 3);
     return NO_ADJUST;
+  }
+
+  skeleton(frame: BugFrame, _springs: readonly AntennaSpring[]): Skeleton {
+    const rig = this.bones;
+    const items: SkeletonItem[] = [rest(rig, 'body', 'body'), rest(rig, 'snout', 'body')];
+    for (const { far, leg } of this.legs(frame)) items.push(limbItem('leg_upper', 'leg_lower', leg, far));
+    return {
+      items,
+      face: this.faceSpots(frame),
+      headPart: 'body',
+      ball: null,
+      paint: [{ mask: 0, box: this.paintBox(), colors: null }],
+      extras: [],
+      adjust: NO_ADJUST,
+      crown: pt([this.crown().x, this.crown().y]),
+    };
   }
 }
