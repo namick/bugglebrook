@@ -5,7 +5,8 @@ import { WebAudioMusicSink, fetchBytes } from '../audio/musicPlayer';
 import type { NoteLog } from '../audio/musicToys';
 import { SEQ_COLS, SEQ_ROWS, cellCenter } from '../../../game/systems/sequencer';
 import { PIXELS_PER_METER as PPM, VIEW_WIDTH_PX } from '../../../game/constants';
-import type { Command, EntityView } from '../../../game';
+import type { Command, EntityView, PageId } from '../../../game';
+import { NOTICES } from '../../../game';
 import type { ReactionType } from '../../../game/events';
 import type { SlotInfo } from '../../../shared/ipc';
 import type { Settings } from '../../../shared/settings';
@@ -23,13 +24,19 @@ import type { CritterInfo } from '../render/areaArt/critterLive';
 import type { BubbleInfo } from '../render/bubbles';
 import { BugSprite } from '../render/draw/bug';
 import type { CursorPose } from '../ui/cursor';
+import { withSeen } from '../journal/layout';
+import { DAY, HOUR } from '../../../game/systems/sky';
 import type { ToggleKey, VolumeKey } from '../ui/settingsPanel';
 
 /**
  * Named UI controls the tests can find: buttons, sliders' tracks, toggles,
- * the bin, and photo mode's camera, shutter, album, tray arrows, frame
- * thumbnails (`frame_leaf`), filter tokens (`filter_warm`), and tray
- * stickers (`sticker_crown`, on the tray's current page).
+ * the bin, photo mode's camera, shutter, tray arrows, frame thumbnails
+ * (`frame_leaf`), filter tokens (`filter_warm`), and tray stickers
+ * (`sticker_crown`, on the tray's current page), and the journal: its
+ * button (`journal`, also `stamps`), and while it is open its tabs
+ * (`journal_tab_page_bugs`), close, page corners, and named things on the
+ * open spread (`journal_entry_<key>`, `journal_area_<id>`,
+ * `journal_contents_<page>`, `journal_photo_<i>`).
  */
 export type UiName =
   | 'pause'
@@ -46,9 +53,16 @@ export type UiName =
   | `toggle_${ToggleKey}`
   | 'camera'
   | 'shutter'
-  | 'album'
-  | 'album_prev'
-  | 'album_next'
+  | 'journal'
+  | 'journal_close'
+  | 'journal_home'
+  | 'journal_prev'
+  | 'journal_next'
+  | `journal_tab_${PageId}`
+  | `journal_entry_${string}`
+  | `journal_area_${string}`
+  | `journal_contents_${PageId}`
+  | `journal_photo_${number}`
   | 'tray_prev'
   | 'tray_next'
   | `frame_${string}`
@@ -81,7 +95,6 @@ export interface PhotoInfo {
   last: PhotoRecord | null;
   /** Photos kept in the session (what the save gets). */
   photos: number;
-  albumOpen: boolean;
   /** Bugs in the frame right now, nearest the middle first. */
   bugs: string[];
 }
@@ -343,8 +356,24 @@ export interface TestHook extends ArtHook {
   stickerHandleClient(i: number): Point | null;
   /** Staging: stick a sticker on at view pixels (x, y). Returns its index, or -1. */
   placeSticker(id: string, x: number, y: number, scale?: number, rotation?: number): number;
-  /** Staging: open the album board (its button only shows once there is a photo). */
-  openAlbum(): void;
+  /** Staging: open the journal, at a tab if given (the button works too). */
+  openJournal(page?: PageId): void;
+  /**
+   * M10, the journal: the book's counts (with what was looked at this visit),
+   * and while it is open, the tab and spread showing, whether anything is
+   * still moving (the open, a turn, a reveal), and the entries on the spread
+   * (new ones stay new until the book closes).
+   */
+  journal(): JournalInfo | null;
+  /**
+   * Screenshots only: write finds straight into the world's journal (secrets
+   * go through the sim's own `findSecret`), to stage a partly filled book.
+   * `seen` marks everything found as looked at; `sparkle` makes an entry key
+   * sparkle.
+   */
+  stageJournal(s: JournalStage): void;
+  /** Screenshots only: run the journal's animations at this speed (1 is normal). */
+  journalSpeed(k: number): void;
   /**
    * Screenshots only: patch a bug's brain and paint directly, to stage a look
    * the AI would take a long time to reach. `null` clears a field;
@@ -388,14 +417,58 @@ export interface TestHook extends ArtHook {
   pinGhost(kind: string | null, t?: number): boolean;
   /** Screenshots only: how long the home stump must be held. */
   setHomeHold(seconds: number): void;
-  /** The discovery stamps: those on the strip (newest last), how many in all, how many landed, its opacity. */
+  /** The discovery stamps on the journal button: the newest (last last), how many in all, how many landed, its opacity, its badge. */
   stamps(): {
     stamps: { kind: string; ref: string }[];
     total: number;
     landed: number;
     alpha: number;
     visible: boolean;
+    badge: number;
   } | null;
+}
+
+export interface JournalStage {
+  secrets?: string[];
+  bugs?: string[];
+  items?: string[];
+  potions?: string[];
+  areas?: string[];
+  recipes?: string[];
+  hinted?: string[];
+  noticed?: string[];
+  obs?: Record<
+    string,
+    { loved?: string[]; disliked?: string[]; toy?: string; place?: string; photo?: boolean }
+  >;
+  /** Found on this day and at night (for the date stamps). */
+  day?: number;
+  night?: boolean;
+  seen?: boolean;
+  sparkle?: string | null;
+  /** Everything: a finished book. */
+  all?: boolean;
+}
+
+export interface JournalInfo {
+  open: boolean;
+  /** The tab showing (null on the first spread), and which spread of how many. */
+  page: PageId | null;
+  spread: number;
+  spreads: number;
+  index: number;
+  count: number;
+  busy: boolean;
+  phase: string;
+  shown: { key: string; state: string; isNew: boolean; extra: string | null; sparkle: boolean }[];
+  /** Polaroids on the spread. */
+  photos: number;
+  newCount: number;
+  fresh: Record<PageId, number>;
+  completion: { found: number; total: number; percent: number };
+  sparklePage: PageId | null;
+  /** The number on the button's badge. */
+  badge: number;
 }
 
 export interface DebugBugPatch {
@@ -439,6 +512,9 @@ export function installTestHook(game: Game): void {
     if (name.startsWith('filter_')) return photo?.filterButtons.get(name) ?? null;
     if (name.startsWith('sticker_')) return photo?.trayButtons.get(name) ?? null;
     if (name.startsWith('tab_')) return photo?.tabs.get(name.slice('tab_'.length) as TrayKind) ?? null;
+    if (name.startsWith('journal_tab_'))
+      return game.journal?.tabs.get(name.slice('journal_tab_'.length) as PageId) ?? null;
+    if (/^journal_(entry|area|contents|photo)_/.test(name)) return game.journal?.named.get(name) ?? null;
     switch (name) {
       case 'pause':
         return s?.pause ?? null;
@@ -448,12 +524,16 @@ export function installTestHook(game: Game): void {
         return s?.guideSkip ?? null;
       case 'camera':
         return s?.cameraButton ?? null;
-      case 'album':
-        return s?.album ?? null;
-      case 'album_prev':
-        return game.album?.prev ?? null;
-      case 'album_next':
-        return game.album?.next ?? null;
+      case 'journal':
+        return s?.journal.book ?? null;
+      case 'journal_home':
+        return game.journal?.home ?? null;
+      case 'journal_close':
+        return game.journal?.closeButton ?? null;
+      case 'journal_prev':
+        return game.journal?.prev ?? null;
+      case 'journal_next':
+        return game.journal?.next ?? null;
       case 'shutter':
         return photo?.shutter ?? null;
       case 'tray_prev':
@@ -475,7 +555,7 @@ export function installTestHook(game: Game): void {
       case 'bin':
         return game.menu?.bin ?? null;
       case 'stamps':
-        return s?.stamps.book ?? null;
+        return s?.journal.book ?? null;
       default: {
         const key = name.slice('toggle_'.length) as ToggleKey;
         return panel?.toggles.get(key) ?? null;
@@ -534,7 +614,6 @@ export function installTestHook(game: Game): void {
         taken: p?.taken ?? 0,
         last: p?.last ? { ...p.last } : (s?.photos.at(-1) ?? null),
         photos: s?.photos.length ?? 0,
-        albumOpen: game.album !== null,
         bugs: p?.bugsInFrame() ?? [],
       };
     },
@@ -547,7 +626,103 @@ export function installTestHook(game: Game): void {
       return st ? logicalToClient(stickerHandle(st)) : null;
     },
     placeSticker: (id, x, y, scale, rotation) => game.photo?.place(id, x, y, scale, rotation) ?? -1,
-    openAlbum: () => game.openAlbum(),
+    openJournal: (page) => game.openJournal(page ?? null),
+    journalSpeed: (k) => {
+      game.journalSpeed = k;
+    },
+    stageJournal: (stage) => {
+      let st = stage;
+      const sim = game.session?.sim;
+      if (!sim) return;
+      const j = sim.journal.state;
+      const clock = ((st.day ?? 1) - 1) * DAY + (st.night ? 22 : 10) * HOUR;
+      const add = (list: string[], id: string, key: string): void => {
+        if (!list.includes(id)) list.push(id);
+        j.when[key] = clock;
+      };
+      if (st.all) {
+        const c = sim.content;
+        const book = sim.book();
+        st = {
+          ...st,
+          secrets: c.secrets.all.filter((d) => !d.blocked).map((d) => d.id),
+          bugs: c.bugs.all.map((d) => d.id),
+          items: book.items.map((e) => e.id),
+          potions: book.potions.map((e) => e.id),
+          areas: book.areas.map((e) => e.id),
+          recipes: c.recipes.all.map((r) => r.id),
+          noticed: [...NOTICES],
+        };
+        j.when['bug:bug_caterpillar_munch@butterfly'] = clock;
+      }
+      // Secrets with prerequisites need theirs first: go round until none is left.
+      for (let pass = 0; pass < 6; pass++)
+        for (const id of st.secrets ?? []) {
+          if (sim.secrets.includes(id)) continue;
+          sim.findSecret(id, sim.view0().x0 + 9.6, 5);
+        }
+      for (const id of st.secrets ?? []) j.when[`secret:${id}`] = clock;
+      for (const id of st.bugs ?? []) add(j.bugs, id, `bug:${id}`);
+      for (const id of st.items ?? []) add(j.items, id, `item:${id}`);
+      for (const id of st.potions ?? []) add(j.potions, id, `potion:${id}`);
+      for (const id of st.areas ?? []) add(j.areas, id, `area:${id}`);
+      for (const id of st.noticed ?? []) if (!j.noticed.includes(id)) j.noticed.push(id);
+      for (const id of st.recipes ?? []) {
+        if (!sim.bench.state.made.includes(id)) sim.bench.state.made.push(id);
+        j.when[`recipe:${id}`] = clock;
+      }
+      for (const id of st.hinted ?? [])
+        if (!sim.bench.state.hinted.includes(id)) sim.bench.state.hinted.push(id);
+      for (const [bug, o] of Object.entries(st.obs ?? {})) {
+        const obs = (j.obs[bug] ??= { loved: [], disliked: [], toys: {}, place: null, photo: false });
+        if (o.loved) obs.loved = [...o.loved];
+        if (o.disliked) obs.disliked = [...o.disliked];
+        if (o.toy) obs.toys[o.toy] = 3;
+        if (o.place) obs.place = o.place;
+        if (o.photo !== undefined) obs.photo = o.photo;
+      }
+      if (st.sparkle !== undefined) j.sparkle = st.sparkle;
+      if (st.seen) {
+        const book = sim.book();
+        const keys = [
+          book.bugs.map((c) => c.entry),
+          book.items,
+          book.recipes,
+          book.potions,
+          book.secrets,
+          book.areas,
+        ]
+          .flat()
+          .filter((e) => e.state === 'discovered')
+          .map((e) => e.key);
+        for (const k of keys) if (!j.viewed.includes(k)) j.viewed.push(k);
+      }
+      game.session!.bookIn = 0;
+    },
+    journal: () => {
+      const s = game.session;
+      if (!s) return null;
+      const book = withSeen(s.sim.book(), s.seen);
+      const j = game.journal;
+      const view = j?.info();
+      return {
+        open: j !== null,
+        page: view?.page ?? null,
+        spread: view?.spread ?? s.spread,
+        spreads: view?.spreads ?? 0,
+        index: view?.index ?? 0,
+        count: view?.count ?? 0,
+        busy: view?.busy ?? false,
+        phase: view?.phase ?? 'closed',
+        shown: view?.shown ?? [],
+        photos: view?.photos ?? 0,
+        newCount: book.newCount,
+        fresh: book.fresh,
+        completion: book.completion,
+        sparklePage: book.sparklePage,
+        badge: s.journal.info().badge,
+      };
+    },
     sliderClient: (key, value) => {
       const slider = game.panel?.sliders.get(key);
       if (!slider) return null;
@@ -807,7 +982,7 @@ export function installTestHook(game: Game): void {
       s.hints.ghost.idleStart = seconds;
       if (cooldown !== undefined) s.hints.ghost.cooldown = cooldown;
     },
-    stamps: () => game.session?.stamps.info() ?? null,
+    stamps: () => game.session?.journal.info() ?? null,
     setHomeHold: (seconds) => {
       const arm = game.session?.home.arm;
       if (arm) arm.seconds = seconds;

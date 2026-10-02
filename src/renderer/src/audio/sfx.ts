@@ -131,6 +131,11 @@ export type SfxName =
   // M8: the bench's lever and the cauldron's ladle (gestures), and crafting and potions.
   | 'lever'
   | 'stir'
+  // M10, the journal: a page turning, the book opening and shutting, an entry coming into color.
+  | 'page_flip'
+  | 'book_open'
+  | 'book_close'
+  | 'reveal'
   | CraftSfx
   | ClueSfx
   // M10: the hidden areas and the finale.
@@ -1058,6 +1063,44 @@ export class Sfx {
             wave: 'sine' as const,
             gain: 0.12,
             delay: k * 0.08,
+          }));
+        case 'page_flip':
+          // A paper page swishing over: a quick rising then falling rustle, and a soft flap at the end.
+          return [
+            { freq: 1400 * j, to: 3600 * j, dur: 0.12, wave: 'noise', q: 0.8, gain: 0.16 * intensity },
+            {
+              freq: 3200 * j,
+              to: 900 * j,
+              dur: 0.16,
+              wave: 'noise',
+              q: 0.9,
+              gain: 0.14 * intensity,
+              delay: 0.1,
+            },
+            { freq: 220 * j, to: 140 * j, dur: 0.05, wave: 'sine', gain: 0.12 * intensity, delay: 0.22 },
+          ];
+        case 'book_open':
+          // The cover creaks open, the pages fan, and it settles with a papery whump.
+          return [
+            { freq: 180 * j, to: 260 * j, dur: 0.14, wave: 'triangle', gain: 0.16 },
+            { freq: 900 * j, to: 3000 * j, dur: 0.2, wave: 'noise', q: 0.8, gain: 0.14, delay: 0.06 },
+            { freq: 140 * j, to: 90 * j, dur: 0.1, wave: 'sine', gain: 0.26, delay: 0.26 },
+            { freq: 1320 * j, to: 1760 * j, dur: 0.12, wave: 'sine', gain: 0.08, delay: 0.3 },
+          ];
+        case 'book_close':
+          return [
+            { freq: 2600 * j, to: 900 * j, dur: 0.12, wave: 'noise', q: 0.9, gain: 0.14 },
+            { freq: 170 * j, to: 80 * j, dur: 0.1, wave: 'sine', gain: 0.32, delay: 0.1 },
+            { freq: 1200 * j, to: 600 * j, dur: 0.04, wave: 'noise', q: 2, gain: 0.1, delay: 0.1 },
+          ];
+        case 'reveal':
+          // Color pouring into a drawing: a bright little upward shimmer.
+          return [0, 1, 2, 3].map((k) => ({
+            freq: [880, 1109, 1319, 1760][k]! * j,
+            dur: 0.14,
+            wave: 'sine' as const,
+            gain: 0.09 * intensity,
+            delay: k * 0.045,
           }));
         case 'stamp':
           // An ink stamp hitting paper: a soft low thump and a papery tap.

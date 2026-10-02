@@ -12,6 +12,7 @@ import { clickSlot, clickUi, entities, frames, launchApp, uiAt } from './app';
 // photo in the save; the album; and reduce motion's fade.
 
 const photo = (page: Page) => page.evaluate(() => window.__bb!.photo());
+const journal = async (page: Page) => (await page.evaluate(() => window.__bb!.journal()))!;
 const events = (page: Page) => page.evaluate(() => window.__bb!.events());
 
 /** Client pixels for a point in the game's 1920x1080 view. */
@@ -230,14 +231,17 @@ test('the shutter writes a 1920x1080 PNG to Pictures, keeps the photo in the sav
     expect(save.meta.photos).toHaveLength(1);
     expect(save.meta.photos[0].thumb).toMatch(/^data:image\/jpeg;base64,/);
     expect(save.meta.photos[0]).toMatchObject({ file, frame: 'frame_leaf', filter: 'filter_warm' });
-    // Away with the camera, then the album opens over the paused world and closes with Escape.
+    // Away with the camera, then the journal's photos page shows it over the paused world, and Escape closes it.
     await clickUi(page, 'camera');
     await expect.poll(async () => (await photo(page)).open).toBe(false);
-    await clickUi(page, 'album');
-    await expect.poll(async () => (await photo(page)).albumOpen).toBe(true);
+    await clickUi(page, 'journal');
+    await expect.poll(async () => (await journal(page)).open).toBe(true);
+    await clickUi(page, 'journal_tab_page_photos');
+    await expect.poll(async () => (await journal(page)).page).toBe('page_photos');
+    expect((await journal(page)).photos).toBe(1);
     expect(await page.evaluate(() => window.__bb!.isPaused())).toBe(true);
     await page.keyboard.press('Escape');
-    await expect.poll(async () => (await photo(page)).albumOpen).toBe(false);
+    await expect.poll(async () => (await journal(page)).open).toBe(false);
     await expect.poll(() => page.evaluate(() => window.__bb!.isPaused())).toBe(false);
     expect(bb.errors).toEqual([]);
   } finally {
