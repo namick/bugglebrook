@@ -80,7 +80,10 @@ describe('the telescope', () => {
   });
 
   it('lights the bugs found and keeps the rest dark, with Wubbo dark until he is found', () => {
-    const cast = CONTENT.bugs.all.map((b, i) => ({ id: b.id, art: b.art, found: i < 3 }));
+    // The cast without Wubbo: the sky adds his dark outline itself until he is found.
+    const cast = CONTENT.bugs.all
+      .filter((b) => b.id !== WUBBO)
+      .map((b, i) => ({ id: b.id, art: b.art, found: i < 3 }));
     const sky = telescopeSky(cast, false);
     expect(sky).toHaveLength(cast.length + 1);
     expect(sky.filter((e) => e.lit).map((e) => e.id)).toEqual(cast.slice(0, 3).map((b) => b.id));
