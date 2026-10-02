@@ -1333,7 +1333,7 @@ Night plus clear weather has a 10 percent chance each night of `weather_shooting
 
 | Condition | What changes |
 |---|---|
-| Night | Luma, Flick and Fiddle are active. Day bugs sleep. Mushrooms and potion jars glow. Knothole eyes appear. Ant colony snores. Frog eyes glow |
+| Night | Luma, Flick and Fiddle are active. Day bugs sleep from 21:00 to about 05:00 (before that only tired ones turn in); one the player wakes, by a poke or food at its nose, stays up a minute. Mushrooms and potion jars glow. Knothole eyes appear. Ant colony snores. Frog eyes glow |
 | Night, pond | Fireflies over the reeds. Moon reflection over the sunken teacup |
 | Night, porch | Only lamp and glow light. Moths gather at the lamp |
 | Dusk | Fiddle starts the evening chorus |
@@ -1507,7 +1507,7 @@ Labels are short names only: "Dot", "Spring", "Giant potion". No descriptions, n
 ### Completion
 
 - A glass jar on the cover fills with glowing dots as entries are discovered. Inside the book, the first page shows the jar big with the percentage as a number.
-- Completion % = discovered entries ÷ total countable entries (bugs + items + recipes + potions + secrets + areas). Photos don't count.
+- Completion % = discovered entries ÷ total countable entries (bugs + items + recipes + potions + secrets + areas), with each item counting a quarter of an entry, so the jar fills mostly from discoveries rather than pickups. Photos don't count. The button's badge counts new finds on every tab but items, which mark only their own tab.
 - Each area on the map page shows a small count like "7/12" for secrets found there.
 - Reaching 100 percent logs nothing extra and doesn't pop anything up. The cover gets a gold ladybug stamp. That's it.
 
