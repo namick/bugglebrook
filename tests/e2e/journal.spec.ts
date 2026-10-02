@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import type { PageId } from '../../src/game';
-import { POND_X, PLAZA_X, clickSlot, clickUi, launchApp, toClient, uiAt } from './app';
+import { POND_X, PLAZA_X, clickSlot, clickUi, launchApp, pressOn, spawnItem, toClient, uiAt } from './app';
 
 // M10: the journal (game design doc, section 13) with the real mouse. It
 // opens from its button over the paused world, its tabs turn to each page,
@@ -155,6 +155,28 @@ test('a secret found by hand raises the badge, comes into color as new on its pa
     await clickUi(page, 'to_menu');
     await clickSlot(page, 2);
     await expect.poll(async () => (await journal(page)).fresh.page_secrets).toBe(0);
+    expect(bb.errors).toEqual([]);
+  } finally {
+    await bb.close();
+  }
+});
+
+test('picking up a new kind of item marks its tab but leaves the badge alone (P-17)', async () => {
+  const bb = await launchApp();
+  const { page } = bb;
+  try {
+    await clickSlot(page, 2);
+    const feather = await spawnItem(page, 'item_feather', PLAZA_X + 12);
+    await expect.poll(async () => (await journal(page)).badge).toBeGreaterThanOrEqual(0);
+    const before = await journal(page);
+    expect(before.fresh.page_items).toBe(0);
+    await pressOn(page, feather);
+    await page.mouse.up();
+    await expect.poll(async () => (await journal(page)).fresh.page_items).toBe(1);
+    const after = await journal(page);
+    expect(after.newCount).toBe(before.newCount);
+    await page.waitForTimeout(300);
+    expect((await journal(page)).badge).toBe(before.badge);
     expect(bb.errors).toEqual([]);
   } finally {
     await bb.close();

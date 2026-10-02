@@ -117,3 +117,27 @@ test('the tidy whistle sends loose things in view home with a click', async () =
     await app.close();
   }
 });
+
+test('the trash can will not eat the tidy whistle: it spits it back out (P-26)', async () => {
+  const { app, page } = await launchApp();
+  try {
+    await openFrozen(page, 0);
+    await jumpTo(page, CAN - 9.6);
+    const whistle = (await page.evaluate(() => window.__bb!.tidy())).whistle!;
+    const at = await pressFrozen(page, whistle);
+    const mouth = (await trash(page)).mouth;
+    const over = await toClient(page, mouth.x, mouth.y - 0.45);
+    await glideFrames(page, at, over.x - at.x, over.y - at.y, 12, 2);
+    await frames(page, 10);
+    await page.mouse.up();
+    await frames(page, 30);
+    // Still in the world, nothing inside, and a "nope".
+    expect((await entities(page)).some((e) => e.id === whistle)).toBe(true);
+    expect((await trash(page)).inside).toEqual([]);
+    expect(await eventNames(page)).toContain('trash_spat');
+    expect(await eventNames(page)).not.toContain('trash_chomped');
+    expect(await page.evaluate(() => window.__bb!.sfxLog())).toContain('trash_nope');
+  } finally {
+    await app.close();
+  }
+});

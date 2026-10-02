@@ -100,6 +100,43 @@ test('a hat dropped on a head goes on, stays on through a fling, and survives a 
   }
 });
 
+test('a hat let go over the middle of Glorp goes on his head (P-24)', async () => {
+  const bb = await launchApp();
+  try {
+    await openFrozen(bb.page, 0);
+    const page = bb.page;
+    const at0 = PLAZA_X + 20;
+    const before = new Set((await entities(page)).map((e) => e.id));
+    await send(page, { type: 'spawn', kind: 'bug', defId: 'bug_snail_glorp', x: at0, y: 7 });
+    await frames(page, 2);
+    const glorp = (await entities(page)).find((e) => !before.has(e.id) && e.defId === 'bug_snail_glorp')!;
+    await content(page, glorp.id);
+    await send(page, { type: 'set_need', id: glorp.id, need: 'need_energy', value: 3 });
+    await frames(page, 120);
+    await jumpTo(page, at0 - 8);
+    const hat = await spawnFrozen(page, 'item_hat_acorn_cap', at0 - 3);
+    const from = await pressFrozen(page, hat);
+    // Over the top of his shell, well away from his head.
+    const g = (await entity(page, glorp.id))!;
+    const head = (await page.evaluate((id) => window.__bb!.wearAnchor(id, 'head'), glorp.id))!;
+    const x = g.x - Math.sign(head.x - g.x) * 0.2;
+    const above = await toClient(page, x, g.y - 2);
+    const shell = await toClient(page, x, g.y - 0.56 - 0.35);
+    const up = await glideFrames(page, from, 0, above.y - from.y, 8, 2);
+    const over = await glideFrames(page, up, above.x - up.x, 0, 10, 2);
+    await glideFrames(page, over, shell.x - over.x, shell.y - over.y, 8, 2);
+    for (let i = 0; i < 4; i++) {
+      await page.mouse.move(shell.x, shell.y + (i % 2) * 0.5);
+      await frames(page, 6);
+    }
+    await page.mouse.up();
+    await frames(page, 4);
+    expect(await wearing(page, glorp.id)).toEqual([{ slot: 'head', id: hat }]);
+  } finally {
+    await bb.close();
+  }
+});
+
 test('the hand pulls a hat off a bug, and a second hat pops the first', async () => {
   const bb = await launchApp();
   const { page } = bb;
