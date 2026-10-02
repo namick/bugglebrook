@@ -641,6 +641,26 @@ In test mode the audio backend is `NullAudioBackend`, so nothing decodes. The mu
 - Unit (Vitest): stem-name normalization and the keyword table, including `bass clarinet`, `Bassoon`, `Drums [a1b2c3d4]`, and a title prefix. Override handling. Loop scoring and crossfade baking on synthetic signals (a looped sine with a known period must come back with zero seam error). Key-to-scale. `musicPick` (borders, the dead zone, phases, the sundial, hidden areas, fallbacks). `musicMix` for every row of 7.12. `musicClock` quantization against a track's BPM. The committed manifest passes the schema check, and every area in `src/game/data/areas.ts` has a track or a fallback.
 - E2E (real mouse, assertions through `window.__bb`): add `__bb.music()` returning the target track ID, the layer gains, the BPM, and the key. Pan from the plaza to the pond and see the track change. Poke an instrument and see the lead gain dip, then recover. Set rain with `set_weather` and see drums go to zero. Set the time with `set_time` across dusk and see the night track.
 
+### 7.15 As built in M9
+
+The importer and the runtime follow this section, with these differences, each for a reason found on the first two tracks:
+
+- **No essentia.js.** The analysis is our own TypeScript in `scripts/music/analysis.ts`: a comb fit of one steady beat grid to the drums' onsets (Suno keeps a steady tempo, and a per-beat tracker kept slipping onto off-beats), key detection from chroma against two key profiles, and the loop search of 7.6. Both tracks came out within 4 ms of a straight grid.
+- **Silence.** A stem is dropped when its loudest 1 percent of 400 ms blocks sits more than 40 dB under the mix's, or under -60 dBFS, or less than 1 percent of it is within 30 dB of the mix. The 1 percent keeps sparse parts (a kazoo answer, an effect) that a 95th-percentile measure dropped.
+- **Vocals in the mix.** The importer compares the full mix with the instrumental stems, with and without the vocal stems added. If the vocals explain part of the difference and are within 30 dB of the mix, the mix sings, and loudness and the loop are measured on the instrumental stems instead.
+- **No lead stem.** When no stem is named for the tune, the importer makes the busiest, highest harmony stem the lead and warns. The plaza's marimba came out in `Keyboard`.
+- **Loudness** is measured on the layers summed, not the full mix: Suno's stems add up 2 to 3 dB quieter than its master, by a different amount per track. The true-peak check leaves 0.5 dB for the codec, and a track that cannot reach -18 LUFS without passing -1.5 dBTP stays quieter, with a warning.
+- **Loop length.** Among candidates scoring within 0.05 of the best, the importer takes the one nearest 64 s rather than the longest, to keep the build small.
+- **Padding.** Each layer file holds 100 ms of the loop's own end before the body and of its start after it. The manifest's `loop.start` says where the body begins; the player loops from there.
+- **Tempo changes.** Real tracks can't glide, so the music clock switches to the incoming track's grid at the crossfade's midpoint, on that track's bar line.
+
+What the first two tracks taught, for the remaining fourteen:
+
+- Suno ran fast: 97 BPM for the menu and 98 for the plaza, against 96. The importer stretched both onto 96, which is fine, but closer is better. Keep asking for the tempo in the style prompt.
+- Both came out in C major as asked, with high confidence.
+- Suno made 12 stems for each and 3 to 6 were silent, including both vocal stems. That is expected (playtest F5).
+- The tune hides in `Keyboard` when it is a marimba. If a track's lead is a mallet or a synth, say which stem it landed in after listening and pin it in `overrides.json`.
+
 ---
 
 ## 8. Licensing
