@@ -367,3 +367,25 @@ function applyWeather(look: SkyLook, w: WeatherMix): SkyLook {
     moon: { ...look.moon, alpha: look.moon.alpha * (1 - 0.6 * cloudy) },
   };
 }
+
+/**
+ * Under the ground and inside the gnome (M10's hidden areas) there is no
+ * sky: the scene is graded by its own light, whatever the hour. The depths
+ * are warm and lamp-lit; the hollow is a cosy, starry blue. Lights count as
+ * in the dark (`glow`), so lamps and stars shine. At night the depths dim a little. Pure.
+ */
+export function roomLook(base: SkyLook, mood: 'depths' | 'hollow', night = false): SkyLook {
+  const depths = mood === 'depths';
+  return {
+    ...base,
+    // The colony dims its lamps when it sleeps.
+    near: depths ? (night ? 0xc9b0a4 : 0xf2d6bc) : 0xf0ecfa,
+    mid: depths ? 0xf2d6bc : 0xf0ecfa,
+    far: depths ? 0xf2d6bc : 0xf0ecfa,
+    front: depths ? 0xf2d6bc : 0xf0ecfa,
+    stars: 0,
+    glow: depths ? 0.72 : 0.62,
+    warmth: depths ? 0.5 : 0.2,
+    dapple: 0,
+  };
+}

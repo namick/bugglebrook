@@ -8,7 +8,7 @@ describe('content registries', () => {
     expect(validateContent(CONTENT)).toEqual([]);
   });
 
-  it('has six areas, the starting bugs, and their props', () => {
+  it('has six areas, two hidden ones, the starting bugs, and their props', () => {
     expect(CONTENT.areas.all.map((a) => a.id)).toEqual([
       'area_flowerbed_stage',
       'area_puddle_pond',
@@ -16,6 +16,12 @@ describe('content registries', () => {
       'area_under_porch',
       'area_compost_lab',
       'area_treehouse_arcade',
+      'area_ant_hill_depths',
+      'area_gnome_hollow',
+    ]);
+    expect(CONTENT.areas.all.filter((a) => a.hidden).map((a) => a.id)).toEqual([
+      'area_ant_hill_depths',
+      'area_gnome_hollow',
     ]);
     // Only the pond and the plaza are open at the start.
     expect(CONTENT.areas.all.filter((a) => a.unlockedByDefault).map((a) => a.id)).toEqual([
@@ -112,8 +118,10 @@ describe('content registries', () => {
     expect(() => CONTENT.items.get('nope')).toThrow(/Unknown item/);
   });
 
-  it('areas tile the world: flowerbed, pond, plaza, porch, compost lab, treehouse', () => {
-    expect(worldWidth()).toBeCloseTo(195.2);
+  it('areas tile the world: flowerbed, pond, plaza, porch, compost lab, treehouse, then the hidden two', () => {
+    expect(worldWidth()).toBeCloseTo(240);
+    expect(areaAt(200).id).toBe('area_ant_hill_depths');
+    expect(areaAt(230).id).toBe('area_gnome_hollow');
     expect(areaAt(1).id).toBe('area_flowerbed_stage');
     expect(areaAt(33).id).toBe('area_puddle_pond');
     expect(areaAt(63.9).id).toBe('area_puddle_pond');
@@ -122,7 +130,7 @@ describe('content registries', () => {
     expect(areaAt(150).id).toBe('area_compost_lab');
     expect(areaAt(170).id).toBe('area_treehouse_arcade');
     expect(areaAt(-5).id).toBe('area_flowerbed_stage');
-    expect(areaAt(999).id).toBe('area_treehouse_arcade');
+    expect(areaAt(999).id).toBe('area_gnome_hollow');
   });
 });
 

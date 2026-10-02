@@ -93,7 +93,8 @@ export class Bounds {
       });
       return;
     }
-    const span = sim.barriers.span();
+    // Lost in a hidden area (M10), it comes back inside that area.
+    const span = sim.barriers.span(Number.isFinite(fromX) ? fromX : undefined);
     const setups = sim.bugWorld().setups;
     let spot: { x: number; y: number } | null = null;
     for (const x of dropSpots(fromX, span.x0 + EDGE_MARGIN, span.x1 - EDGE_MARGIN)) {

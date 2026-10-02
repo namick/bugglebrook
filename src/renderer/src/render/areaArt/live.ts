@@ -27,7 +27,11 @@ export type AreaSound =
   | 'arcade_blip'
   | 'leaf_rustle'
   | 'scratch'
-  | 'tulip_hum';
+  | 'tulip_hum'
+  // M10: the depths (marching feet, snoring rows) and the hollow's little clock.
+  | 'ant_march'
+  | 'ant_snore'
+  | 'hollow_tick';
 
 /** What a live area view knows each frame. */
 export interface AreaFrame {

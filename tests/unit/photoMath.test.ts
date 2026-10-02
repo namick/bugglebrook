@@ -177,7 +177,10 @@ describe('frames and filters', () => {
       'filter_old_photo',
       'filter_comic',
       'filter_bug_eye',
+      'filter_starry',
     ]);
+    expect(FRAMES.find((f) => f.id === 'frame_starry')?.unlock).toBe('secret_golden_marble_home');
+    expect(FILTERS.find((f) => f.id === 'filter_starry')?.unlock).toBe('secret_golden_marble_home');
     expect(FILTERS.find((f) => f.id === 'filter_bug_eye')?.unlock).toBe('secret_scope_wubbo');
     expect(new Set(FILTERS.map((f) => f.mode)).size).toBe(FILTERS.length);
   });

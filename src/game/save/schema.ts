@@ -9,6 +9,7 @@ import type { BarrierState } from '../systems/barriers';
 import type { PlaceState } from '../systems/places';
 import type { JournalState } from '../systems/journal';
 import type { ClueState } from '../systems/clues';
+import type { HiddenState } from '../systems/hidden';
 import type { BenchState } from '../systems/bench';
 import type { CauldronState } from '../systems/cauldron';
 import type { Brew } from '../systems/brewing';
@@ -86,6 +87,8 @@ export interface WorldSave {
   journal?: JournalState;
   /** M10's clue state: the boot, the stump's door, streaks and counts. Absent before version 14. */
   clues?: ClueState;
+  /** M10's hidden areas: the ants' sugar, the queen, and the finale. Optional within version 14. */
+  hidden?: HiddenState;
 }
 
 /** Running counts about how the world has been played. */

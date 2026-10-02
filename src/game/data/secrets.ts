@@ -13,16 +13,7 @@ import { createRegistry } from './registry';
  * Secrets being built in M10, blocked until their trigger lands. Each one
  * leaves this list when it does; the list must be empty when M10 ships.
  */
-export const M10_PENDING: ReadonlySet<string> = new Set([
-  'secret_ant_sugar',
-  'secret_queen_sweet',
-  'secret_root_pull',
-  'secret_ant_conga',
-  'secret_map_scrap_2',
-  'secret_gnome_inside',
-  'secret_constellations',
-  'secret_golden_marble_home',
-]);
+export const M10_PENDING: ReadonlySet<string> = new Set(['secret_golden_marble_home']);
 
 function secret(
   id: string,

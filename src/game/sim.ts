@@ -61,6 +61,7 @@ import { Bench } from './systems/bench';
 import { Cauldron } from './systems/cauldron';
 import { Journal } from './systems/journal';
 import { Clues } from './systems/clues';
+import { Hidden } from './systems/hidden';
 import { journalBook } from './systems/journalBook';
 import type { JournalBook } from './systems/journalBook';
 import { Bounds } from './systems/bounds';
@@ -345,6 +346,8 @@ export class Sim {
   readonly clues: Clues;
   /** The journal's memory (M10): what the player met, found, and saw (saved as `world.journal`). */
   readonly journal: Journal;
+  /** M10: the hidden areas' doorways, the depths, and the hollow. */
+  readonly hidden: Hidden;
   /** Where the player's hand is over the world, or null. Sent by the renderer (`hand`). */
   hand: { x: number; y: number } | null = null;
   /** Areas whose starting things are in the world. Saved, so areas added later get theirs on load. */
@@ -375,10 +378,12 @@ export class Sim {
     this.bounds = new Bounds(this);
     this.journal = new Journal(this);
     this.clues = new Clues(this);
+    this.hidden = new Hidden(this);
     this.buildFixtures();
     this.buildSolids();
     this.barriers.build();
     this.places.build();
+    this.hidden.build();
     this.physics.passThrough = (a, b, _nx, ny) => this.softContact(a, b, ny) || this.ghostThrough(a, b);
     // The cobweb hammock lets things sink through after a moment; ghosts pass the web and the can wall.
     this.physics.platformPass = (key, id) =>
@@ -561,6 +566,8 @@ export class Sim {
     if (save.bench) sim.bench.restore(clone(save.bench));
     if (save.journal) sim.journal.restore(clone(save.journal));
     if (save.clues) sim.clues.restore(clone(save.clues));
+    if (save.hidden) sim.hidden.restore(clone(save.hidden));
+    sim.hidden.build();
     if (save.cauldron) sim.cauldron.restore(clone(save.cauldron));
     // Areas new since the save get their starting things (M7's four areas, in older saves).
     sim.built = save.built ? [...save.built] : sim.content.areas.all.map((a) => a.id);
@@ -698,6 +705,7 @@ export class Sim {
     this.weather.update();
     this.barriers.update();
     this.places.update();
+    this.hidden.update();
     this.bench.update();
     this.cauldron.update();
     if (this.tick % 15 === 0) this.updateSleep();
@@ -1236,8 +1244,9 @@ export class Sim {
         overWater: (x) => this.environment.overOpenWater(x),
         shore: this.environment.shoreFrom(state.x),
         frozen: this.hasTag(entity.id, 'tag_frozen'),
-        home: home ? { x0: home.xStart, x1: home.xEnd } : null,
-        reach: this.barriers.span(),
+        // Shut in a hidden area, home is out of reach: no pining at the wall.
+        home: home && !this.hidden.hiddenAt(state.x) ? { x0: home.xStart, x1: home.xEnd } : null,
+        reach: this.barriers.span(state.x),
         hand: this.hand,
         drowsy: !!entity.effects && !!this.potions.has(entity, 'sleepy'),
         impact: inGrace ? 0 : (this.bugImpacts.get(entity.id) ?? 0),
@@ -1945,7 +1954,8 @@ export class Sim {
     const f = this.focus;
     for (const area of this.content.areas.all) {
       const gap = f ? Math.max(area.xStart - f.x1, f.x0 - area.xEnd, 0) : 0;
-      const asleep = gap >= SLEEP_DISTANCE;
+      // The hidden areas are worlds apart: only the one being looked at is awake.
+      const asleep = (f && this.hidden.asleepFor(area, f)) ?? gap >= SLEEP_DISTANCE;
       if (asleep === this.asleepAreas.has(area.id)) continue;
       if (asleep) this.asleepAreas.add(area.id);
       else this.asleepAreas.delete(area.id);
@@ -2210,8 +2220,12 @@ export class Sim {
         for (let tries = 0; tries < 8 && near(x); tries++) x = this.rng.range(area.xStart + 1, area.xEnd - 1);
         // The player's things fill the area: no drop this time.
         if (near(x)) continue;
-        const entity = this.spawn('item', entry.item, x, -0.5);
-        this.events.emit('item_respawned', { id: entity.id, defId: entity.defId, x, y: -0.5 });
+        // Indoors, it drops from just under the roof (the treehouse's, the depths' ceiling).
+        const roof = area.roof;
+        const local = x - area.xStart;
+        const y = roof && local >= roof.x0 && local <= roof.x1 ? roof.y + 0.3 : -0.5;
+        const entity = this.spawn('item', entry.item, x, y);
+        this.events.emit('item_respawned', { id: entity.id, defId: entity.defId, x, y });
       }
     }
   }
@@ -2367,6 +2381,7 @@ export class Sim {
       cauldron: this.cauldron.serialize(),
       journal: this.journal.serialize(),
       clues: this.clues.serialize(),
+      hidden: this.hidden.serialize(),
     };
   }
 }

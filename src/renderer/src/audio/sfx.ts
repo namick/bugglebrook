@@ -2,6 +2,7 @@ import type { EventBus } from '../../../game/core/events';
 import type { GameEvents } from '../../../game/events';
 import { craftTones, noteTones, type CraftSfx } from './craftSfx';
 import { clueSounds, clueTones, isClueSfx, type ClueSfx } from './clueSfx';
+import { hiddenTones, isHiddenSfx, type HiddenSfx } from './hiddenSfx';
 import type { AudioBackend, Tone } from './synth';
 
 export type Material = 'wood' | 'metal' | 'rubber' | 'stone' | 'glass' | 'leaf' | 'food' | 'bug';
@@ -131,7 +132,9 @@ export type SfxName =
   | 'lever'
   | 'stir'
   | CraftSfx
-  | ClueSfx;
+  | ClueSfx
+  // M10: the hidden areas and the finale.
+  | HiddenSfx;
 
 /**
  * The impact sound for a material. Soft materials (cloth, paper) thud like
@@ -423,6 +426,32 @@ export class Sfx {
       bus.on('toy_used', (e) => this.limited(TOY_SOUND[e.action], 100)),
       bus.on('scope_viewed', () => this.play('scope')),
       ...clueSounds(bus, (name, intensity) => this.play(name, intensity)),
+      // M10: the hidden areas, their doorways, and the finale.
+      bus.on('doorway_used', () => this.play('iris')),
+      bus.on('ants_took_sugar', () => this.play('ant_march', 1)),
+      bus.on('ant_hill_opened', () => this.play('crumble')),
+      bus.on('ant_hill_poked', () => this.limited('ant_march', 300, 0.8)),
+      bus.on('conveyor_took', () => this.limited('conveyor', 200)),
+      bus.on('queen_fed', () => {
+        this.play('queen_munch');
+        this.play('ant_cheer');
+      }),
+      bus.on('queen_gave', () => this.play('twinkle', 1)),
+      bus.on('queen_poked', () => this.limited('larva_squeak', 250, 0.7)),
+      bus.on('root_pulled', () => this.play('root_pop')),
+      bus.on('root_poked', () => this.limited('root_creak', 400)),
+      bus.on('larva_wiggled', () => this.limited('larva_squeak', 150)),
+      bus.on('ants_conga', () => this.play('ant_cheer')),
+      bus.on('pantry_scrap_found', () => this.play('twinkle', 0.8)),
+      bus.on('gnome_sneezed', () => this.play('gnome_sneeze')),
+      bus.on('telescope_viewed', () => this.play('telescope')),
+      bus.on('pedestal_poked', () => this.limited('marble_seat', 400, 0.4)),
+      bus.on('marble_seated', () => this.play('marble_seat')),
+      bus.on('finale_started', () => this.play('fanfare')),
+      bus.on('firework_burst', () => {
+        this.play('firework_whistle', 0.6);
+        this.play('firework_pop', 0.8);
+      }),
     ];
   }
 
@@ -1390,7 +1419,9 @@ export class Sfx {
         default:
           return isClueSfx(name)
             ? clueTones(name, j, intensity)
-            : craftTones(name, j, intensity, this.random);
+            : isHiddenSfx(name)
+              ? hiddenTones(name, j, intensity)
+              : craftTones(name, j, intensity, this.random);
       }
     })();
     this.emit(name, tones, v, log);

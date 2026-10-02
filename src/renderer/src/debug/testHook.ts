@@ -4,7 +4,7 @@ import type { SequencerReport } from '../audio/musicDirector';
 import { WebAudioMusicSink, fetchBytes } from '../audio/musicPlayer';
 import type { NoteLog } from '../audio/musicToys';
 import { SEQ_COLS, SEQ_ROWS, cellCenter } from '../../../game/systems/sequencer';
-import { VIEW_WIDTH_PX } from '../../../game/constants';
+import { PIXELS_PER_METER as PPM, VIEW_WIDTH_PX } from '../../../game/constants';
 import type { Command, EntityView } from '../../../game';
 import type { ReactionType } from '../../../game/events';
 import type { SlotInfo } from '../../../shared/ipc';
@@ -241,6 +241,26 @@ export interface TestHook extends ArtHook {
   secrets(): string[];
   /** M7: the areas that are open, the walkable span, and the camera's open stretch. */
   unlocked(): { open: string[]; span: { x0: number; x1: number } };
+  /**
+   * M10's hidden areas: the iris wipe, where the camera is, doorways gone
+   * through, the telescope's view, the doorways, the depths (the ants'
+   * sugar, the queen, the conga, the root), the hollow (the gnome's nose,
+   * the finale), the lost-toy pictures, and fireworks in the air.
+   */
+  hidden(): {
+    wiping: boolean;
+    inside: boolean;
+    area: string;
+    trips: number;
+    telescope: { open: boolean; lit: string[]; dark: string[] };
+    doors: { id: string; open: boolean; x: number; y: number }[];
+    depths: { sugar: number | null; queenFed: number; dancing: boolean; conga: boolean; rootStuck: boolean };
+    hollow: { noseOn: boolean; finale: number };
+    /** Clues the journal noted (the gnome's sniffle, the nose carried home). */
+    noticed: string[];
+    pictures: number;
+    fireworks: number;
+  } | null;
   /** M7: the bugs that have joined the cast (hidden ones waiting to be found are not in it). */
   cast(): string[];
   /** M7: the new areas' fixtures: stage lights mode, the porch lamp, quiet speakers, the bucket lift. */
@@ -311,6 +331,8 @@ export interface TestHook extends ArtHook {
   ): Promise<{ peak: number; rms: number; wrapped: boolean } | { error: string }>;
   /** Set an entity's bites or paint directly, to show those looks (test mode only). */
   debugEntity(id: number, fields: { bites?: number; paint?: string[] }): void;
+  /** Shots (M10): start the finale's fireworks without the golden marble's long chain. */
+  debugFinale(): void;
   /** Rain drops, leaves, and light sprites being drawn now (particle budgets). */
   weatherStats(): { drops: number; leaves: number; lights: number };
   /** M11: photo mode's state. `open` false means the camera is away. */
@@ -476,6 +498,11 @@ export function installTestHook(game: Game): void {
       if (!cam) return;
       cam.stopGlide();
       cam.velocity = 0;
+      // Into a hidden area (M10) too: its sealed stretch becomes the camera's limits first.
+      const sim = game.session!.sim;
+      const c = x + VIEW_WIDTH_PX / PPM / 2;
+      const open = sim.barriers.view(c);
+      cam.setLimits(open.x0, open.x1, sim.barriers.region(c));
       cam.set(Math.min(cam.restMax, Math.max(cam.restMin, x)));
     },
     worldToClient: (x, y) => {
@@ -663,6 +690,26 @@ export function installTestHook(game: Game): void {
         span: sim.barriers.span(),
       };
     },
+    hidden: () => {
+      const s = game.session;
+      if (!s) return null;
+      const h = s.sim.hidden;
+      const d = h.depths;
+      return {
+        ...s.hidden.report(),
+        doors: h.doors().map((q) => ({ id: q.id, open: h.doorOpen(q.id), x: q.x, y: q.y })),
+        depths: {
+          sugar: d.state.sugar?.id ?? null,
+          queenFed: d.state.queenFed,
+          dancing: d.queenDancing,
+          conga: d.state.conga,
+          rootStuck: d.rootStuck,
+        },
+        hollow: { noseOn: h.hollow.noseOn, finale: h.hollow.state.finale },
+        noticed: [...s.sim.journal.state.noticed],
+        ...s.view.hiddenLook,
+      };
+    },
     cast: () => game.session?.sim.cast.members().sort() ?? [],
     places: () => {
       const sim = game.session?.sim;
@@ -766,6 +813,7 @@ export function installTestHook(game: Game): void {
       if (arm) arm.seconds = seconds;
     },
     pinGhost: (kind, t) => game.session?.hints.pin(kind as DemoKind | null, t) ?? false,
+    debugFinale: () => game.session?.sim.hidden.hollow.startFinale(),
     debugEntity: (id, fields) => {
       const e = game.session?.sim.entities.get(id);
       if (!e) return;

@@ -40,10 +40,7 @@ export const CONTENT: Content = {
   mysteries: MYSTERIES,
 };
 
-/**
- * The hidden areas (section 3) that secrets and mysteries may name before
- * their area defs exist.
- */
+/** The hidden areas (section 3): sealed, past the strip, reached through doorways. */
 export const HIDDEN_AREA_IDS: readonly string[] = ['area_ant_hill_depths', 'area_gnome_hollow'];
 
 /** Width of the whole world in meters: the right edge of the last area. */
@@ -99,9 +96,7 @@ export function validateContent(
   const ref = (reg: Registry<{ id: string }>, id: string, where: string): void => {
     if (!reg.has(id)) errors.push(`${where} references unknown ${reg.kind} "${id}"`);
   };
-  const areaRef = (id: string, where: string): void => {
-    if (!HIDDEN_AREA_IDS.includes(id)) ref(content.areas, id, where);
-  };
+  const areaRef = (id: string, where: string): void => ref(content.areas, id, where);
   /** A journal hint is a glyph or a picture of an item, a bug, or an area. */
   const hintRef = (g: string, where: string): void => {
     if (isGlyph(g)) return;
@@ -182,6 +177,14 @@ export function validateContent(
         if (!f.item) errors.push(`${where} shelf jar ${f.id} holds nothing`);
         else ref(content.items, f.item, `${where} shelf jar ${f.id}`);
       }
+      if (f.door !== undefined) {
+        // A doorway leads to a doorway in another area, which leads back.
+        const other = content.areas.all.flatMap((a) => (a.fixtures ?? []).map((q) => ({ a, q })));
+        const to = other.find((o) => o.q.id === f.door);
+        if (!to) errors.push(`${where} doorway ${f.id} leads to unknown fixture "${f.door}"`);
+        else if (to.a.id === area.id || to.q.door !== f.id)
+          errors.push(`${where} doorway ${f.id} and ${f.door} must lead to each other across areas`);
+      }
       if (f.w !== undefined && !(f.w > 0)) errors.push(`${where} fixture ${f.id} width must be positive`);
       if (f.h !== undefined && !(f.h > 0)) errors.push(`${where} fixture ${f.id} height must be positive`);
     }
@@ -221,9 +224,19 @@ export function validateContent(
         errors.push(`${where} start ${s.defId} y is off screen`);
     }
   }
-  // Every locked area has exactly one barrier that opens it.
+  // Every locked area has exactly one barrier that opens it. A hidden area
+  // opens through a secret instead, and has doorways in and out.
   for (const area of content.areas.all) {
     if (area.unlockedByDefault) continue;
+    if (area.hidden) {
+      const by = content.secrets.all.filter((s) =>
+        s.unlocks.some((u) => u.kind === 'area' && u.id === area.id),
+      );
+      if (by.length !== 1) errors.push(`hidden area ${area.id} needs exactly one secret that opens it`);
+      if (!(area.fixtures ?? []).some((f) => f.door !== undefined))
+        errors.push(`hidden area ${area.id} has no doorway`);
+      continue;
+    }
     const barriers = content.areas.all.flatMap((a) => (a.fixtures ?? []).filter((f) => f.opens === area.id));
     if (barriers.length !== 1)
       errors.push(`area ${area.id} is locked and needs exactly one barrier to open it`);

@@ -177,6 +177,16 @@ const CLICKABLE: ReadonlySet<FixtureDef['kind']> = new Set<FixtureDef['kind']>([
   'bench_lever',
   'cauldron',
   'bug_scope',
+  // M10 hidden areas (doorways answer only once open).
+  'ant_hill',
+  'depths_door',
+  'gnome_door',
+  'hollow_door',
+  'ant_queen',
+  'larva',
+  'root_knot',
+  'telescope',
+  'moon_pedestal',
 ]);
 
 const pairKey = (a: EntityId, b: EntityId): string => (a < b ? `${a}:${b}` : `${b}:${a}`);
@@ -296,6 +306,8 @@ export class Environment {
         if (!CLICKABLE.has(f.kind)) continue;
         // Hidden bugs' hideouts stop answering once their bug is found.
         if (f.kind === 'munch_leaf' && this.sim.cast.joined('bug_caterpillar_munch')) continue;
+        // A hidden area's doorway is only a doorway once it opens (the ant hill always answers).
+        if (f.door && f.kind !== 'ant_hill' && !this.sim.hidden.doorOpen(f.id)) continue;
         const fx = area.xStart + f.x;
         const hit =
           f.w !== undefined && f.h !== undefined

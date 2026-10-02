@@ -103,6 +103,12 @@ export type Command =
   /** The player looked at these journal entries (M10): they lose their "new!" badge. */
   | { type: 'journal_seen'; keys: string[] }
   /** The player noticed a clue the renderer shows on hover (M10, `NOTICES` in `systems/journal.ts`). */
-  | { type: 'notice'; what: string };
+  | { type: 'notice'; what: string }
+  /**
+   * M10: go through the open doorway `door` (a fixture id). The renderer
+   * sends it at the middle of the iris wipe, as the camera moves to the
+   * other side; whatever the hand holds comes along.
+   */
+  | { type: 'travel'; door: string };
 
 export type CommandType = Command['type'];

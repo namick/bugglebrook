@@ -339,7 +339,8 @@ export const FRAMES: readonly FrameDef[] = [
   { id: 'frame_slime', draw: slime },
   { id: 'frame_totem', draw: totem, unlock: 'secret_bug_totem' },
   // The finale (M10's mysteries) is not built yet: this one waits.
-  { id: 'frame_starry', draw: starry, unlock: 'secret_finale' },
+  // Unlocked by the finale (M10).
+  { id: 'frame_starry', draw: starry, unlock: 'secret_golden_marble_home' },
 ];
 
 export const frameById = (id: string): FrameDef => FRAMES.find((f) => f.id === id) ?? FRAMES[0]!;

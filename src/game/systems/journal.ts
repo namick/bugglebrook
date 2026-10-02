@@ -1,7 +1,6 @@
 import type { Sim } from '../sim';
 import type { GameEvents } from '../events';
 import { SIM_HZ } from '../core/loop';
-import { HIDDEN_AREA_IDS } from '../data';
 import type { SecretDef } from '../data/types';
 
 /**
@@ -368,7 +367,6 @@ export class Journal {
   }
 
   private areaOpen(id: string): boolean {
-    if (HIDDEN_AREA_IDS.includes(id) && !this.sim.content.areas.has(id)) return false;
     return this.sim.barriers.isOpen(id);
   }
 

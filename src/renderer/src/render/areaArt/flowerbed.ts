@@ -181,22 +181,7 @@ function drawGnome(g: Graphics, terrain: Terrain, x0: number): void {
   const hx = x0 + 150;
   const hy = 800;
   g.circle(hx, hy, 72).fill(0xffc9a8).stroke(stroke(5));
-  // The red cone hat, pointing left and flopping onto the grass.
-  g.moveTo(hx - 40, hy - 56)
-    .bezierCurveTo(hx - 120, hy - 70, hx - 160, hy + 10, hx - 150, hy + 90)
-    .lineTo(hx - 110, hy + 96)
-    .bezierCurveTo(hx - 110, hy + 20, hx - 60, hy + 10, hx - 50, hy + 50)
-    .closePath()
-    .fill(0xe8453c)
-    .stroke(stroke(5));
-  g.moveTo(hx - 70, hy - 50)
-    .quadraticCurveTo(hx - 110, hy - 20, hx - 118, hy + 40)
-    .stroke({
-      width: 8,
-      color: 0xff8a7a,
-      alpha: 0.6,
-      cap: 'round',
-    });
+  // The red cone hat is live (`GnomeLive`): it flips open into Gnome Hollow's doorway (M10).
   // Beard.
   const beard: [number, number, number][] = [
     [hx + 40, hy + 18, 38],
@@ -303,4 +288,64 @@ export function drawFlowerbedMid(area: AreaDef, factor: number, rng: Rng): Conta
   }
   c.addChild(g);
   return c;
+}
+
+/** The gnome's head middle (area-local px): his hat and nose hang off it. */
+export const GNOME_HEAD = { x: 150, y: 800, r: 72 } as const;
+
+/**
+ * The gnome's red cone hat, pointing left and flopping onto the grass, at
+ * head middle (hx, hy) in world px. `open` (0 to 1) swings it up off his
+ * head about the brim, like a lid, showing the round way in.
+ */
+export function drawGnomeHat(g: Graphics, hx: number, hy: number, open = 0): void {
+  if (open > 0) {
+    // The way in: a dark round opening in the top of his head, lit from inside.
+    g.ellipse(hx - 34, hy - 18, 26 * open + 6, 34 * open + 6)
+      .fill(0x1b2350)
+      .stroke(stroke(5));
+    g.ellipse(hx - 34, hy - 10, 16 * open, 20 * open).fill({ color: 0xf2c14e, alpha: 0.4 * open });
+    // Painted stars just inside.
+    for (const [dx, dy] of [
+      [-8, -18],
+      [6, -30],
+      [4, 2],
+    ] as const)
+      g.circle(hx - 34 + dx * open, hy - 18 + dy * open, 2.5 * open).fill(0xf2c14e);
+  }
+  // It swings up and back, like a lid on a hinge, its point to the sky.
+  const c = Math.cos(open * 1.5);
+  const s = Math.sin(open * 1.5);
+  // Rotate about the brim's top.
+  const ox = hx - 40;
+  const oy = hy - 56;
+  const P = (x: number, y: number): [number, number] => {
+    const dx = x - ox;
+    const dy = y - oy;
+    return [ox + dx * c - dy * s, oy + dx * s + dy * c];
+  };
+  const [ax, ay] = P(hx - 40, hy - 56);
+  const [b1x, b1y] = P(hx - 120, hy - 70);
+  const [b2x, b2y] = P(hx - 160, hy + 10);
+  const [b3x, b3y] = P(hx - 150, hy + 90);
+  const [lx, ly] = P(hx - 110, hy + 96);
+  const [c1x, c1y] = P(hx - 110, hy + 20);
+  const [c2x, c2y] = P(hx - 60, hy + 10);
+  const [ex, ey] = P(hx - 50, hy + 50);
+  g.moveTo(ax, ay)
+    .bezierCurveTo(b1x, b1y, b2x, b2y, b3x, b3y)
+    .lineTo(lx, ly)
+    .bezierCurveTo(c1x, c1y, c2x, c2y, ex, ey)
+    .closePath()
+    .fill(0xe8453c)
+    .stroke(stroke(5));
+  const [s0x, s0y] = P(hx - 70, hy - 50);
+  const [q1x, q1y] = P(hx - 110, hy - 20);
+  const [q2x, q2y] = P(hx - 118, hy + 40);
+  g.moveTo(s0x, s0y).quadraticCurveTo(q1x, q1y, q2x, q2y).stroke({
+    width: 8,
+    color: 0xff8a7a,
+    alpha: 0.6,
+    cap: 'round',
+  });
 }

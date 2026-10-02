@@ -1,5 +1,6 @@
 import { BUG_MODES, SOCIAL_KINDS } from '../core/entities';
 import { sequencerProblems } from '../systems/sequencer';
+import { hiddenProblems } from '../systems/hidden';
 import { ADVERT_ACTIONS } from '../data/types';
 import { REACTION_TYPES } from '../events';
 import { POCKET_SLOTS, STACK_MAX } from '../systems/pocket';
@@ -369,6 +370,10 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
       isNumMap(c.riding) &&
       isNumMap(c.thrown);
     if (!ok) errors.push('world.clues is invalid');
+  }
+  if (world.hidden !== undefined) {
+    const problems = hiddenProblems(world.hidden);
+    if (problems.length > 0) errors.push(`world.hidden is invalid: ${problems.join(', ')}`);
   }
   if (world.journal !== undefined) {
     const problems = journalProblems(world.journal);

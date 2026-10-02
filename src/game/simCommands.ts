@@ -58,8 +58,8 @@ export function apply(sim: Sim, command: Command): void {
       const held = sim.physics.grabbed;
       let x = command.x;
       if (held !== null) {
-        const span = sim.barriers.span();
         const at = sim.physics.position(held).x;
+        const span = sim.barriers.span(at);
         if (at >= span.x0 && at <= span.x1) x = Math.min(span.x1 - 0.05, Math.max(span.x0 + 0.05, x));
       }
       sim.physics.moveGrab(x, command.y);
@@ -82,6 +82,7 @@ export function apply(sim: Sim, command: Command): void {
       if (entity.bug) releaseBug(entity.bug, sim.content.bugs.get(entity.defId), flung, s.y);
       if (entity.bug?.pending) sim.cast.released(entity);
       sim.places.released(entity);
+      sim.hidden.released(entity.id);
       sim.setup.touch(entity.id);
       sim.events.emit('item_dropped', {
         id: entity.id,
@@ -262,6 +263,9 @@ export function apply(sim: Sim, command: Command): void {
       return;
     case 'notice':
       sim.journal.notice(String(command.what));
+      return;
+    case 'travel':
+      if (typeof command.door === 'string') sim.hidden.travel(command.door);
       return;
     case 'beckon': {
       const bug = sim.entities.get(command.id);

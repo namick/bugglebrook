@@ -122,6 +122,12 @@ export const POND_X = 32;
 /** Where the plaza starts: Puddle Pond is to its left. */
 export const PLAZA_X = 64;
 
+/** Where the Ant Hill Depths start (M10: hidden, past the treehouse, reached through the ant hill). */
+export const DEPTHS_X = 195.2;
+
+/** Where Gnome Hollow starts (M10: hidden, past the depths, reached through the gnome's hat). */
+export const HOLLOW_X = 220.8;
+
 /** Flat stretches of the plaza (off the stump's root slopes), in world x. */
 const FLAT: readonly [number, number][] = [
   [PLAZA_X + 1, PLAZA_X + 11.8],

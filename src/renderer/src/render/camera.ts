@@ -28,6 +28,11 @@ export class Camera {
    * then springs back once nobody holds it there.
    */
   private open = { x0: 0, x1: Infinity };
+  /**
+   * The furthest the view may ever go (M10): the surface strip, or a hidden
+   * area's sealed stretch. No peeking past it. The whole world by default.
+   */
+  private outer = { x0: 0, x1: Infinity };
   readonly peek = PEEK;
   /** The player is dragging the view or carrying something: no springing back yet. */
   holding = false;
@@ -39,21 +44,30 @@ export class Camera {
   ) {}
 
   get maxX(): number {
-    return Math.max(0, this.worldWidth - this.viewWidth);
+    return Math.max(this.minX, Math.min(this.worldWidth, this.outer.x1) - this.viewWidth);
+  }
+
+  /** The furthest left the view may go. */
+  get minX(): number {
+    return Math.max(0, this.outer.x0);
   }
 
   /** The furthest left and right the view rests at: the open stretch, inside the world. */
   get restMin(): number {
-    return Math.min(this.maxX, Math.max(0, this.open.x0));
+    return Math.min(this.maxX, Math.max(this.minX, this.open.x0));
   }
 
   get restMax(): number {
     return Math.max(this.restMin, Math.min(this.maxX, this.open.x1 - this.viewWidth));
   }
 
-  /** Set the open stretch (from the sim's barriers). */
-  setLimits(x0: number, x1: number): void {
+  /**
+   * Set the open stretch (from the sim's barriers), and optionally the outer
+   * region the view may never leave (`Barriers.region`).
+   */
+  setLimits(x0: number, x1: number, outer?: { x0: number; x1: number }): void {
     this.open = { x0, x1 };
+    if (outer) this.outer = { x0: outer.x0, x1: outer.x1 };
   }
 
   /** How far the view is past the open stretch right now (0 inside it). */
@@ -66,7 +80,7 @@ export class Camera {
   }
 
   set(x: number): void {
-    const lo = Math.max(0, this.restMin - this.peek);
+    const lo = Math.max(this.minX, this.restMin - this.peek);
     const hi = Math.min(this.maxX, this.restMax + this.peek);
     this.x = Math.min(hi, Math.max(lo, Number.isFinite(x) ? x : 0));
   }
@@ -110,7 +124,7 @@ export class Camera {
     if (this.velocity !== 0) {
       this.panBy(this.velocity * dt);
       this.velocity *= Math.exp(-this.friction * dt);
-      const lo = Math.max(0, this.restMin - this.peek);
+      const lo = Math.max(this.minX, this.restMin - this.peek);
       const hi = Math.min(this.maxX, this.restMax + this.peek);
       if (Math.abs(this.velocity) < 0.05 || this.x <= lo || this.x >= hi) this.velocity = 0;
     }

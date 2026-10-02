@@ -494,6 +494,57 @@ export interface GameEvents {
   };
   /** The bug scope showed a thing's hidden tag (or nothing on the dish). */
   scope_viewed: { defId: string | null; tag: string | null; x: number; y: number };
+  // --- M10 hidden areas --------------------------------------------------------
+  /**
+   * The player went through a doorway (`travel`): from fixture `from` at
+   * (x, y) to fixture `to` in `area`, coming out at (toX, toY). `carried` is
+   * what the hand brought along.
+   */
+  doorway_used: {
+    from: string;
+    to: string;
+    area: string;
+    x: number;
+    y: number;
+    toX: number;
+    toY: number;
+    carried: EntityId | null;
+  };
+  /** Ants found the player's sugar cube by their hill and started carrying it in. */
+  ants_took_sugar: { id: EntityId; x: number; y: number };
+  /** The sugar went in and the ant hill's hole crumbled wide into a doorway. */
+  ant_hill_opened: { x: number; y: number };
+  /** A click on the ant hill (ants scatter; once open, it is a doorway). */
+  ant_hill_poked: { x: number; y: number; open: boolean };
+  /** Something small landed on the depths' ant line and is being passed to the pantry. */
+  conveyor_took: { id: EntityId; defId: string; x: number; y: number };
+  /** The ant queen ate something sweet and danced. `first`: the first time (her gift follows). */
+  queen_fed: { defId: string; x: number; y: number; first: boolean };
+  /** The queen gave the player a present (her monocle). */
+  queen_gave: { id: EntityId; defId: string; x: number; y: number };
+  queen_poked: { x: number; y: number };
+  /** A big bug pulled the root knot free in the depths' dead end. */
+  root_pulled: { id: EntityId; defId: string; x: number; y: number };
+  /** A click on the root knot: it creaks (`stuck`) or just sways. */
+  root_poked: { x: number; y: number; stuck: boolean };
+  /** A sleeping larva in the nursery wiggled at a poke. */
+  larva_wiggled: { fixture: string; x: number; y: number };
+  /** Music reached the depths through the bluebell speakers: the ants started a conga. */
+  ants_conga: { x: number; y: number };
+  /** At night, with the ants asleep, the map scrap showed on the pantry's pile. */
+  pantry_scrap_found: { x: number; y: number };
+  /** The gnome got his nose back and sneezed; his hat flips open. */
+  gnome_sneezed: { x: number; y: number };
+  /** The player looked through Gnome Hollow's telescope. */
+  telescope_viewed: { x: number; y: number };
+  pedestal_poked: { x: number; y: number };
+  /** The golden marble settled in the moon pedestal's cup. */
+  marble_seated: { id: EntityId; x: number; y: number };
+  /** The finale began: the telescope opens and every bug heads for the plaza. (x, y) is over the stump. */
+  finale_started: { x: number; y: number };
+  /** A bug-shaped firework burst over the stump (the `n`th of the finale). */
+  firework_burst: { defId: string; x: number; y: number; n: number };
+  finale_ended: Record<string, never>;
 }
 
 /** What a chat line is about. The renderer draws it as a pictogram. */

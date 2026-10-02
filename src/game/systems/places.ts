@@ -327,7 +327,8 @@ export class Places {
         sim.events.emit('hideout_stirred', { fixture: f.id, x: f.x, y: f.y });
         return true;
       default:
-        return false;
+        // M10's hidden areas and their doorways.
+        return sim.hidden.poke(f);
     }
   }
 

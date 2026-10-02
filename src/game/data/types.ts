@@ -100,10 +100,16 @@ export interface AreaDef {
   roof?: { x0: number; x1: number; y: number; top: number };
   /** Music and ambience hints for the renderer: how the area sounds. */
   mood: AreaMood;
+  /**
+   * M10: a hidden area (the Ant Hill Depths, Gnome Hollow). It lies past the
+   * surface strip, sealed by solid walls and a ceiling, and is reached only
+   * through `door` fixtures. It is its own open stretch (`Barriers.span`).
+   */
+  hidden?: boolean;
 }
 
 /** The feel of an area, for its ambient sounds (game design doc, section 16). */
-export type AreaMood = 'garden' | 'pond' | 'plaza' | 'porch' | 'compost' | 'arcade';
+export type AreaMood = 'garden' | 'pond' | 'plaza' | 'porch' | 'compost' | 'arcade' | 'depths' | 'hollow';
 
 /**
  * Water in an area (game design doc, section 3, `fix_pond_water`). The
@@ -176,7 +182,20 @@ export type FixtureKind =
   // M10's clues: the plaza's ring mushrooms and clover patch, the pond's frog eyes.
   | 'ring_mushroom'
   | 'clover'
-  | 'frog_eyes';
+  | 'frog_eyes'
+  // M10 hidden areas: the doorways in and out, and what is inside.
+  | 'ant_hill'
+  | 'depths_door'
+  | 'gnome_door'
+  | 'hollow_door'
+  | 'ant_pantry'
+  | 'ant_conveyor'
+  | 'ant_queen'
+  | 'root_knot'
+  | 'larva'
+  | 'telescope'
+  | 'lost_shelf'
+  | 'moon_pedestal';
 
 /** A fixed part of an area. Positions are area-local x and world y, in meters. */
 export interface FixtureDef {
@@ -197,6 +216,8 @@ export interface FixtureDef {
   paint?: PaintId;
   /** What a shelf jar holds and refills. */
   item?: string;
+  /** M10: a doorway, and the fixture id of the doorway on its other side. */
+  door?: string;
 }
 
 /** The five paint puddle colors (game design doc, section 3, `fix_paint_puddles`). */

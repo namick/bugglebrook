@@ -31,6 +31,7 @@ import { CreditsBoard } from '../ui/creditsBoard';
 import { CREDITS } from '../ui/credits';
 import { SettingsPanel } from '../ui/settingsPanel';
 import { StampStrip } from '../ui/stampStrip';
+import { HiddenDirector } from './hiddenDirector';
 import { HintDirector } from './hintDirector';
 import { GUIDE } from './ghost';
 import { guideSkipButton } from '../ui/guideSkip';
@@ -99,6 +100,8 @@ interface WorldSession {
   stamps: StampStrip;
   /** Skips the guided start (F3), shown while it runs. */
   guideSkip: PictureButton;
+  /** M10's hidden areas: the doorways' iris wipe, the telescope, the finale's camera. */
+  hidden: HiddenDirector;
 }
 
 /** The native moves the browser merged into this one, oldest first, if it can tell us. */
@@ -244,7 +247,13 @@ export class Game {
 
   /** Something is open over the world that takes the pointer: the pause board, the album, or the camera. */
   private get overlaid(): boolean {
-    return this.panel !== null || this.album !== null || this.photo !== null;
+    return (
+      this.panel !== null ||
+      this.album !== null ||
+      this.photo !== null ||
+      // M10: looking through Gnome Hollow's telescope.
+      (this.session?.hidden.telescope.isOpen ?? false)
+    );
   }
 
   /** Hide the system cursor and draw the hand on top of everything instead. */
@@ -492,9 +501,11 @@ export class Game {
     const intro = !save && this.introEnabled ? new Intro() : null;
     if (intro) sim.send({ type: 'stage_intro' });
     const camera = new Camera(sim.worldWidth, VIEW_WIDTH_M);
-    const open = sim.barriers.span();
-    camera.setLimits(open.x0, open.x1);
-    camera.set(save ? save.view.cameraX : START_CAMERA_X);
+    const startX = save ? save.view.cameraX : START_CAMERA_X;
+    const at = startX + VIEW_WIDTH_M / 2;
+    const open = sim.barriers.view(at);
+    camera.setLimits(open.x0, open.x1, sim.barriers.region(at));
+    camera.set(startX);
     if (intro) {
       // Slide in from the pond side and settle with sleeping Dot in the middle.
       const dot = sim.views().find((v) => v.defId === 'bug_ladybug_dot');
@@ -519,6 +530,8 @@ export class Game {
     });
     const home = homeButton(() => {
       this.sfx.play('ui_pop');
+      // Inside a hidden area, home is back out through its doorway first.
+      if (this.session?.hidden.leave()) return;
       this.session?.camera.glideTo(START_CAMERA_X, 1);
     });
     const camButton = cameraButton(() => this.togglePhoto());
@@ -553,6 +566,9 @@ export class Game {
     topUi.addChild(camButton, album);
     // The hint marks sit on the world; the ghost hand goes over the UI, so it can reach into the pocket.
     root.addChild(view, marks, cover, ui, topUi, ghost);
+    const hidden = new HiddenDirector(sim, camera, input, (name, strength) => this.sfx.play(name, strength));
+    root.addChildAt(hidden.iris, root.getChildIndex(view) + 1);
+    root.addChild(hidden.telescope);
 
     this.menu?.destroy({ children: true });
     this.menu = null;
@@ -606,6 +622,7 @@ export class Game {
       hintTime: 0,
       stamps,
       guideSkip,
+      hidden,
     };
     input.onGesture = (gesture, strength) => {
       if (gesture === 'pan' || gesture === 'scroll' || gesture === 'edge') session.panned = true;
@@ -652,6 +669,7 @@ export class Game {
     this.music.detach();
     this.voices.detach();
     this.session.hints.dispose();
+    this.session.hidden.dispose();
     this.session.sim.events.clear();
     this.session.root.destroy({ children: true });
     this.session = null;
@@ -906,6 +924,7 @@ export class Game {
     if (!s) return;
     for (let i = 0; i < n; i++) {
       if (this.frameClock !== null) this.frameClock += 1000 / 60;
+      s.hidden.update(1 / 60);
       s.input.frame(1 / 60);
       this.sendHand(s);
       s.sim.step();
@@ -1005,6 +1024,7 @@ export class Game {
       return;
     }
     if (!this.paused) {
+      s.hidden.update(dt);
       s.input.frame(dt);
       this.stepper.advance(dt, () => s.sim.step());
       this.sinceSave += dt;
@@ -1012,8 +1032,9 @@ export class Game {
       this.runIntro(s, dt);
     }
     // Locked areas: the camera may look past a barrier, and springs back when let go.
-    const open = s.sim.barriers.span();
-    s.camera.setLimits(open.x0, open.x1);
+    // Inside a hidden area (M10), its sealed stretch is all there is.
+    const open = s.sim.barriers.view(s.camera.centerX);
+    s.camera.setLimits(open.x0, open.x1, s.sim.barriers.region(s.camera.centerX));
     if (s.follow !== null) {
       s.camera.glideTo(s.follow, 1.6);
       s.follow = null;

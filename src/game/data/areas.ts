@@ -1,5 +1,6 @@
 import type { AreaDef, Point2 } from './types';
 import { createRegistry } from './registry';
+import { HIDDEN_AREAS } from './hiddenAreas';
 
 const GROUND = 9;
 /** The tops of the porch's two shelves (world y): a plank on bricks, and one hung from the boards. */
@@ -189,6 +190,8 @@ export const AREAS = createRegistry<AreaDef>('area', [
     fixtures: [
       // The gnome, lying on his back with a hole where his nose should be. Knock, knock.
       { id: 'fix_gnome', kind: 'gnome', x: 3.9, y: 7.6, radius: 1.5 },
+      // M10: his red cone hat, which flips open into Gnome Hollow once his nose is back.
+      { id: 'fix_gnome_hat', kind: 'gnome_door', x: 1.1, y: 7.8, radius: 0.6, door: 'fix_hollow_door' },
       // A curled-up leaf full of fresh bite holes that rustles now and then.
       { id: 'fix_munch_leaf', kind: 'munch_leaf', x: 9.7, y: 8.7, radius: 0.45 },
       // A closed tulip that hums to itself (someone is inside).
@@ -356,6 +359,8 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { id: 'fix_ring_mushroom_2', kind: 'ring_mushroom', x: 27.9, y: 8.05, radius: 0.48 },
       { id: 'fix_ring_mushroom_3', kind: 'ring_mushroom', x: 29.1, y: 8.3, radius: 0.42 },
       { id: 'fix_clover', kind: 'clover', x: 11.95, y: 8.85, radius: 0.6 },
+      // M10: the ant hill. A sugar cube nearby opens it into the Ant Hill Depths.
+      { id: 'fix_ant_hill', kind: 'ant_hill', x: 2.9, y: 7.9, radius: 1, door: 'fix_depths_shaft' },
     ],
   },
   {
@@ -679,4 +684,6 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { id: 'fix_leaf_slide', kind: 'leaf_slide', x: 31.4, y: 3.1, radius: 0.5, w: 4.6 },
     ],
   },
+  // M10: the hidden areas, past the strip (data/hiddenAreas.ts).
+  ...HIDDEN_AREAS,
 ]);
