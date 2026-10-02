@@ -72,8 +72,9 @@ test('a crowded plaza of 150 more things and 16 more bugs updates well inside a 
     const mean = times.reduce((a, b) => a + b, 0) / times.length;
     const p99 = sorted[Math.floor(times.length * 0.99)]!;
     console.log(`crowded plaza frame update: mean ${mean.toFixed(2)} ms, p99 ${p99.toFixed(2)} ms`);
-    expect(mean).toBeLessThan(16.7);
-    expect(p99).toBeLessThan(50);
+    // CI's runner: 3.3 to 5.7 ms mean, 10 to 14 ms p99 (October 2026).
+    expect(mean).toBeLessThan(9);
+    expect(p99).toBeLessThan(25);
     expect(bb.errors).toEqual([]);
   } finally {
     await bb.close();

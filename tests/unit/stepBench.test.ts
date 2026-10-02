@@ -45,7 +45,8 @@ describe('step cost (R12)', () => {
     const avg = times.reduce((a, b) => a + b, 0) / times.length;
     const p99 = times[Math.floor(times.length * 0.99)]!;
     console.log(`crowded plaza step: avg ${avg.toFixed(2)} ms, p99 ${p99.toFixed(2)} ms`);
-    expect(avg).toBeLessThan(9);
-    expect(p99).toBeLessThan(30);
+    // CI's runner, alone: 2.4 to 2.9 ms, and 7.4 to 9.5 ms at p99 (October 2026).
+    expect(avg).toBeLessThan(4.5);
+    expect(p99).toBeLessThan(14);
   }, 60_000);
 });
