@@ -46,7 +46,7 @@ Read `docs/00-decisions.md` (locked product decisions) and `docs/04-architecture
 pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e
 ```
 
-- `pnpm test` runs Vitest (`tests/unit/`).
+- `pnpm test` runs Vitest (`tests/unit/`). `pnpm test:perf` runs the crowded-plaza step benchmark (`tests/unit/stepBench.test.ts`) on its own, as CI does in its own step; other test files beside it would inflate its CPU time.
 - `pnpm test:e2e` builds, then runs Playwright against the real Electron app (`tests/e2e/`). On Linux with `xvfb-run` installed, it and `pnpm shots` run on their own virtual X display (`scripts/display.mjs`), so no window opens on the desktop. Never run Electron on the owner's real desktop. Set `BB_REAL_DISPLAY=1` only if you must watch a run.
 - Art pipeline: `pnpm art:templates [bug_id ...] [--refresh-guides]` (needs the virtual display, like shots), `pnpm art:build`, `pnpm art:check` (in `pnpm lint`), and `pnpm art:watch` (dev mode with the Art Lab; it opens a real window, so it's for the artist's machine). `pnpm shots -g "art pipeline"` runs the Art Lab tour with the crude Dot (files `art-*`), and `pnpm shots -g "art every bug"` runs the Art Lab on all sixteen bugs with the crude pack (files `art-bug-*`).
 - `pnpm format` runs Prettier and ESLint with `--fix`.

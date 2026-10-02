@@ -28,6 +28,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      - run: pnpm test:perf
 
   e2e:
     name: E2E tests (shard ${{ matrix.shard }}/8)
