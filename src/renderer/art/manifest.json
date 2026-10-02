@@ -1,5 +1,36 @@
 {
  "assets": {
+  "bug_bee_buzzby": {
+   "face": [],
+   "faceAnchors": {
+    "eye": {
+     "r": 6.636,
+     "x": 39.144,
+     "y": -3.15
+    },
+    "mouth": {
+     "s": 10.164,
+     "x": 37.674,
+     "y": 7.56
+    }
+   },
+   "id": "bug_bee_buzzby",
+   "kind": "bug",
+   "pages": {
+    "1": [],
+    "2": []
+   },
+   "parts": {},
+   "report": [
+    {
+     "level": "info",
+     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+    }
+   ],
+   "rigHash": "d886c1c8d00f64e7",
+   "sourceHash": "17e2c79420a7879f2d986349e25a5ee7ae22944b298d492c607cf7d4fe732db5",
+   "status": "empty"
+  },
   "bug_caterpillar_munch": {
    "face": [],
    "faceAnchors": {
@@ -29,6 +60,37 @@
    ],
    "rigHash": "32e747c0d1c2daf6",
    "sourceHash": "9cd5c392fa91fc898412a38ad35aae54a2fba9f46edd93ee507b7b1d14c2db6a",
+   "status": "empty"
+  },
+  "bug_cricket_fiddle": {
+   "face": [],
+   "faceAnchors": {
+    "eye": {
+     "r": 6.716,
+     "x": 47.15,
+     "y": -10.534
+    },
+    "mouth": {
+     "s": 10.304,
+     "x": 45.954,
+     "y": 0.184
+    }
+   },
+   "id": "bug_cricket_fiddle",
+   "kind": "bug",
+   "pages": {
+    "1": [],
+    "2": []
+   },
+   "parts": {},
+   "report": [
+    {
+     "level": "info",
+     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+    }
+   ],
+   "rigHash": "8858610f23bdcd34",
+   "sourceHash": "ccdd11f28510f7ed7f9f8d64e3af55b942ef68dc861533de3364ede36887757f",
    "status": "empty"
   },
   "bug_dungbeetle_barty": {
@@ -184,6 +246,37 @@
    ],
    "rigHash": "c14cf7ba530014bb",
    "sourceHash": "feeecad1e30471c238ec86dfe530094cedf182672c8aa33d2bce43f9769854eb",
+   "status": "empty"
+  },
+  "bug_moth_luma": {
+   "face": [],
+   "faceAnchors": {
+    "eye": {
+     "r": 7.268,
+     "x": 42.78,
+     "y": -9.614
+    },
+    "mouth": {
+     "s": 10.12,
+     "x": 41.124,
+     "y": 1.334
+    }
+   },
+   "id": "bug_moth_luma",
+   "kind": "bug",
+   "pages": {
+    "1": [],
+    "2": []
+   },
+   "parts": {},
+   "report": [
+    {
+     "level": "info",
+     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+    }
+   ],
+   "rigHash": "34f9f0cbb75cbfe0",
+   "sourceHash": "d4d937cee321c02ada5492cecc7d4e054356c8a88b30e43065e2920319b4ab24",
    "status": "empty"
   },
   "bug_pillbug_rollo": {

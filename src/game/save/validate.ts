@@ -316,6 +316,7 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
       errors.push(`${at}.effects is invalid`);
     if (e.toasted !== undefined && typeof e.toasted !== 'boolean') errors.push(`${at}.toasted is invalid`);
     if (e.toy !== undefined && !isObj(e.toy)) errors.push(`${at}.toy is invalid`);
+    if (e.wearing !== undefined && !isWearing(e.wearing)) errors.push(`${at}.wearing is invalid`);
     return undefined;
   });
   if (world.env !== undefined) {
@@ -359,6 +360,7 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
   }
   if (world.trash !== undefined && !isTrash(world.trash)) errors.push('world.trash is invalid');
   if (world.tidy !== undefined && !isTidy(world.tidy)) errors.push('world.tidy is invalid');
+  if (world.wardrobe !== undefined && !isWardrobe(world.wardrobe)) errors.push('world.wardrobe is invalid');
   const meta = save.meta;
   if (
     !isObj(meta) ||
@@ -396,6 +398,30 @@ function isTidy(v: unknown): boolean {
         (j.cause === 'whistle' || j.cause === 'cap'),
     ) &&
     isNum(v.blown) &&
+    Array.isArray(v.rng) &&
+    v.rng.length === 4 &&
+    v.rng.every(isNum)
+  );
+}
+
+/** What a bug wears (version 15): an item ID per slot. */
+function isWearing(v: unknown): boolean {
+  return (
+    isObj(v) &&
+    Object.entries(v).every(([slot, id]) => ['head', 'face', 'back', 'feet'].includes(slot) && isNum(id))
+  );
+}
+
+/** The wardrobe (version 15): plans by bug, pollen by bug, and its dice. */
+function isWardrobe(v: unknown): boolean {
+  return (
+    isObj(v) &&
+    isObj(v.plans) &&
+    Object.values(v.plans).every(
+      (p) => isObj(p) && isNum(p.item) && isNum(p.at) && typeof p.act === 'string',
+    ) &&
+    isNumMap(v.pollen) &&
+    isNum(v.parade) &&
     Array.isArray(v.rng) &&
     v.rng.length === 4 &&
     v.rng.every(isNum)

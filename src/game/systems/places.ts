@@ -124,6 +124,13 @@ const CLAW_POOL: readonly string[] = [
   'item_yo_yo',
   'item_marble_green',
   'item_pollen_puff',
+  // M11: hats and accessories (section 3: the jar restocks from a pool of them).
+  'item_hat_wizard',
+  'item_hat_candle',
+  'item_hat_bubble',
+  'item_acc_monocle',
+  'item_acc_googly_glasses',
+  'item_hat_acorn_cap',
 ];
 /** How many beads in the bead pit. */
 export const BEADS = 96;

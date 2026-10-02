@@ -10,7 +10,7 @@ import type { Content } from './data';
 import { CONTENT, areaAt, worldWidth } from './data';
 import { MATERIALS } from './data/materials';
 import type { MaterialId } from './data/types';
-import type { AreaDef, BugDef, ItemDef, PendingState } from './data/types';
+import type { AreaDef, BugDef, ItemDef, PendingState, WearSlot } from './data/types';
 import { baseAffinity, pairKey } from './data/affinity';
 import type { GameEvents, Liking, Mood, ReactionType, TagCause } from './events';
 import type { BodyState, Impact, MaterialSpec, ShapeSpec } from './physics/physics';
@@ -60,6 +60,9 @@ import { leanAgainst, stackTop } from './world/startLayout';
 import { Bench } from './systems/bench';
 import { Cauldron } from './systems/cauldron';
 import { Trash } from './systems/trash';
+import { Wardrobe } from './systems/wardrobe';
+import { MusicBugs } from './systems/musicBugs';
+import { HEAD_TURNS } from './data/items11';
 import { Tidy } from './systems/tidy';
 import { Bounds } from './systems/bounds';
 import type { PhotoState } from './systems/photo';
@@ -113,8 +116,8 @@ import type { ActiveEffect, SavedPart, ToyState } from './core/entities';
 const ROLLED_RESTITUTION = 0.6;
 /** How often consumables drop back in when an area runs low. */
 export const RESPAWN_TICKS = 45 * SIM_HZ;
-/** How far (m) a respawn drop keeps from the player's setups: a jelly bean falling from the sky can bounce 4 m. */
-export const RESPAWN_CLEAR = 6;
+/** How far (m) a respawn drop keeps from the player's setups: a jelly bean falling from the sky can bounce and skid 6.5 m off a root slope. */
+export const RESPAWN_CLEAR = 8;
 /** Anything this far below the surface is pulled back up. */
 const BURIED_DEPTH = 0.25;
 const NO_TAGS: readonly string[] = [];
@@ -140,6 +143,18 @@ const M9_STARTERS: readonly string[] = [
   'item_inst_thimble_drum',
   'item_inst_bottle_flute',
   'item_inst_leaf_xylophone',
+];
+/** M11's hats and accessories, given to worlds saved before the wardrobe. */
+const M11_STARTERS: readonly string[] = [
+  'item_hat_acorn_cap',
+  'item_hat_party_cone',
+  'item_hat_flower_petal',
+  'item_hat_tiny_top_hat',
+  'item_hat_chef',
+  'item_acc_sunglasses',
+  'item_acc_mustache',
+  'item_acc_bowtie_ribbon',
+  'item_acc_bandaid',
 ];
 /** Things M8 added to the areas' start lists, given to worlds saved before it. */
 const M8_STARTERS: readonly string[] = [
@@ -206,6 +221,10 @@ export interface BugView {
   rolling?: boolean;
   /** Paint patches on it. */
   paint?: string[];
+  /** What it wears (M11), in slot order. */
+  wearing?: { slot: WearSlot; id: EntityId; defId: string }[];
+  /** Playing its own legs (Fiddle). */
+  fiddling?: boolean;
 }
 
 /** A potion effect as the renderer sees it (M8). */
@@ -246,6 +265,8 @@ export interface EntityView extends BodyState {
   pocket?: number;
   /** Paint on it: an item's color, or a bug's patches. */
   paint?: string[];
+  /** Worn by a bug (M11): which, and in which slot. Drawn on the bug, not in the world. */
+  worn?: { by: EntityId; slot: WearSlot };
   /** Bites nibbled out of a leaf. */
   bites?: number;
   /** Snapped onto the pegboard. */
@@ -343,6 +364,10 @@ export class Sim {
   readonly trash: Trash;
   /** The tidy whistle, slow tidying, and the junk cap (playtest F2). */
   readonly tidy: Tidy;
+  /** Hats and accessories, and who wears what (M11). */
+  readonly wardrobe: Wardrobe;
+  /** Buzzby, Fiddle, and Luma: how they are found and what they get up to (M11). */
+  readonly musicBugs: MusicBugs;
   /** Where the player's hand is over the world, or null. Sent by the renderer (`hand`). */
   hand: { x: number; y: number } | null = null;
   /** Areas whose starting things are in the world. Saved, so areas added later get theirs on load. */
@@ -373,6 +398,8 @@ export class Sim {
     this.bounds = new Bounds(this);
     this.trash = new Trash(this);
     this.tidy = new Tidy(this);
+    this.wardrobe = new Wardrobe(this);
+    this.musicBugs = new MusicBugs(this);
     this.buildFixtures();
     this.buildSolids();
     this.barriers.build();
@@ -512,6 +539,7 @@ export class Sim {
       if (saved.effects) entity.effects = clone(saved.effects);
       if (saved.toasted) entity.toasted = true;
       if (saved.toy) entity.toy = clone(saved.toy);
+      if (saved.wearing && entity.bug) entity.wearing = { ...saved.wearing };
       sim.entities.restore(entity);
       sim.addBodyFor(entity, saved.body);
       if (saved.pinned) {
@@ -559,6 +587,9 @@ export class Sim {
     if (save.cauldron) sim.cauldron.restore(clone(save.cauldron));
     if (save.trash) sim.trash.restore(clone(save.trash));
     if (save.tidy) sim.tidy.restore(clone(save.tidy));
+    if (save.wardrobe) sim.wardrobe.restore(clone(save.wardrobe));
+    // Worn things go back on their bugs, bodies off.
+    sim.wardrobe.rebuild();
     // Areas new since the save get their starting things (M7's four areas, in older saves).
     sim.built = save.built ? [...save.built] : sim.content.areas.all.map((a) => a.id);
     sim.populate(sim.content.areas.all.filter((a) => !sim.built.includes(a.id)));
@@ -569,6 +600,8 @@ export class Sim {
     if (!save.places?.sequencer) sim.addMissingItems(M9_STARTERS);
     // The tidy whistle joins worlds saved before the trash can.
     if (!save.trash) sim.addMissingItems(['item_tidy_whistle']);
+    // M11's hats and accessories join worlds saved before the wardrobe.
+    if (!save.wardrobe) sim.addMissingItems(M11_STARTERS);
     sim.toys.restore();
     for (const e of sim.entities.all()) if (e.effects) sim.potions.sync(e);
     sim.refreshFriction();
@@ -632,7 +665,11 @@ export class Sim {
   }
 
   remove(id: EntityId): void {
-    if (!this.entities.has(id)) return;
+    const gone = this.entities.get(id);
+    if (!gone) return;
+    // A bug leaving the world lets go of what it wears.
+    if (gone.wearing) this.wardrobe.takeAllOff(gone, 'dropped');
+    this.wardrobe.forget(id);
     const holder = this.carried.get(id);
     if (holder !== undefined) {
       const b = this.entities.get(holder)?.bug;
@@ -697,6 +734,8 @@ export class Sim {
     this.cauldron.update();
     this.trash.update();
     this.tidy.update();
+    this.wardrobe.update();
+    this.musicBugs.update();
     if (this.tick % 15 === 0) this.updateSleep();
     if (this.tick % 15 === 0) this.totem();
     this.offscreen.update();
@@ -717,6 +756,7 @@ export class Sim {
     this.physics.step(SIM_DT);
     this.placeMouthfuls();
     this.placeCarried();
+    this.wardrobe.place();
     const impacts = this.physics.takeImpacts();
     this.handleImpacts(impacts);
     this.toys.impacts(impacts);
@@ -1418,6 +1458,11 @@ export class Sim {
       const bug = this.entities.get(bugId);
       if (bug?.bug?.carrying === itemId) continue;
       this.carried.delete(itemId);
+      // An umbrella let go of any way at all (a tumble, a hop) is down.
+      if (bug?.bug?.umbrella) {
+        bug.bug.umbrella = false;
+        this.events.emit('bug_umbrella', { id: bugId, defId: bug.defId, itemId, on: false });
+      }
       const throwing = this.pendingThrows.get(itemId);
       if (!this.entities.has(itemId) || owners.has(itemId)) continue;
       const hand = bug?.bug ? this.handOf(bug) : this.physics.getState(itemId);
@@ -1600,7 +1645,7 @@ export class Sim {
 
   /** Does this thing glow: a glowing item, or a bug like Flick? */
   glows(e: Entity): boolean {
-    if (e.kind === 'bug') return !!this.content.bugs.get(e.defId).glows;
+    if (e.kind === 'bug') return !!this.content.bugs.get(e.defId).glows || this.wardrobe.has(e, 'glow');
     return this.hasTag(e.id, 'tag_glowing');
   }
 
@@ -1764,6 +1809,8 @@ export class Sim {
   addTag(id: EntityId, tag: string, cause: TagCause, seconds?: number | null): boolean {
     const e = this.entities.get(id);
     if (!e) return false;
+    // The yarn beanie keeps its wearer warm.
+    if (tag === 'tag_cold' && e.wearing && this.wardrobe.has(e, 'warm')) return false;
     const defaults = this.defaultTags(e);
     e.tags ??= {};
     const gained = addTag(e.tags, defaults, tag, this.tick, seconds);
@@ -1821,7 +1868,11 @@ export class Sim {
   refreshFriction(only?: Entity): void {
     for (const e of only ? [only] : this.entities.all()) {
       if (!this.physics.has(e.id)) continue;
-      const base = e.kind === 'bug' ? BUG_FRICTION : this.content.items.get(e.defId).friction;
+      // Bottle-cap skates: the wearer rolls almost without friction.
+      const base =
+        e.kind === 'bug'
+          ? BUG_FRICTION * (e.wearing && this.wardrobe.has(e, 'skates') ? 0.1 : 1)
+          : this.content.items.get(e.defId).friction;
       const k = this.hasTag(e.id, 'tag_frozen')
         ? FROZEN_FRICTION
         : this.hasTag(e.id, 'tag_wet')
@@ -1909,6 +1960,11 @@ export class Sim {
     return this.pocketed.has(id);
   }
 
+  /** What the hand would pick up at (x, y): a worn hat before the bug under it, then any body. */
+  pickAt(x: number, y: number): EntityId | null {
+    return this.wardrobe.wornAt(x, y) ?? this.physics.bodyAt(x, y, 0.2);
+  }
+
   /**
    * Areas more than a screen from the camera's view sleep: their bodies are
    * switched off and their bugs pause (game design doc, section 3). Held
@@ -1928,8 +1984,8 @@ export class Sim {
     }
     const mouthfuls = new Set(this.mouthOwners().keys());
     for (const e of this.entities.all()) {
-      // Pocketed things belong to no area; they stay switched off.
-      if (this.pocketed.has(e.id)) continue;
+      // Pocketed things belong to no area; they stay switched off. So do worn ones, on their bugs.
+      if (this.pocketed.has(e.id) || this.wardrobe.isWorn(e.id)) continue;
       const x = this.physics.getState(e.id).x;
       const asleep = this.asleepAreas.has(this.areaOf(x).id) && this.physics.grabbed !== e.id;
       if (asleep && !this.sleeping.has(e.id)) {
@@ -1963,6 +2019,7 @@ export class Sim {
       ...this.bench.candidates(),
       ...this.cauldron.candidates(),
       ...this.trash.candidates(exclude),
+      ...this.wardrobe.candidates(exclude),
     ];
     for (const bug of this.entities.ofKind('bug')) {
       if (bug.id === exclude || !bug.bug || this.physics.grabbed === bug.id) continue;
@@ -1983,6 +2040,8 @@ export class Sim {
     const tags = [...def.tags, 'item'];
     if (this.isPotion(entity)) tags.push('potion');
     if (def.paint) tags.push('paint');
+    if (def.wear) tags.push('wearable');
+    if (HEAD_TURNS[def.id]) tags.push('head_turn');
     return tags;
   }
 
@@ -2225,6 +2284,8 @@ export class Sim {
     if (carrier !== undefined) view.carriedBy = carrier;
     if (this.sleeping.has(e.id)) view.asleep = true;
     if (this.pocketed.has(e.id)) view.pocket = this.pocket.slots.findIndex((ids) => ids.includes(e.id));
+    const worn = this.wardrobe.wornBy(e.id);
+    if (worn) view.worn = { by: worn.bug, slot: worn.slot };
     if (e.paint && e.paint.length > 0) view.paint = [...e.paint];
     if (e.bites) view.bites = e.bites;
     if (e.pinned) view.pinned = true;
@@ -2294,6 +2355,10 @@ export class Sim {
       ...(b.form ? { form: b.form } : {}),
       ...(b.overhead && b.carrying !== null ? { overhead: true } : {}),
       ...(b.rolling && b.carrying !== null ? { rolling: true } : {}),
+      ...(b.mode === 'st_perform' && b.action === 'play' && b.targetId === null ? { fiddling: true } : {}),
+      ...(e.wearing
+        ? { wearing: this.wardrobe.wornOn(e).map((w) => ({ slot: w.slot, id: w.id, defId: w.def.id })) }
+        : {}),
     };
   }
 
@@ -2323,6 +2388,7 @@ export class Sim {
       if (e.effects && e.effects.length > 0) saved.effects = clone(e.effects);
       if (e.toasted) saved.toasted = true;
       if (e.toy && Object.keys(e.toy).length > 0) saved.toy = clone(e.toy);
+      if (e.wearing && Object.keys(e.wearing).length > 0) saved.wearing = { ...e.wearing };
       return saved;
     });
     return {
@@ -2344,6 +2410,7 @@ export class Sim {
       cauldron: this.cauldron.serialize(),
       trash: this.trash.serialize(),
       tidy: this.tidy.serialize(),
+      wardrobe: this.wardrobe.serialize(),
     };
   }
 }

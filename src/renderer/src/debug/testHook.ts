@@ -216,6 +216,10 @@ export interface TestHook extends ArtHook {
   pendingLife(): { id: number; defId: string; pending: string; life: number }[];
   /** Bug sprites' moving parts redrawn and skipped since launch (R36's pose cache). */
   bugRedraws(): { drawn: number; skipped: number };
+  /** Where a bug's wear slot is in the world right now (M11), or null for no such bug. */
+  wearAnchor(id: number, slot: 'head' | 'face' | 'back' | 'feet'): Point | null;
+  /** Worn things as drawn this frame (M11): their bug, world point (m), drawn scale, and whether they show. */
+  worn(): { bug: number; id: number; defId: string; x: number; y: number; scale: number; shown: boolean }[];
   /** How much two bug defs like each other now, -1 to 1. */
   affinity(a: string, b: string): number;
   /**
@@ -634,6 +638,12 @@ export function installTestHook(game: Game): void {
     critters: () => game.session?.view.critters ?? [],
     pendingLife: () => game.session?.view.pendingLife() ?? [],
     bugRedraws: () => ({ ...BugSprite.redraws }),
+    worn: () => game.session?.view.wornDrawn() ?? [],
+    wearAnchor: (id, slot) => {
+      const sim = game.session?.sim;
+      const bug = sim?.entities.get(id);
+      return sim && bug?.bug ? sim.wardrobe.anchor(bug, slot) : null;
+    },
     affinity: (a, b) => game.session?.sim.affinityOf(a, b) ?? 0,
     sky: () => {
       const sim = game.session?.sim;

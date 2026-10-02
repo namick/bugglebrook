@@ -204,4 +204,41 @@ export const SECRETS = createRegistry<SecretDef>('secret', [
     trigger: { type: 'scripted', area: 'area_puddle_pond' },
     unlocks: [],
   },
+  // M11: hats, and the music bugs M9 left out.
+  {
+    id: 'secret_compost_goo_hat',
+    name: 'A goo hat',
+    trigger: { type: 'scripted', area: 'area_compost_lab' },
+    unlocks: [{ kind: 'item', id: 'item_hat_goo' }],
+  },
+  {
+    id: 'secret_fashion_parade',
+    name: 'Fashion parade',
+    trigger: { type: 'scripted', area: 'area_flowerbed_stage' },
+    unlocks: [],
+  },
+  {
+    id: 'secret_buzzby_found',
+    name: 'Buzzby the bumblebee',
+    trigger: { type: 'scripted', area: 'area_flowerbed_stage' },
+    unlocks: [{ kind: 'bug', id: 'bug_bee_buzzby' }],
+  },
+  {
+    id: 'secret_fiddle_found',
+    name: 'Fiddle the cricket',
+    trigger: { type: 'scripted', area: 'area_flowerbed_stage' },
+    unlocks: [{ kind: 'bug', id: 'bug_cricket_fiddle' }],
+  },
+  {
+    id: 'secret_luma_found',
+    name: 'Luma the moth',
+    trigger: { type: 'scripted', area: 'area_under_porch' },
+    unlocks: [{ kind: 'bug', id: 'bug_moth_luma' }],
+  },
+  {
+    id: 'secret_moth_spotlight',
+    name: 'Luma in the spotlight',
+    trigger: { type: 'scripted', area: 'area_flowerbed_stage' },
+    unlocks: [],
+  },
 ]);

@@ -85,6 +85,14 @@ export function tryCatch(sim: Sim, itemId: EntityId, bugId: EntityId): void {
   }
   const target = sim.dropTargetFor(itemId);
   if (target?.kind === 'mouth' && target.entityId === bugId) sim.feed(bugId, itemId, true);
+  // A hat thrown onto a bug's head lands on it (section 2): a great shot.
+  else if ((target?.kind === 'head' || target?.kind === 'crown') && target.entityId === bugId) {
+    const item = sim.entities.get(itemId);
+    if (item) {
+      sim.thrown.delete(itemId);
+      sim.wardrobe.dropped(bugId, item, true);
+    }
+  }
 }
 
 /**

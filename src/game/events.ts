@@ -1,5 +1,5 @@
 import type { BugAction, EntityId, EntityKind, SocialKind } from './core/entities';
-import type { AdvertAction, PotionEffect, ToyKind } from './data/types';
+import type { AdvertAction, PotionEffect, ToyKind, WearSlot } from './data/types';
 import type { BlobKind } from './systems/crafting';
 import type { PhaseId, WeatherId } from './systems/sky';
 
@@ -247,6 +247,72 @@ export interface GameEvents {
   photo_saved: { ok: boolean };
   /** Four bugs stood stacked and still for two seconds: a bug totem. */
   totem_made: { ids: EntityId[]; x: number; y: number };
+
+  // --- Hats and accessories (M11) -----------------------------------------
+  /**
+   * A bug put something on. `by` says how: the player let it go on the bug's
+   * head (`thrown` if it was a throw that landed there), the bug picked it up
+   * itself, or two bugs swapped. `took` is what it popped off that slot.
+   */
+  wearable_worn: {
+    id: EntityId;
+    defId: string;
+    bugId: EntityId;
+    bugDefId: string;
+    slot: WearSlot;
+    by: 'player' | 'bug' | 'swap';
+    thrown: boolean;
+    liking: Liking;
+    took: EntityId | null;
+    x: number;
+    y: number;
+  };
+  /**
+   * Something came off a bug: popped off by the next thing in its slot,
+   * pulled off by the hand, shaken off, taken off because the bug hates it,
+   * broken, or let go when the bug left the world.
+   */
+  wearable_removed: {
+    id: EntityId;
+    defId: string;
+    bugId: EntityId;
+    bugDefId: string;
+    slot: WearSlot;
+    how: 'popped' | 'grabbed' | 'shaken' | 'disliked' | 'broke' | 'dropped' | 'swapped';
+    x: number;
+    y: number;
+  };
+  /** Prim looked a hat over: a sparkle (`approve`) or a raised eyebrow. */
+  hat_judged: {
+    judge: EntityId;
+    wearer: EntityId;
+    itemDefId: string;
+    approve: boolean;
+    x: number;
+    y: number;
+  };
+  /** Two bugs chatting swapped hats, each liking the other's better. */
+  hats_swapped: { a: EntityId; b: EntityId; x: number; y: number };
+  /** Boing hopped his hat off and caught it again: a trick, not a loss. */
+  hat_flipped: { id: EntityId; itemId: EntityId; x: number; y: number };
+  /** A poke on a bug in the party cone toots it. */
+  hat_tooted: { id: EntityId; x: number; y: number };
+  /** A bug in the viking helmet headbutted a loose thing out of its way. */
+  headbutted: { id: EntityId; itemId: EntityId; x: number; y: number };
+  /** Prim, in the chef hat, karate-chopped a food in two. */
+  food_chopped: { id: EntityId; itemId: EntityId; newId: EntityId; defId: string; x: number; y: number };
+  /** A bug in the monocle peered at something: one of its tags, like the bug scope. */
+  monocle_peered: { id: EntityId; itemId: EntityId; tag: string | null; x: number; y: number };
+  /** Buzzby brought a load of pollen to a thimble (`count` since the last honey). */
+  pollen_delivered: { id: EntityId; itemId: EntityId; count: number; x: number; y: number };
+  /** The fifth load: the thimble filled with a new honey drop. */
+  honey_made: { id: EntityId; itemId: EntityId; x: number; y: number };
+  /** Fiddle started playing his own legs for this many beats. */
+  bug_fiddled: { id: EntityId; defId: string; beats: number; x: number; y: number };
+  /** Luma looped round a light (`own`: her own headlamp, round and round). */
+  moth_circled: { id: EntityId; x: number; y: number; own: boolean };
+  /** Every found bug wears a hat at once: Prim leads a parade (`secret_fashion_parade`). */
+  parade_started: { leader: EntityId; ids: EntityId[]; x: number; y: number };
 
   // --- More areas and unlocks (M7) ----------------------------------------
   /** A barrier opened for good: `areaId` is open to bugs and the camera now. */
@@ -545,7 +611,8 @@ export type TagCause =
   | 'paint'
   | 'potion'
   | 'mud'
-  | 'fire';
+  | 'fire'
+  | 'hat';
 
 export type Liking = 'loved' | 'liked' | 'neutral' | 'disliked';
 
@@ -568,7 +635,9 @@ export type Liking = 'loved' | 'liked' | 'neutral' | 'disliked';
  * minute") and `whee` (riding the leaf slide, wading in the bead pit).
  * M11 adds `camera` (the camera comes out: posing, photobombing, hiding).
  * The playtest's F1 adds `trashed` (spat out of the trash can, smelly and
- * indignant).
+ * indignant). M11's hats add `hatted` (each bug's own way of wearing a hat),
+ * `hat_love` and `hat_yuck` (a loved or a hated thing put on), `hat_look`
+ * (a bug nearby noticing), and `fashion` (Prim's verdict).
  */
 export type ReactionType =
   | 'grab'
@@ -607,7 +676,12 @@ export type ReactionType =
   | 'later'
   | 'whee'
   | 'camera'
-  | 'trashed';
+  | 'trashed'
+  | 'hatted'
+  | 'hat_love'
+  | 'hat_yuck'
+  | 'hat_look'
+  | 'fashion';
 
 export const REACTION_TYPES: readonly ReactionType[] = [
   'grab',
@@ -647,6 +721,11 @@ export const REACTION_TYPES: readonly ReactionType[] = [
   'whee',
   'camera',
   'trashed',
+  'hatted',
+  'hat_love',
+  'hat_yuck',
+  'hat_look',
+  'fashion',
 ];
 
 /** Variants per reaction type. */

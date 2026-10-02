@@ -299,9 +299,15 @@ describe('rain (R15), the pond, and puddles', () => {
     }
     expect(up).toBe(true);
     expect(log.some((e) => e.name === 'bug_umbrella' && e.payload.id === dot && e.payload.on)).toBe(true);
+    // Rain never wets her while the umbrella is up (she may tumble and drop it, and get wet then).
+    let wetUnder = 0;
+    sim.events.on('tag_gained', (e) => {
+      if (e.id === dot && e.tag === 'tag_wet' && e.cause === 'rain' && sim.view(dot)!.bug!.umbrella)
+        wetUnder++;
+    });
     sim.send({ type: 'set_tag', id: dot, tag: 'tag_wet', on: false });
     sim.run(10 * 60);
-    if (sim.view(dot)!.bug!.umbrella) expect(sim.hasTag(dot, 'tag_wet')).toBe(false);
+    expect(wetUnder).toBe(0);
     sim.send({ type: 'set_weather', wind: 0, rain: false });
     sim.run(3 * 60);
     expect(sim.view(dot)!.bug!.umbrella).toBe(false);

@@ -2,7 +2,7 @@ import type { BugDef } from './types';
 import { createRegistry } from './registry';
 
 // The cast so far (game design doc, section 4): the five starting bugs, Flick,
-// and M7's six found bugs. The rest of the sixteen arrive in later
+// M7's six found bugs, and M11's three music bugs (Buzzby, Fiddle, Luma). The rest of the sixteen arrive in later
 // milestones; keep these IDs stable. Likes follow the bug
 // profiles, limited to foods that exist so far. Every bug has at least one
 // loved, liked, neutral, and disliked food in the plaza, so players can
@@ -26,13 +26,22 @@ export const BUGS = createRegistry<BugDef>('bug', [
     needWeights: { need_hunger: 1, need_fun: 1.4, need_energy: 0.8, need_social: 1.2, need_clean: 0.8 },
     // Her weird favorite is the hot pepper: she breathes a flame puff.
     loves: ['item_pepper_hot', 'item_jelly_bean'],
-    likes: ['item_berry_red', 'item_sugar_cube', 'item_spring_coil', 'item_blueberry', 'item_honey_drop'],
+    likes: [
+      'item_berry_red',
+      'item_sugar_cube',
+      'item_spring_coil',
+      'item_blueberry',
+      'item_honey_drop',
+      'item_hat_party_cone',
+      'item_hat_propeller',
+    ],
     dislikes: [
       'item_mint_leaf',
       'item_rotten_banana_bit',
       'item_soap_sliver',
       'item_onion_ring',
       'item_compost_goo',
+      'item_acc_mustache',
     ],
     likesFlinging: true,
     dizzyProof: false,
@@ -44,6 +53,7 @@ export const BUGS = createRegistry<BugDef>('bug', [
     active: 'day',
     // Rain: she hides under a leaf.
     rain: 'dislikes',
+    wear: { head: [0.4, 0.06], headR: 0.26, back: [-0.05, -0.42] },
     voice: {
       wave: 'square',
       low: 520,
@@ -79,9 +89,9 @@ export const BUGS = createRegistry<BugDef>('bug', [
     habits: { rowsPebbles: true, rummages: true },
     needWeights: { need_hunger: 1.1, need_fun: 0.8, need_energy: 1.2, need_social: 1.1, need_clean: 0.7 },
     // His weird favorite is compost goo.
-    loves: ['item_rotten_banana_bit', 'item_compost_goo'],
-    likes: ['item_leaf', 'item_berry_red', 'item_moss_tuft', 'item_apple_core'],
-    dislikes: ['item_pepper_hot', 'item_soap_sliver', 'item_fizz_candy'],
+    loves: ['item_rotten_banana_bit', 'item_compost_goo', 'item_hat_goo'],
+    likes: ['item_leaf', 'item_berry_red', 'item_moss_tuft', 'item_apple_core', 'item_hat_acorn_cap'],
+    dislikes: ['item_pepper_hot', 'item_soap_sliver', 'item_fizz_candy', 'item_hat_viking'],
     likesFlinging: false,
     dizzyProof: false,
     mouth: [0.56, 0.276],
@@ -93,6 +103,7 @@ export const BUGS = createRegistry<BugDef>('bug', [
     likesStink: true,
     active: 'day',
     rain: 'neutral',
+    wear: { head: [0.524, 0.166], headR: 0.216, back: [-0.08, -0.38] },
     voice: {
       wave: 'triangle',
       low: 180,
@@ -121,9 +132,16 @@ export const BUGS = createRegistry<BugDef>('bug', [
     needWeights: { need_hunger: 1.2, need_fun: 0.6, need_energy: 1, need_social: 0.8, need_clean: 0.5 },
     // His weird favorite is soap: he eats it and burps bubbles.
     loves: ['item_moss_tuft', 'item_soap_sliver'],
-    likes: ['item_leaf', 'item_mint_leaf', 'item_blueberry', 'item_lavender_sprig'],
+    likes: [
+      'item_leaf',
+      'item_mint_leaf',
+      'item_blueberry',
+      'item_lavender_sprig',
+      'item_hat_mushroom',
+      'item_hat_wizard',
+    ],
     // Speed alarms him.
-    dislikes: ['item_pepper_hot', 'item_rotten_banana_bit', 'item_coffee_bean'],
+    dislikes: ['item_pepper_hot', 'item_rotten_banana_bit', 'item_coffee_bean', 'item_acc_roller_skates'],
     likesFlinging: false,
     // "Never dizzy, just ooooh." He pulls into his shell and spins instead.
     dizzyProof: true,
@@ -136,6 +154,7 @@ export const BUGS = createRegistry<BugDef>('bug', [
     active: 'day',
     // Rain is the best weather: out he goes to splash.
     rain: 'likes',
+    wear: { head: [0.605, 0.112], headR: 0.22, back: [-0.2, -0.62] },
     voice: {
       wave: 'sine',
       low: 120,
@@ -172,9 +191,9 @@ export const BUGS = createRegistry<BugDef>('bug', [
     needWeights: { need_hunger: 0.9, need_fun: 1.2, need_energy: 0.8, need_social: 0.8, need_clean: 1.2 },
     // His weird favorite is the ice cube.
     loves: ['item_blueberry', 'item_ice_cube'],
-    likes: ['item_mint_leaf', 'item_berry_red', 'item_sugar_cube'],
+    likes: ['item_mint_leaf', 'item_berry_red', 'item_sugar_cube', 'item_acc_sunglasses', 'item_acc_snorkel'],
     // Mud and muck: he keeps his long legs clean.
-    dislikes: ['item_rotten_banana_bit', 'item_moss_tuft', 'item_compost_goo'],
+    dislikes: ['item_rotten_banana_bit', 'item_moss_tuft', 'item_compost_goo', 'item_hat_yarn_beanie'],
     likesFlinging: false,
     dizzyProof: false,
     mouth: [0.6, -0.1],
@@ -187,6 +206,7 @@ export const BUGS = createRegistry<BugDef>('bug', [
     active: 'day',
     // Rain is the best weather: out he goes to splash.
     rain: 'likes',
+    wear: { head: [0.44, -0.15], headR: 0.14, back: [-0.05, -0.3] },
     voice: {
       wave: 'sine',
       low: 250,
@@ -216,9 +236,22 @@ export const BUGS = createRegistry<BugDef>('bug', [
     needWeights: { need_hunger: 1, need_fun: 1.4, need_energy: 0.6, need_social: 1.3, need_clean: 0.6 },
     // Anything bouncy or sugary. His weird favorite is the coffee bean.
     loves: ['item_jelly_bean', 'item_sugar_cube', 'item_coffee_bean'],
-    likes: ['item_leaf', 'item_berry_red', 'item_spring_coil', 'item_blueberry', 'item_fizz_candy'],
+    likes: [
+      'item_leaf',
+      'item_berry_red',
+      'item_spring_coil',
+      'item_blueberry',
+      'item_fizz_candy',
+      'item_hat_propeller',
+      'item_acc_cape_leaf',
+    ],
     // Sleepy, soggy food.
-    dislikes: ['item_moss_tuft', 'item_rotten_banana_bit', 'item_lavender_sprig'],
+    dislikes: [
+      'item_moss_tuft',
+      'item_rotten_banana_bit',
+      'item_lavender_sprig',
+      'item_acc_backpack_matchbox',
+    ],
     likesFlinging: true,
     dizzyProof: false,
     mouth: [0.62, 0.12],
@@ -229,6 +262,7 @@ export const BUGS = createRegistry<BugDef>('bug', [
     active: 'day',
     // Rain: soggy legs, no thanks. He takes a leaf for an umbrella.
     rain: 'dislikes',
+    wear: { head: [0.4, -0.09], headR: 0.22, back: [-0.1, -0.35] },
     voice: {
       wave: 'sawtooth',
       low: 400,
@@ -268,9 +302,16 @@ export const BUGS = createRegistry<BugDef>('bug', [
     needWeights: { need_hunger: 0.8, need_fun: 1.3, need_energy: 0.9, need_social: 1.3, need_clean: 0.7 },
     // Sweet nectar for a firefly. His weird favorite, the toy battery, arrives with the porch.
     loves: ['item_sugar_cube'],
-    likes: ['item_blueberry', 'item_berry_red', 'item_jelly_bean', 'item_honey_drop'],
+    likes: [
+      'item_blueberry',
+      'item_berry_red',
+      'item_jelly_bean',
+      'item_honey_drop',
+      'item_hat_candle',
+      'item_acc_headlamp',
+    ],
     // Stink clouds put his light out.
-    dislikes: ['item_rotten_banana_bit', 'item_pepper_hot', 'item_onion_ring'],
+    dislikes: ['item_rotten_banana_bit', 'item_pepper_hot', 'item_onion_ring', 'item_acc_sunglasses'],
     likesFlinging: true,
     dizzyProof: false,
     mouth: [0.4, 0.12],
@@ -283,6 +324,7 @@ export const BUGS = createRegistry<BugDef>('bug', [
     active: 'night',
     rain: 'neutral',
     glows: true,
+    wear: { head: [0.32, 0.048], headR: 0.208, back: [-0.04, -0.33] },
     voice: {
       wave: 'sine',
       low: 800,
@@ -322,8 +364,14 @@ export const BUGS = createRegistry<BugDef>('bug', [
     needWeights: { need_hunger: 1, need_fun: 0.8, need_energy: 1, need_social: 1.2, need_clean: 0.6 },
     // His weird favorite is the mint leaf: he eats it hoping to smell nice. He doesn't.
     loves: ['item_onion_ring', 'item_compost_goo', 'item_mint_leaf'],
-    likes: ['item_cheese_puff', 'item_crumb_cookie', 'item_rotten_banana_bit'],
-    dislikes: ['item_pepper_hot', 'item_fizz_candy'],
+    likes: [
+      'item_cheese_puff',
+      'item_crumb_cookie',
+      'item_rotten_banana_bit',
+      'item_hat_goo',
+      'item_acc_bowtie_ribbon',
+    ],
+    dislikes: ['item_pepper_hot', 'item_fizz_candy', 'item_hat_party_cone'],
     likesFlinging: false,
     dizzyProof: false,
     mouth: [0.5, 0.2],
@@ -333,6 +381,7 @@ export const BUGS = createRegistry<BugDef>('bug', [
     likesStink: true,
     active: 'day',
     rain: 'dislikes',
+    wear: { head: [0.449, 0.053], headR: 0.202, back: [-0.1, -0.36] },
     voice: {
       wave: 'square',
       low: 150,
@@ -362,9 +411,9 @@ export const BUGS = createRegistry<BugDef>('bug', [
     traits: { restless: 0.3, bouncy: 0.1, curious: 0.5, sociable: 0.7, cheeky: 0.1, generous: 1, nervous: 0 },
     habits: { strong: true },
     needWeights: { need_hunger: 1.3, need_fun: 0.8, need_energy: 1, need_social: 1, need_clean: 0.7 },
-    loves: ['item_apple_core'],
-    likes: ['item_leaf', 'item_berry_red', 'item_mushroom_cap', 'item_moss_tuft'],
-    dislikes: ['item_pollen_puff', 'item_fizz_candy'],
+    loves: ['item_apple_core', 'item_hat_tiny_top_hat'],
+    likes: ['item_leaf', 'item_berry_red', 'item_mushroom_cap', 'item_moss_tuft', 'item_acc_crown_foil'],
+    dislikes: ['item_pollen_puff', 'item_fizz_candy', 'item_acc_googly_glasses'],
     likesFlinging: false,
     dizzyProof: false,
     mouth: [0.95, 0.3],
@@ -375,6 +424,7 @@ export const BUGS = createRegistry<BugDef>('bug', [
     likesStink: false,
     active: 'day',
     rain: 'neutral',
+    wear: { head: [0.736, 0.112], headR: 0.268, back: [-0.1, -0.62] },
     voice: {
       wave: 'sawtooth',
       low: 80,
@@ -413,9 +463,15 @@ export const BUGS = createRegistry<BugDef>('bug', [
     habits: { rollsBalls: true, rummages: true },
     needWeights: { need_hunger: 1, need_fun: 1.2, need_energy: 0.9, need_social: 0.8, need_clean: 0.5 },
     loves: ['item_compost_goo', 'item_rotten_banana_bit'],
-    likes: ['item_apple_core', 'item_coffee_bean', 'item_crumb_cookie'],
+    likes: [
+      'item_apple_core',
+      'item_coffee_bean',
+      'item_crumb_cookie',
+      'item_hat_acorn_cap',
+      'item_acc_backpack_matchbox',
+    ],
     // Baths: he gets washed and looks outraged.
-    dislikes: ['item_soap_sliver', 'item_mint_leaf', 'item_ice_cube'],
+    dislikes: ['item_soap_sliver', 'item_mint_leaf', 'item_ice_cube', 'item_hat_bubble'],
     likesFlinging: false,
     dizzyProof: false,
     mouth: [0.6, 0.18],
@@ -427,6 +483,7 @@ export const BUGS = createRegistry<BugDef>('bug', [
     likesStink: true,
     active: 'day',
     rain: 'neutral',
+    wear: { head: [0.458, 0.073], headR: 0.182, back: [-0.1, -0.45] },
     voice: {
       wave: 'square',
       low: 110,
@@ -466,8 +523,15 @@ export const BUGS = createRegistry<BugDef>('bug', [
     needWeights: { need_hunger: 1.5, need_fun: 0.9, need_energy: 0.9, need_social: 1, need_clean: 0.6 },
     // His weird favorite is paper: he eats it and burps confetti.
     loves: ['item_paper_scrap', 'item_mint_leaf', 'item_leaf'],
-    likes: ['item_petal', 'item_lavender_sprig', 'item_bluebell_bloom', 'item_moss_tuft'],
-    dislikes: ['item_pepper_hot', 'item_onion_ring'],
+    likes: [
+      'item_petal',
+      'item_lavender_sprig',
+      'item_bluebell_bloom',
+      'item_moss_tuft',
+      'item_hat_flower_petal',
+      'item_acc_bandaid',
+    ],
+    dislikes: ['item_pepper_hot', 'item_onion_ring', 'item_hat_chef'],
     likesFlinging: true,
     dizzyProof: false,
     mouth: [0.62, 0.18],
@@ -478,6 +542,7 @@ export const BUGS = createRegistry<BugDef>('bug', [
     likesStink: false,
     active: 'day',
     rain: 'likes',
+    wear: { head: [0.423, 0.046], headR: 0.23, back: [-0.1, -0.35] },
     voice: {
       wave: 'triangle',
       low: 300,
@@ -513,12 +578,12 @@ export const BUGS = createRegistry<BugDef>('bug', [
       generous: 0.4,
       nervous: 0,
     },
-    habits: { chops: true },
+    habits: { chops: true, fashion: true },
     needWeights: { need_hunger: 0.9, need_fun: 1.2, need_energy: 0.9, need_social: 1.1, need_clean: 1.4 },
-    loves: ['item_honey_drop', 'item_sugar_cube'],
-    likes: ['item_blueberry', 'item_petal', 'item_fizz_candy'],
+    loves: ['item_honey_drop', 'item_sugar_cube', 'item_hat_chef'],
+    likes: ['item_blueberry', 'item_petal', 'item_fizz_candy', 'item_acc_bowtie_ribbon', 'item_acc_monocle'],
     // Mess and stink.
-    dislikes: ['item_rotten_banana_bit', 'item_compost_goo', 'item_onion_ring'],
+    dislikes: ['item_rotten_banana_bit', 'item_compost_goo', 'item_onion_ring', 'item_hat_goo'],
     likesFlinging: true,
     dizzyProof: false,
     mouth: [0.7, -0.3],
@@ -528,6 +593,7 @@ export const BUGS = createRegistry<BugDef>('bug', [
     likesStink: false,
     active: 'day',
     rain: 'dislikes',
+    wear: { head: [0.612, -0.504], headR: 0.216, back: [-0.15, -0.4] },
     voice: {
       wave: 'sine',
       low: 350,
@@ -566,8 +632,8 @@ export const BUGS = createRegistry<BugDef>('bug', [
     habits: { shy: true },
     needWeights: { need_hunger: 0.7, need_fun: 0.6, need_energy: 0.8, need_social: 0.7, need_clean: 0.8 },
     loves: ['item_leaf'],
-    likes: ['item_moss_tuft', 'item_lavender_sprig'],
-    dislikes: ['item_pepper_hot', 'item_coffee_bean', 'item_fizz_candy'],
+    likes: ['item_moss_tuft', 'item_lavender_sprig', 'item_hat_acorn_cap'],
+    dislikes: ['item_pepper_hot', 'item_coffee_bean', 'item_fizz_candy', 'item_acc_roller_skates'],
     likesFlinging: false,
     dizzyProof: false,
     mouth: [0.58, -0.04],
@@ -578,6 +644,7 @@ export const BUGS = createRegistry<BugDef>('bug', [
     active: 'day',
     rain: 'neutral',
     collider: { width: 1.3, height: 0.14 },
+    wear: { head: [0.43, -0.165], headR: 0.165, back: [0, -0.2] },
     voice: {
       wave: 'square',
       low: 140,
@@ -586,6 +653,176 @@ export const BUGS = createRegistry<BugDef>('bug', [
       vibratoHz: 0,
       vibratoDepth: 0,
       formantShift: 0.8,
+    },
+  },
+  {
+    id: 'bug_bee_buzzby',
+    name: 'Buzzby',
+    species: 'Bumblebee',
+    art: 'bee',
+    size: 'small',
+    radius: 0.42,
+    speed: 1.7,
+    body: 0xffd23f,
+    belly: 0x2b2438,
+    accent: 0xfff4c2,
+    // In the humming tulip on the stage's left (secret_buzzby_found): play on the stage by day.
+    hidden: true,
+    foundBy: 'secret_buzzby_found',
+    home: 'area_flowerbed_stage',
+    // Busy, bossy, and organized. Hums to herself.
+    traits: {
+      restless: 0.9,
+      bouncy: 0.4,
+      curious: 0.6,
+      sociable: 0.7,
+      cheeky: 0.3,
+      generous: 0.7,
+      nervous: 0.2,
+    },
+    habits: { pollen: true },
+    needWeights: { need_hunger: 1, need_fun: 1.1, need_energy: 1.1, need_social: 1.1, need_clean: 1.3 },
+    // Her weird favorite is the mustache: she wears it with total seriousness and hums lower.
+    loves: ['item_pollen_puff', 'item_honey_drop', 'item_acc_mustache'],
+    likes: [
+      'item_sugar_cube',
+      'item_berry_red',
+      'item_bluebell_bloom',
+      'item_lavender_sprig',
+      'item_petal',
+      'item_hat_flower_petal',
+    ],
+    // Stink.
+    dislikes: ['item_rotten_banana_bit', 'item_onion_ring', 'item_compost_goo', 'item_hat_goo'],
+    likesFlinging: false,
+    dizzyProof: false,
+    mouth: [0.42, 0.14],
+    curlsWhenFlung: false,
+    // Flung, she buzzes crossly and flies back down on her own.
+    glidesWhenFlung: true,
+    swim: 'paddle',
+    likesStink: false,
+    active: 'day',
+    rain: 'dislikes',
+    wear: { head: [0.34, -0.02], headR: 0.19, back: [-0.06, -0.36] },
+    voice: {
+      wave: 'sawtooth',
+      low: 250,
+      high: 450,
+      syllablesPerSecond: 8,
+      vibratoHz: 25,
+      vibratoDepth: 40,
+      formantShift: 1.1,
+    },
+  },
+  {
+    id: 'bug_cricket_fiddle',
+    name: 'Fiddle',
+    species: 'Cricket',
+    art: 'cricket',
+    size: 'medium',
+    radius: 0.46,
+    speed: 1.2,
+    body: 0x6b4226,
+    belly: 0x9a6a44,
+    accent: 0x2b1d14,
+    // Under the flowerpot stage, chirping at night (secret_fiddle_found): four caps on the sequencer after dark.
+    hidden: true,
+    foundBy: 'secret_fiddle_found',
+    home: 'area_flowerbed_stage',
+    // A moody musician. Takes music seriously; offended when interrupted.
+    traits: {
+      restless: 0.4,
+      bouncy: 0.5,
+      curious: 0.5,
+      sociable: 0.5,
+      cheeky: 0.2,
+      generous: 0.4,
+      nervous: 0.3,
+    },
+    habits: { fiddles: true },
+    needWeights: { need_hunger: 0.9, need_fun: 1.4, need_energy: 0.9, need_social: 0.8, need_clean: 0.9 },
+    // His weird favorite is the comb kazoo, which he plays with great dignity.
+    loves: ['item_seed_sunflower', 'item_inst_comb_kazoo'],
+    likes: [
+      'item_blueberry',
+      'item_leaf',
+      'item_lavender_sprig',
+      'item_hat_tiny_top_hat',
+      'item_hat_yarn_beanie',
+    ],
+    dislikes: ['item_pepper_hot', 'item_coffee_bean', 'item_fizz_candy', 'item_hat_party_cone'],
+    likesFlinging: false,
+    dizzyProof: false,
+    mouth: [0.5, 0.1],
+    curlsWhenFlung: false,
+    glidesWhenFlung: false,
+    swim: 'paddle',
+    likesStink: false,
+    // Up at dusk and all night; asleep under the stage by day.
+    active: 'night',
+    rain: 'neutral',
+    wear: { head: [0.4, -0.12], headR: 0.2, back: [-0.12, -0.3] },
+    voice: {
+      wave: 'sawtooth',
+      low: 600,
+      high: 1400,
+      syllablesPerSecond: 4,
+      vibratoHz: 5,
+      vibratoDepth: 18,
+      formantShift: 1.2,
+    },
+  },
+  {
+    id: 'bug_moth_luma',
+    name: 'Luma',
+    species: 'Moth',
+    art: 'moth',
+    size: 'medium',
+    radius: 0.46,
+    speed: 1.0,
+    body: 0xcfc3e8,
+    belly: 0xeee8f8,
+    accent: 0x6b5ba6,
+    // Flies in to the porch lamp at night (secret_luma_found).
+    hidden: true,
+    foundBy: 'secret_luma_found',
+    home: 'area_under_porch',
+    // Dreamy and easily distracted. Drifts toward anything bright.
+    traits: {
+      restless: 0.5,
+      bouncy: 0.3,
+      curious: 0.8,
+      sociable: 0.6,
+      cheeky: 0.2,
+      generous: 0.6,
+      nervous: 0.4,
+    },
+    habits: { moth: true },
+    needWeights: { need_hunger: 0.8, need_fun: 1, need_energy: 1.3, need_social: 1, need_clean: 0.8 },
+    // Her weird favorite is the headlamp: she tries to fly toward her own head and spins in circles.
+    loves: ['item_honey_drop', 'item_acc_headlamp'],
+    likes: ['item_petal', 'item_sugar_cube', 'item_bluebell_bloom', 'item_acc_sunglasses'],
+    dislikes: ['item_pepper_hot', 'item_onion_ring', 'item_coffee_bean', 'item_hat_bubble'],
+    likesFlinging: false,
+    dizzyProof: false,
+    mouth: [0.46, 0.1],
+    curlsWhenFlung: false,
+    // Flung, she flutters and recovers in the air.
+    glidesWhenFlung: true,
+    swim: 'boat',
+    likesStink: false,
+    active: 'night',
+    rain: 'neutral',
+    wear: { head: [0.36, -0.1], headR: 0.21, back: [-0.1, -0.34] },
+    voice: {
+      wave: 'sine',
+      low: 300,
+      high: 500,
+      syllablesPerSecond: 3,
+      vibratoHz: 3,
+      vibratoDepth: 10,
+      formantShift: 0.95,
     },
   },
 ]);

@@ -1,4 +1,4 @@
-import type { AdvertAction, PendingState, PotionEffect } from '../data/types';
+import type { AdvertAction, PendingState, PotionEffect, WearSlot } from '../data/types';
 import type { Brew } from '../systems/brewing';
 import type { ReactionType } from '../events';
 import type { TagState } from '../systems/tags';
@@ -282,6 +282,8 @@ export interface Entity {
   toasted?: boolean;
   /** A crafted toy's state (M8): where it pivots, hangs, or whether it is switched off. */
   toy?: ToyState;
+  /** What a bug wears (M11), by slot: item IDs. Worn things are out of the physics, on the bug. */
+  wearing?: Partial<Record<WearSlot, EntityId>>;
 }
 
 /**

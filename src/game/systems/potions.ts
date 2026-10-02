@@ -466,6 +466,12 @@ export class Potions {
           break;
       }
     }
+    // What it wears (M11): the propeller cap floats it down, the mushroom cap bounces it.
+    if (e.wearing) {
+      const w = this.sim.wardrobe;
+      if (w.has(e, 'glide')) out.gravity *= 0.55;
+      if (w.has(e, 'bounce')) out.restitution = Math.max(out.restitution ?? 0, 0.8);
+    }
     out.scale = Math.round(out.scale * 100) / 100;
     return out;
   }
@@ -536,11 +542,12 @@ export class Potions {
    * when bouncy, gliding with wings.
    */
   bugDef(e: Entity, base: BugDef): BugDef {
-    if (!e.effects?.length) return base;
+    const worn = e.wearing ? this.sim.wardrobe.perkKey(e) : '';
+    if (!e.effects?.length && !worn) return base;
     const live = this.live(e);
-    const key = live
-      .map((l) => `${l.effect}:${l.strength}:${l.fx.grown ?? 1}:${l.fx.fired ?? false}`)
-      .join(',');
+    const key =
+      live.map((l) => `${l.effect}:${l.strength}:${l.fx.grown ?? 1}:${l.fx.fired ?? false}`).join(',') +
+      `|${worn}`;
     const cached = this.defs.get(e.id);
     if (cached?.key === key) return cached.def;
     const scale = this.params(e).scale;
@@ -562,6 +569,12 @@ export class Potions {
       if (effect === 'snowball' || effect === 'jelly') dizzyProof = true;
       if (effect === 'upside_down') habits.hops = false;
     }
+    // What it wears (M11): a propeller cap or a leaf cape glides; a bubble helmet or a snorkel walks the pond bottom.
+    const perks = worn.split(',');
+    if (perks.includes('glide') || perks.includes('cape')) glides = true;
+    const swim = perks.includes('breathe') ? 'sink' : base.swim;
+    // Luma stays awake in sunglasses.
+    const sleepless = perks.includes('shades') && !!base.habits.moth;
     const def: BugDef = {
       ...base,
       radius: base.radius * scale,
@@ -570,6 +583,8 @@ export class Potions {
       habits,
       glidesWhenFlung: glides,
       dizzyProof,
+      swim,
+      ...(sleepless ? { sleepless } : {}),
       ...(base.collider
         ? { collider: { width: base.collider.width * scale, height: base.collider.height * scale } }
         : {}),

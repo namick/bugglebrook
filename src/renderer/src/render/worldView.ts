@@ -64,7 +64,9 @@ import {
   listenWater as _listenWater,
   listenSky as _listenSky,
   listenPotions as _listenPotions,
+  listenWear as _listenWear,
 } from './worldViewEvents';
+import { drawTagIcon } from './draw/tagIcon';
 
 export const PPM = PIXELS_PER_METER;
 
@@ -676,6 +678,8 @@ export class WorldView extends Container {
       }
     }
     for (const view of views) {
+      // Worn things are drawn on their bugs (M11), not in the world.
+      if (view.worn) continue;
       seen.add(view.id);
       const sprite = this.sprites.get(view.id) ?? this.createSprite(view);
       const onScreen = view.x > left && view.x < right;
@@ -757,6 +761,7 @@ export class WorldView extends Container {
       }
     }
     for (const id of [...this.sprites.keys()]) if (!seen.has(id)) this.drop(id);
+    this.drawPeeks(over, dt);
     this.drawSlime(behind, left, right);
     this.drawWelds(over);
     this.drawMagnets(over, views, left, right);
@@ -846,6 +851,18 @@ export class WorldView extends Container {
       if (Math.hypot(c.x - v.x, c.y - v.y) > 3.5) continue;
       const hot = target?.kind === c.kind && target.entityId === c.entityId;
       ring(c.x * PPM, c.y * PPM, 70, 0x9be86b, hot);
+    }
+    // A wearable (M11): heads nearby glow, and the one it would go on glows brightly.
+    const def = this.sim.content.items.get(e.defId);
+    if (def.wear || target?.kind === 'crown') {
+      for (const bug of this.sim.entities.ofKind('bug')) {
+        if (!this.sim.wardrobe.dressable(bug) || bug.id === held) continue;
+        const h = target?.kind === 'crown' ? this.sim.wardrobe.crown(bug) : this.sim.wardrobe.headCenter(bug);
+        if (Math.hypot(h.x - v.x, h.y - v.y) > 4) continue;
+        const hot = (target?.kind === 'head' || target?.kind === 'crown') && target.entityId === bug.id;
+        const r = this.sim.content.bugs.get(bug.defId).wear.headR * PPM;
+        ring(h.x * PPM, h.y * PPM, r + 8, 0xffd23f, hot);
+      }
     }
     if (!target) return;
     if (target.kind === 'mouth' && this.sim.isPotion(e)) {
@@ -1004,6 +1021,16 @@ export class WorldView extends Container {
       if (k > 0) karate = { k, t: age, chop: bug.reaction.type === 'chop' };
     }
     sprite.zIndex = view.id + (held ? 10000 : 0);
+    // What it wears (M11): each thing drawn with the item's own art, on the bug.
+    sprite.setWorn(
+      (bug.wearing ?? []).map((w) => ({ id: w.id, def: this.sim.content.items.get(w.defId) })),
+      (def) => {
+        const item = new ItemSprite(def, 0);
+        const art = itemArt(def);
+        if (art) item.useArt(art);
+        return item;
+      },
+    );
     sprite.update({
       pose,
       face,
@@ -1034,6 +1061,7 @@ export class WorldView extends Container {
       rolling: bug.rolling,
       paint: view.paint ?? bug.paint,
       karate,
+      fiddling: !!bug.fiddling,
     });
     this.potionBug(sprite, view, j, potion, dt);
     // Snoring: a "Z" drifts up every second and a half.
@@ -1067,7 +1095,46 @@ export class WorldView extends Container {
 
   /** M8: potions, crafting, and toys as particles, bubbles, squash, and shake. */
   listenPotions(): Array<() => void> {
-    return _listenPotions(this);
+    return [..._listenPotions(this), ..._listenWear(this)];
+  }
+
+  /** Tags a bug in the monocle saw (M11): shown over its head for a moment. */
+  private readonly peeks: { id: EntityId; tag: string; t: number }[] = [];
+
+  /** A bug in the monocle peered at something: show the tag it saw. */
+  peek(id: EntityId, tag: string): void {
+    this.peeks.push({ id, tag, t: 2 });
+    if (this.peeks.length > 4) this.peeks.shift();
+  }
+
+  /** Boing's hat trick: his sprite flips the hat. */
+  flipHat(id: EntityId): void {
+    const s = this.sprites.get(id);
+    if (s instanceof BugSprite) s.flipHat(this.time);
+  }
+
+  /** Draw the monocle's tags (a little card with the tag's pictogram) and age them. */
+  private drawPeeks(g: Graphics, dt: number): void {
+    for (let i = this.peeks.length - 1; i >= 0; i--) {
+      const p = this.peeks[i]!;
+      p.t -= dt;
+      const v = this.sim.view(p.id);
+      if (p.t <= 0 || !v) {
+        this.peeks.splice(i, 1);
+        continue;
+      }
+      const x = v.x * PPM;
+      const y = v.y * PPM - this.sizeOf(p.id) * 2.2 - 30;
+      const a = Math.min(1, p.t * 2, (2 - p.t) * 4);
+      g.roundRect(x - 24, y - 24, 48, 48, 12)
+        .fill({ color: 0xfff8e8, alpha: 0.95 * a })
+        .stroke({
+          width: 4,
+          color: 0x2b2438,
+          alpha: a,
+        });
+      drawTagIcon(g, p.tag, x, y, 34);
+    }
   }
 
   /**
@@ -1522,6 +1589,47 @@ export class WorldView extends Container {
   override destroy(): void {
     this.offs.forEach((off) => off());
     super.destroy({ children: true });
+  }
+
+  /**
+   * Worn things as drawn this frame (test hook): where each sits in the world
+   * (meters), how big it is drawn, and whether it shows.
+   */
+  wornDrawn(): {
+    bug: number;
+    id: number;
+    defId: string;
+    x: number;
+    y: number;
+    scale: number;
+    shown: boolean;
+  }[] {
+    const out: {
+      bug: number;
+      id: number;
+      defId: string;
+      x: number;
+      y: number;
+      scale: number;
+      shown: boolean;
+    }[] = [];
+    for (const [bug, sprite] of this.sprites) {
+      if (!(sprite instanceof BugSprite)) continue;
+      for (const w of sprite.wornSprites()) {
+        const at = this.entityLayer.toLocal(w.sprite.getGlobalPosition());
+        const scale = Math.abs(w.sprite.worldTransform.a) / Math.abs(this.entityLayer.worldTransform.a || 1);
+        out.push({
+          bug,
+          id: w.id,
+          defId: w.def.id,
+          x: at.x / PPM,
+          y: at.y / PPM,
+          scale,
+          shown: sprite.visible && w.sprite.visible && !!w.sprite.parent?.visible,
+        });
+      }
+    }
+    return out;
   }
 
   /** Bugs waiting to be found, and how strong their sign of life is this frame (test hook). */

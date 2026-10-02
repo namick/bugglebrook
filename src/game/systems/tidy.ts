@@ -95,7 +95,7 @@ export class Tidy {
   private loose(e: Entity): boolean {
     const sim = this.sim;
     if (e.kind !== 'item' || e.pinned || sim.isPocketed(e.id) || sim.physics.grabbed === e.id) return false;
-    if (sim.carried.has(e.id) || this.mouths().has(e.id)) return false;
+    if (sim.carried.has(e.id) || this.mouths().has(e.id) || sim.wardrobe.isWorn(e.id)) return false;
     return sim.physics.has(e.id);
   }
 

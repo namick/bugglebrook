@@ -6,7 +6,7 @@ import { BasePainter } from './base';
 import type { EyeSpot } from '../../rig/bugRig';
 import type { Skeleton, SkeletonFace, SkeletonItem } from '../../rig/skeleton';
 import { pt, rest, tipOn } from '../../rig/skeleton';
-import type { Adjust, AntennaSpring, Box, Pt, WalkLegsOptions } from './common';
+import type { Adjust, AntennaSpring, Box, Pt, WalkLegsOptions, Oval } from './common';
 import {
   NO_ADJUST,
   RIM,
@@ -163,6 +163,11 @@ export class StinkbugPainter extends BasePainter {
       const end = springTip(frame, s, tip, [tip[0] + r * 0.32, tip[1] + r * 0.1], 1);
       return { base, mid, tip, mid2, end };
     });
+  }
+
+  protected headOval(): Oval {
+    const [x, y, r] = this.headAt();
+    return { x, y, rx: r, ry: r };
   }
 
   private headAt(): [number, number, number] {

@@ -3,6 +3,16 @@ import type { BugArt } from '../../../game/data/types';
 import type { ReactionType } from '../../../game/events';
 import type { Emotion } from '../audio/voices';
 import type { BodyForm, EyeShape, FaceTint, MouthShape } from './bugFace';
+import {
+  CAMERA_NEW,
+  EVERYDAY_NEW,
+  FASHION,
+  HATTED,
+  HAT_LOOK,
+  HAT_LOVE,
+  HAT_YUCK,
+  PERSONAL_NEW,
+} from './reactions11';
 
 /**
  * How bugs act out reactions (game design doc, section 5). The sim picks the
@@ -38,7 +48,8 @@ export type Picto =
   | 'friend'
   | 'sun'
   | 'rain'
-  | 'moon';
+  | 'moon'
+  | 'hat';
 
 /** A short body move that plays with the reaction. */
 export type Move =
@@ -677,6 +688,7 @@ const CAMERA: Record<BugArt, Triple> = {
       seconds: 3,
     },
   ),
+  ...CAMERA_NEW,
 };
 
 /** Show-off poses for bugs that are not Dot: a little star turn. */
@@ -1971,6 +1983,7 @@ const PERSONAL: Record<BugArt, Record<Classic, Triple>> = {
       { eyes: 'x', mouth: 'flat', tint: 'green', pictos: ['stink', 'cross'], emotion: 'yuck', fx: 'stink' },
     ),
   },
+  ...PERSONAL_NEW,
 };
 
 /**
@@ -2641,6 +2654,7 @@ const EVERYDAY_LOOKS: Record<BugArt, Record<Everyday, Triple>> = {
       { eyes: 'squint', mouth: 'flat', pictos: ['star'], emotion: 'meh', move: 'none', seconds: 2 },
     ),
   },
+  ...EVERYDAY_NEW,
 };
 
 /** What reaction `type`, variant `variant`, looks like on a bug drawn as `art`. */
@@ -2690,11 +2704,21 @@ export function reactionLook(art: BugArt, type: ReactionType, variant: number): 
                                               ? CAMERA[art]
                                               : type === 'trashed'
                                                 ? TRASHED
-                                                : CLASSIC.has(type)
-                                                  ? PERSONAL[art][type as Classic]
-                                                  : EVERYDAY.has(type)
-                                                    ? EVERYDAY_LOOKS[art][type as Everyday]
-                                                    : FED[type as keyof typeof FED];
+                                                : type === 'hatted'
+                                                  ? HATTED[art]
+                                                  : type === 'hat_love'
+                                                    ? HAT_LOVE
+                                                    : type === 'hat_yuck'
+                                                      ? HAT_YUCK
+                                                      : type === 'hat_look'
+                                                        ? HAT_LOOK
+                                                        : type === 'fashion'
+                                                          ? FASHION
+                                                          : CLASSIC.has(type)
+                                                            ? PERSONAL[art][type as Classic]
+                                                            : EVERYDAY.has(type)
+                                                              ? EVERYDAY_LOOKS[art][type as Everyday]
+                                                              : FED[type as keyof typeof FED];
   return set[((variant % 3) + 3) % 3]!;
 }
 
@@ -2747,6 +2771,29 @@ const SHOWS_IN: Readonly<Record<ReactionType, readonly BugMode[]>> = {
   whee: ['st_use', 'st_airborne', 'st_landing', 'st_react', 'st_idle'],
   camera: ['st_react', 'st_idle', 'st_wander', 'st_seek', 'st_use', 'st_social', 'st_perform', 'st_hide'],
   trashed: ['st_airborne', 'st_landing', 'st_react', 'st_idle', 'st_wander', 'st_dizzy', 'st_recover'],
+  hatted: ['st_react', 'st_idle', 'st_wander', 'st_held', 'st_airborne', 'st_landing', 'st_sleep', 'st_eat'],
+  hat_love: [
+    'st_react',
+    'st_idle',
+    'st_wander',
+    'st_held',
+    'st_airborne',
+    'st_landing',
+    'st_sleep',
+    'st_eat',
+  ],
+  hat_yuck: [
+    'st_react',
+    'st_idle',
+    'st_wander',
+    'st_held',
+    'st_airborne',
+    'st_landing',
+    'st_sleep',
+    'st_eat',
+  ],
+  hat_look: ['st_react', 'st_idle', 'st_wander', 'st_seek'],
+  fashion: ['st_react', 'st_idle', 'st_wander', 'st_perform'],
 };
 
 /** Is a reaction that started `ageSeconds` ago still showing in `mode`? */

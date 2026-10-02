@@ -254,6 +254,8 @@ export class Toys {
     this.noted.set(e.id, sim.tick);
     const note = this.def(e)?.note ?? e.id % 7;
     sim.events.emit('note_played', { id: e.id, defId: e.defId, note, x, y, poked });
+    // Played on the stage by day (a poke, not a knock), it wakes whoever hums in the tulip (M11).
+    if (poked && this.def(e)?.toy === 'instrument') sim.musicBugs.notePlayed(e.id);
   }
 
   /** New contacts: trampoline bounces, notes from musical things. */

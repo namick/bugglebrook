@@ -488,6 +488,112 @@ const PAINTED: Partial<Record<BugArt, readonly Entry[]>> = {
       note: NOTE.feeler,
     },
   ],
+  bee: [
+    {
+      name: 'wing',
+      kind: 'wing',
+      at: [-0.12, -0.42],
+      note: 'One tiny see-through wing, root at the dot, pointing up. The game draws it twice.',
+    },
+    legs([
+      [0.2, 0.7],
+      [0.38, 0.71],
+      [0.28, 1.0],
+    ]),
+    { name: 'stinger', kind: 'static', at: [-1.05, 0.25], note: 'The blunt little stinger nub at the back.' },
+    {
+      name: 'body',
+      kind: 'static',
+      at: [-0.18, 0.18],
+      note: 'The round, fuzzy yellow body with three black stripes.',
+    },
+    { name: 'head', kind: 'static', at: [0.8, -0.04], note: NOTE.head },
+    {
+      name: 'antenna',
+      kind: 'rope',
+      pts: [
+        [0.91, -0.436],
+        [1.25, -0.896],
+      ],
+      length: 0.631,
+      tip: 'antenna_tip',
+      note: NOTE.feeler,
+    },
+  ],
+  cricket: [
+    {
+      name: 'hindleg_thigh',
+      kind: 'limb',
+      lower: 'hindleg_shin',
+      joint: [
+        [-0.32, 0.4],
+        [-0.88, -0.42],
+        [-1.3, 1.0],
+      ],
+      note: 'The thick back thigh, hip at the dot, drawn straight down to the knee.',
+    },
+    legs([
+      [0.5, 0.42],
+      [0.66, 0.514],
+      [0.54, 1.0],
+    ]),
+    { name: 'abdomen', kind: 'static', at: [-0.45, 0.38], note: 'The long, low body with the tail prongs.' },
+    {
+      name: 'wing_folded',
+      kind: 'static',
+      at: [-0.5, 0.18],
+      note: 'Folded wings along his back, with veins.',
+    },
+    { name: 'thorax', kind: 'static', at: [0.38, 0.2], note: 'The shoulder plate between body and head.' },
+    {
+      name: 'head',
+      kind: 'static',
+      at: [0.87, -0.22],
+      note: 'The head with the dark beret spot on top. No face.',
+    },
+    {
+      name: 'antenna',
+      kind: 'rope',
+      pts: [
+        [1.064, -0.555],
+        [0.064, -1.605],
+      ],
+      length: 1.839,
+      note: NOTE.feeler,
+    },
+  ],
+  moth: [
+    {
+      name: 'wing_hind',
+      kind: 'wing',
+      at: [0.08, -0.1],
+      note: 'The rounder back wing with its eye-spot, root at the dot, pointing up and back.',
+    },
+    {
+      name: 'wing_fore',
+      kind: 'wing',
+      at: [0.08, -0.1],
+      note: 'The broad front wing with the big eye-spot, root at the dot, pointing up.',
+    },
+    legs([
+      [0.4, 0.5],
+      [0.58, 0.57],
+      [0.48, 1.0],
+    ]),
+    { name: 'abdomen', kind: 'static', at: [-0.55, 0.34], note: 'The fuzzy lavender body.' },
+    { name: 'thorax', kind: 'static', at: [0.18, 0.2], note: 'The fluffy thorax with the pale ruff.' },
+    { name: 'head', kind: 'static', at: [0.78, -0.2], note: NOTE.head },
+    {
+      name: 'antenna',
+      kind: 'rope',
+      pts: [
+        [0.912, -0.587],
+        [1.532, -1.237],
+      ],
+      length: 0.946,
+      note: 'One feathery feeler, drawn straight up from its base dot. The game bends it.',
+    },
+  ],
 };
 
 /** The parts of the bugs `BugSprite` draws itself, from the live rig, in radii. */
@@ -1218,6 +1324,9 @@ const PAINTED_FACE: Partial<
   caterpillar: { eye: [1.06, 0.02, 0.19], mouth: [0.96, 0.29, 0.4] },
   mantis: { eye: [1.36, -0.98, 0.26], mouth: [1.1, -0.56, 0.24] },
   stickinsect: { eye: [1.6, -0.6, 0.173], mouth: [1.7, -0.467, 0.333] },
+  bee: { eye: [0.932, -0.075, 0.158], mouth: [0.897, 0.18, 0.242] },
+  cricket: { eye: [1.025, -0.229, 0.146], mouth: [0.999, 0.004, 0.224] },
+  moth: { eye: [0.93, -0.209, 0.158], mouth: [0.894, 0.029, 0.22] },
 };
 
 /** Where the near eye and the mouth sit at rest, in rig pixels: face pieces drawn for one bug are placed from here. */

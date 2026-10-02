@@ -7,7 +7,7 @@ import { twigTell } from '../../pendingLife';
 import { BasePainter } from './base';
 import type { Skeleton, SkeletonFace } from '../../rig/skeleton';
 import { pt, quadRope } from '../../rig/skeleton';
-import type { Adjust, AntennaSpring, Box, LegPose, PainterArgs, Pt } from './common';
+import type { Adjust, AntennaSpring, Box, LegPose, PainterArgs, Pt, Oval } from './common';
 import { RIM, limb, limbItem, rigLook, springTip, tintHead } from './common';
 
 /** The plaza's item twig: 1.3 m by 0.11 m. Twig is drawn to match it exactly. */
@@ -97,6 +97,10 @@ export class StickinsectPainter extends BasePainter {
   paintBox(frame: BugFrame): Box {
     const cy = this.stickY(frame);
     return { x0: -TWIG_W / 2, x1: TWIG_W / 2, y0: cy - TWIG_H * 0.1, y1: cy + TWIG_H / 2 };
+  }
+
+  protected headOval(frame: BugFrame): Oval {
+    return { x: TWIG_W / 2 - 22, y: this.stickY(frame), rx: 22, ry: 11 };
   }
 
   override crown(frame: BugFrame): { x: number; y: number } {

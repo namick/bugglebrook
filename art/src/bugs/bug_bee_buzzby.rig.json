@@ -1,0 +1,150 @@
+{
+ "canvas": {
+  "h": 768,
+  "w": 896
+ },
+ "face": [
+  "eye_white",
+  "eye_pupil",
+  "eye_closed",
+  "eye_happy",
+  "eye_squint",
+  "eye_squeezed",
+  "eye_spiral",
+  "eye_heart",
+  "eye_sleepy_lid",
+  "brow_angry",
+  "brow_worried",
+  "brow_polite",
+  "cheek",
+  "mouth_smile",
+  "mouth_grin",
+  "mouth_o",
+  "mouth_whee",
+  "mouth_aah",
+  "mouth_chew_1",
+  "mouth_chew_2",
+  "mouth_wobble_1",
+  "mouth_wobble_2",
+  "mouth_flat",
+  "mouth_frown",
+  "mouth_lick",
+  "mouth_tongue",
+  "mouth_teeth",
+  "mouth_puff"
+ ],
+ "faceAnchors": {
+  "eye": {
+   "r": 26.544,
+   "x": 540.576,
+   "y": 371.4
+  },
+  "mouth": {
+   "s": 40.656,
+   "x": 534.696,
+   "y": 414.24
+  }
+ },
+ "ground": 552,
+ "id": "bug_bee_buzzby",
+ "kind": "bug",
+ "origin": {
+  "x": 384,
+  "y": 384
+ },
+ "parts": [
+  {
+   "kind": "wing",
+   "name": "wing",
+   "note": "One tiny see-through wing, root at the dot, pointing up. The game draws it twice.",
+   "pivot": {
+    "x": 363.84,
+    "y": 313.44
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_upper",
+   "length": 30.287,
+   "name": "leg_upper",
+   "note": "Hip to knee, drawn straight down from the hip dot. Round nub at the top.",
+   "pivot": {
+    "x": 417.6,
+    "y": 501.6
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_lower",
+   "length": 51.535,
+   "name": "leg_lower",
+   "note": "Knee to foot, straight down from the knee dot, with the foot.",
+   "pivot": {
+    "x": 417.6,
+    "y": 531.887
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "stinger",
+   "note": "The blunt little stinger nub at the back.",
+   "pivot": {
+    "x": 207.6,
+    "y": 426
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "body",
+   "note": "The round, fuzzy yellow body with three black stripes.",
+   "pivot": {
+    "x": 353.76,
+    "y": 414.24
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "head",
+   "note": "The head, with no face. The game draws the face on top.",
+   "pivot": {
+    "x": 518.4,
+    "y": 377.28
+   },
+   "required": true
+  },
+  {
+   "kind": "rope",
+   "length": 106.008,
+   "name": "antenna",
+   "note": "One feeler, drawn straight up from its base dot. The game bends it.",
+   "pivot": {
+    "x": 536.88,
+    "y": 310.752
+   },
+   "required": true
+  },
+  {
+   "kind": "tip",
+   "name": "antenna_tip",
+   "note": "The knob on the end of the feeler, centered on its dot.",
+   "pivot": {
+    "x": 536.88,
+    "y": 204.744
+   },
+   "required": true
+  }
+ ],
+ "rigHash": "d886c1c8d00f64e7",
+ "safe": {
+  "x0": 32,
+  "x1": 864,
+  "y0": 32,
+  "y1": 736
+ },
+ "scale": 4,
+ "schema": 1,
+ "title": "Buzzby the bumblebee (bug_bee_buzzby)"
+}

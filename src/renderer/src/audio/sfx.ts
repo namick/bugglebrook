@@ -2,6 +2,7 @@ import type { EventBus } from '../../../game/core/events';
 import type { GameEvents } from '../../../game/events';
 import { craftTones, noteTones, type CraftSfx } from './craftSfx';
 import { isTidySfx, tidyTones, type TidySfx } from './tidySfx';
+import { isWearSfx, wearTones, type WearSfx } from './wearSfx';
 import type { AudioBackend, Tone } from './synth';
 
 export type Material = 'wood' | 'metal' | 'rubber' | 'stone' | 'glass' | 'leaf' | 'food' | 'bug';
@@ -132,7 +133,9 @@ export type SfxName =
   | 'stir'
   | CraftSfx
   // Playtest F1 and F2: the trash can and the tidy whistle.
-  | TidySfx;
+  | TidySfx
+  // M11: hats and accessories, and the music bugs.
+  | WearSfx;
 
 /**
  * The impact sound for a material. Soft materials (cloth, paper) thud like
@@ -429,6 +432,25 @@ export class Sfx {
       bus.on('trash_spat', (e) => this.play(e.why === 'hiccup' ? 'trash_hiccup' : 'trash_spit')),
       bus.on('trash_poked', () => this.play('trash_clack')),
       bus.on('trash_rummaged', () => this.play('trash_rummage')),
+      // M11: hats and accessories, and the music bugs.
+      bus.on('wearable_worn', (e) => {
+        this.play(e.thrown ? 'hat_ding' : 'hat_on');
+        if (e.took !== null) this.play('hat_pop');
+      }),
+      bus.on('wearable_removed', (e) => {
+        if (e.how !== 'popped' && e.how !== 'swapped') this.limited('hat_off', 80);
+      }),
+      bus.on('hat_tooted', () => this.limited('party_horn', 150)),
+      bus.on('hat_flipped', () => this.play('hat_on', 0.6)),
+      bus.on('hat_judged', (e) => this.play('hat_judge', e.approve ? 1 : 0.5)),
+      bus.on('hats_swapped', () => this.play('hat_swap')),
+      bus.on('headbutted', () => this.limited('headbutt', 200)),
+      bus.on('food_chopped', () => this.play('chef_chop')),
+      bus.on('monocle_peered', () => this.play('monocle')),
+      bus.on('pollen_delivered', () => this.limited('pollen', 300)),
+      bus.on('honey_made', () => this.play('honey')),
+      bus.on('moth_circled', () => this.limited('flutter', 400, 0.6)),
+      bus.on('parade_started', () => this.play('ta_da')),
       bus.on('item_came_home', () => this.limited('came_home', 150, 0.7)),
       bus.on('whistle_blown', () => {
         this.swooshes = 0;
@@ -1406,7 +1428,9 @@ export class Sfx {
         default:
           return isTidySfx(name)
             ? tidyTones(name, j, intensity, this.random)
-            : craftTones(name, j, intensity, this.random);
+            : isWearSfx(name)
+              ? wearTones(name, j, intensity, this.random)
+              : craftTones(name, j, intensity, this.random);
       }
     })();
     this.emit(name, tones, v, log);

@@ -162,6 +162,10 @@ export function potionVoice(effects: readonly { effect: string }[] | undefined):
       case 'opera':
         sung = true;
         break;
+      // Not a potion: the mustache (M11) drops its wearer's voice by a fifth.
+      case 'mustache':
+        pitch *= 0.8;
+        break;
       case 'slowmo':
         pitch *= 0.6;
         rate *= 0.4;
@@ -201,6 +205,9 @@ export function accentFor(art: BugDef['art']): VoiceAccent | undefined {
       return 'click';
     case 'stinkbug':
       return 'tremble';
+    // Luma sighs: breath with every syllable.
+    case 'moth':
+      return 'huff';
     default:
       return undefined;
   }

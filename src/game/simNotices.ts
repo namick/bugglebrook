@@ -19,9 +19,11 @@ export function emitNotice(sim: Sim, self: Entity, notice: BugNotice, selfState:
   switch (notice.type) {
     case 'landed':
       sim.events.emit('bug_landed', { ...base, speed: notice.speed, x: s.x, y: s.y });
+      sim.wardrobe.landed(entity, notice.speed);
       return;
     case 'dizzy':
       sim.events.emit('bug_dizzy', { ...base, speed: notice.speed, durationTicks: notice.durationTicks });
+      sim.wardrobe.landed(entity, notice.speed);
       sim.noteLoud(s.x, s.y, entity.id);
       return;
     case 'recovered':
@@ -64,6 +66,8 @@ export function emitNotice(sim: Sim, self: Entity, notice: BugNotice, selfState:
         itemId: notice.itemId,
         itemDefId: partnerDef(notice.itemId),
       });
+      // In the monocle, it sees one of the thing's tags.
+      sim.wardrobe.inspected(entity, notice.itemId);
       return;
     case 'social':
       sim.events.emit('bug_socialized', { ...base, partnerId: notice.partnerId, kind: notice.kind });
@@ -190,6 +194,7 @@ export function emitNotice(sim: Sim, self: Entity, notice: BugNotice, selfState:
     case 'played': {
       const item = sim.entities.get(notice.itemId);
       if (!item) return;
+      sim.musicBugs.notePlayed(item.id);
       sim.events.emit('instrument_played', {
         id: entity.id,
         itemId: notice.itemId,

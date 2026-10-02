@@ -7,7 +7,7 @@ import { BasePainter } from './base';
 import type { EyeSpot } from '../../rig/bugRig';
 import type { PieceItem, Skeleton, SkeletonFace, SkeletonItem } from '../../rig/skeleton';
 import { pivotOf, pt, rest } from '../../rig/skeleton';
-import type { Adjust, AntennaSpring, Box, LegPose, Pt, WalkLegsOptions } from './common';
+import type { Adjust, AntennaSpring, Box, LegPose, Pt, WalkLegsOptions, Oval } from './common';
 import {
   RIM,
   bezierAt,
@@ -50,6 +50,11 @@ export class StagbeetlePainter extends BasePainter {
   }
 
   /** Where the head is: on the front of the thorax, upright either way. */
+  protected headOval(frame: BugFrame): Oval {
+    const [x, y, rx, ry] = this.head(this.stuck(frame));
+    return { x, y, rx, ry };
+  }
+
   private head(stuck: boolean): [number, number, number, number] {
     const { r } = this;
     return stuck ? [r * 0.9, r * 0.3, r * 0.36, r * 0.31] : [r * 0.92, r * 0.14, r * 0.36, r * 0.31];

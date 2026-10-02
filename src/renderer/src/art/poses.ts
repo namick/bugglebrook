@@ -41,7 +41,15 @@ const ALL: readonly PoseState[] = [
     vx: 2,
     vy: -1,
     face: { eyes: 'happy', mouth: 'grin', form: 'flying' },
-    arts: ['ladybug', 'firefly', 'mantis'],
+    arts: ['ladybug', 'firefly', 'mantis', 'bee', 'moth'],
+  },
+  {
+    id: 'fiddle',
+    label: 'fiddling',
+    mode: 'st_perform',
+    face: { eyes: 'happy', mouth: 'grin' },
+    extra: { fiddling: true },
+    arts: ['cricket'],
   },
   {
     id: 'skate',

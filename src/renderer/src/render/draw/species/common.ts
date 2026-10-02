@@ -7,6 +7,9 @@ import type { Look } from '../face';
 import { drawEye } from '../face';
 import { walkJoints } from '../../rig/bugRig';
 import type { LimbItem, Skeleton } from '../../rig/skeleton';
+import type { Oval, WearSpot } from '../../wearLook';
+
+export type { Oval };
 
 export const TINTS = {
   green: { color: 0x8fd14f, alpha: 0.6 },
@@ -97,6 +100,8 @@ export interface SpeciesPainter {
   skeleton(frame: BugFrame, springs: readonly AntennaSpring[]): Skeleton;
   /** A bug waiting to be found: how strong its sign of life is right now, 0 to 1 (test hook). */
   readonly life?: number;
+  /** Where worn things go this frame (M11): the head as drawn, the top, the back, the feet. */
+  wearSpot(frame: BugFrame): WearSpot;
 }
 
 export interface PainterArgs {

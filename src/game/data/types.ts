@@ -243,7 +243,11 @@ export type BugArt =
   | 'dungbeetle'
   | 'caterpillar'
   | 'mantis'
-  | 'stickinsect';
+  | 'stickinsect'
+  // M11: the music bugs M9 left out.
+  | 'bee'
+  | 'cricket'
+  | 'moth';
 
 /**
  * Personality knobs that the AI reads, 0 to 1. `curious` sniffs new things,
@@ -291,7 +295,65 @@ export interface BugHabits {
   shy?: boolean;
   /** Dives head first into the trash can to rummage, and comes up with whatever is in it (Rollo, Barty, Whiff). */
   rummages?: boolean;
+  /** Judges every hat in sight, and likes wearing any of them (Prim). */
+  fashion?: boolean;
+  /** Takes pollen from open flowers to a thimble, and every fifth load makes a honey drop (Buzzby). */
+  pollen?: boolean;
+  /** Fiddles on his own legs at dusk and night, and joins any tune nearby (Fiddle). */
+  fiddles?: boolean;
+  /** Flies in slow loops and circles the brightest light at night (Luma). */
+  moth?: boolean;
 }
+
+/** The four wear slots (game design doc, section 7.3). One thing per slot. */
+export type WearSlot = 'head' | 'face' | 'back' | 'feet';
+export const WEAR_SLOTS: readonly WearSlot[] = ['head', 'face', 'back', 'feet'];
+
+/**
+ * A wearable's extra effect (section 7.3). The sim runs most of them in
+ * `systems/wardrobe.ts`; a few are only looks or sounds.
+ */
+export type WearPerk =
+  /** Magnets pull the wearer (the thimble). */
+  | 'magnetic'
+  /** A poke toots a party horn (the party cone). */
+  | 'horn'
+  /** Buzzby comes to see the wearer (the petal bonnet). */
+  | 'flowery'
+  /** Prim chops food in two while she wears it (the chef hat). */
+  | 'chef'
+  /** Falls at half speed and glides (the propeller cap). */
+  | 'glide'
+  /** A light headbutt for loose things in the way (the viking helmet). */
+  | 'headbutt'
+  /** Bounces off what it lands on (the mushroom cap). */
+  | 'bounce'
+  /** Glows faintly at night (the wizard hat). */
+  | 'night_glow'
+  /** The wearer glows and lights the dark (the candle hat, the headlamp). */
+  | 'glow'
+  /** Breaks on a hard landing (the eggshell). */
+  | 'fragile'
+  /** The wearer smells (the goo hat). */
+  | 'smelly'
+  /** Breathes under water and walks the pond bottom (the bubble helmet, the snorkel). */
+  | 'breathe'
+  /** Never gets cold (the beanie). */
+  | 'warm'
+  /** No squinting by day; Luma stays awake in them (sunglasses). */
+  | 'shades'
+  /** The wearer's voice drops (the mustache). */
+  | 'deep_voice'
+  /** The wearer sees a tag of what it sniffs, like the bug scope (the monocle). */
+  | 'peer'
+  /** Glides a little when flung (the leaf cape). */
+  | 'cape'
+  /** Ants bow as the wearer walks by (the foil crown). */
+  | 'regal'
+  /** Holds one small thing (the matchbox backpack). */
+  | 'pack'
+  /** Rolls almost without friction (the bottle-cap skates). */
+  | 'skates';
 
 /**
  * How a bug copes with water (game design doc, section 5, `st_swim`):
@@ -352,6 +414,8 @@ export interface BugDef {
   rain: 'likes' | 'dislikes' | 'neutral';
   /** Its body glows in the dark and lights things up (Flick's tail). */
   glows?: boolean;
+  /** Never sleepy at its bedtime (Luma in sunglasses, M11). Set by what it wears, not in the data. */
+  sleepless?: boolean;
   /**
    * A collider other than the usual circle (Twig is a long stick). `radius`
    * stays the bug's rough half height for the AI.
@@ -360,6 +424,19 @@ export interface BugDef {
   /** The secret that finds it, for hidden bugs. */
   foundBy?: string;
   voice: VoiceProfile;
+  /**
+   * Where things are worn (M11), in meters from the body center while
+   * facing right: the head's middle and radius (hats sit on top and scale
+   * with it), and the middle of the back. The renderer moves these with the
+   * head each frame; the sim uses them for drop targets.
+   */
+  wear: BugWearAnchors;
+}
+
+export interface BugWearAnchors {
+  head: Point2;
+  headR: number;
+  back: Point2;
 }
 
 /**
@@ -528,7 +605,24 @@ export type ItemArt =
   | 'maraca'
   | 'castanets'
   | 'bottle_flute'
-  | 'leaf_xylophone';
+  | 'leaf_xylophone'
+  // M11's hats and accessories.
+  | 'hat_acorn'
+  | 'hat_party'
+  | 'hat_petal'
+  | 'hat_top'
+  | 'hat_chef'
+  | 'hat_wizard'
+  | 'hat_candle'
+  | 'hat_eggshell'
+  | 'hat_goo'
+  | 'hat_bubble'
+  | 'sunglasses'
+  | 'mustache'
+  | 'monocle'
+  | 'bowtie'
+  | 'scarf'
+  | 'bandaid';
 
 /**
  * What a bug can do with an advert (game design doc, section 5). Items offer
@@ -641,8 +735,10 @@ export interface ItemDef {
   potion?: string;
   /** A blueprint scroll: the recipe it pins to the Tinker Bench's cork board (M8). */
   blueprint?: string;
-  /** A wearable's slot (game design doc, section 7.3). Wearing arrives in M11. */
-  wear?: 'head' | 'face' | 'back' | 'feet';
+  /** A wearable's slot (game design doc, section 7.3): drop it on a bug to put it on (M11). */
+  wear?: WearSlot;
+  /** What wearing it does besides the look (section 7.3's extra effects). */
+  perks?: readonly WearPerk[];
   /** What a crafted toy does in the world (M8, game design doc, section 7.1). */
   toy?: ToyKind;
   /** Floats up: an upward pull in g (a balloon is about 1.3, so it rises with its string). */

@@ -182,7 +182,7 @@ If you love masks, vector layers, or filter layers, keep a `.kra` working copy t
 
 ### The face kit
 
-Faces are drawn once and shared. There's one extra template, `face_kit.ora`, with every eye shape and every mouth shape. The game uses the kit on every bug, sizing the eyes and mouth to fit each head. Draw the kit once, and all twelve bugs get your faces.
+Faces are drawn once and shared. There's one extra template, `face_kit.ora`, with every eye shape and every mouth shape. The game uses the kit on every bug, sizing the eyes and mouth to fit each head. Draw the kit once, and all fifteen bugs get your faces.
 
 If a bug needs its own version of a face piece (Twig's tiny sleepy eyes, Dot's mouth drawn in light pink on her dark head), put a layer with the same name in that bug's `face` group. A face piece in a bug's own file wins over the kit.
 
@@ -276,8 +276,11 @@ Size on screen is how wide the body is on a 1080p screen. The template canvas is
 | `bug_caterpillar_munch` | Munch | Caterpillar | 92 px | 1408 x 1408 | 15 | Cocoon; butterfly |
 | `bug_mantis_prim` | Prim | Praying mantis | 120 px | 1536 x 1536 | 10 | Karate poses; wings open when thrown |
 | `bug_stickinsect_twig` | Twig | Stick insect | 130 x 14 px | 768 x 512 | 4 | Disguised as a twig |
+| `bug_bee_buzzby` | Buzzby | Bumblebee | 84 px | 896 x 768 | 8 | Wings blur when she flies |
+| `bug_cricket_fiddle` | Fiddle | Cricket | 92 px | 1152 x 1408 | 9 | Bows one back leg across the other to play |
+| `bug_moth_luma` | Luma | Moth | 92 px | 1152 x 896 | 8 | Wings beat slowly when she flies |
 
-The first five are the **starting cast**. The other seven are found during play.
+The first five are the **starting cast**. The other ten are found during play.
 
 Below, the layers are listed back to front, the order they're in on the template.
 
@@ -454,6 +457,48 @@ Colors now: stick `#8B6A45`, lighter `#B08A5C`.
 
 Face: tiny, heavy-lidded eyes and a very small, flat mouth. If the kit's eyes look too big even when shrunk, draw `eye_white`, `eye_pupil`, and `eye_closed` in his `face` group.
 
+#### Buzzby the bumblebee (`bug_bee_buzzby`)
+
+Colors now: body `#FFD23F`, stripes, legs, and stinger `#2B2438`, head a creamy yellow.
+
+- `wing`: one tiny see-through wing, pointing up from its root dot. The game draws it twice, folded back at rest and beating fast (a blur) when she flies.
+- `leg_upper`, `leg_lower`: six short dark legs. They tuck up when she flies.
+- `stinger`: the blunt little nub at the back. Not pointy: she's a friendly bee.
+- `body`: round and fuzzy (a tufted outline), with three black stripes across the back half.
+- `head`: round and creamy yellow.
+- `antenna`, `antenna_tip`: short feelers with round knobs.
+
+She's small and busy, so keep her round: she should read as a fuzzy ball with a face.
+
+#### Fiddle the cricket (`bug_cricket_fiddle`)
+
+Colors now: body `#6B4226`, head and belly stripe `#9A6A44`, beret and wing veins `#2B1D14`.
+
+- `hindleg_thigh`: the thick, drumstick-shaped back thigh, rising to a high knee.
+- `hindleg_shin`: the long, straight shin, drawn like a violin bow: a dark stick with a pale line of "hair" beside it and a little knob (the frog) by the knee.
+- `leg_upper`, `leg_lower`: four small front legs.
+- `abdomen`: the long, low body with two little tail prongs.
+- `wing_folded`: folded wings along his back, a shade lighter, with dark veins.
+- `thorax`: the shoulder plate between body and head.
+- `head`: the round head, with the dark beret-shaped spot on top drawn in.
+- `antenna`: one very long feeler sweeping up and back. The game uses it twice.
+
+When he plays, the game lifts the near back leg and saws its shin across the far one, so the bow has to look right lying across his body.
+
+#### Luma the moth (`bug_moth_luma`)
+
+Colors now: body `#CFC3E8`, ruff `#EEE8F8`, eye-spots `#6B5BA6`.
+
+- `wing_hind`: the rounder back wing with the smaller eye-spot, root at the dot, pointing up and back.
+- `wing_fore`: the broad front wing with the big eye-spot, root at the dot, pointing up.
+- `leg_upper`, `leg_lower`: six thin legs.
+- `abdomen`: the fuzzy lavender body with faint segment lines.
+- `thorax`: the fluffy thorax with the pale ruff at the collar.
+- `head`: the round head.
+- `antenna`: one feathery feeler (a shaft with little barbs), drawn straight up.
+
+The game draws each wing twice (the far pair darker), swept back over her at rest and beating slowly when she flies. Her open eyes show as the kit's sleepy eyes, so she always looks half asleep.
+
 ### Counts
 
 | Bug | Part layers | Forms | Face overrides needed |
@@ -470,6 +515,9 @@ Face: tiny, heavy-lidded eyes and a very small, flat mouth. If the kit's eyes lo
 | Munch | 15 | cocoon, butterfly | none |
 | Prim | 10 | wings open | none |
 | Twig | 4 | disguised (no extra art) | optional tiny eyes |
+| Buzzby | 8 | flying (no extra art) | none |
+| Fiddle | 9 | fiddling (no extra art) | none |
+| Luma | 8 | flying (no extra art) | none (uses the sleepy eyes) |
 | Face kit | 28 | | |
 
 ## A5. Seeing your art in the game
@@ -877,6 +925,7 @@ Built on 2026-10-02.
 - **Tests.** The crude test pack (`tests/e2e/fixtures/art/make.ts`) now has every bug, drawn from its rig as flat shapes. `tests/unit/artBugs.test.ts` draws every bug in every pose and expression, checks that each skeleton part has a drawing, that every rig part is used, that the rest pose puts each part on its template pivot, and each special form. `pnpm shots -g "art every bug"` saves the Art Lab grid and each pose for all twelve bugs (`art-bug-*`).
 - **Art Lab poses added:** skate (Skeet), fly with wings open (Prim), karate pose without the chop (Prim), fluttering and floating (Munch).
 - Still not built: the Krita-saved fixture and a frame-time check with all bugs drawn.
+- **M11's music bugs.** Buzzby, Fiddle, and Luma have painters (`species/bee.ts`, `cricket.ts`, `moth.ts`), rigs, templates, and crude test art like the rest. Buzzby's and Luma's wings flap in flight (`fly` in the Art Lab); Fiddle's `fiddle` pose bows his near back leg across the far one (`frame.fiddling`, or while performing or playing).
 
 ## B17. What we're unsure about
 

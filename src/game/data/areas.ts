@@ -163,6 +163,9 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_paint_black', x: 21.4 },
       { kind: 'item', defId: 'item_balloon_blue', x: 10.9 },
       { kind: 'item', defId: 'item_balloon_red', x: 6.9 },
+      // M11: a party cone and a ribbon bow tie left over from a show.
+      { kind: 'item', defId: 'item_hat_party_cone', x: 6.3 },
+      { kind: 'item', defId: 'item_acc_bowtie_ribbon', x: 1.5 },
       { kind: 'item', defId: 'item_blueprint_disco_ball', x: 13.6 },
       // M9: instruments to play, one on the stage.
       { kind: 'item', defId: 'item_inst_seedpod_maraca', x: 9.1 },
@@ -242,6 +245,11 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_bubble_wand', x: 29.1 },
       // M9: a bottle flute washed up by the water's edge.
       { kind: 'item', defId: 'item_inst_bottle_flute', x: 30.3 },
+      // M11: a petal bonnet afloat, and sunglasses and an acorn cap on the far bank (section 3 puts the
+      // last two in the plaza; they lie at its edge here, out of the plaza's busy middle).
+      { kind: 'item', defId: 'item_hat_flower_petal', x: 8.4, onWater: true },
+      { kind: 'item', defId: 'item_acc_sunglasses', x: 31.9 },
+      { kind: 'item', defId: 'item_hat_acorn_cap', x: 31.3 },
     ],
     respawn: [{ item: 'item_blueberry', count: 2 }],
     skyTop: 0x8fd6f2,
@@ -414,6 +422,10 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_blueprint_slingshot', x: 9.0, y: HANGING_SHELF_TOP },
       { kind: 'item', defId: 'item_toothpick', x: 10.1, y: HANGING_SHELF_TOP },
       { kind: 'item', defId: 'item_eggshell', x: 11.2, y: HANGING_SHELF_TOP },
+      // M11: dress-up things among the junk.
+      { kind: 'item', defId: 'item_acc_bandaid', x: 6.6 },
+      { kind: 'item', defId: 'item_hat_tiny_top_hat', x: 17.7 },
+      { kind: 'item', defId: 'item_acc_mustache', x: 24.45 },
     ],
     respawn: [
       { item: 'item_crumb_cookie', count: 1 },
@@ -529,6 +541,8 @@ export const AREAS = createRegistry<AreaDef>('area', [
       // M8: a crane blueprint and a mushroom hat by the bug scope.
       { kind: 'item', defId: 'item_blueprint_magnet_crane', x: 17.0 },
       { kind: 'item', defId: 'item_hat_mushroom', x: 22.4 },
+      // M11: the chef hat.
+      { kind: 'item', defId: 'item_hat_chef', x: 20.5 },
     ],
     respawn: [{ item: 'item_apple_core', count: 1 }],
     skyTop: 0xa8d8c8,

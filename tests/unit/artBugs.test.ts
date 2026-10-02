@@ -5,7 +5,7 @@ import { BufferImageSource, Graphics, MeshRope, Sprite } from 'pixi.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildAsset } from '../../scripts/art/build.ts';
 import { decodePng } from '../../scripts/art/png.ts';
-import { BUGS } from '../../src/game/data';
+import { BUGS, CONTENT } from '../../src/game/data';
 import type { BugDef } from '../../src/game/data/types';
 import type { LoadedArt } from '../../src/renderer/src/art/artStore';
 import { atlasSet } from '../../src/renderer/src/art/artStore';
@@ -14,6 +14,8 @@ import type { PoseState } from '../../src/renderer/src/art/poses';
 import type { AtlasJson, RigFile } from '../../src/renderer/src/art/rigFile';
 import { SpriteBugView } from '../../src/renderer/src/art/spriteBug';
 import type { BugFrame } from '../../src/renderer/src/render/draw/bug';
+import { BugSprite } from '../../src/renderer/src/render/draw/bug';
+import { ItemSprite } from '../../src/renderer/src/render/draw/item';
 import type { Pt } from '../../src/renderer/src/render/rig/bugRig';
 import { rigFor } from '../../src/renderer/src/render/rig/bugRig';
 
@@ -348,12 +350,102 @@ describe('special forms', () => {
     expect(v.shown.parts).toEqual(['stick']);
   });
 
+  it('Buzzby and Luma beat their wings in the air and rest them folded back on the ground', () => {
+    for (const [id, parts] of [
+      ['bug_bee_buzzby', ['wing']],
+      ['bug_moth_luma', ['wing_hind', 'wing_fore']],
+    ] as const) {
+      const def = BUGS.get(id);
+      const v = view(def);
+      const turns = (poseId: string): number[] =>
+        [0.1, 0.3, 0.5, 0.7].map((t) => {
+          v.update(poseFrame(pose(def, poseId), t));
+          return sprites(v, parts[0])[1]!.rotation;
+        });
+      const idle = turns('idle');
+      // Each wing piece shows twice (far and near).
+      for (const part of parts) expect(sprites(v, part), `${id} ${part}`).toHaveLength(2);
+      const fly = turns('fly');
+      expect(Math.max(...idle) - Math.min(...idle), id).toBeLessThan(0.1);
+      expect(Math.max(...fly) - Math.min(...fly), id).toBeGreaterThan(0.3);
+      // Flying, her legs hang tucked up off the ground.
+      const feet = v.lastSkeleton!.items.flatMap((i) => (i.kind === 'limb' ? [i.foot.y] : []));
+      expect(Math.max(...feet), id).toBeLessThan(rigFor(def).foot * 0.95);
+    }
+  });
+
+  it('Luma’s open eyes rest half shut', () => {
+    const def = BUGS.get('bug_moth_luma');
+    const v = view(def);
+    v.update(poseFrame(pose(def, 'idle'), 0.2));
+    expect(v.lastSkeleton!.face!.eyes.map((e) => e.shape)).toEqual(['sleepy', 'sleepy']);
+    expect(v.shown.face).toContain('eye_sleepy_lid');
+  });
+
+  it('Fiddle bows one back leg across the other when he plays', () => {
+    const def = BUGS.get('bug_cricket_fiddle');
+    const v = view(def);
+    const bow = (poseId: string, t: number) => {
+      v.update(poseFrame(pose(def, poseId), t));
+      const near = v.lastSkeleton!.items.find(
+        (i) => i.kind === 'limb' && i.part === 'hindleg_thigh' && !i.far,
+      );
+      if (near?.kind !== 'limb') throw new Error('no near back leg');
+      return near;
+    };
+    const stand = bow('idle', 0.3);
+    expect(stand.slot).toBe('front');
+    expect(stand.foot.y).toBeCloseTo(rigFor(def).foot, 0);
+    const a = bow('fiddle', 0.3);
+    // Lifted up over his body, in front of everything, and sawing back and forth.
+    expect(a.slot).toBe('top');
+    expect(a.foot.y).toBeLessThan(0);
+    expect(a.foot.x).toBeGreaterThan(a.knee.x);
+    const b = bow('fiddle', 0.47);
+    expect(Math.abs(b.foot.x - a.foot.x)).toBeGreaterThan(1);
+    expect(labels(v)).toEqual(expect.arrayContaining(['hindleg_thigh', 'hindleg_shin', 'head', 'antenna']));
+  });
+
   it('every bug keeps the game’s dizzy stars circling its crown', () => {
     for (const def of BUGS.all) {
       const v = view(def);
       v.update(poseFrame(pose(def, 'dizzy'), 0.3));
       const fx = v.children.find((c) => c instanceof Graphics) as Graphics;
       expect(fx.context.instructions.length, def.id).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('worn things on the cutout bugs (M11)', () => {
+  it('sit where they sit on the code-drawn bug, in every pose', () => {
+    const items = [
+      'item_hat_acorn_cap',
+      'item_acc_sunglasses',
+      'item_acc_cape_leaf',
+      'item_acc_roller_skates',
+    ].map((id) => CONTENT.items.get(id));
+    for (const def of BUGS.all) {
+      for (const state of posesFor(def)) {
+        const f = poseFrame(state, 0.3);
+        const cut = view(def);
+        const code = new BugSprite(def);
+        for (const s of [cut, code])
+          s.setWorn(
+            items.map((d, i) => ({ id: i + 1, def: d })),
+            (d) => new ItemSprite(d, 0),
+          );
+        cut.update(f);
+        code.update(f);
+        for (const id of [1, 2, 3, 4]) {
+          const a = cut.wornAt.get(id)!;
+          const b = code.wornAt.get(id)!;
+          const where = `${items[id - 1]!.id} on ${def.id} (${state.id})`;
+          expect(Math.hypot(a.x - b.x, a.y - b.y), where).toBeLessThan(0.5);
+          expect(a.hidden, where).toBe(b.hidden);
+        }
+        cut.destroy({ children: true });
+        code.destroy({ children: true });
+      }
     }
   });
 });

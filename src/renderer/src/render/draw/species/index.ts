@@ -1,9 +1,12 @@
 import { PIXELS_PER_METER } from '../../../../../game/constants';
 import type { BugDef } from '../../../../../game/data/types';
+import { BeePainter } from './bee';
 import { CaterpillarPainter } from './caterpillar';
 import type { PainterArgs, SpeciesPainter } from './common';
+import { CricketPainter } from './cricket';
 import { DungbeetlePainter } from './dungbeetle';
 import { MantisPainter } from './mantis';
+import { MothPainter } from './moth';
 import { StagbeetlePainter } from './stagbeetle';
 import { StickinsectPainter } from './stickinsect';
 import { StinkbugPainter } from './stinkbug';
@@ -26,6 +29,12 @@ export function makePainter(args: PainterArgs): SpeciesPainter | null {
       return new MantisPainter(args);
     case 'stickinsect':
       return new StickinsectPainter(args);
+    case 'bee':
+      return new BeePainter(args);
+    case 'cricket':
+      return new CricketPainter(args);
+    case 'moth':
+      return new MothPainter(args);
     default:
       return null;
   }
@@ -41,6 +50,10 @@ export function bugSpan(def: BugDef): number {
       return d * 1.5;
     case 'mantis':
       return d * 1.4;
+    case 'cricket':
+      return d * 1.5;
+    case 'moth':
+      return d * 1.2;
     case 'stickinsect':
       return (def.collider?.width ?? def.radius * 2) * PIXELS_PER_METER;
     default:

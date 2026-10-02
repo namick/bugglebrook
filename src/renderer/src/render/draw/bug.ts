@@ -1,6 +1,9 @@
 import { Container, Graphics } from 'pixi.js';
 import { PIXELS_PER_METER } from '../../../../game/constants';
-import type { BugDef, PendingState } from '../../../../game/data/types';
+import type { BugDef, ItemDef, PendingState } from '../../../../game/data/types';
+import type { ItemSprite } from './item';
+import type { WearSpot } from '../wearLook';
+import { placeWorn } from '../wearLook';
 import type { BugMode } from '../../../../game/core/entities';
 import type { RedrawStats } from '../bugCache';
 import { PartCache, antennaeKey, faceKey, fxKey, legsKey, paintedKey, wingsKey } from '../bugCache';
@@ -71,7 +74,18 @@ export interface BugFrame {
   paint?: readonly string[];
   /** A dramatic pose (Prim's karate): how far into it (0 to 1), seconds since it began, and whether it is a chop. */
   karate?: { k: number; t: number; chop: boolean };
+  /** Fiddle playing his back legs like a violin (also shown while performing or playing). */
+  fiddling?: boolean;
 }
+
+/** A worn thing as its bug draws it (M11). */
+export interface WornLook {
+  id: number;
+  def: ItemDef;
+}
+
+/** How long a flipped hat (Boing's trick) is in the air, seconds. */
+const FLIP_SECONDS = 0.7;
 
 /**
  * A procedurally drawn bug. Static parts are drawn once per body form;
@@ -123,6 +137,18 @@ export class BugSprite extends Container {
   };
   /** What the painter asked for last time it drew, reused while its drawing is cached. */
   private lastAdjust: Adjust = { tilt: 0, bob: 0, still: false };
+  /** Worn things (M11): behind the body (a cape) and in front of it (hats, glasses). */
+  protected readonly wearBack = new Container();
+  protected readonly wearFront = new Container();
+  /** The worn things' sprites, by item ID. */
+  private readonly worn = new Map<number, { def: ItemDef; sprite: ItemSprite }>();
+  /** When a hat flip started (seconds of frame time), or null. */
+  private flipAt: number | null = null;
+  /** Where worn things sat last frame (tests): item ID to rig-space point, scale, and layer. */
+  readonly wornAt = new Map<
+    number,
+    { x: number; y: number; scale: number; behind: boolean; hidden: boolean }
+  >();
 
   constructor(readonly def: BugDef) {
     super();
@@ -162,6 +188,10 @@ export class BugSprite extends Container {
       this.antennae,
       this.faceG,
     );
+    this.wearBack.label = 'worn behind';
+    this.wearFront.label = 'worn';
+    this.rig.addChildAt(this.wearBack, this.rig.getChildIndex(this.legsBack) + 1);
+    this.rig.addChild(this.wearFront);
     this.paintG.label = 'paint';
     this.paintMask.label = 'paintMask';
     this.paintG.visible = false;
@@ -814,6 +844,99 @@ export class BugSprite extends Container {
     if (c.face.stale(faceKey(frame, form, art, r, this.springs))) this.drawFace(frame);
     if (c.fx.stale(fxKey(frame))) this.drawStars(frame);
     this.drawPaint(frame, frame.paint, () => `${this.form}`);
+    this.updateWear(frame);
+  }
+
+  // --- Worn things (M11) ------------------------------------------------
+
+  /** What the bug wears now: new things get sprites (from `make`), things gone lose theirs. */
+  setWorn(list: readonly WornLook[], make: (def: ItemDef) => ItemSprite): void {
+    const ids = new Set(list.map((w) => w.id));
+    for (const [id, w] of this.worn)
+      if (!ids.has(id)) {
+        w.sprite.destroy({ children: true });
+        this.worn.delete(id);
+        this.wornAt.delete(id);
+      }
+    for (const w of list) {
+      if (this.worn.has(w.id)) continue;
+      const sprite = make(w.def);
+      sprite.label = `worn ${w.def.id}`;
+      this.worn.set(w.id, { def: w.def, sprite });
+    }
+  }
+
+  /** Item IDs worn, for tests. */
+  wornIds(): number[] {
+    return [...this.worn.keys()];
+  }
+
+  /** Each worn thing's sprite (tests, the test hook). */
+  wornSprites(): { id: number; def: ItemDef; sprite: ItemSprite }[] {
+    return [...this.worn].map(([id, w]) => ({ id, def: w.def, sprite: w.sprite }));
+  }
+
+  /** Boing's trick: the hat hops off his head and lands back on it. */
+  flipHat(time: number): void {
+    this.flipAt = time;
+  }
+
+  /** Where a code-drawn bug's head is (its rig's head), and the top of a ball or a shell. */
+  private codeSpot(frame: BugFrame): WearSpot {
+    const { r } = this;
+    const form = frame.face.form;
+    const h = this.bones.head;
+    const [bx, by] = this.def.wear.back;
+    const ball = form === 'curled';
+    const shell = form === 'in_shell';
+    return {
+      head: ball || shell || !h ? null : { x: h.x, y: h.y, rx: h.r, ry: h.r },
+      top: ball ? { x: 0, y: -r } : shell ? { x: -r * 0.1, y: -r * 1.05 } : this.bones.crown,
+      ball,
+      back: { x: bx * PIXELS_PER_METER, y: by * PIXELS_PER_METER },
+      feet: { x: 0, y: this.foot },
+    };
+  }
+
+  /** Put each worn thing where it goes this frame: on the head, the face, the back, or the feet. */
+  protected updateWear(frame: BugFrame): void {
+    if (this.worn.size === 0) {
+      this.wearBack.visible = this.wearFront.visible = false;
+      return;
+    }
+    const spot = this.painter ? this.painter.wearSpot(frame) : this.codeSpot(frame);
+    // Curled into a ball, the rig is hidden: worn things perch on the ball, upright.
+    const holder = spot.ball ? this.stretchC : this.rig;
+    if (this.wearFront.parent !== holder) {
+      holder.addChild(this.wearFront);
+      if (spot.ball) holder.addChildAt(this.wearBack, holder.getChildIndex(this.wearFront));
+      else this.rig.addChildAt(this.wearBack, this.rig.getChildIndex(this.legsBack) + 1);
+    }
+    this.wearBack.visible = this.wearFront.visible = true;
+    // A flipped hat goes up and comes down again.
+    let lift = 0;
+    let turn = 0;
+    if (this.flipAt !== null) {
+      const t = (frame.time - this.flipAt) / FLIP_SECONDS;
+      if (t >= 1 || t < 0) this.flipAt = null;
+      else {
+        lift = Math.sin(t * Math.PI) * this.r * 1.6;
+        turn = t * Math.PI * 2;
+      }
+    }
+    for (const [id, w] of this.worn) {
+      const p = placeWorn(this.def, w.def, spot);
+      const s = w.sprite;
+      const layer = p.behind ? this.wearBack : this.wearFront;
+      if (s.parent !== layer) layer.addChild(s);
+      const flips = w.def.wear === 'head' && lift > 0;
+      s.position.set(p.x, p.y - (flips ? lift : 0));
+      s.rotation = p.rotation + (flips ? turn : 0);
+      s.scale.set(p.scale);
+      s.visible = !p.hidden;
+      s.update(frame.dt);
+      this.wornAt.set(id, { x: p.x, y: p.y, scale: p.scale, behind: p.behind, hidden: p.hidden });
+    }
   }
 
   /** A waiting bug's sign of life this frame, 0 to 1 (Moose's flailing, Barty's fiddling, Twig's tells). */
@@ -872,6 +995,7 @@ export class BugSprite extends Container {
     this.rim.visible = (frame.rim ?? 0) > 0;
     this.rim.alpha = frame.rim ?? 0;
     if (this.cache.fx.stale(fxKey(frame))) this.drawStars(frame, p.crown(frame));
+    this.updateWear(frame);
     if (p.paintsItself(frame)) this.drawPaint(frame, [], () => '');
     else
       this.drawPaint(

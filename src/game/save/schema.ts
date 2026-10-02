@@ -13,9 +13,11 @@ import type { TrashState } from '../systems/trash';
 import type { TidyState } from '../systems/tidy';
 import type { Brew } from '../systems/brewing';
 import type { ActiveEffect, SavedPart, ToyState } from '../core/entities';
+import type { WearSlot } from '../data/types';
+import type { WardrobeState } from '../systems/wardrobe';
 
 /** Bump when the save shape changes, and add a migration in migrations.ts. */
-export const SAVE_VERSION = 14;
+export const SAVE_VERSION = 15;
 
 export interface SavedEntity {
   id: number;
@@ -43,6 +45,8 @@ export interface SavedEntity {
   toasted?: boolean;
   /** A crafted toy's state (version 9). */
   toy?: ToyState;
+  /** What a bug wears, by slot (version 15). */
+  wearing?: Partial<Record<WearSlot, number>>;
 }
 
 /** Everything needed to rebuild the sim exactly where it was left. */
@@ -84,6 +88,8 @@ export interface WorldSave {
   trash?: TrashState;
   /** The tidy whistle's queue and tidying's dice (version 14). */
   tidy?: TidyState;
+  /** Hats and accessories (version 15): bugs' plans with what they wear, Buzzby's pollen, and dice. */
+  wardrobe?: WardrobeState;
 }
 
 /** Running counts about how the world has been played. */

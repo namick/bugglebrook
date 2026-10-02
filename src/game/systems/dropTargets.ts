@@ -5,9 +5,9 @@ import type { EntityId } from '../core/entities';
  * something, or a thrown thing hits a bug, the first matching target by
  * priority wins; ties go to the nearest. If nothing matches, it is a plain
  * physics drop. M8 adds containers (the bench's trays, the cauldron),
- * potions at a mouth, and paint on a bug. Heads, hands, and seats come later.
+ * potions at a mouth, and paint on a bug. M11 adds heads. Hands and seats come later.
  */
-export type DropTargetKind = 'mouth' | 'tray' | 'cauldron' | 'trash' | 'body';
+export type DropTargetKind = 'mouth' | 'tray' | 'cauldron' | 'trash' | 'body' | 'head' | 'crown';
 
 export interface DropRule {
   kind: DropTargetKind;
@@ -17,7 +17,8 @@ export interface DropRule {
   radius: number;
   /**
    * The dropped thing needs this tag. Besides real tags, the sim gives
-   * items `item`, potion bottles `potion`, and paint drops `paint`.
+   * items `item`, potion bottles `potion`, paint drops `paint`, wearables
+   * `wearable`, and goo and eggshells `head_turn`.
    */
   tag: string;
 }
@@ -28,6 +29,10 @@ export const DROP_RULES: readonly DropRule[] = [
   { kind: 'cauldron', priority: 2, radius: 1.1, tag: 'item' },
   // The trash can's mouth (playtest F1), while the held thing fits.
   { kind: 'trash', priority: 2, radius: 0.9, tag: 'item' },
+  // 3: a bug's head (or body), for anything wearable (M11). About 50 px from the head.
+  { kind: 'head', priority: 3, radius: 0.6, tag: 'wearable' },
+  // Just above a head: compost goo or an eggshell becomes a hat instead of a meal.
+  { kind: 'crown', priority: 3, radius: 0.25, tag: 'head_turn' },
   // 4: a bug's mouth, for anything edible or a potion. 50 px from the mouth anchor.
   { kind: 'mouth', priority: 4, radius: 0.5, tag: 'tag_edible' },
   { kind: 'mouth', priority: 4, radius: 0.5, tag: 'potion' },

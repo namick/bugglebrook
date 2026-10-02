@@ -292,6 +292,9 @@ const SHAPES: Record<string, Shape> = {
     g.globalAlpha = 1;
   },
   wing_open: oval(0.34, 0.8, '#b0ffb0'),
+  wing_fore: wedge([0, 0, -0.12, -1.42, -1.0, -0.62], '#d0b0ff'),
+  wing_hind: wedge([0, 0, -1.15, -0.25, -0.6, 0.2], '#9070e0'),
+  stinger: wedge([0.1, -0.15, -0.2, 0, 0.1, 0.15], '#2b2438'),
   wing_folded: oval(0.65, 0.08, '#2f8f3f', -0.65, 0),
   abdomen: marked(0.72, 0.2, '#6fe36f'),
   neck: wedge([-0.1, 0, 0.82, -0.98, 0.98, -0.88, 0.1, 0.05], '#4fc34f'),
@@ -323,6 +326,14 @@ const OVERRIDES: Record<string, Shape> = {
   'bug_stagbeetle_moose:head': marked(0.36, 0.31, '#a0503a'),
   'bug_mantis_prim:head': wedge([-0.4, -0.42, 0.68, -0.36, 0.3, 0.28], '#90f090'),
   'bug_stinkbug_whiff:head': marked(0.46, 0.46, '#c0d060'),
+  'bug_bee_buzzby:body': marked(0.84, 0.66, '#ffd23f'),
+  'bug_bee_buzzby:head': marked(0.44, 0.44, '#fff0a0'),
+  'bug_bee_buzzby:wing': oval(0.17, 0.3, '#c0f0ff', 0, -0.3),
+  'bug_cricket_fiddle:abdomen': marked(0.78, 0.36, '#6b4226'),
+  'bug_cricket_fiddle:wing_folded': oval(0.75, 0.12, '#8a5a36'),
+  'bug_cricket_fiddle:head': marked(0.43, 0.43, '#9a6a44'),
+  'bug_moth_luma:abdomen': marked(0.62, 0.3, '#cfc3e8'),
+  'bug_moth_luma:thorax': oval(0.4, 0.38, '#e0d8f0'),
 };
 
 /** Twig's radius in game pixels: his ground is half his box's height, not his radius. */

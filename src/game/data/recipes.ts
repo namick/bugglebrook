@@ -68,5 +68,7 @@ export const RECIPES = createRegistry<RecipeDef>('recipe', [
   recipe('beanie', ['item_thread_spool', 'item_toothpick', 'item_toothpick'], 'item_hat_yarn_beanie'),
   recipe('backpack', ['item_matchbox', 'item_string'], 'item_acc_backpack_matchbox'),
   recipe('pirate_hat', ['item_paper_scrap', 'item_paint_black'], 'item_hat_pirate'),
+  // M11: the yarn scarf, which section 7.3 says is crafted.
+  recipe('yarn_scarf', ['item_thread_spool', 'item_string'], 'item_acc_scarf_yarn'),
   recipe('glow_paint', [ANY_PAINT, GLOWING], 'item_paint_glow'),
 ]);

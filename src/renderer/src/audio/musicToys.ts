@@ -24,9 +24,12 @@ export type ToyTimbre =
   | 'xylophone'
   | 'tine'
   | 'mushroom'
-  | 'choir';
+  | 'choir'
+  // M11: Fiddle bowing his own legs.
+  | 'fiddle';
 
 export function toyTimbre(defId: string): ToyTimbre {
+  if (defId === FIDDLE_LEGS) return 'fiddle';
   if (defId.includes('kazoo')) return 'kazoo';
   if (defId.includes('harp')) return 'harp';
   if (defId.includes('can_bass')) return 'bass';
@@ -37,6 +40,12 @@ export function toyTimbre(defId: string): ToyTimbre {
   if (defId.includes('xylophone')) return 'xylophone';
   return 'tine';
 }
+
+/** What Fiddle plays when he plays his own legs (M11): no item, his own timbre. */
+export const FIDDLE_LEGS = 'fiddle_legs';
+
+/** How a music bug plays any pitched instrument (section 10): Fiddle walks a melody, Buzzby runs up the scale. */
+export type PlayStyle = 'fiddle' | 'buzz' | null;
 
 /** Unpitched timbres: quantized, but no scale note. */
 export const UNPITCHED: ReadonlySet<ToyTimbre> = new Set(['drum', 'maraca', 'castanets']);
@@ -51,6 +60,7 @@ const OCTAVE: Partial<Record<ToyTimbre, number>> = {
   tine: 5,
   mushroom: 5,
   choir: 4,
+  fiddle: 5,
 };
 
 export function timbreOctave(t: ToyTimbre): number {
@@ -77,10 +87,22 @@ export function bugPart(
   timbre: ToyTimbre,
   step: number,
   seed: number,
+  style: PlayStyle = null,
 ): { degree: number; velocity: number } | 'hit' | null {
   const s = ((step % 16) + 16) % 16;
   const bar = Math.floor(step / 16);
   const r = hash01(seed, step);
+  if (!UNPITCHED.has(timbre) && style === 'fiddle') {
+    // Walks up or down the scale by one or two steps on the beats, with a long note to end the bar.
+    if (s % 4 !== 0) return null;
+    const walk = [0, 1, 3, 2, 4, 3, 1, 2];
+    const k = bar * 4 + s / 4;
+    const degree = walk[k % walk.length]! * (Math.floor(bar / 2) % 2 === 0 ? 1 : -1);
+    return { degree, velocity: s === 12 ? 0.9 : 0.7 };
+  }
+  if (!UNPITCHED.has(timbre) && style === 'buzz')
+    // Ascending runs on the 8ths.
+    return s % 2 === 0 ? { degree: ((s / 2) % 5) + (bar % 2) * 2, velocity: 0.7 } : null;
   switch (timbre) {
     case 'drum':
       // Hits on 1 and 3, a fill on 4.
@@ -175,6 +197,20 @@ export function toyTones(timbre: ToyTimbre, freq: number | null, velocity = 1, l
       return [
         { freq: f, dur: 0.28, wave: 'triangle', gain: 0.17 * v, attack: 0.004 },
         { freq: f * 1.5, to: f, dur: 0.05, wave: 'sine', gain: 0.05 * v, attack: 0.002 },
+      ];
+    case 'fiddle':
+      // A bowed note: a slow attack, a formant body, and a singing vibrato.
+      return [
+        {
+          freq: f,
+          dur: Math.max(0.35, length),
+          wave: 'sawtooth',
+          gain: 0.07 * v,
+          attack: 0.07,
+          formants: [900, 2200],
+          vibrato: { rate: 5.5, depth: f * 0.01 },
+        },
+        { freq: f * 2, dur: Math.max(0.3, length * 0.8), wave: 'triangle', gain: 0.03 * v, attack: 0.09 },
       ];
     case 'choir':
       return [
@@ -355,9 +391,16 @@ export class MusicToys {
   }
 
   /** A bug's part on an instrument: its pattern for each 16th step. */
-  bugStep(bugId: number, defId: string, step: number, time: number, volume: number): void {
+  bugStep(
+    bugId: number,
+    defId: string,
+    step: number,
+    time: number,
+    volume: number,
+    style: PlayStyle = null,
+  ): void {
     const timbre = toyTimbre(defId);
-    const hit = bugPart(timbre, step, bugId);
+    const hit = bugPart(timbre, step, bugId, style);
     if (!hit) return;
     const root = this.chordDegree(step);
     this.play({
@@ -370,7 +413,8 @@ export class MusicToys {
       defId,
       asked: time,
       octave: timbreOctave(timbre),
-      length: timbre === 'flute' ? this.clock.period * 3 : undefined,
+      length:
+        timbre === 'flute' ? this.clock.period * 3 : timbre === 'fiddle' ? this.clock.period * 2 : undefined,
     });
   }
 

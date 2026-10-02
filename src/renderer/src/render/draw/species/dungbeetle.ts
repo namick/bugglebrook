@@ -7,7 +7,7 @@ import { BasePainter } from './base';
 import type { EyeSpot } from '../../rig/bugRig';
 import type { Skeleton, SkeletonFace, SkeletonItem } from '../../rig/skeleton';
 import { NO_ADJUST, pt, quadRope, rest, tipOn } from '../../rig/skeleton';
-import type { Adjust, AntennaSpring, Box, LegPose, Pt, WalkLegsOptions } from './common';
+import type { Adjust, AntennaSpring, Box, LegPose, Pt, WalkLegsOptions, Oval } from './common';
 import {
   RIM,
   dome,
@@ -85,6 +85,11 @@ export class DungbeetlePainter extends BasePainter {
   paintBox(): Box {
     const { r } = this;
     return { x0: -r * 1.1, x1: r * 0.6, y0: -r * 0.32, y1: r * 0.68 };
+  }
+
+  protected headOval(): Oval {
+    const { r } = this;
+    return { x: r * 0.88, y: r * 0.14, rx: r * 0.38, ry: r * 0.32 };
   }
 
   override crown(): { x: number; y: number } {

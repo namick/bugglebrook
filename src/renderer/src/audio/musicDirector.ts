@@ -20,8 +20,8 @@ import { MusicLibrary } from './musicManifest';
 import type { AreaSpan } from './musicPick';
 import type { MusicSink } from './musicPlayer';
 import { fetchJson } from './musicPlayer';
-import type { NoteLog } from './musicToys';
-import { MusicToys } from './musicToys';
+import type { NoteLog, PlayStyle } from './musicToys';
+import { FIDDLE_LEGS, MusicToys } from './musicToys';
 import type { AudioBackend } from './synth';
 
 /** Through the bluebell speakers, the sequencer reaches every other area at a quarter volume. */
@@ -149,7 +149,7 @@ export class MusicDirector {
     if (f.handBusy) this.lastHand = this.sink.now();
     const bar = this.engine.clock.period * this.engine.clock.beatsPerBar;
     let active = 0;
-    const players: { bug: number; defId: string; x: number }[] = [];
+    const players: { bug: number; defId: string; x: number; style: PlayStyle }[] = [];
     // Straight from the entities: building every view twice a frame costs too much.
     for (const e of sim.entities.ofKind('bug')) {
       const b = e.bug;
@@ -157,10 +157,15 @@ export class MusicDirector {
       const x = sim.physics.getState(e.id).x;
       if (x < f.x0 || x > f.x1) continue;
       if (!QUIET_MODES.has(b.mode)) active++;
+      const habits = sim.content.bugs.get(e.defId).habits;
+      const style: PlayStyle = habits.fiddles ? 'fiddle' : habits.pollen ? 'buzz' : null;
       if (b.mode === 'st_use' && b.action === 'play' && b.targetId !== null) {
         const item = sim.entities.get(b.targetId);
-        if (item) players.push({ bug: e.id, defId: item.defId, x });
+        if (item) players.push({ bug: e.id, defId: item.defId, x, style });
       }
+      // Fiddle playing his own legs (M11).
+      if (b.mode === 'st_perform' && b.action === 'play' && b.targetId === null)
+        players.push({ bug: e.id, defId: FIDDLE_LEGS, x, style: 'fiddle' });
     }
     const input: MusicInput = {
       menu: false,
@@ -180,7 +185,7 @@ export class MusicDirector {
     for (const p of players) {
       const key = `bug:${p.bug}`;
       live.add(key);
-      this.toys.part(key, 0.15, (step, time) => this.toys.bugStep(p.bug, p.defId, step, time, 0.8));
+      this.toys.part(key, 0.15, (step, time) => this.toys.bugStep(p.bug, p.defId, step, time, 0.8, p.style));
     }
     this.sequencer(sim, live);
     if (this.toys.bandActive) {

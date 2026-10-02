@@ -487,6 +487,57 @@ export function listenSky(view: WorldView): void {
   );
 }
 
+/** M11: hats and accessories going on and coming off, Prim's verdicts, and the hats' tricks. */
+export function listenWear(view: WorldView): Array<() => void> {
+  const ev = view.sim.events;
+  const px = (m: number): number => m * PPM;
+  return [
+    ev.on('wearable_worn', (e) => {
+      view.juiceFor(e.bugId).squash.kick(1.2, 0.85);
+      view.particles.sparkles(px(e.x), px(e.y), e.thrown ? 12 : 6);
+      // A hat thrown onto a head: the great shot gets a ring and stars.
+      if (e.thrown) {
+        view.particles.ring(px(e.x), px(e.y), 34);
+        view.particles.stars(px(e.x), px(e.y) - 10);
+      }
+      if (e.liking === 'loved') view.particles.hearts(px(e.x), px(e.y) - 20, 3);
+    }),
+    ev.on('wearable_removed', (e) => {
+      if (e.how === 'broke') view.particles.shards(px(e.x), px(e.y), 6);
+      else view.particles.puff(px(e.x), px(e.y), 0xffffff, 4, 0, -40, 12);
+    }),
+    ev.on('hat_flipped', (e) => view.flipHat(e.id)),
+    ev.on('hat_tooted', (e) => {
+      const v = view.sim.view(e.id);
+      const y = v ? px(v.y) - view.sizeOf(e.id) * 1.6 : px(e.y);
+      for (const color of [0xff5fa2, 0xffd23f, 0x4fb6ff])
+        view.particles.burst(px(e.x), y, 3, color, Math.PI, -Math.PI);
+    }),
+    ev.on('hat_judged', (e) => {
+      if (e.approve) view.particles.sparkles(px(e.x), px(e.y) - 40, 10);
+    }),
+    ev.on('hats_swapped', (e) => view.particles.sparkles(px(e.x), px(e.y) - 40, 8)),
+    ev.on('headbutted', (e) => view.particles.boop(px(e.x), px(e.y))),
+    ev.on('food_chopped', (e) => {
+      view.particles.burst(px(e.x), px(e.y), 6, 0xffffff);
+      view.shake(3, 0.12);
+    }),
+    ev.on('monocle_peered', (e) => {
+      if (e.tag) view.peek(e.id, e.tag);
+    }),
+    ev.on('pollen_delivered', (e) => view.particles.puff(px(e.x), px(e.y) - 10, 0xffe066, 4, 0, -30, 8)),
+    ev.on('honey_made', (e) => {
+      view.particles.sparkles(px(e.x), px(e.y), 10);
+      view.particles.hearts(px(e.x), px(e.y) - 20, 2);
+    }),
+    ev.on('bug_fiddled', (e) => view.particles.sparkles(px(e.x), px(e.y) - 40, 3)),
+    ev.on('parade_started', (e) => {
+      view.particles.sparkles(px(e.x), px(e.y) - 40, 24);
+      view.particles.hearts(px(e.x), px(e.y) - 60, 5);
+    }),
+  ];
+}
+
 /** M8: potions, crafting, and toys as particles, bubbles, squash, and shake. */
 export function listenPotions(view: WorldView): Array<() => void> {
   const ev = view.sim.events;

@@ -112,6 +112,10 @@ export function dropInto(sim: Sim, target: DropTarget, entity: Entity): void {
     case 'body':
       sim.paintFromDrop(target.entityId, entity);
       return;
+    case 'head':
+    case 'crown':
+      sim.wardrobe.dropped(target.entityId, entity);
+      return;
   }
 }
 

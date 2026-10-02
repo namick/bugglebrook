@@ -148,7 +148,9 @@ function snapshot(node: Container, out: unknown[] = []): unknown[] {
       }),
     );
   }
-  for (const c of node.children) snapshot(c as Container, out);
+  // Worn things (M11) are their own layers, empty unless the bug wears something: not part of the drawing.
+  for (const c of node.children)
+    if (c.label !== 'worn' && c.label !== 'worn behind') snapshot(c as Container, out);
   return out;
 }
 

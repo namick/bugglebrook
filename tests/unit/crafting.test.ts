@@ -85,9 +85,9 @@ function pull(sim: Sim): void {
 const items = (sim: Sim): Entity[] => sim.entities.ofKind('item');
 
 describe('recipes (pure)', () => {
-  it('has the 32 recipes from the design doc, each making something different', () => {
-    expect(RECIPES.all).toHaveLength(32);
-    expect(new Set(RECIPES.all.map((r) => r.output)).size).toBe(32);
+  it('has the 32 recipes from the design doc and the yarn scarf, each making something different', () => {
+    expect(RECIPES.all).toHaveLength(33);
+    expect(new Set(RECIPES.all.map((r) => r.output)).size).toBe(33);
   });
 
   it.each(RECIPES.all.map((r) => [r.id, r] as const))('%s makes its output in every order', (_, recipe) => {

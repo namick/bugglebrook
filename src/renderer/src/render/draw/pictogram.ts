@@ -338,6 +338,17 @@ export function drawPicto(g: Graphics, picto: Picto, x: number, y: number, s: nu
         .stroke(stroke(2.5));
       return;
     }
+    case 'hat': {
+      // A little top hat with a red band.
+      g.roundRect(x - h * 0.42, y - h * 0.75, h * 0.84, h * 1.05, h * 0.12)
+        .fill(0x2b2438)
+        .stroke(st);
+      g.rect(x - h * 0.42 + LINE / 2, y + h * 0.05, h * 0.84 - LINE, h * 0.2).fill(0xe8453c);
+      g.roundRect(x - h * 0.78, y + h * 0.28, h * 1.56, h * 0.26, h * 0.12)
+        .fill(0x2b2438)
+        .stroke(st);
+      return;
+    }
     case 'food':
     case 'friend':
       return;

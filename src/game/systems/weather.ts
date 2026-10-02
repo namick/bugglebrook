@@ -124,6 +124,7 @@ export class Weather {
    * each at its own moment. Night bugs sleep through the day.
    */
   bedtime(def: BugDef, id: EntityId): boolean {
+    if (def.sleepless) return false;
     const t = timeOfDay(this.state.clock);
     const spread = ((id * 7919) % 97) / 97;
     if (def.active === 'night') return t >= 7 * HOUR + spread * WAKE_SPREAD * 0.4 && t < 18 * HOUR;

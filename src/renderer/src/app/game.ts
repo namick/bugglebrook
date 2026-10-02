@@ -561,7 +561,12 @@ export class Game {
     this.voices.attach(
       sim.events,
       (id) => sim.view(id)?.bug?.mood,
-      (id) => sim.view(id)?.effects,
+      (id) => {
+        const v = sim.view(id);
+        // The mustache (M11) works on the voice like a potion does.
+        const stache = v?.bug?.wearing?.some((w) => w.defId === 'item_acc_mustache');
+        return stache ? [...(v?.effects ?? []), { effect: 'mustache' }] : v?.effects;
+      },
     );
     this.frameTimes.length = 0;
     this.updateTimes.length = 0;

@@ -6,7 +6,7 @@ import { BasePainter } from './base';
 import type { EyeSpot } from '../../rig/bugRig';
 import type { LimbItem, Skeleton, SkeletonFace, SkeletonItem } from '../../rig/skeleton';
 import { pivotOf, pt, quadRope, rest } from '../../rig/skeleton';
-import type { Adjust, AntennaSpring, Box, LegPose, Pt } from './common';
+import type { Adjust, AntennaSpring, Box, LegPose, Pt, Oval } from './common';
 import {
   RIM,
   drawSwoosh,
@@ -122,6 +122,11 @@ export class MantisPainter extends BasePainter {
   paintBox(): Box {
     const { r } = this;
     return { x0: -r * 1.42, x1: r * 0.05, y0: r * 0.22, y1: r * 0.5 };
+  }
+
+  protected headOval(): Oval {
+    const { r } = this;
+    return { x: r * 1.02, y: -r * 0.84, rx: r * 0.42, ry: r * 0.3 };
   }
 
   override crown(): { x: number; y: number } {

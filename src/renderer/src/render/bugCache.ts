@@ -96,6 +96,7 @@ export function paintedKey(frame: BugFrame, springs: readonly Tip[]): string | n
   const p = frame.pose;
   const f = frame.face;
   if (p.flail || p.stride > 0.005 || frame.stars > 0 || f.steam || frame.karate || frame.chute) return null;
+  if (frame.fiddling) return null;
   if (
     frame.move &&
     (frame.move.bob !== 0 || frame.move.tilt !== 0 || frame.move.sx !== 1 || frame.move.sy !== 1)

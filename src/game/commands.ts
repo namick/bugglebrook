@@ -79,6 +79,8 @@ export type Command =
   | { type: 'give_potion'; id: number; potion: string }
   /** Debug and shots: take a thing out of the world. */
   | { type: 'despawn'; id: number }
+  /** Debug and shots (M11): put a wearable on a bug quietly, as if it had always worn it. */
+  | { type: 'wear'; bug: number; item: number }
   /**
    * The camera came out (photo mode, game design doc, section 14) or went
    * away. Open, bugs in view react for 0.8 s, then the world holds still

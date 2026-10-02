@@ -137,7 +137,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
       color: 0xc7d3e3,
       accent: 0x8e9bb0,
     },
-    { wear: 'head' },
+    { wear: 'head', perks: ['magnetic'] },
   ),
   item(
     'item_comb_tooth',
@@ -249,7 +249,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
       accent: 0xffffff,
       tags: ['tag_bouncy'],
     },
-    { wear: 'head' },
+    { wear: 'head', perks: ['bounce'] },
   ),
   item('item_eggshell_bit', {
     name: 'Eggshell bit',
@@ -577,7 +577,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
       color: 0x4fb6ff,
       accent: 0xffd23f,
     },
-    { wear: 'head' },
+    { wear: 'head', perks: ['glide'] },
   ),
   item(
     'item_hat_viking',
@@ -590,7 +590,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
       color: 0xc7d3e3,
       accent: 0xf4ead2,
     },
-    { wear: 'head' },
+    { wear: 'head', perks: ['headbutt'] },
   ),
   item(
     'item_hat_yarn_beanie',
@@ -603,7 +603,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
       color: 0xe8453c,
       accent: 0xfff4dc,
     },
-    { wear: 'head' },
+    { wear: 'head', perks: ['warm'] },
   ),
   item(
     'item_hat_pirate',
@@ -642,7 +642,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
       color: 0x6be3d9,
       accent: 0xd9a066,
     },
-    { wear: 'face' },
+    { wear: 'face', perks: ['breathe'] },
   ),
   item(
     'item_acc_headlamp',
@@ -656,7 +656,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
       accent: 0xfff27a,
       tags: ['tag_glowing'],
     },
-    { wear: 'face' },
+    { wear: 'face', perks: ['glow'] },
   ),
   item(
     'item_acc_roller_skates',
@@ -670,7 +670,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
       color: 0x2ec4b6,
       accent: 0xe8813c,
     },
-    { wear: 'feet' },
+    { wear: 'feet', perks: ['skates'] },
   ),
   item(
     'item_acc_cape_leaf',
@@ -683,7 +683,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
       color: 0x6fa857,
       accent: 0xf4ead2,
     },
-    { wear: 'back', linearDamping: 2 },
+    { wear: 'back', perks: ['cape'], linearDamping: 2 },
   ),
   item(
     'item_acc_crown_foil',
@@ -696,7 +696,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
       color: 0xe6edf5,
       accent: 0x2ec4b6,
     },
-    { wear: 'head' },
+    { wear: 'head', perks: ['regal'] },
   ),
   item(
     'item_acc_backpack_matchbox',
@@ -709,7 +709,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
       color: 0x4d7cff,
       accent: 0xf4ead2,
     },
-    { wear: 'back' },
+    { wear: 'back', perks: ['pack'] },
   ),
 
   // --- Crafted instruments (section 7.6) -----------------------------------

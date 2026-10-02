@@ -354,6 +354,7 @@ export class SpriteBugView extends BugSprite {
       this.shown.paint = 0;
       this.shown.extras = [];
       this.drawStars(frame, sk.crown ?? undefined);
+      this.updateWear(frame);
       return;
     }
     this.spinLayer.visible = true;
@@ -366,6 +367,7 @@ export class SpriteBugView extends BugSprite {
     this.syncRim(frame.rim ?? 0);
     this.paintArt(frame, sk, placed);
     this.drawStars(frame, sk.crown ?? undefined);
+    this.updateWear(frame);
   }
 
   /** Curled up: one part, rolling with the body's angle. */

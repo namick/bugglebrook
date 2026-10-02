@@ -655,7 +655,8 @@ export class Environment {
       const my = at ? ms.y + at[0] * Math.sin(ms.angle) + at[1] * Math.cos(ms.angle) : ms.y;
       for (const o of all) {
         if (o.id === m.id || sim.isSleeping(o.id) || !physics.isActive(o.id)) continue;
-        if (!sim.hasTag(o.id, 'tag_magnetic')) continue;
+        // A bug in the thimble helmet is pulled too (M11).
+        if (!sim.hasTag(o.id, 'tag_magnetic') && !(o.wearing && sim.wardrobe.has(o, 'magnetic'))) continue;
         const os = physics.getState(o.id);
         const dx = mx - os.x;
         const dy = my - os.y;

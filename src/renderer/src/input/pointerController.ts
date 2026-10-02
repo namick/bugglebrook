@@ -195,7 +195,7 @@ export class PointerController {
     this.travelled = 0;
     this.samples = [];
     this.sample(t);
-    const hit = this.sim.physics.bodyAt(world.x, world.y, 0.2);
+    const hit = this.sim.pickAt(world.x, world.y);
     this.camera.velocity = 0;
     this.camera.stopGlide();
     this.hoverId = null;
@@ -274,7 +274,7 @@ export class PointerController {
   /** What is under the cursor right now (nothing while holding or panning). */
   private updateHover(): void {
     const w = this.hoverWorld;
-    const id = this.mode === 'none' && w ? this.sim.physics.bodyAt(w.x, w.y, 0.2) : null;
+    const id = this.mode === 'none' && w ? this.sim.pickAt(w.x, w.y) : null;
     if (id !== null && id !== this.hoverId) this.gesture('hover');
     this.hoverId = id;
     const fixture =

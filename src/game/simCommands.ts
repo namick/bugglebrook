@@ -25,7 +25,10 @@ import { HEAVY_FLING, TAG_SET } from './simShared';
 export function apply(sim: Sim, command: Command): void {
   switch (command.type) {
     case 'grab': {
-      const id = sim.physics.bodyAt(command.x, command.y, 0.2);
+      // A hat (or anything worn) comes off into the hand before the bug under it is picked up.
+      const worn = sim.wardrobe.wornAt(command.x, command.y);
+      if (worn !== null) sim.wardrobe.pulled(worn);
+      const id = worn ?? sim.physics.bodyAt(command.x, command.y, 0.2);
       let entity = id === null ? undefined : sim.entities.get(id);
       if (!entity) return;
       // Things in the bench's trays stay put while it shakes.
@@ -120,8 +123,11 @@ export function apply(sim: Sim, command: Command): void {
       const entity = held === null ? undefined : sim.entities.get(held);
       if (!entity) return;
       const s = sim.physics.getState(entity.id);
-      if (entity.bug) shakeBug(entity.bug, sim.tick);
-      else sim.environment.wring(entity);
+      if (entity.bug) {
+        shakeBug(entity.bug, sim.tick);
+        // Shaken, a bug loses whatever it wears.
+        sim.wardrobe.shaken(entity);
+      } else sim.environment.wring(entity);
       sim.events.emit('item_shaken', {
         id: entity.id,
         kind: entity.kind,
@@ -227,6 +233,13 @@ export function apply(sim: Sim, command: Command): void {
     case 'seq_touch':
       sim.places.touchSequencer(command.x, command.y, command.start);
       return;
+    case 'wear': {
+      const bug = sim.entities.get(command.bug);
+      const item = sim.entities.get(command.item);
+      if (bug?.bug && item && sim.wardrobe.dressable(bug))
+        sim.wardrobe.putOn(bug, item, 'player', false, true);
+      return;
+    }
     case 'despawn':
       if (sim.entities.has(command.id) && sim.physics.grabbed !== command.id) sim.remove(command.id);
       return;
@@ -265,11 +278,13 @@ export function apply(sim: Sim, command: Command): void {
 }
 
 export function poke(sim: Sim, x: number, y: number): void {
-  const id = sim.physics.bodyAt(x, y, 0.2);
-  const entity = id === null ? undefined : sim.entities.get(id);
   // A poke is a click, so whatever the press picked up is let go in place.
   const held = sim.physics.release(MAX_FLING_SPEED, { x: 0, y: 0 });
-  const heldEntity = held === null ? undefined : sim.entities.get(held);
+  // A click on a hat: the press pulled it off, so it goes back on, and the click pokes its bug.
+  const wearer = held === null ? null : sim.wardrobe.clicked(held);
+  const id = wearer ? wearer.id : sim.physics.bodyAt(x, y, 0.2);
+  const entity = id === null ? undefined : sim.entities.get(id);
+  const heldEntity = held === null || wearer ? undefined : sim.entities.get(held);
   if (heldEntity?.bug && heldEntity !== entity)
     releaseBug(
       heldEntity.bug,
@@ -298,6 +313,8 @@ export function poke(sim: Sim, x: number, y: number): void {
     return;
   }
   if (entity.bug) {
+    // The party cone toots.
+    sim.wardrobe.poked(entity);
     const notices = pokedBug(entity.bug, sim.bugDef(entity), sim.rng, sim.tick);
     if (!notices) return;
     sim.physics.setVelocity(entity.id, 0, -2.2);

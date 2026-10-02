@@ -8,7 +8,7 @@ import { BasePainter } from './base';
 import type { EyeSpot } from '../../rig/bugRig';
 import type { Skeleton, SkeletonFace } from '../../rig/skeleton';
 import { pt, quadRope, rest, tipOn } from '../../rig/skeleton';
-import type { Adjust, AntennaSpring, Box, LegPose, Pt } from './common';
+import type { Adjust, AntennaSpring, Box, LegPose, Pt, Oval } from './common';
 import { NO_ADJUST, RIM, eyePair, limb, limbItem, springTip, tintHead } from './common';
 
 const WING_ORANGE = 0xff9f1c;
@@ -155,6 +155,13 @@ export class CaterpillarPainter extends BasePainter {
     if (frame.morph === 'cocoon') return { x0: -r * 0.7, x1: r * 0.7, y0: r * 0.15, y1: r * 1.0 };
     if (frame.morph === 'butterfly') return { x0: -r * 1.05, x1: r * 0.6, y0: r * 0.22, y1: r * 0.48 };
     return null;
+  }
+
+  protected headOval(frame: BugFrame): Oval | null {
+    if (frame.morph === 'cocoon') return null;
+    const [x, y, r] =
+      frame.morph === 'butterfly' ? this.butterflyHead() : this.headOn(frame, this.segments(frame));
+    return { x, y, rx: r, ry: r };
   }
 
   override crown(frame: BugFrame): { x: number; y: number } {
