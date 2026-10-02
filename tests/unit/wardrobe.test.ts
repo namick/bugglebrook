@@ -107,6 +107,31 @@ describe('wearing things (drop rule 3)', () => {
     expect(Math.hypot(at.x - top.x, at.y - top.y)).toBeLessThan(0.05);
   });
 
+  it('a hat let go over the middle of a big bug goes on his head too (P-24)', () => {
+    const sim = world('hat-body');
+    const glorp = bug(sim, 'bug_snail_glorp');
+    sim.run(30);
+    const r = CONTENT.bugs.get('bug_snail_glorp').radius;
+    const s = sim.physics.getState(glorp.id);
+    const head = sim.wardrobe.anchor(glorp, 'head');
+    // Above the back of his shell: well away from his head, as a kid aims.
+    const at = { x: s.x - Math.sign(head.x - s.x) * 0.2, y: s.y - r - 0.35 };
+    expect(Math.hypot(at.x - head.x, at.y - head.y)).toBeGreaterThan(0.6);
+    const hat = item(sim, 'item_hat_acorn_cap', PLAZA_X + 8);
+    sim.run(10);
+    glorp.bug!.mode = 'st_react';
+    glorp.bug!.timer = 120;
+    carryTo(sim, hat, at.x, at.y);
+    expect(glorp.wearing).toEqual({ head: hat.id });
+    // Let go well above him, it is just a drop.
+    const cap = item(sim, 'item_hat_party_cone', PLAZA_X + 8);
+    sim.run(10);
+    glorp.bug!.mode = 'st_react';
+    glorp.bug!.timer = 120;
+    carryTo(sim, cap, s.x, s.y - r - 1.3);
+    expect(glorp.wearing).toEqual({ head: hat.id });
+  });
+
   it('a second thing in a slot pops the first off in a little arc; other slots stack up', () => {
     const sim = world('hat-swap');
     const log = record(sim);

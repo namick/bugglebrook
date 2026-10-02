@@ -64,6 +64,8 @@ export function newWardrobeState(seed: string): WardrobeState {
 export const WEAR_REACH = 0.6;
 /** How near (m) goo or an eggshell must be let go above a head to become a hat. */
 export const CROWN_REACH = 0.25;
+/** A wearable let go this far (m) beyond a bug's body edge still goes on its head (P-24). */
+export const BODY_REACH = 0.45;
 /** A hated thing comes off this long after it goes on (ticks). */
 export const DOFF_AFTER = Math.round(1.3 * SIM_HZ);
 /** Boing flips his hat off and catches it this long after it goes on. */
@@ -327,7 +329,9 @@ export class Wardrobe {
       const top = this.anchor(bug, 'head');
       out.push({ kind: 'head', entityId: bug.id, x: head.x, y: head.y });
       out.push({ kind: 'head', entityId: bug.id, x: top.x, y: top.y });
-      out.push({ kind: 'head', entityId: bug.id, x: s.x, y: s.y });
+      // Anywhere over the body counts too (P-24): a hat let go over Glorp's shell goes on his head.
+      const body = sim.bugDef(bug).radius * sim.potions.scaleOf(bug) + BODY_REACH;
+      out.push({ kind: 'head', entityId: bug.id, x: s.x, y: s.y, radius: body });
       const c = this.crown(bug);
       out.push({ kind: 'crown', entityId: bug.id, x: c.x, y: c.y });
     }

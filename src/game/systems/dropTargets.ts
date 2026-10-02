@@ -49,6 +49,8 @@ export interface DropCandidate {
   entityId: EntityId;
   x: number;
   y: number;
+  /** Reaches this far (m) when that is more than the rule's radius: a big bug's body. */
+  radius?: number;
 }
 
 export interface DropTarget extends DropCandidate {
@@ -72,7 +74,7 @@ export function pickDropTarget(
     const rule = rules.find((r) => r.kind === c.kind && tags.includes(r.tag));
     if (!rule) continue;
     const distance = Math.hypot(c.x - x, c.y - y);
-    if (distance > rule.radius) continue;
+    if (distance > Math.max(rule.radius, c.radius ?? 0)) continue;
     const better =
       !best ||
       rule.priority < best.priority ||
