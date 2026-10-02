@@ -731,7 +731,11 @@ export class Sim {
       // Low friction: the AI drives walking and gripping through velocity, and
       // ground friction would only fight it.
       const material: MaterialSpec = { density: 1, friction: BUG_FRICTION, restitution: BUG_RESTITUTION };
-      this.physics.addBody(entity.id, shape, material, state, { fixedRotation: true, linearDamping: 0.1 });
+      this.physics.addBody(entity.id, shape, material, state, {
+        fixedRotation: true,
+        linearDamping: 0.1,
+        walker: true,
+      });
     } else {
       const def = this.content.items.get(entity.defId);
       const material = { density: bodyDensity(def), friction: def.friction, restitution: def.restitution };
@@ -1285,6 +1289,8 @@ export class Sim {
     }
     for (const entity of this.entities.ofKind('bug')) {
       if (this.isSleeping(entity.id)) continue;
+      // Walking about on its own, it slips past things at rest; flung or curled up, it hits them.
+      this.physics.setGentle(entity.id, !this.byPlayer(entity) && !this.rolling.has(entity.id));
       const def = this.bugDef(entity);
       const state = this.physics.getState(entity.id);
       const graceUntil = this.launchGrace.get(entity.id);

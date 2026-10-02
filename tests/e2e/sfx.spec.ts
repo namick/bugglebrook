@@ -66,28 +66,27 @@ test('a pebble dropped in the pond on the left splashes from a sample panned lef
     const splashes = async (source: string) =>
       (await samples(page)).filter((p) => (p.name === 'splash' || p.name === 'plop') && p.source === source);
 
+    const splashedBy = async (id: number) =>
+      (await page.evaluate(() => window.__bb!.events())).some(
+        (e) => e.name === 'splashed' && (e.payload as { id: number }).id === id,
+      );
     const pebble = await spawnFrozen(page, 'item_pebble', POND_X + 2.5);
+    // Skeet splashes about the pond too, wherever he is, and the carried pebble may nudge a
+    // floater: wait for the pebble's own splash, then look for a sample panned left.
     await dropAt(page, pebble, await leftWater(page), level - 1);
-    // Skeet splashes about the pond too, wherever he is: look for the pebble's splash on the left.
-    const left = async () => (await splashes('sample')).filter((p) => p.pan < -0.05);
-    expect(await framesUntil(page, async () => (await left()).length > 0, 240, 10)).toBe(true);
-    const hit = (await left())[0]!;
+    expect(await framesUntil(page, () => splashedBy(pebble), 240, 2)).toBe(true);
+    // Its sound is among the latest splashes (the log keeps only the last few dozen plays).
+    const left = (await splashes('sample')).slice(-3).filter((p) => p.pan < -0.05);
+    expect(left.length).toBeGreaterThan(0);
+    const hit = left[left.length - 1]!;
     expect(hit.folder === 'splash' || hit.folder === 'plop').toBe(true);
     expect(hit.take).toBeGreaterThanOrEqual(0);
-    const events = await page.evaluate(() => window.__bb!.events());
-    expect(events.some((e) => e.name === 'splashed' && (e.payload as { id: number }).id === pebble)).toBe(
-      true,
-    );
 
     // Take the folders away: the same drop plays the synth.
     await page.evaluate(() => window.__bb!.sfxFixture(['impact_wood']));
     const sampled = (await splashes('sample')).length;
     const second = await spawnFrozen(page, 'item_pebble', POND_X + 2.5);
     await dropAt(page, second, await leftWater(page), level - 1);
-    const splashedBy = async (id: number) =>
-      (await page.evaluate(() => window.__bb!.events())).some(
-        (e) => e.name === 'splashed' && (e.payload as { id: number }).id === id,
-      );
     expect(await framesUntil(page, () => splashedBy(second), 240, 10)).toBe(true);
     expect((await splashes('synth')).some((p) => p.pan === 0 && p.folder === null)).toBe(true);
     expect((await splashes('sample')).length).toBe(sampled);

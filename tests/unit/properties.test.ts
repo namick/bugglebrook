@@ -233,6 +233,7 @@ describe('R5: a cold thing freezes the water it touches', () => {
     const [ice] = find(log, 'ice_formed');
     expect(ice).toBeDefined();
     expect(ice!.x1 - ice!.x0).toBeCloseTo(2, 1);
+    const sheet = sim.environment.state.ice[0]!.id;
     expect(sim.environment.overOpenWater(OPEN_X)).toBe(false);
     // The leaf rests on the ice, not in the water.
     expect(sim.view(mint.id)!.submerged).toBe(0);
@@ -243,7 +244,8 @@ describe('R5: a cold thing freezes the water it touches', () => {
     expect(sim.view(dot.id)!.bug!.mode).not.toBe('st_swim');
     sim.run(30 * 60);
     expect(find(log, 'ice_melted')).toHaveLength(1);
-    expect(sim.environment.state.ice).toEqual([]);
+    // The leaf's sheet is gone. If the leaf was still lying on it, cold, it drops in and freezes a new one.
+    expect(sim.environment.state.ice.map((i) => i.id)).not.toContain(sheet);
   });
 });
 

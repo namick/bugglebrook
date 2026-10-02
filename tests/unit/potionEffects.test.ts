@@ -191,9 +191,10 @@ describe('potion effects (M8 acceptance)', () => {
     expect(named(log, 'balloon_deflated')).toHaveLength(1);
     expect(named(log, 'potion_ended').map((e) => e.cause)).toContain('popped');
     sim.run(300);
-    // Down on whatever is under her (the ground, or the stump's top).
+    // Down on whatever is under her (the ground, the stump's top, or a thing lying there).
     const down = sim.view(dot.id)!;
-    expect(sim.surfaceY(down.x) - down.y).toBeLessThan(0.8);
+    expect(sim.physics.isSupported(dot.id)).toBe(true);
+    expect(sim.surfaceY(down.x) - down.y).toBeLessThan(1.2);
   });
 
   it('burps nudge light things, fire breath heats what is in front, bubble burps carry a small bug', () => {

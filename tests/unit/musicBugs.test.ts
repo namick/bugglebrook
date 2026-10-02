@@ -127,11 +127,14 @@ describe('what they do', () => {
     calm(sim, bee);
     const thimble = sim.spawn('item', 'item_hat_thimble', x + 4, sim.surfaceY(x + 4) - 0.3);
     const log = record(sim);
+    // What the drop is when it is made: Buzzby loves honey and may eat it before the run ends.
+    const made: string[] = [];
+    sim.events.on('honey_made', (e) => made.push(sim.entities.get(e.itemId)?.defId ?? 'none'));
     sim.run(POLLEN_EVERY * (HONEY_LOADS + 2));
     const loads = named(log, 'pollen_delivered').filter((e) => e.itemId === thimble.id);
     expect(loads.length).toBeGreaterThanOrEqual(HONEY_LOADS);
     expect(named(log, 'honey_made')).toHaveLength(1);
-    expect(sim.entities.ofKind('item').some((e) => e.defId === 'item_honey_drop')).toBe(true);
+    expect(made).toEqual(['item_honey_drop']);
   });
 
   it('never takes pollen to a thimble that is part of a setup', () => {
