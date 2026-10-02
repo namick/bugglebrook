@@ -548,13 +548,11 @@ export class Game {
     const ghost = new GhostHand((defId) => sim.content.items.tryGet(defId));
     const stamps = new StampStrip(sim);
     stamps.onStamp = () => this.sfx.play('stamp');
-    ui.addChild(pocket, pause, home, stamps);
-    // The ghost hand goes over the UI, so it can reach into the pocket.
-    root.addChild(view, marks, cover, ui, ghost);
-    ui.addChild(pocket, pause, home, guideSkip);
+    ui.addChild(stamps, pocket, pause, home, guideSkip);
     const topUi = new Container();
     topUi.addChild(camButton, album);
-    root.addChild(view, cover, ui, topUi);
+    // The hint marks sit on the world; the ghost hand goes over the UI, so it can reach into the pocket.
+    root.addChild(view, marks, cover, ui, topUi, ghost);
 
     this.menu?.destroy({ children: true });
     this.menu = null;
