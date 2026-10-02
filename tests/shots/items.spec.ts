@@ -147,12 +147,28 @@ for (const sheet of [0, 1])
       await shot(page, `sheet${sheet + 1}`);
       for (const s of spots)
         await closeUp(page, `close-${String(s.n).padStart(2, '0')}-${s.look.defId.slice(5)}`, s.x, s.y);
+      // The hover rim and lift on a small thing (the button), with the hand just off its right edge.
+      const button = spots.find((s) => s.look.defId === 'item_button');
+      if (button) {
+        const at = await page.evaluate(
+          ([x, y]) => window.__bb!.worldToClient(x!, y!),
+          [button.x + 0.34, button.y],
+        );
+        await page.mouse.move(at.x, at.y);
+        await page.waitForTimeout(500);
+        await closeUp(page, 'hover-day', button.x + 0.2, button.y);
+      }
       // The same at night, then all dropped onto the ground.
       await page.evaluate(() => {
         window.__bb!.send({ type: 'set_time', hour: 22 });
         window.__bb!.frames(2);
       });
       await page.waitForTimeout(400);
+      if (button) {
+        await closeUp(page, 'hover-night', button.x + 0.2, button.y);
+        await page.mouse.move(4, 1070);
+        await page.waitForTimeout(300);
+      }
       await shot(page, `sheet${sheet + 1}-night`);
       await page.evaluate(() => window.__bb!.frames(150));
       await page.waitForTimeout(300);

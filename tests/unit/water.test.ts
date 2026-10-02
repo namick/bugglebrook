@@ -159,7 +159,8 @@ describe('splashes', () => {
   it('a flat, fast throw skips across the water before it sinks', () => {
     const sim = Sim.empty();
     const log = record(sim);
-    const pebble = sim.spawn('item', 'item_pebble', POND_X + 7, POND.level - 0.6);
+    // Low over the water, but clear of the lily pads.
+    const pebble = sim.spawn('item', 'item_pebble', POND_X + 7, POND.level - 0.75);
     sim.physics.setVelocity(pebble.id, 16, 0);
     sim.run(120);
     const skips = find(log, 'skipped');

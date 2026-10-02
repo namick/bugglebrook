@@ -26,7 +26,7 @@ import { BugSprite } from './draw/bug';
 import type { BugFrame } from './draw/bug';
 import type { Look } from './draw/face';
 import { ItemSprite } from './draw/item';
-import { SquashSpring, approach, shakeOffset, stretchFor } from './juice';
+import { SquashSpring, approach, hoverLift, rimPulse as pulseAt, shakeOffset, stretchFor } from './juice';
 import { OUTLINE, mix } from './palette';
 import { Particles } from './particles';
 import type { Move, Picto, ReactionLook } from './reactions';
@@ -106,6 +106,8 @@ interface Juice {
   clock: number;
   /** Seconds until the next potion trail puff. */
   trailIn: number;
+  /** How far a hovered loose thing has lifted toward the hand (0 to `HOVER_LIFT`). */
+  lift: number;
   /** Glancing around (a fidget): seconds left. */
   glance: number;
 }
@@ -337,6 +339,7 @@ export class WorldView extends Container {
         size: { value: 1, v: 0 },
         clock: Math.random() * 10,
         trailIn: 0,
+        lift: 0,
       };
       j.squash.amount = this.reduced ? SQUASH_REDUCED : 1;
       this.juice.set(id, j);
@@ -613,7 +616,7 @@ export class WorldView extends Container {
     }
     const offer = this.offering(views);
     this.drawGlows(offer);
-    const rimPulse = 0.8 + 0.2 * Math.sin(this.time * Math.PI * 4);
+    const rimPulse = pulseAt(this.time);
     const seen = new Set<EntityId>();
     for (const view of views) {
       seen.add(view.id);
@@ -659,6 +662,9 @@ export class WorldView extends Container {
         const potion = view.effects ? potionLook(view.effects, view.scale ?? 1, this.time) : null;
         j.size = easeScale(j.size, view.scale ?? 1, dt);
         k *= Math.max(0.2, j.size.value);
+        // Hovered, it lifts a little toward the hand.
+        j.lift = hoverLift(j.lift, rim > 0, dt);
+        k *= 1 + j.lift;
         if (potion?.tint) sprite.tint = potion.tint;
         // Toasted food (rule R12): browned, and it steams a little.
         if (view.toasted) {
@@ -1040,15 +1046,20 @@ export class WorldView extends Container {
   private potionBug(sprite: BugSprite, view: EntityView, j: Juice, look: PotionLook, dt: number): void {
     const size = Math.max(0.2, j.size.value);
     const wob = look.wobble > 0 ? Math.sin(this.time * 16) * 0.07 * look.wobble : 0;
+    // Heavy squashes flat (feet kept on the ground); bouncy boings on the spot.
+    const boing = look.boing > 0 ? Math.max(0, Math.sin(this.time * 9)) * 0.1 * look.boing : 0;
+    const flat = look.squash - boing;
     sprite.scale.set(
-      size * (1 + 0.35 * look.round + wob),
-      size * (1 + 0.5 * look.round - wob) * (look.flipY ? -1 : 1),
+      size * (1 + 0.35 * look.round + wob) * (1 + flat),
+      size * (1 + 0.5 * look.round - wob) * (1 - flat) * (look.flipY ? -1 : 1),
     );
+    const radius = this.sim.content.bugs.get(view.defId).radius * PPM * size;
+    if (flat !== 0) sprite.position.y += radius * flat * (look.flipY ? -1 : 1);
     sprite.alpha = look.alpha;
     if (look.tint !== null)
       sprite.tint = sprite.tint === 0xffffff ? look.tint : mix(sprite.tint as number, look.tint, 0.5);
-    if (look.extras.size === 0 && !look.trail && !look.glow) return;
-    const r = this.sim.content.bugs.get(view.defId).radius * PPM * size;
+    if (look.extras.size === 0 && !look.trail && !look.glow && look.notes === null) return;
+    const r = radius;
     const d = {
       x: view.x * PPM,
       y: view.y * PPM,

@@ -6,7 +6,8 @@ import type { GameEvents } from '../../src/game';
 import type { Entity } from '../../src/game/core/entities';
 import { MIGRATIONS } from '../../src/game/save/migrations';
 import { SPROUT_TICKS, TOAST_TICKS } from '../../src/game/systems/environment';
-import { BALLOON_LIFT, TRAMPOLINE_CAP } from '../../src/game/systems/toys';
+import { BALLOON_LIFT, TRAMPOLINE_CAP, pivotFoot } from '../../src/game/systems/toys';
+import { ITEMS } from '../../src/game/data/items';
 import { PLAZA_X, POND, POND_X } from './world';
 
 // M8 (game design doc, sections 6, 7.1, 12, and 19): crafted toys in the
@@ -227,18 +228,26 @@ describe('crafted toys', () => {
     const cat = put(sim, 'item_spoon_catapult', OPEN);
     sim.run(90);
     expect(sim.entities.get(cat.id)!.toy?.pivot).toBeDefined();
-    const c = v(sim, cat);
+    // Points on the spoon, from its parts: [handle, bowl, far lip, near lip, eraser].
+    const shape = sim.content.items.get('item_spoon_catapult').shape;
+    const parts = shape.type === 'box' ? shape.parts! : [];
+    const onSpoon = (lx: number, ly: number): { x: number; y: number } => {
+      const at = v(sim, cat);
+      const c = Math.cos(at.angle);
+      const sn = Math.sin(at.angle);
+      return { x: at.x + lx * c - ly * sn, y: at.y + lx * sn + ly * c };
+    };
     // The bowl rests up at the left end.
-    const bowl = { x: c.x - 0.62 * Math.cos(c.angle), y: c.y - 0.62 * Math.sin(c.angle) - 0.25 };
+    const bowl = onSpoon(parts[1]!.x, parts[1]!.y - 0.25);
     const berry = put(sim, 'item_cork', bowl.x, bowl.y - 0.3);
     sim.run(40);
-    // Take hold of the bowl's far lip, beside what sits in it.
-    const at = v(sim, cat);
-    const hx = at.x - 0.9 * Math.cos(at.angle) + 0.24 * Math.sin(at.angle);
-    const hy = at.y - 0.9 * Math.sin(at.angle) - 0.24 * Math.cos(at.angle);
+    // Take hold of the bowl's far lip, beside what sits in it, and pull it down past level.
+    const lip = onSpoon(parts[2]!.x, parts[2]!.y);
+    const hx = lip.x;
+    const hy = lip.y;
     grabAt(sim, hx, hy);
     for (let i = 0; i < 30; i++) {
-      sim.send({ type: 'drag', x: hx, y: hy + 0.8 });
+      sim.send({ type: 'drag', x: hx, y: hy + 1.1 });
       sim.step();
     }
     sim.send({ type: 'release', vx: 0, vy: 0 });
@@ -535,5 +544,23 @@ describe('save version 9', () => {
     expect(sim.cauldron.state.contents).toEqual([]);
     sim.run(600);
     expect(sim.serialize().bench).toBeDefined();
+  });
+});
+
+describe('chunky toys (review R18)', () => {
+  it('turns seesaws and catapults on the bottom of their lowest part', () => {
+    expect(pivotFoot(ITEMS.get('item_popsicle_seesaw').shape)).toEqual({ x: 0, y: 0.37 });
+    const foot = pivotFoot(ITEMS.get('item_spoon_catapult').shape);
+    expect(foot.x).toBeCloseTo(0.52);
+    expect(foot.y).toBeCloseTo(0.45);
+  });
+
+  it('builds chunky toys: no plank, bed, or handle thinner than 15 cm', () => {
+    for (const id of ['item_popsicle_seesaw', 'item_spoon_catapult', 'item_trampoline']) {
+      const shape = ITEMS.get(id).shape;
+      if (shape.type !== 'box' || !shape.parts) throw new Error(id);
+      const widest = shape.parts.reduce((a, p) => (p.width > a.width ? p : a));
+      expect(widest.height, id).toBeGreaterThanOrEqual(0.15);
+    }
   });
 });

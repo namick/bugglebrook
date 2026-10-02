@@ -6,7 +6,7 @@ import type { BugFace } from '../bugFace';
 import { bugFace } from '../bugFace';
 import type { BugPose } from '../bugPose';
 import { bugPose } from '../bugPose';
-import { CHEEK, OUTLINE, STAR, darken, lighten, stroke } from '../palette';
+import { CHEEK, OUTLINE, RIM_STYLES, STAR, darken, lighten, stroke } from '../palette';
 import type { MovePose } from '../reactions';
 import type { Look } from './face';
 import { drawEye, drawMouth, spiral } from './face';
@@ -205,41 +205,46 @@ export class BugSprite extends Container {
   private drawRim(form: BugFace['form']): void {
     const { r } = this;
     const g = this.rim.clear();
-    const white = { width: 16, color: 0xffffff, join: 'round' as const, cap: 'round' as const };
+    // Each path is traced and stroked once per style: the soft glow, then the crisp rim.
+    const rim = (trace: () => Graphics): void => {
+      for (const style of RIM_STYLES) trace().stroke({ ...style });
+    };
     if (form === 'curled') return;
     if (this.def.art === 'snail') {
       if (form === 'in_shell') {
-        g.circle(0, 0, r * 0.98).stroke(white);
+        rim(() => g.circle(0, 0, r * 0.98));
         return;
       }
-      g.circle(-r * 0.35, -r * 0.08, r * 0.86).stroke(white);
-      g.moveTo(-r * 1.6, r * 0.93)
-        .lineTo(r * 0.9, r * 1.0)
-        .bezierCurveTo(r * 1.35, r * 1.0, r * 1.5, r * 0.6, r * 1.46, r * 0.12)
-        .bezierCurveTo(r * 1.43, -r * 0.42, r * 0.98, -r * 0.62, r * 0.66, -r * 0.42)
-        .stroke(white);
+      rim(() => g.circle(-r * 0.35, -r * 0.08, r * 0.86));
+      rim(() =>
+        g
+          .moveTo(-r * 1.6, r * 0.93)
+          .lineTo(r * 0.9, r * 1.0)
+          .bezierCurveTo(r * 1.35, r * 1.0, r * 1.5, r * 0.6, r * 1.46, r * 0.12)
+          .bezierCurveTo(r * 1.43, -r * 0.42, r * 0.98, -r * 0.62, r * 0.66, -r * 0.42),
+      );
       return;
     }
     if (this.def.art === 'strider') {
-      g.poly(this.striderBody()).stroke(white);
-      g.circle(r * 0.88, -r * 0.3, r * 0.3).stroke(white);
+      rim(() => g.poly(this.striderBody()));
+      rim(() => g.circle(r * 0.88, -r * 0.3, r * 0.3));
       return;
     }
     if (this.def.art === 'grasshopper') {
-      g.poly(this.hopperBody()).stroke(white);
-      g.ellipse(r * 0.78, -r * 0.18, r * 0.5, r * 0.46).stroke(white);
-      g.ellipse(-r * 0.62, -r * 0.3, r * 0.5, r * 0.32).stroke(white);
+      rim(() => g.poly(this.hopperBody()));
+      rim(() => g.ellipse(r * 0.78, -r * 0.18, r * 0.5, r * 0.46));
+      rim(() => g.ellipse(-r * 0.62, -r * 0.3, r * 0.5, r * 0.32));
       return;
     }
     if (BEETLES.has(this.def.art)) {
-      g.poly(this.dome(-r * 0.15, r * 0.34, r * 1.02, r * 1.14)).stroke(white);
-      g.circle(r * 0.8, r * 0.12, r * 0.55).stroke(white);
-      g.ellipse(-r * 0.1, r * 0.42, r * 0.95, r * 0.34).stroke(white);
+      rim(() => g.poly(this.dome(-r * 0.15, r * 0.34, r * 1.02, r * 1.14)));
+      rim(() => g.circle(r * 0.8, r * 0.12, r * 0.55));
+      rim(() => g.ellipse(-r * 0.1, r * 0.42, r * 0.95, r * 0.34));
       return;
     }
-    g.poly(this.dome(-r * 0.05, r * 0.52, r * 1.28, r * 1.08)).stroke(white);
-    g.circle(r * 1.14, r * 0.36, r * 0.5).stroke(white);
-    g.ellipse(-r * 0.05, r * 0.6, r * 1.2, r * 0.2).stroke(white);
+    rim(() => g.poly(this.dome(-r * 0.05, r * 0.52, r * 1.28, r * 1.08)));
+    rim(() => g.circle(r * 1.14, r * 0.36, r * 0.5));
+    rim(() => g.ellipse(-r * 0.05, r * 0.6, r * 1.2, r * 0.2));
   }
 
   /** Wash the face green (grossed out) or red (hot), over the head. */

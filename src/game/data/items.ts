@@ -1,6 +1,7 @@
 import type { Advert, ItemDef } from './types';
 import { createRegistry } from './registry';
 import { M8_ITEMS } from './items8';
+import { growItem } from './itemSize';
 
 const EAT_FOOD: Advert = { action: 'eat', needs: { need_hunger: 20 } };
 /** Something soft or snug to curl up on for a nap. */
@@ -9,9 +10,14 @@ const NAP = (energy: number): Advert => ({ action: 'sleep', needs: { need_energy
 const SHELTER: Advert = { action: 'shelter', needs: { need_clean: 10, need_fun: 4 } };
 
 // Props and foods for every area (game design doc, sections 7.1, 7.2, 7.5).
-// Sizes are a little larger than the doc's pixel sizes so they read well
-// next to the bugs; material numbers follow section 6.
-export const ITEMS = createRegistry<ItemDef>('item', [
+// Sizes are a little larger than the doc's pixel sizes, and `growItem`
+// grows small things again so they read well next to the bugs (review R05);
+// material numbers follow section 6.
+/** A grown marble weighs what glass that size would (radius 0.21 m, density 2.2). */
+const MARBLE_MASS = 0.3;
+
+/** Every item at the size it was written with; `ITEMS` holds them grown. */
+export const WRITTEN_ITEMS: readonly ItemDef[] = [
   {
     id: 'item_bottle_cap',
     name: 'Bottle cap',
@@ -39,6 +45,8 @@ export const ITEMS = createRegistry<ItemDef>('item', [
     accent: 0xbfe0ff,
     tags: ['tag_fragile', 'tag_musical'],
     adverts: [],
+    // Glass is heavy for its size: grown, it keeps its density and sinks into the bead pit.
+    mass: MARBLE_MASS,
   },
   {
     id: 'item_marble_red',
@@ -53,6 +61,8 @@ export const ITEMS = createRegistry<ItemDef>('item', [
     accent: 0xffd0d8,
     tags: ['tag_fragile', 'tag_musical'],
     adverts: [],
+    // Glass is heavy for its size: grown, it keeps its density and sinks into the bead pit.
+    mass: MARBLE_MASS,
   },
   {
     id: 'item_pebble',
@@ -947,6 +957,8 @@ export const ITEMS = createRegistry<ItemDef>('item', [
     accent: 0xc9ffd0,
     tags: ['tag_fragile', 'tag_musical'],
     adverts: [],
+    // Glass is heavy for its size: grown, it keeps its density and sinks into the bead pit.
+    mass: MARBLE_MASS,
   },
   {
     // A straight piece of marble track. It snaps onto the pegboard.
@@ -1036,6 +1048,8 @@ export const ITEMS = createRegistry<ItemDef>('item', [
     accent: 0x2b2438,
     tags: ['tag_stackable'],
     adverts: [],
+    // The treehouse lines twelve up at a set spacing to topple in a chain.
+    fixedSize: true,
   },
   {
     id: 'item_spinning_top',
@@ -1068,4 +1082,7 @@ export const ITEMS = createRegistry<ItemDef>('item', [
     catchable: true,
   },
   ...M8_ITEMS,
-]);
+];
+
+/** Every item, at the size the world uses (`growItem`). */
+export const ITEMS = createRegistry<ItemDef>('item', WRITTEN_ITEMS.map(growItem));

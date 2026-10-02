@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { SquashSpring, approach, stretchFor } from '../../src/renderer/src/render/juice';
+import {
+  HOVER_LIFT,
+  SquashSpring,
+  approach,
+  hoverLift,
+  rimPulse,
+  stretchFor,
+} from '../../src/renderer/src/render/juice';
 
 describe('SquashSpring', () => {
   it('snaps to 1.15 x 0.87 on grab, then springs back within about 300 ms', () => {
@@ -55,5 +62,29 @@ describe('stretch and approach', () => {
     const a = approach(approach(0, 1, 10, 1 / 60), 1, 10, 1 / 60);
     const b = approach(0, 1, 10, 2 / 60);
     expect(a).toBeCloseTo(b);
+  });
+});
+
+describe('the hover rim and lift', () => {
+  it('pulses between 60 and 100 percent at 2 Hz', () => {
+    let lo = 1;
+    let hi = 0;
+    for (let t = 0; t < 1; t += 0.01) {
+      lo = Math.min(lo, rimPulse(t));
+      hi = Math.max(hi, rimPulse(t));
+    }
+    expect(lo).toBeCloseTo(0.6, 2);
+    expect(hi).toBeCloseTo(1, 2);
+    expect(rimPulse(0.5)).toBeCloseTo(rimPulse(0));
+    expect(rimPulse(0.25)).toBeCloseTo(rimPulse(0));
+  });
+
+  it('lifts a hovered thing quickly, and lets it settle back', () => {
+    let lift = 0;
+    for (let i = 0; i < 12; i++) lift = hoverLift(lift, true, 1 / 60);
+    expect(lift).toBeGreaterThan(HOVER_LIFT * 0.95);
+    expect(lift).toBeLessThanOrEqual(HOVER_LIFT);
+    for (let i = 0; i < 30; i++) lift = hoverLift(lift, false, 1 / 60);
+    expect(lift).toBeLessThan(HOVER_LIFT * 0.01);
   });
 });

@@ -33,7 +33,8 @@ describe('Sim physics', () => {
     const pebble = sim.spawn('item', 'item_pebble', FLAT_X, 3);
     sim.run(180);
     const v = sim.view(pebble.id)!;
-    expect(v.y).toBeCloseTo(GROUND_Y - 0.2, 1);
+    const shape = sim.content.items.get('item_pebble').shape;
+    expect(v.y).toBeCloseTo(GROUND_Y - (shape.type === 'circle' ? shape.radius : 0), 1);
     expect(Math.abs(v.vy)).toBeLessThan(0.1);
   });
 
@@ -141,10 +142,12 @@ describe('Sim physics', () => {
       sim.physics.setVelocity(item.id, Math.sin(angle) * MAX_FLING_SPEED, Math.cos(angle) * MAX_FLING_SPEED);
       for (let t = 0; t < 30; t++) {
         sim.step();
-        const v = sim.view(item.id)!;
+        const v = sim.view(item.id);
+        // Gone into the compost lab's cauldron: that is a catch, not a tunnel.
+        if (!v) break;
         lowest = Math.max(lowest, v.y - sim.surfaceY(v.x));
       }
-      sim.remove(item.id);
+      if (sim.view(item.id)) sim.remove(item.id);
     }
     expect(sim.rescues).toBe(0);
     expect(lowest).toBeLessThan(0.05);

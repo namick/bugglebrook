@@ -417,7 +417,13 @@ describe('R10: magnets', () => {
     const f0 = sim.view(far.id)!.x;
     sim.run(120);
     const m = sim.view(magnet.id)!;
-    expect(Math.abs(sim.view(cap.id)!.x - m.x)).toBeLessThan(0.6);
+    // Pulled in until they touch, side by side.
+    const width = (id: string): number => {
+      const shape = sim.content.items.get(id).shape;
+      return shape.type === 'box' ? shape.width : shape.radius * 2;
+    };
+    const touching = (width('item_magnet') + width('item_bottle_cap')) / 2;
+    expect(Math.abs(sim.view(cap.id)!.x - m.x)).toBeLessThan(touching + 0.05);
     expect(find(log, 'magnet_snapped').some((s) => s.id === cap.id && s.magnetId === magnet.id)).toBe(true);
     expect(sim.view(pebble.id)!.x).toBeCloseTo(p0, 2);
     expect(sim.view(far.id)!.x).toBeCloseTo(f0, 2);

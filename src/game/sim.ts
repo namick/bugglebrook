@@ -99,6 +99,7 @@ import { bugWorld as _bugWorld, summitOf as _summitOf, waterEdge as _waterEdge }
 import { apply as _apply, poke as _poke, stageIntro as _stageIntro } from './simCommands';
 import { Potions, SKY_TOP, scaleShape } from './systems/potions';
 import { Toys } from './systems/toys';
+import { bodyDensity } from './data/itemSize';
 import type { Brew } from './systems/brewing';
 import type { ActiveEffect, SavedPart, ToyState } from './core/entities';
 
@@ -620,7 +621,8 @@ export class Sim {
       this.physics.addBody(entity.id, shape, material, state, { fixedRotation: true, linearDamping: 0.1 });
     } else {
       const def = this.content.items.get(entity.defId);
-      this.physics.addBody(entity.id, def.shape, def, state, {
+      const material = { density: bodyDensity(def), friction: def.friction, restitution: def.restitution };
+      this.physics.addBody(entity.id, def.shape, material, state, {
         linearDamping: def.linearDamping,
         angularDamping: def.angularDamping,
       });

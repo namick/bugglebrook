@@ -1,7 +1,7 @@
 import { Container, Graphics } from 'pixi.js';
 import { PIXELS_PER_METER } from '../../../../game/constants';
 import type { ItemDef } from '../../../../game/data/types';
-import { OUTLINE, darken, lighten, mix, stroke } from '../palette';
+import { OUTLINE, RIM_STYLES, darken, lighten, mix, stroke } from '../palette';
 import { hash01 } from '../bugPose';
 import { drawItemArt7, outlineItemArt7 } from './itemArt7';
 import {
@@ -12,6 +12,9 @@ import {
   outlineItemArt8,
   pinwheelHub,
 } from './itemArt8';
+
+/** The outline behind small loose things' art (px): about 2 px heavier than their own. */
+const SMALL_OUTLINE = 9;
 
 /** The paint puddle colors, by paint ID. */
 const PAINT_COLORS: Readonly<Record<string, number>> = {
@@ -168,12 +171,27 @@ export class ItemSprite extends Container {
       default:
         if (!drawItemArt7(this.g, def, w, h, seed)) drawItemArt8(this.g, def, w, h, seed);
     }
-    this.outline(this.rim, w, h);
-    this.rim.stroke({ width: 16, color: 0xffffff, join: 'round', cap: 'round' });
+    // Traced once per style (the soft glow, then the crisp rim): a stroke uses up its path.
+    let traced = false;
+    for (const style of RIM_STYLES) {
+      traced = this.outline(this.rim, w, h);
+      this.rim.stroke({ ...style });
+    }
+    // Small loose things get a heavier outline (review R05): a dark stroke
+    // along the silhouette behind the art, so they read like the bugs do.
+    if (traced && def.mass !== undefined) {
+      const backing = new Graphics();
+      this.outline(backing, w, h);
+      backing.stroke(stroke(SMALL_OUTLINE));
+      this.art.addChildAt(backing, this.art.getChildIndex(this.g));
+    }
   }
 
-  /** Trace the item's silhouette (no fill), for the hover rim. */
-  private outline(g: Graphics, w: number, h: number): void {
+  /**
+   * Trace the item's silhouette (no fill), for the hover rim. False if the
+   * art has no outline of its own and this is only its bounding box.
+   */
+  private outline(g: Graphics, w: number, h: number): boolean {
     const r = w / 2;
     switch (this.def.art) {
       case 'marble':
@@ -183,12 +201,12 @@ export class ItemSprite extends Container {
       case 'banana_mush':
       case 'moss_tuft':
         g.circle(0, 0, r * 1.05);
-        return;
+        return true;
       case 'berry':
         g.circle(0, r * 0.05, r)
           .moveTo(0, -r * 0.95)
           .lineTo(r * 0.35, -r * 1.45);
-        return;
+        return true;
       case 'leaf':
       case 'mint_leaf': {
         const hw = w / 2;
@@ -197,45 +215,47 @@ export class ItemSprite extends Container {
           .bezierCurveTo(-hw * 0.4, -bulge, hw * 0.5, -bulge * 0.9, hw, 0)
           .bezierCurveTo(hw * 0.5, bulge * 0.7, -hw * 0.4, bulge * 0.8, -hw, 0)
           .closePath();
-        return;
+        return true;
       }
       case 'pepper':
         this.pepperPath(g, w, h);
-        return;
+        return true;
       case 'jelly_bean':
       case 'soap':
         g.roundRect(-w / 2, -h / 2, w, h, h / 2);
-        return;
+        return true;
       case 'blueberry':
       case 'gum_blob':
         g.circle(0, 0, r * 1.05);
-        return;
+        return true;
       case 'leaf_raft':
         g.moveTo(-w / 2, -h * 1.2)
           .quadraticCurveTo(-w * 0.45, h * 0.9, 0, h * 0.8)
           .quadraticCurveTo(w * 0.45, h * 0.9, w / 2, -h * 1.2)
           .closePath();
-        return;
+        return true;
       case 'paper_boat':
         g.poly([-w / 2, -h * 0.05, w / 2, -h * 0.05, w * 0.34, h / 2, -w * 0.34, h / 2])
           .moveTo(-w * 0.2, -h * 0.05)
           .lineTo(w * 0.02, -h * 1.05)
           .lineTo(w * 0.22, -h * 0.05);
-        return;
+        return true;
       case 'bubble_wand':
         g.circle(w / 2 - h * 1.1, 0, h * 1.1)
           .moveTo(-w / 2, 0)
           .lineTo(w / 2 - h * 2.2, 0);
-        return;
+        return true;
       case 'magnet':
         g.moveTo(-w / 2, h / 2)
           .lineTo(-w / 2, -h * 0.05)
           .arc(0, -h * 0.05, w / 2, Math.PI, 0)
           .lineTo(w / 2, h / 2);
-        return;
+        return true;
       default:
-        if (!outlineItemArt7(g, this.def, w, h, this.seed) && !outlineItemArt8(g, this.def, w, h, this.seed))
-          g.roundRect(-w / 2, -h / 2, w, h, Math.min(8, h / 2));
+        if (outlineItemArt7(g, this.def, w, h, this.seed) || outlineItemArt8(g, this.def, w, h, this.seed))
+          return true;
+        g.roundRect(-w / 2, -h / 2, w, h, Math.min(8, h / 2));
+        return false;
     }
   }
 
