@@ -1,0 +1,228 @@
+{
+ "canvas": {
+  "h": 1024,
+  "w": 1152
+ },
+ "face": [
+  "eye_white",
+  "eye_pupil",
+  "eye_closed",
+  "eye_happy",
+  "eye_squint",
+  "eye_squeezed",
+  "eye_spiral",
+  "eye_heart",
+  "eye_sleepy_lid",
+  "brow_angry",
+  "brow_worried",
+  "brow_polite",
+  "cheek",
+  "mouth_smile",
+  "mouth_grin",
+  "mouth_o",
+  "mouth_whee",
+  "mouth_aah",
+  "mouth_chew_1",
+  "mouth_chew_2",
+  "mouth_wobble_1",
+  "mouth_wobble_2",
+  "mouth_flat",
+  "mouth_frown",
+  "mouth_lick",
+  "mouth_tongue",
+  "mouth_teeth",
+  "mouth_puff"
+ ],
+ "faceAnchors": {
+  "eye": {
+   "r": 34.96,
+   "x": 707.04,
+   "y": 643.68
+  },
+  "mouth": {
+   "s": 73.6,
+   "x": 688.64,
+   "y": 693.36
+  }
+ },
+ "ground": 824,
+ "id": "bug_caterpillar_munch",
+ "kind": "bug",
+ "origin": {
+  "x": 512,
+  "y": 640
+ },
+ "parts": [
+  {
+   "kind": "static",
+   "name": "tail_horn",
+   "note": "The little orange horn at the back.",
+   "pivot": {
+    "x": 209.136,
+    "y": 710.288
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "foot",
+   "note": "One stub foot.",
+   "pivot": {
+    "x": 431.04,
+    "y": 802.656
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_upper",
+   "length": 40.647,
+   "name": "true_leg",
+   "note": "One tiny dark front leg, straight down from the dot.",
+   "pivot": {
+    "x": 574.56,
+    "y": 782.416
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "segment_a",
+   "note": "A round body segment with yellow spots.",
+   "pivot": {
+    "x": 578.24,
+    "y": 735.68
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "segment_b",
+   "note": "The next segment, same size.",
+   "pivot": {
+    "x": 506.48,
+    "y": 735.68
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "head",
+   "note": "The head, with no face. The game draws the face on top.",
+   "pivot": {
+    "x": 681.28,
+    "y": 658.4
+   },
+   "required": true
+  },
+  {
+   "kind": "rope",
+   "length": 66.342,
+   "name": "antenna",
+   "note": "One feeler, drawn straight up from its base dot. The game bends it.",
+   "pivot": {
+    "x": 699.68,
+    "y": 573.76
+   },
+   "required": true
+  },
+  {
+   "kind": "tip",
+   "name": "antenna_tip",
+   "note": "The knob on the end of the feeler, centered on its dot.",
+   "pivot": {
+    "x": 699.68,
+    "y": 507.418
+   },
+   "required": true
+  },
+  {
+   "form": "cocoon",
+   "kind": "form",
+   "name": "cocoon",
+   "note": "Form: the silk cocoon with a window.",
+   "pivot": {
+    "x": 512,
+    "y": 584.8
+   },
+   "required": true
+  },
+  {
+   "form": "butterfly",
+   "kind": "wing",
+   "name": "bf_wing_hind",
+   "note": "Butterfly: the back wing, root at the dot.",
+   "pivot": {
+    "x": 563.52,
+    "y": 649.2
+   },
+   "required": true
+  },
+  {
+   "form": "butterfly",
+   "kind": "wing",
+   "name": "bf_wing_fore",
+   "note": "Butterfly: the big front wing, root at the dot.",
+   "pivot": {
+    "x": 563.52,
+    "y": 649.2
+   },
+   "required": true
+  },
+  {
+   "form": "butterfly",
+   "kind": "limb_upper",
+   "length": 140.721,
+   "name": "bf_leg",
+   "note": "Butterfly: one thin leg, straight down.",
+   "pivot": {
+    "x": 600.32,
+    "y": 698.88
+   },
+   "required": true
+  },
+  {
+   "form": "butterfly",
+   "kind": "static",
+   "name": "bf_body",
+   "note": "Butterfly: body.",
+   "pivot": {
+    "x": 475.2,
+    "y": 686
+   },
+   "required": true
+  },
+  {
+   "form": "butterfly",
+   "kind": "rope",
+   "length": 150.205,
+   "name": "bf_antenna",
+   "note": "Butterfly: a long feeler, straight up.",
+   "pivot": {
+    "x": 682.2,
+    "y": 577.808
+   },
+   "required": true
+  },
+  {
+   "form": "butterfly",
+   "kind": "tip",
+   "name": "bf_antenna_tip",
+   "note": "The knob on the end of the feeler, centered on its dot.",
+   "pivot": {
+    "x": 682.2,
+    "y": 427.603
+   },
+   "required": true
+  }
+ ],
+ "rigHash": "32e747c0d1c2daf6",
+ "safe": {
+  "x0": 32,
+  "x1": 1120,
+  "y0": 32,
+  "y1": 992
+ },
+ "scale": 4,
+ "schema": 1,
+ "title": "Munch the caterpillar (bug_caterpillar_munch)"
+}

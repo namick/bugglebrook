@@ -28,9 +28,6 @@ export interface LoadedArt {
   scales: Partial<Record<1 | 2, AtlasSet>>;
 }
 
-/** Art species the cutout renderer can animate so far. */
-export const SPRITE_ARTS: ReadonlySet<BugDef['art']> = new Set(['ladybug', 'firefly']);
-
 /** Cut a page's frames into textures. */
 export function atlasSet(source: TextureSource, json: AtlasJson, into?: AtlasSet): AtlasSet {
   const set: AtlasSet = into ?? { scale: json.meta.scale as 1 | 2, frames: new Map(), anchors: new Map() };
@@ -147,8 +144,6 @@ export class ArtStore {
       const first = e.report.find((m) => m.level === 'error');
       return { drawn: false, reason: `the file has problems: ${first?.text ?? 'see the report'}` };
     }
-    if (!SPRITE_ARTS.has(def.art))
-      return { drawn: false, reason: `the cutout renderer can't animate ${def.name} yet` };
     if (!art.scales[1] && !art.scales[2]) return { drawn: false, reason: 'its atlas pages are missing' };
     return { drawn: true, reason: 'drawn from art' };
   }

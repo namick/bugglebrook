@@ -5,6 +5,7 @@ import { CONTENT } from '../../../game/data';
 import type { BugDef } from '../../../game/data/types';
 import type { BugFrame } from '../render/draw/bug';
 import { BugSprite } from '../render/draw/bug';
+import { bugSpan } from '../render/draw/species';
 import { OUTLINE } from '../render/palette';
 import { markUi } from '../ui/button';
 import type { ArtStore } from './artStore';
@@ -187,7 +188,8 @@ export class ArtLab extends Container {
     }
     const cellW = 372;
     const cellH = 200;
-    const k = Math.min(1.5, 70 / r);
+    // Fit the code-drawn and the drawn bug side by side in a cell, however wide the bug is.
+    const k = Math.min(1.4, 115 / bugSpan(def));
     poses.forEach((state, i) => {
       this.addCell(
         state,

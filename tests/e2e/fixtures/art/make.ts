@@ -1,14 +1,14 @@
-// Makes the crude test art pack: a deliberately simple Dot and face kit in flat
-// shapes and loud colors, so a test (or a person) can tell at a glance that a
-// bug is drawn from sprites. Test fixtures only, never real art.
+// Makes the crude test art pack: every bug and the face kit as deliberately
+// simple flat shapes in loud colors, so a test (or a person) can tell at a
+// glance that a bug is drawn from sprites. Test fixtures only, never real art.
 //
 //   node tests/e2e/fixtures/art/make.ts
 //
-// Rerun it when Dot's rig or the face kit changes (a unit test checks).
+// Rerun it when a bug's rig or the face kit changes (a unit test checks).
 
 import type { SKRSContext2D } from '@napi-rs/canvas';
 import { createCanvas } from '@napi-rs/canvas';
-import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { WriteNode } from '../../../../scripts/art/ora.ts';
 import { writeOra } from '../../../../scripts/art/ora.ts';
@@ -229,10 +229,161 @@ function crudeKit(rig: RigFile): Uint8Array {
   return writeOra({ w, h, stack, ...merged(w, h) });
 }
 
-const dotRig = join(ROOT, 'art/src/bugs/bug_ladybug_dot.rig.json');
+function ellipse(g: SKRSContext2D, x: number, y: number, rx: number, ry: number, color: string): void {
+  g.beginPath();
+  g.ellipse(x, y, Math.max(1, rx), Math.max(1, ry), 0, 0, Math.PI * 2);
+  fill(g, color);
+}
+
+/** A part's crude shape around its pivot, in radii (template pixels per radius `r`). */
+type Shape = (g: SKRSContext2D, x: number, y: number, r: number) => void;
+
+const oval =
+  (rx: number, ry: number, color: string, dx = 0, dy = 0): Shape =>
+  (g, x, y, r) =>
+    ellipse(g, x + dx * r, y + dy * r, rx * r, ry * r, color);
+
+/** A blob with a dark square on it, so turning and flipping show. */
+const marked =
+  (rx: number, ry: number, color: string, dx = 0, dy = 0): Shape =>
+  (g, x, y, r) => {
+    ellipse(g, x + dx * r, y + dy * r, rx * r, ry * r, color);
+    rect(g, x + dx * r + rx * r * 0.2, y + dy * r - ry * r * 0.5, rx * r * 0.4, ry * r * 0.4, '#1f1050');
+  };
+
+const wedge =
+  (pts: number[], color: string): Shape =>
+  (g, x, y, r) =>
+    poly(
+      g,
+      pts.map((v, i) => (i % 2 ? y : x) + v * r),
+      color,
+    );
+
+/**
+ * Crude shapes for every part name, by bug where it differs. Flat loud colors,
+ * nothing like real art: enough to tell the pieces apart and see them move.
+ */
+const SHAPES: Record<string, Shape> = {
+  body: marked(1.2, 0.55, '#ff7a00'),
+  belly: oval(1.0, 0.18, '#2f2a5a'),
+  head: marked(0.45, 0.45, '#14a39a'),
+  shell: marked(0.95, 0.7, '#ff7a00'),
+  shield: marked(1.0, 0.55, '#a8b000'),
+  thorax: oval(0.3, 0.34, '#b04020'),
+  tail: oval(0.35, 0.3, '#e0ff40'),
+  cap: oval(0.4, 0.2, '#ff3060'),
+  shine: oval(0.2, 0.08, '#ffffff'),
+  antler: wedge([0, -0.12, 0.6, -0.5, 0.5, -0.9, 0.2, -0.5, 0, 0.12], '#ffb000'),
+  tail_horn: wedge([0, 0, -0.4, -0.45, -0.2, 0.05], '#ff9f1c'),
+  foot: oval(0.07, 0.1, '#2f6a10'),
+  segment_a: marked(0.38, 0.38, '#40c040'),
+  segment_b: marked(0.38, 0.38, '#a0e020'),
+  cocoon: (g, x, y, r) => {
+    ellipse(g, x, y, 0.7 * r, 1.25 * r, '#f2eed6');
+    ellipse(g, x + 0.12 * r, y - 0.32 * r, 0.36 * r, 0.26 * r, '#a8e080');
+  },
+  bf_body: oval(0.65, 0.18, '#40c040', -0.2, 0),
+  bf_wing_hind: wedge([0, 0, -0.95, -0.45, -0.95, 0.25, 0, 0.08], '#2ec4b6'),
+  bf_wing_fore: wedge([0, 0, 0.32, -1.55, -0.82, -0.6], '#ff9f1c'),
+  wing: (g, x, y, r) => {
+    g.globalAlpha = 0.7;
+    rect(g, x - 0.28 * r, y - 1.1 * r, 0.56 * r, 1.1 * r, '#7fe9ff');
+    g.globalAlpha = 1;
+  },
+  wing_open: oval(0.34, 0.8, '#b0ffb0'),
+  wing_folded: oval(0.65, 0.08, '#2f8f3f', -0.65, 0),
+  abdomen: marked(0.72, 0.2, '#6fe36f'),
+  neck: wedge([-0.1, 0, 0.82, -0.98, 0.98, -0.88, 0.1, 0.05], '#4fc34f'),
+  stalk: () => {},
+  ball: marked(1, 1, '#8e95a3'),
+  shell_closed: (g, x, y, r) => {
+    ellipse(g, x, y, 0.98 * r, 0.98 * r, '#9b6bd6');
+    ellipse(g, x + 0.62 * r, y + 0.35 * r, 0.34 * r, 0.3 * r, '#1a1030');
+  },
+  // Tint layers: light greys only, the game adds the color.
+  shell_tint: marked(0.85, 0.75, '#e0e0e0', 0, 0.2),
+  thorax_tint: oval(0.3, 0.34, '#c8c8c8'),
+  head_tint: oval(0.42, 0.3, '#d0d0d0'),
+  ball_tint: (g, x, y, r) => {
+    ellipse(g, x, y, r, r, '#e4e4e4');
+    rect(g, x + 0.3 * r, y - 0.3 * r, 0.3 * r, 0.12 * r, '#505050');
+  },
+};
+
+/** Where a bug's shape differs from the default, by `<bug id>:<part>`. */
+const OVERRIDES: Record<string, Shape> = {
+  'bug_snail_glorp:body': marked(1.5, 0.45, '#c8e07a', 0, 0.1),
+  'bug_snail_glorp:shell': marked(0.86, 0.86, '#9b6bd6'),
+  'bug_waterstrider_skeet:body': marked(1.0, 0.25, '#3b6a9c'),
+  'bug_waterstrider_skeet:head': marked(0.3, 0.3, '#14a39a'),
+  'bug_grasshopper_boing:body': marked(1.1, 0.35, '#8bd13f'),
+  'bug_pillbug_rollo:body': marked(1.28, 0.55, '#8e95a3', 0, 0.1),
+  'bug_stagbeetle_moose:shell': marked(0.82, 0.5, '#7a2a1e', 0, 0.05),
+  'bug_stagbeetle_moose:head': marked(0.36, 0.31, '#a0503a'),
+  'bug_mantis_prim:head': wedge([-0.4, -0.42, 0.68, -0.36, 0.3, 0.28], '#90f090'),
+  'bug_stinkbug_whiff:head': marked(0.46, 0.46, '#c0d060'),
+};
+
+/** Twig's radius in game pixels: his ground is half his box's height, not his radius. */
+const RADIUS: Record<string, number> = { bug_stickinsect_twig: 30 };
+
+/** Any bug from its rig: flat shapes at every pivot, limbs and feelers as bars of the guide's length. */
+function crudeBug(rig: RigFile): Uint8Array {
+  const { w, h } = rig.canvas;
+  const r = (RADIUS[rig.id] ?? 0) * rig.scale || rig.ground - rig.origin.y;
+  const draw = (p: RigFile['parts'][number]): Draw => {
+    const { x, y } = p.pivot;
+    const len = p.length ?? 0;
+    switch (p.kind) {
+      case 'limb_upper':
+        return (g) => bar(g, x, y, x, y + len, Math.max(10, r * 0.1), '#3b1f8f');
+      case 'limb_lower':
+        return (g) => {
+          bar(g, x, y, x, y + len, Math.max(8, r * 0.08), '#5b2fbf');
+          rect(g, x - 12, y + len - 8, 28, 16, '#ffd000');
+        };
+      case 'rope':
+        return (g) => bar(g, x, y, x, y - len, Math.max(8, r * 0.07), '#a0208f');
+      case 'tip':
+        return (g) => rect(g, x - r * 0.1, y - r * 0.1, r * 0.2, r * 0.2, '#ffd000');
+      default:
+        break;
+    }
+    if (p.name === 'stick')
+      return (g) => {
+        // The twig item is 1.3 m by 0.11 m; Twig must match it.
+        const sw = 130 * rig.scale;
+        const sh = 11 * rig.scale;
+        rect(g, x - sw / 2, y - sh / 2, sw, sh, '#8b6a45');
+        rect(g, x - sw * 0.18, y - sh * 1.3, sh * 0.5, sh, '#8b6a45');
+        rect(g, x + sw * 0.26, y - sh * 1.3, sh * 0.5, sh, '#8b6a45');
+        rect(g, x + sw / 2 - sh, y - sh * 0.3, sh * 0.6, sh * 0.6, '#ffd000');
+      };
+    const shape = OVERRIDES[`${rig.id}:${p.name}`] ?? SHAPES[p.name];
+    if (!shape) throw new Error(`No crude shape for ${rig.id} ${p.name}`);
+    return (g) => shape(g, x, y, r);
+  };
+  const stack: WriteNode[] = [
+    {
+      name: 'guides',
+      locked: true,
+      children: [{ name: `guide_rig_${rig.rigHash}`, png: encodePng(blank(1, 1)), visible: false }],
+    },
+    { name: 'parts', children: [...rig.parts].reverse().map((p) => layer(p.name, w, h, draw(p))) },
+    { name: 'face', children: [] },
+  ];
+  return writeOra({ w, h, stack, ...merged(w, h) });
+}
+
 const kitRig = join(ROOT, 'art/src/faces/face_kit.rig.json');
-copyFileSync(dotRig, join(HERE, 'bug_ladybug_dot.rig.json'));
 copyFileSync(kitRig, join(HERE, 'face_kit.rig.json'));
-writeFileSync(join(HERE, 'bug_ladybug_dot.ora'), crudeDot(JSON.parse(readFileSync(dotRig, 'utf8')) as RigFile));
 writeFileSync(join(HERE, 'face_kit.ora'), crudeKit(JSON.parse(readFileSync(kitRig, 'utf8')) as RigFile));
+for (const f of readdirSync(join(ROOT, 'art/src/bugs')).filter((n) => n.endsWith('.rig.json'))) {
+  const id = f.replace('.rig.json', '');
+  const src = join(ROOT, 'art/src/bugs', f);
+  const rig = JSON.parse(readFileSync(src, 'utf8')) as RigFile;
+  copyFileSync(src, join(HERE, f));
+  writeFileSync(join(HERE, `${id}.ora`), id === 'bug_ladybug_dot' ? crudeDot(rig) : crudeBug(rig));
+}
 console.log('Wrote the crude test art pack to tests/e2e/fixtures/art/.');

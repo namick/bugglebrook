@@ -1,0 +1,110 @@
+{
+ "canvas": {
+  "h": 1024,
+  "w": 1152
+ },
+ "face": [
+  "eye_white",
+  "eye_pupil",
+  "eye_closed",
+  "eye_happy",
+  "eye_squint",
+  "eye_squeezed",
+  "eye_spiral",
+  "eye_heart",
+  "eye_sleepy_lid",
+  "brow_angry",
+  "brow_worried",
+  "brow_polite",
+  "cheek",
+  "mouth_smile",
+  "mouth_grin",
+  "mouth_o",
+  "mouth_whee",
+  "mouth_aah",
+  "mouth_chew_1",
+  "mouth_chew_2",
+  "mouth_wobble_1",
+  "mouth_wobble_2",
+  "mouth_flat",
+  "mouth_frown",
+  "mouth_lick",
+  "mouth_tongue",
+  "mouth_teeth",
+  "mouth_puff"
+ ],
+ "faceAnchors": {
+  "eye": {
+   "r": 20.76,
+   "x": 704,
+   "y": 440
+  },
+  "mouth": {
+   "s": 39.96,
+   "x": 716,
+   "y": 455.96
+  }
+ },
+ "ground": 540,
+ "id": "bug_stickinsect_twig",
+ "kind": "bug",
+ "origin": {
+  "x": 512,
+  "y": 512
+ },
+ "parts": [
+  {
+   "kind": "limb_upper",
+   "length": 131.198,
+   "name": "leg_upper",
+   "note": "Hip to knee, drawn straight down from the hip dot. Round nub at the top.",
+   "pivot": {
+    "x": 655.04,
+    "y": 459.2
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_lower",
+   "length": 216.585,
+   "name": "leg_lower",
+   "note": "Knee to foot, straight down from the knee dot, with the foot.",
+   "pivot": {
+    "x": 655.04,
+    "y": 590.398
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "stick",
+   "note": "His body. Must look exactly like the twig item.",
+   "pivot": {
+    "x": 512,
+    "y": 446
+   },
+   "required": true
+  },
+  {
+   "kind": "rope",
+   "length": 168.302,
+   "name": "antenna",
+   "note": "One feeler, drawn straight up from its base dot. The game bends it.",
+   "pivot": {
+    "x": 755.96,
+    "y": 434
+   },
+   "required": true
+  }
+ ],
+ "rigHash": "20e3a5f62c599b01",
+ "safe": {
+  "x0": 32,
+  "x1": 1120,
+  "y0": 32,
+  "y1": 992
+ },
+ "scale": 4,
+ "schema": 1,
+ "title": "Twig the stick insect (bug_stickinsect_twig)"
+}

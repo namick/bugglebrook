@@ -217,10 +217,14 @@ describe('the cutout renderer', () => {
     store.setMode('code');
     expect(makeBugView(DOT, store)).toBeInstanceOf(BugSprite);
     expect(store.status(DOT).reason).toBe('art is switched off');
+    // Every species can be drawn from art now: a broken file is the only reason left besides missing art.
     const moose = BUGS.get('bug_stagbeetle_moose');
     store.setMode('drawn');
-    store.put({ ...dot, entry: { ...dot.entry, id: moose.id } });
-    expect(store.status(moose).reason).toBe("the cutout renderer can't animate Moose yet");
+    store.put({
+      ...dot,
+      entry: { ...dot.entry, id: moose.id, status: 'broken', report: [{ level: 'error', text: 'Oops.' }] },
+    });
+    expect(store.status(moose).reason).toBe('the file has problems: Oops.');
   });
 });
 

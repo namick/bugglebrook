@@ -114,6 +114,15 @@ export function eyePieces(e: EyeSpot, look: Look, open: number, time: number): F
   return out;
 }
 
+/** Eyes that bring their own brows, or have none: Whiff's polite brows skip them, as in `politeBrows`. */
+const NO_POLITE: ReadonlySet<EyeShape> = new Set(['angry', 'worried', 'x', 'heart', 'spiral']);
+
+/** Whiff's apologetic brow over one eye, or null when the eye shape has its own. */
+export function politePiece(e: EyeSpot): FacePiece | null {
+  if (NO_POLITE.has(e.shape)) return null;
+  return piece('brow_polite', e.x, e.y, e.shape === 'wide' ? e.r * 1.12 : e.r);
+}
+
 /** A mouth's piece this frame: chewing and wobbling swap drawings at 8 Hz, an open "aah" pulses. */
 export function mouthPiece(m: NonNullable<FacePlacement['mouth']>, time: number): FacePiece {
   const pieces = MOUTH_PIECES[m.shape];
