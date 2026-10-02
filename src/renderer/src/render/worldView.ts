@@ -1270,24 +1270,30 @@ export class WorldView extends Container {
     if (!thought) {
       // Bugs hint too: idle near a secret still waiting, now and then it thinks of its pictogram.
       if ((mode !== 'st_idle' && mode !== 'st_wander') || Math.random() >= HINT_CHANCE) return;
-      const sim = this.sim;
-      const hint = hintThought(
-        sim.content,
-        view.x,
-        sim.secrets,
-        (a) => sim.content.areas.has(a) && sim.barriers.isOpen(a),
-        (id) => this.fixtureSpot(id),
-      );
-      if (!hint) return;
-      const food = hint.food ? sim.content.items.get(hint.food) : null;
-      this.bubbles.show(view.id, 'thought', hint.pictos, 2.6, food, null, hint.glyph);
-      this.hintsShown.push(hint.secret);
-      if (this.hintsShown.length > 20) this.hintsShown.shift();
+      this.hintNow(view);
       return;
     }
     const food = thought.food ? this.sim.content.items.get(thought.food) : null;
     const friend = thought.friend ? this.sim.content.bugs.get(thought.friend) : null;
     this.bubbles.show(view.id, 'thought', thought.pictos, 2.6, food, friend);
+  }
+
+  /** The bug thinks of the nearest waiting secret's hint now, if one is in reach. Returns the secret. */
+  hintNow(view: EntityView): string | null {
+    const sim = this.sim;
+    const hint = hintThought(
+      sim.content,
+      view.x,
+      sim.secrets,
+      (a) => sim.content.areas.has(a) && sim.barriers.isOpen(a),
+      (id) => this.fixtureSpot(id),
+    );
+    if (!hint) return null;
+    const food = hint.food ? sim.content.items.get(hint.food) : null;
+    this.bubbles.show(view.id, 'thought', hint.pictos, 2.6, food, null, hint.glyph);
+    this.hintsShown.push(hint.secret);
+    if (this.hintsShown.length > 20) this.hintsShown.shift();
+    return hint.secret;
   }
 
   /** Secrets bugs have hinted at in thought bubbles, newest last (test hook). */

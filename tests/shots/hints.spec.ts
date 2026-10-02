@@ -167,3 +167,56 @@ test('hints tour', async () => {
     await bb.close();
   }
 });
+
+// P-23: bugs idling near the secrets that have no tell in the world think of
+// their hint, drawn with the journal's own glyph. `pnpm shots -g "hint thoughts"`,
+// files hints-40- to hints-42-.
+test('hint thoughts tour', async () => {
+  test.setTimeout(300_000);
+  mkdirSync(DIR, { recursive: true });
+  const bb = await launchApp();
+  const { page } = bb;
+  sharpShots(page);
+  try {
+    await clickSlot(page, 0);
+    for (const area of ['area_under_porch', 'area_compost_lab']) await send(page, { type: 'unlock', area });
+    // Found already, so the thoughts near them are about the quiet secrets.
+    for (const id of [
+      'secret_moon_pebble',
+      'secret_lamp_moths',
+      'secret_spider_wave',
+      'secret_flashlight_shadow',
+      'secret_ant_sugar',
+      'secret_first_potion',
+    ])
+      await send(page, { type: 'find_secret', id });
+    const spots: [string, string, string][] = [
+      ['fix_weather_vane', 'secret_fling_orbit', 'hints-40-thought-orbit'],
+      ['fix_cobweb_hammock', 'secret_upside_tea', 'hints-41-thought-spider-tea'],
+      ['fix_compost_heap', 'secret_sludge_burp', 'hints-42-thought-sludge'],
+    ];
+    for (const [fixture, secret, name] of spots) {
+      const f = (await page.evaluate((id) => window.__bb!.fixture(id), fixture))!;
+      await jump(page, Math.max(0, f.x - 9.6));
+      const before = new Set((await page.evaluate(() => window.__bb!.entities())).map((e) => e.id));
+      await send(page, { type: 'spawn', kind: 'bug', defId: 'bug_ladybug_dot', x: f.x - 1.2, y: 7 });
+      await page.waitForTimeout(1500);
+      const dot = (await page.evaluate(() => window.__bb!.entities())).find(
+        (e) => !before.has(e.id) && e.defId === 'bug_ladybug_dot',
+      )!;
+      // Held still, so no other bubble takes the thought's place.
+      await page.evaluate(() => window.__bb!.setPaused(true));
+      expect(await page.evaluate((id) => window.__bb!.hintNow(id), dot.id)).toBe(secret);
+      await page.waitForTimeout(500);
+      const d = (await page.evaluate((id) => window.__bb!.entity(id), dot.id))!;
+      await page.screenshot({
+        path: join(DIR, `${name}.png`),
+        clip: await worldClip(page, d.x - 2.5, d.y - 3, d.x + 2.5, d.y + 0.8),
+      });
+      await page.evaluate(() => window.__bb!.setPaused(false));
+      await send(page, { type: 'despawn', id: dot.id });
+    }
+  } finally {
+    await bb.close();
+  }
+});

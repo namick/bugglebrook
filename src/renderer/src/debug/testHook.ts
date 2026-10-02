@@ -264,6 +264,8 @@ export interface TestHook extends ArtHook {
   cursor(): { pose: CursorPose; visible: boolean; poseFrame: number; moveFrame: number };
   /** Speech and thought bubbles showing now. */
   bubbles(): BubbleInfo[];
+  /** Shots: the bug thinks of the nearest waiting secret's hint right now. Returns the secret, or null. */
+  hintNow(bugId: number): string | null;
   /** Mouths glowing while food is held, and in which liking color. */
   glowing(): { id: number; liking: string }[];
   /** A bug's mouth anchor in world meters. */
@@ -957,6 +959,11 @@ export function installTestHook(game: Game, boundary?: ErrorBoundary): void {
       moveFrame: game.pointerMoveFrame,
     }),
     bubbles: () => game.session?.view.bubbleList() ?? [],
+    hintNow: (bugId) => {
+      const s = game.session;
+      const v = s?.sim.view(bugId);
+      return s && v ? s.view.hintNow(v) : null;
+    },
     glowing: () =>
       [...(game.session?.view.glowing ?? new Map<number, string>())].map(([id, liking]) => ({ id, liking })),
     mouthOf: (id) => game.session?.sim.mouthAnchor(id) ?? null,
