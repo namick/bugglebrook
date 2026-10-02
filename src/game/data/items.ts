@@ -3,6 +3,7 @@ import { createRegistry } from './registry';
 import { M8_ITEMS } from './items8';
 import { M9_ITEMS } from './items9';
 import { M10_ITEMS } from './items10';
+import { TIDY_ITEMS } from './itemsTidy';
 import { growItem } from './itemSize';
 
 const EAT_FOOD: Advert = { action: 'eat', needs: { need_hunger: 20 } };
@@ -1086,6 +1087,7 @@ export const WRITTEN_ITEMS: readonly ItemDef[] = [
   ...M8_ITEMS,
   ...M9_ITEMS,
   ...M10_ITEMS,
+  ...TIDY_ITEMS,
 ];
 
 /** Every item, at the size the world uses (`growItem`). */

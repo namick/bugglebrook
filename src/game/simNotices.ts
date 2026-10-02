@@ -212,5 +212,8 @@ export function emitNotice(sim: Sim, self: Entity, notice: BugNotice, selfState:
     case 'stirred':
       sim.cauldron.stir(notice.radians);
       return;
+    case 'rummaged':
+      sim.trash.rummage(entity);
+      return;
   }
 }

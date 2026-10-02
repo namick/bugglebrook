@@ -3,6 +3,7 @@ import type { GameEvents } from '../../../game/events';
 import { craftTones, noteTones, type CraftSfx } from './craftSfx';
 import { clueSounds, clueTones, isClueSfx, type ClueSfx } from './clueSfx';
 import { hiddenTones, isHiddenSfx, type HiddenSfx } from './hiddenSfx';
+import { isTidySfx, tidyTones, type TidySfx } from './tidySfx';
 import type { AudioBackend, Tone } from './synth';
 
 export type Material = 'wood' | 'metal' | 'rubber' | 'stone' | 'glass' | 'leaf' | 'food' | 'bug';
@@ -139,7 +140,9 @@ export type SfxName =
   | CraftSfx
   | ClueSfx
   // M10: the hidden areas and the finale.
-  | HiddenSfx;
+  | HiddenSfx
+  // Playtest F1 and F2: the trash can and the tidy whistle.
+  | TidySfx;
 
 /**
  * The impact sound for a material. Soft materials (cloth, paper) thud like
@@ -457,6 +460,22 @@ export class Sfx {
         this.play('firework_whistle', 0.6);
         this.play('firework_pop', 0.8);
       }),
+      // Playtest F1 and F2: the trash can and tidying up.
+      bus.on('trash_chomped', () => this.limited('trash_chomp', 120)),
+      bus.on('trash_burped', (e) => this.play('trash_burp', e.size)),
+      bus.on('trash_spat', (e) => this.play(e.why === 'hiccup' ? 'trash_hiccup' : 'trash_spit')),
+      bus.on('trash_poked', () => this.play('trash_clack')),
+      bus.on('trash_rummaged', () => this.play('trash_rummage')),
+      bus.on('item_came_home', () => this.limited('came_home', 150, 0.7)),
+      bus.on('whistle_blown', () => {
+        this.swooshes = 0;
+        this.play('whistle_toot');
+      }),
+      bus.on('item_tidied', (e) => {
+        if (e.cause === 'drift') return;
+        this.limited('tidy_swoosh', 40, this.swooshes++);
+      }),
+      bus.on('litter_nudged', () => this.limited('litter_skitter', 200, 0.6)),
     ];
   }
 
@@ -1464,7 +1483,9 @@ export class Sfx {
             ? clueTones(name, j, intensity)
             : isHiddenSfx(name)
               ? hiddenTones(name, j, intensity)
-              : craftTones(name, j, intensity, this.random);
+              : isTidySfx(name)
+                ? tidyTones(name, j, intensity, this.random)
+                : craftTones(name, j, intensity, this.random);
       }
     })();
     this.emit(name, tones, v, log);
@@ -1489,6 +1510,8 @@ export class Sfx {
   }
 
   private lastNote = -Infinity;
+  /** Things swooshed home since the whistle last blew: each swoosh is a step higher. */
+  private swooshes = 0;
 
   private emit(name: SfxName, tones: readonly Tone[], v: number, log: boolean): void {
     for (const tone of tones) this.backend.play({ ...tone, gain: (tone.gain ?? 0.3) * v, bus: 'sfx' });

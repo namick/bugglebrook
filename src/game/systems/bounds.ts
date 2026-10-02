@@ -94,20 +94,7 @@ export class Bounds {
       return;
     }
     // Lost in a hidden area (M10), it comes back inside that area.
-    const span = sim.barriers.span(Number.isFinite(fromX) ? fromX : undefined);
-    const setups = sim.bugWorld().setups;
-    let spot: { x: number; y: number } | null = null;
-    for (const x of dropSpots(fromX, span.x0 + EDGE_MARGIN, span.x1 - EDGE_MARGIN)) {
-      if (setups.some((s) => x > s.x0 - SETUP_CLEARANCE && x < s.x1 + SETUP_CLEARANCE)) continue;
-      const y = this.dropY(x, half);
-      if (sim.physics.solidNear(x, y, half + 0.1)) continue;
-      spot = { x, y };
-      break;
-    }
-    if (!spot) {
-      const x = dropSpots(fromX, span.x0 + EDGE_MARGIN, span.x1 - EDGE_MARGIN)[0]!;
-      spot = { x, y: this.dropY(x, half) };
-    }
+    const spot = skySpot(sim, fromX, half);
     sim.bringBack(e, spot.x, spot.y);
     sim.events.emit('entity_returned', {
       id: e.id,
@@ -118,13 +105,32 @@ export class Bounds {
       y: spot.y,
     });
   }
+}
 
-  /** Under a roof, just below it; out in the open, from above the screen. */
-  private dropY(x: number, half: number): number {
-    const area = this.sim.areaOf(x);
-    const roof = area.roof;
-    const local = x - area.xStart;
-    if (roof && local >= roof.x0 && local <= roof.x1) return roof.y + half + 0.3;
-    return RETURN_Y - half;
+/**
+ * Where to drop a thing `half` tall back in from the sky near x: over the
+ * open stretch, clear of the player's setups and of solid things, just
+ * under the roof indoors. `step` is how far apart the spots tried are.
+ */
+export function skySpot(sim: Sim, fromX: number, half: number, step = TRY_STEP): { x: number; y: number } {
+  // In a hidden area (M10), that area's own stretch.
+  const span = sim.barriers.span(Number.isFinite(fromX) ? fromX : undefined);
+  const setups = sim.bugWorld().setups;
+  const spots = dropSpots(fromX, span.x0 + EDGE_MARGIN, span.x1 - EDGE_MARGIN, step);
+  for (const x of spots) {
+    if (setups.some((s) => x > s.x0 - SETUP_CLEARANCE && x < s.x1 + SETUP_CLEARANCE)) continue;
+    const y = skyDropY(sim, x, half);
+    if (sim.physics.solidNear(x, y, half + 0.1)) continue;
+    return { x, y };
   }
+  return { x: spots[0]!, y: skyDropY(sim, spots[0]!, half) };
+}
+
+/** Under a roof, just below it; out in the open, from above the screen. */
+export function skyDropY(sim: Sim, x: number, half: number): number {
+  const area = sim.areaOf(x);
+  const roof = area.roof;
+  const local = x - area.xStart;
+  if (roof && local >= roof.x0 && local <= roof.x1) return roof.y + half + 0.3;
+  return RETURN_Y - half;
 }

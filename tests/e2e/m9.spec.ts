@@ -92,7 +92,9 @@ test('poking an instrument plays a note on the next 16th, in key, and the melody
   try {
     await openFrozen(page, 0);
     await expect.poll(async () => (await music(page)).target).toBe('stump_plaza_day');
-    const kazoo = await spawnFrozen(page, 'item_inst_comb_kazoo', PLAZA_X + 14);
+    // Out past the stump, where no bug wanders over to sniff it and takes the clicks.
+    await jumpTo(page, PLAZA_X + 19);
+    const kazoo = await spawnFrozen(page, 'item_inst_comb_kazoo', PLAZA_X + 29.5);
     await page.evaluate(() => window.__bb!.clearLogs());
     const before = (await notes(page)).length;
     // Three quick clicks with the real mouse: a little tune.

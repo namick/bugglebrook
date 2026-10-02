@@ -23,6 +23,9 @@ import type { AreaLive } from './areaArt/live';
 import { BenchLive } from './areaArt/benchLive';
 import type { BenchLook } from './areaArt/benchLive';
 import { CauldronLive } from './areaArt/cauldronLive';
+import { TrashLive } from './areaArt/trashLive';
+import { SwooshView } from './swooshView';
+import { rummagePose } from './trashLook';
 import type { AreaFrame, AreaSound } from './areaArt/live';
 import { PorchLive } from './areaArt/porchLive';
 import type { AreaDef, FixtureDef } from '../../../game/data/types';
@@ -169,6 +172,8 @@ export class WorldView extends Container {
   /** Mouth glows, over the bugs. */
   private readonly glows = new Graphics();
   readonly particles = new Particles();
+  /** Things the tidy whistle sends home, zipping off (playtest F2). */
+  readonly swooshes = new SwooshView(this.particles);
   /** Fling trails sit behind the things that leave them. */
   private readonly trails = new Particles();
   readonly bubbles = new Bubbles();
@@ -233,6 +238,7 @@ export class WorldView extends Container {
       this.weather.splashLayer,
       this.soapBubbles,
       this.particles,
+      this.swooshes,
     );
     this.world.addChild(
       this.graded,
@@ -342,6 +348,12 @@ export class WorldView extends Container {
 
   get reduceMotion(): boolean {
     return this.reduced;
+  }
+
+  /** The trash can's lid: how open it is (0 to 1), and how often it has clanged shut (test hook). */
+  trashLid(): { open: number; clangs: number } | null {
+    const can = this.lives.find((l): l is TrashLive => l instanceof TrashLive);
+    return can ? { open: can.openness, clangs: can.clangs } : null;
   }
 
   /** The cauldron's ladle is going round by itself, inviting a stir (test hook). */
@@ -613,7 +625,9 @@ export class WorldView extends Container {
     this.water.back.x = this.water.front.x = this.behind.x = this.over.x = this.soapBubbles.x = scroll;
     this.fixtures.x = this.fixtures.eyes.x = this.weather.puddles.x = this.weather.lights.x = scroll;
     this.weather.splashLayer.x = scroll;
+    this.swooshes.x = scroll;
     this.particles.update(dt);
+    this.swooshes.update(dt);
     this.trails.update(dt);
     const behind = this.behind.clear();
     const over = this.over.clear();
@@ -736,10 +750,13 @@ export class WorldView extends Container {
         }
         if (view.brew) sprite.setLiquid(view.brew.color);
         // The lattice leans and rattles a little when the hand rests near or hovers it (section 2).
+        // So does the tidy whistle (playtest F2), with a little rattle.
         const lean =
           view.defId === 'item_lattice_panel' && !view.held
             ? this.hints.wobble('barrier_lattice') * (this.reduced ? 0.012 : 0.035)
-            : 0;
+            : view.defId === 'item_tidy_whistle' && !view.held
+              ? this.hints.wobble('whistle') * (this.reduced ? 0.1 : 0.3)
+              : 0;
         sprite.pose(
           view.angle + bob.angle + lean,
           Math.atan2(view.vy, view.vx),
@@ -888,7 +905,7 @@ export class WorldView extends Container {
     const potion = potionLook(view.effects, view.scale ?? 1, this.time);
     j.clock += dt * potion.pace;
     j.size = easeScale(j.size, potion.scale, dt);
-    const pose = bugPose({
+    let pose = bugPose({
       // Sniffing something is standing still; `st_use` on its own is a spring hop.
       mode: bug.mode === 'st_use' && bug.action !== 'bounce' ? 'st_idle' : bug.mode,
       vx: view.vx / j.size.value,
@@ -897,6 +914,9 @@ export class WorldView extends Container {
       phase: view.id * 1.37,
       walkSpeed: def.speed,
     });
+    // Rummaging in the trash can: head first over the rim, legs kicking.
+    if (bug.mode === 'st_use' && bug.action === 'rummage')
+      pose = rummagePose(pose, j.clock, bug.facing, r * PPM);
 
     // The current reaction, if it is still showing.
     let look: ReactionLook | null = null;
@@ -1601,6 +1621,9 @@ function makeLives(sim: Sim, surface: (xPx: number) => number | null): AreaLive[
   const bench = fixture('tinker_bench');
   const lever = fixture('bench_lever');
   if (porch && bench && lever) out.push(new BenchLive(porch, bench, lever));
+  const plaza = area('area_stump_plaza');
+  const can = fixture('trash_can');
+  if (plaza && can) out.push(new TrashLive(plaza, can));
   const cauldron = fixture('cauldron');
   if (compost && cauldron) out.push(new CauldronLive(compost, cauldron, fixture('bug_scope') ?? null));
   const sunflower = sim.barriers.barrier('sunflower');
@@ -1608,7 +1631,6 @@ function makeLives(sim: Sim, surface: (xPx: number) => number | null): AreaLive[
   const tunnel = sim.barriers.barrier('can_tunnel');
   if (tunnel && porch) out.push(new CanWallLive(tunnel, porch));
   // M10: the ant hill and the gnome's hat (the doorways), the depths, the hollow, and the finale.
-  const plaza = area('area_stump_plaza');
   const depths = area('area_ant_hill_depths');
   const hollow = area('area_gnome_hollow');
   if (plaza) out.push(new AntHillLive(plaza, sim.content.items.tryGet('item_sugar_cube') ?? null));

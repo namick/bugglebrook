@@ -292,6 +292,23 @@ export interface TestHook extends ArtHook {
   bench(): { trays: (number | null)[]; busy: boolean; made: string[]; hinted: string[]; nudged: string[] };
   /** M8 (R09, R10): how the bench looks: each tray's glow (0 to 1), its phase, and its cork board's cards. */
   benchLook(): { trays: number[]; phase: string; cards: string[] } | null;
+  /**
+   * Playtest F1: the trash can. Its mouth (world meters), the def IDs waiting
+   * inside to go home, things eaten so far, and its lid (how open, 0 to 1,
+   * and how many times it has clanged shut).
+   */
+  trash(): {
+    mouth: { x: number; y: number };
+    inside: string[];
+    eaten: number;
+    lid: number;
+    clangs: number;
+  } | null;
+  /**
+   * Playtest F2: the tidy whistle's entity ID (null while pocketed or gone),
+   * times blown, things queued to go home, and copies swooshing on screen.
+   */
+  tidy(): { whistle: number | null; blown: number; queued: number; swooshes: number };
   /** M8: what is in the cauldron, how far it is stirred (0 to 1), and whether it is bubbling. */
   cauldron(): { contents: string[]; progress: number; bubbling: boolean; brewed: number };
   /**
@@ -924,6 +941,32 @@ export function installTestHook(game: Game): void {
       };
     },
     benchLook: () => game.session?.view.benchLook() ?? null,
+    trash: () => {
+      const s = game.session;
+      const can = s?.sim.trash.cans()[0];
+      if (!s || !can) return null;
+      const lid = s.view.trashLid();
+      return {
+        mouth: s.sim.trash.rim(can),
+        inside: s.sim.trash.state.inside.map((t) => t.part.defId),
+        eaten: s.sim.trash.state.eaten,
+        lid: lid?.open ?? 0,
+        clangs: lid?.clangs ?? 0,
+      };
+    },
+    tidy: () => {
+      const s = game.session;
+      if (!s) return { whistle: null, blown: 0, queued: 0, swooshes: 0 };
+      const w = s.sim.entities
+        .ofKind('item')
+        .find((e) => e.defId === 'item_tidy_whistle' && !s.sim.isPocketed(e.id));
+      return {
+        whistle: w?.id ?? null,
+        blown: s.sim.tidy.state.blown,
+        queued: s.sim.tidy.state.queue.length,
+        swooshes: s.view.swooshes.count,
+      };
+    },
     cauldron: () => {
       const c = game.session?.sim.cauldron;
       if (!c) return { contents: [], progress: 0, bubbling: false, brewed: 0 };

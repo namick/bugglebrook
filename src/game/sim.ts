@@ -64,6 +64,8 @@ import { Clues } from './systems/clues';
 import { Hidden } from './systems/hidden';
 import { journalBook } from './systems/journalBook';
 import type { JournalBook } from './systems/journalBook';
+import { Trash } from './systems/trash';
+import { Tidy } from './systems/tidy';
 import { Bounds } from './systems/bounds';
 import type { PhotoState } from './systems/photo';
 import { PHOTO_MOMENT_TICKS, TOTEM_TICKS, findTotem, inFrame } from './systems/photo';
@@ -348,6 +350,10 @@ export class Sim {
   readonly journal: Journal;
   /** M10: the hidden areas' doorways, the depths, and the hollow. */
   readonly hidden: Hidden;
+  /** The trash can (playtest F1). */
+  readonly trash: Trash;
+  /** The tidy whistle, slow tidying, and the junk cap (playtest F2). */
+  readonly tidy: Tidy;
   /** Where the player's hand is over the world, or null. Sent by the renderer (`hand`). */
   hand: { x: number; y: number } | null = null;
   /** Areas whose starting things are in the world. Saved, so areas added later get theirs on load. */
@@ -379,6 +385,8 @@ export class Sim {
     this.journal = new Journal(this);
     this.clues = new Clues(this);
     this.hidden = new Hidden(this);
+    this.trash = new Trash(this);
+    this.tidy = new Tidy(this);
     this.buildFixtures();
     this.buildSolids();
     this.barriers.build();
@@ -569,6 +577,8 @@ export class Sim {
     if (save.hidden) sim.hidden.restore(clone(save.hidden));
     sim.hidden.build();
     if (save.cauldron) sim.cauldron.restore(clone(save.cauldron));
+    if (save.trash) sim.trash.restore(clone(save.trash));
+    if (save.tidy) sim.tidy.restore(clone(save.tidy));
     // Areas new since the save get their starting things (M7's four areas, in older saves).
     sim.built = save.built ? [...save.built] : sim.content.areas.all.map((a) => a.id);
     sim.populate(sim.content.areas.all.filter((a) => !sim.built.includes(a.id)));
@@ -577,6 +587,8 @@ export class Sim {
     if (!save.bench) sim.addMissingItems(M8_STARTERS);
     // M9's instruments join worlds saved before the sequencer.
     if (!save.places?.sequencer) sim.addMissingItems(M9_STARTERS);
+    // The tidy whistle joins worlds saved before the trash can.
+    if (!save.trash) sim.addMissingItems(['item_tidy_whistle']);
     sim.toys.restore();
     for (const e of sim.entities.all()) if (e.effects) sim.potions.sync(e);
     sim.refreshFriction();
@@ -653,6 +665,7 @@ export class Sim {
     this.bench.taken(id);
     this.toys.forget(id);
     this.potions.forget(id);
+    this.trash.forget(id);
     this.sleeping.delete(id);
     // The setup cache may list it; later systems this step would look up its gone body.
     this.linkedCache = null;
@@ -708,6 +721,8 @@ export class Sim {
     this.hidden.update();
     this.bench.update();
     this.cauldron.update();
+    this.trash.update();
+    this.tidy.update();
     if (this.tick % 15 === 0) this.updateSleep();
     if (this.tick % 15 === 0) this.totem();
     this.offscreen.update();
@@ -738,6 +753,8 @@ export class Sim {
     this.gawk();
     this.rescueBuried();
     this.bounds.update();
+    if (this.tick % 60 === 0)
+      for (const [k, t] of this.passing) if (t < this.tick - 1) this.passing.delete(k);
     if (this.tick > 0 && this.tick % RESPAWN_TICKS === 0) this.respawn();
     this.clues.update();
     this.journal.update();
@@ -1190,6 +1207,8 @@ export class Sim {
   }
 
   linkedCache: { tick: number; ids: Set<EntityId> } | null = null;
+  /** Bug and setup pairs passing through each other (the setup rule), and the last tick they did. Not saved. */
+  readonly passing = new Map<number, number>();
 
   /**
    * Player setups plus every item touching them, directly or through other
@@ -1431,9 +1450,16 @@ export class Sim {
       this.carried.delete(itemId);
       const throwing = this.pendingThrows.get(itemId);
       if (!this.entities.has(itemId) || owners.has(itemId)) continue;
-      const hand = bug?.bug ? this.handOf(bug) : this.physics.getState(itemId);
+      let hand = bug?.bug ? this.handOf(bug) : this.physics.getState(itemId);
       const item = this.entities.get(itemId)!;
-      const half = halfExtents(this.content.items.get(item.defId).shape, 0).h;
+      const ext = halfExtents(this.content.items.get(item.defId).shape, 0);
+      const half = ext.h;
+      // Set down (not thrown) against the player's setup, it goes on the bug's other side (the setup rule).
+      if (bug && !throwing && this.setupNearExcept(hand.x, ext.w + 0.2, itemId)) {
+        const bx = this.physics.getState(bug.id).x;
+        const other = { x: 2 * bx - hand.x, y: hand.y };
+        if (!this.setupNearExcept(other.x, ext.w + 0.2, itemId)) hand = other;
+      }
       const floor = this.terrain.surfaceY(hand.x) - half - 0.01;
       physics.place(itemId, hand.x, Math.min(hand.y, floor), 0);
       physics.setActive(itemId, true);
@@ -1502,8 +1528,18 @@ export class Sim {
     const item = this.entities.get(itemId);
     if (!item) return;
     const s = this.physics.getState(bugId);
-    const x = s.x + b.facing * (this.bugDef(bug).radius + 0.3);
-    const half = halfExtents(this.content.items.get(item.defId).shape, 0).h;
+    const ext = halfExtents(this.content.items.get(item.defId).shape, 0);
+    const half = ext.h;
+    // In front of the bug, or behind it if that would set it against the player's setup (the setup rule).
+    const reach = this.bugDef(bug).radius + 0.3;
+    const clear = ext.w + 0.25;
+    const front = s.x + b.facing * reach;
+    const back = s.x - b.facing * reach;
+    const x = !this.setupNearExcept(front, clear, itemId)
+      ? front
+      : !this.setupNearExcept(back, clear, itemId)
+        ? back
+        : s.x;
     this.physics.place(itemId, x, this.terrain.surfaceY(x) - half - 0.02, 0);
     if (asleep) this.sleeping.add(itemId);
     else this.physics.setActive(itemId, true);
@@ -1995,7 +2031,11 @@ export class Sim {
 
   /** Every drop target available right now, except on `exclude` itself. */
   private dropCandidates(exclude: EntityId): DropCandidate[] {
-    const out: DropCandidate[] = [...this.bench.candidates(), ...this.cauldron.candidates()];
+    const out: DropCandidate[] = [
+      ...this.bench.candidates(),
+      ...this.cauldron.candidates(),
+      ...this.trash.candidates(exclude),
+    ];
     for (const bug of this.entities.ofKind('bug')) {
       if (bug.id === exclude || !bug.bug || this.physics.grabbed === bug.id) continue;
       if (bug.bug.pending) continue;
@@ -2382,6 +2422,8 @@ export class Sim {
       journal: this.journal.serialize(),
       clues: this.clues.serialize(),
       hidden: this.hidden.serialize(),
+      trash: this.trash.serialize(),
+      tidy: this.tidy.serialize(),
     };
   }
 }

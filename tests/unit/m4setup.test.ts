@@ -133,3 +133,46 @@ describe('the setup rule over 10 minutes (M4 acceptance)', () => {
     expect(sim.rescues).toBe(0);
   });
 });
+
+describe('the setup rule against things flying', () => {
+  it('a bug a spring threw mid-chase drops past a player stack instead of landing on it', () => {
+    const sim = Sim.empty({ seed: 'spring-thrown' });
+    const x = PLAZA_X + 6.3;
+    const caps = buildStack(sim, x);
+    const start = caps.map((id) => sim.view(id)!);
+    const log = record(sim);
+    // Boing, thrown by a spring in the middle of a game of tag, comes down hard on the stack.
+    const boing = sim.spawn('bug', 'bug_grasshopper_boing', x - 0.25, GROUND_Y - 1.6);
+    boing.bug!.mode = 'st_airborne';
+    boing.bug!.selfLaunched = true;
+    sim.physics.setVelocity(boing.id, 2, 11);
+    sim.run(90);
+    caps.forEach((id, i) => {
+      const b = sim.view(id)!;
+      expect(Math.hypot(b.x - start[i]!.x, b.y - start[i]!.y)).toBeLessThan(0.05);
+    });
+    expect(find(log, 'bonked').filter((e) => caps.includes(e.id))).toEqual([]);
+  });
+});
+
+describe('the setup rule when a bug sets something down', () => {
+  it('a bug puts what it carries down on its far side, never against a player stack', () => {
+    const sim = Sim.empty({ seed: 'set-down' });
+    const x = PLAZA_X + 6.3;
+    const caps = buildStack(sim, x);
+    const start = caps.map((id) => sim.view(id)!);
+    const dot = sim.spawn('bug', 'bug_ladybug_dot', x + 0.85, GROUND_Y - 0.6);
+    const berry = sim.spawn('item', 'item_berry_red', x + 2.5, GROUND_Y - 0.3);
+    sim.run(30);
+    dot.bug!.facing = -1;
+    // As if Dot had picked it up: in her front legs, then she lets go.
+    dot.bug!.carrying = berry.id;
+    sim.carried.set(berry.id, dot.id);
+    dot.bug!.carrying = null;
+    sim.run(60);
+    expect(sim.view(berry.id)!.x).toBeGreaterThan(sim.view(dot.id)!.x);
+    caps.forEach((c, i) =>
+      expect(Math.hypot(sim.view(c)!.x - start[i]!.x, sim.view(c)!.y - start[i]!.y)).toBeLessThan(0.03),
+    );
+  });
+});

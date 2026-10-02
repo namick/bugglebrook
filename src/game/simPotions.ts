@@ -114,6 +114,9 @@ export function dropInto(sim: Sim, target: DropTarget, entity: Entity): void {
     case 'cauldron':
       sim.cauldron.add(entity);
       return;
+    case 'trash':
+      sim.trash.drop(entity, target.entityId);
+      return;
     case 'body':
       sim.paintFromDrop(target.entityId, entity);
       return;

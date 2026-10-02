@@ -3,8 +3,8 @@
  * faint second hand shows one gesture near something on screen that the
  * player has not found yet: turning the sundial's rim, putting a thing in
  * the pocket, dropping something in the cauldron and stirring, dragging the
- * lattice, wetting the sunflower with the sponge, or pulling the bench's
- * lever. It never touches the world (no commands), vanishes the moment the
+ * lattice, wetting the sunflower with the sponge, pulling the bench's
+ * lever, dropping a thing in the trash can, or blowing the tidy whistle. It never touches the world (no commands), vanishes the moment the
  * player does anything, never shows what the player has already done, and
  * is rare: one per idle stretch, a long wait between them, and each demo at
  * most twice a session.
@@ -14,7 +14,18 @@
  */
 
 export type DemoKind =
-  'feed' | 'fling' | 'tickle' | 'shake' | 'dial' | 'pocket' | 'cauldron' | 'lattice' | 'sunflower' | 'lever';
+  | 'feed'
+  | 'fling'
+  | 'tickle'
+  | 'shake'
+  | 'dial'
+  | 'pocket'
+  | 'cauldron'
+  | 'lattice'
+  | 'sunflower'
+  | 'lever'
+  | 'trash'
+  | 'whistle';
 
 /** Most useful first: the core verbs, then the plaza's own toys, then the barriers. */
 export const DEMO_ORDER: readonly DemoKind[] = [
@@ -24,6 +35,8 @@ export const DEMO_ORDER: readonly DemoKind[] = [
   'shake',
   'dial',
   'pocket',
+  'trash',
+  'whistle',
   'cauldron',
   'lever',
   'sunflower',
@@ -280,6 +293,22 @@ export function flingDemo(item: Pt, defId: string, dir: 1 | -1 = 1): GhostScript
   };
 }
 
+/** The trash can (playtest F1): carry a small thing over its mouth (the lid gapes) and let go. */
+export function trashDemo(item: Pt, mouth: Pt, defId: string): GhostScript {
+  const over = { x: mouth.x, y: mouth.y - 70 };
+  return {
+    kind: 'trash',
+    carryDef: defId,
+    keys: [
+      ...reach(item),
+      { at: 1.15, x: item.x, y: item.y - 40, pose: 'grab', carry: true },
+      { at: 2.5, x: over.x, y: over.y, pose: 'grab', carry: true },
+      { at: 2.8, x: over.x, y: over.y, pose: 'grab', carry: true },
+      ...letGo(over, 2.9),
+    ],
+  };
+}
+
 /** Tickle a bug: press on it and hold still, the fingers wiggling a little. */
 export function tickleDemo(bug: Pt): GhostScript {
   const keys: GhostKey[] = reach(bug);
@@ -299,9 +328,30 @@ export function shakeDemo(item: Pt, defId: string): GhostScript {
   return { kind: 'shake', carryDef: defId, keys };
 }
 
+/** The tidy whistle (playtest F2): two quick taps on it. */
+export function whistleDemo(at: Pt): GhostScript {
+  return {
+    kind: 'whistle',
+    carryDef: null,
+    keys: [
+      ...reach(at),
+      { at: 1.15, x: at.x + 4, y: at.y - 14, pose: 'hover_grab' },
+      { at: 1.35, x: at.x, y: at.y, pose: 'grab' },
+      { at: 1.5, x: at.x + 4, y: at.y - 14, pose: 'hover_grab' },
+      ...letGo({ x: at.x + 4, y: at.y - 14 }, 1.9),
+    ],
+  };
+}
+
 /** The sim events that mean the player found a demo's gesture. */
 export function demoDoneBy(name: string, payload: unknown): DemoKind | null {
-  const p = (payload ?? {}) as { areaId?: string; defId?: string; byPlayer?: boolean; flung?: boolean };
+  const p = (payload ?? {}) as {
+    areaId?: string;
+    defId?: string;
+    by?: string;
+    byPlayer?: boolean;
+    flung?: boolean;
+  };
   switch (name) {
     case 'bug_fed':
       return p.byPlayer ? 'feed' : null;
@@ -320,6 +370,10 @@ export function demoDoneBy(name: string, payload: unknown): DemoKind | null {
       return 'cauldron';
     case 'bench_pulled':
       return 'lever';
+    case 'trash_chomped':
+      return p.by === 'player' ? 'trash' : null;
+    case 'whistle_blown':
+      return 'whistle';
     case 'sunflower_drank':
       return 'sunflower';
     case 'item_grabbed':
@@ -342,6 +396,9 @@ export interface WorldDone {
   brewed: number;
   benchUsed: boolean;
   secrets: readonly string[];
+  /** Things the trash can has eaten, and times the whistle blew (playtest F1 and F2). */
+  eaten?: number;
+  blown?: number;
 }
 
 export function demosDoneIn(w: WorldDone): DemoKind[] {
@@ -352,6 +409,8 @@ export function demosDoneIn(w: WorldDone): DemoKind[] {
   if (w.benchUsed) out.push('lever');
   if (w.open.includes('area_flowerbed_stage')) out.push('sunflower');
   if (w.open.includes('area_under_porch')) out.push('lattice');
+  if ((w.eaten ?? 0) > 0) out.push('trash');
+  if ((w.blown ?? 0) > 0) out.push('whistle');
   return out;
 }
 

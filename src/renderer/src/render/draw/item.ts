@@ -15,6 +15,7 @@ import {
   pinwheelHub,
 } from './itemArt8';
 import { drawItemArt10 } from './itemArt10';
+import { drawWhistle, outlineWhistle } from './tidyArt';
 
 /** The outline behind small loose things' art (px): about 2 px heavier than their own. */
 const SMALL_OUTLINE = 9;
@@ -172,6 +173,9 @@ export class ItemSprite extends Container {
       case 'moon_pebble':
         this.moonPebble(w / 2, seed);
         break;
+      case 'whistle':
+        drawWhistle(this.g, def, w, h);
+        break;
       case 'potion':
         drawPotion(this.g, def, w, h, def.color);
         this.onLiquid = (color) => drawPotion(this.g.clear(), def, w, h, color);
@@ -268,6 +272,9 @@ export class ItemSprite extends Container {
         g.circle(w / 2 - h * 1.1, 0, h * 1.1)
           .moveTo(-w / 2, 0)
           .lineTo(w / 2 - h * 2.2, 0);
+        return true;
+      case 'whistle':
+        outlineWhistle(g, w, h);
         return true;
       case 'magnet':
         g.moveTo(-w / 2, h / 2)

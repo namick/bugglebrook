@@ -443,6 +443,37 @@ const WHEE: Triple = three(
     seconds: 1.6,
   },
 );
+// Playtest F1: spat out of the trash can, smelly and very put out about it.
+const TRASHED: Triple = three(
+  {
+    eyes: 'angry',
+    mouth: 'teeth',
+    pictos: ['grr', 'stink'],
+    emotion: 'grumpy',
+    move: 'stomp',
+    fx: 'steam',
+    seconds: 2,
+  },
+  {
+    eyes: 'squint',
+    mouth: 'frown',
+    tint: 'green',
+    pictos: ['stink', 'exclaim'],
+    emotion: 'yuck',
+    move: 'shake_off',
+    fx: 'stink',
+    seconds: 2,
+  },
+  {
+    eyes: 'wide',
+    mouth: 'o',
+    pictos: ['exclaim', 'grr'],
+    emotion: 'gasp',
+    move: 'shake_head',
+    fx: 'steam',
+    seconds: 2,
+  },
+);
 const WOW: Triple = three(
   {
     eyes: 'wide',
@@ -2809,11 +2840,13 @@ export function reactionLook(art: BugArt, type: ReactionType, variant: number): 
                                             ? WHEE
                                             : type === 'camera'
                                               ? CAMERA[art]
-                                              : CLASSIC.has(type)
-                                                ? PERSONAL[art][type as Classic]
-                                                : EVERYDAY.has(type)
-                                                  ? EVERYDAY_LOOKS[art][type as Everyday]
-                                                  : FED[type as keyof typeof FED];
+                                              : type === 'trashed'
+                                                ? TRASHED
+                                                : CLASSIC.has(type)
+                                                  ? PERSONAL[art][type as Classic]
+                                                  : EVERYDAY.has(type)
+                                                    ? EVERYDAY_LOOKS[art][type as Everyday]
+                                                    : FED[type as keyof typeof FED];
   return set[((variant % 3) + 3) % 3]!;
 }
 
@@ -2865,6 +2898,7 @@ const SHOWS_IN: Readonly<Record<ReactionType, readonly BugMode[]>> = {
   ],
   whee: ['st_use', 'st_airborne', 'st_landing', 'st_react', 'st_idle'],
   camera: ['st_react', 'st_idle', 'st_wander', 'st_seek', 'st_use', 'st_social', 'st_perform', 'st_hide'],
+  trashed: ['st_airborne', 'st_landing', 'st_react', 'st_idle', 'st_wander', 'st_dizzy', 'st_recover'],
 };
 
 /** Is a reaction that started `ageSeconds` ago still showing in `mode`? */

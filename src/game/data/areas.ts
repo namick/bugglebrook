@@ -324,6 +324,8 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_flashlight_pen', x: 0.45 },
       // New in M7: Twig, pretending to be the toy pile's second twig.
       { kind: 'bug', defId: 'bug_stickinsect_twig', x: 35.35, pending: 'disguised' },
+      // Playtest F2: the tidy whistle, leaning on the trash can (older saves get it on load).
+      { kind: 'item', defId: 'item_tidy_whistle', x: 33 },
     ],
     respawn: [
       { item: 'item_berry_red', count: 3 },
@@ -361,6 +363,9 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { id: 'fix_clover', kind: 'clover', x: 11.95, y: 8.85, radius: 0.6 },
       // M10: the ant hill. A sugar cube nearby opens it into the Ant Hill Depths.
       { id: 'fix_ant_hill', kind: 'ant_hill', x: 2.9, y: 7.9, radius: 1, door: 'fix_depths_shaft' },
+      // Playtest F1: a tin can with a hinged lid, past the toy pile. Its y is its middle, so the
+      // click box covers it; the rim is half its height up. Not a solid: bugs walk past it.
+      { id: 'fix_trash_can', kind: 'trash_can', x: 33, y: 8.1, radius: 0.9, w: 1.5, h: 1.8 },
     ],
   },
   {

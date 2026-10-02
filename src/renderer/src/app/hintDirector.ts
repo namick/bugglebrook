@@ -1,4 +1,4 @@
-import { VIEW_WIDTH_PX } from '../../../game/constants';
+import { VIEW_WIDTH_M, VIEW_WIDTH_PX } from '../../../game/constants';
 import type { EntityView, Sim } from '../../../game/sim';
 import type { PointerController } from '../input/pointerController';
 import { LEVER_LENGTH, LEVER_PIVOT, LEVER_REST } from '../render/areaArt/benchLive';
@@ -8,6 +8,7 @@ import { AffordanceTracker } from '../render/hints';
 import type { HintKey, HintTarget } from '../render/hints';
 import type { HintSpot } from '../render/hintView';
 import { POCKET, slotRect, trayTop } from '../ui/pocketLayout';
+import { builtLinked } from '../../../game/systems/trash';
 import {
   GhostScheduler,
   cauldronDemo,
@@ -24,6 +25,8 @@ import {
   leverDemo,
   pocketDemo,
   spongeDemo,
+  trashDemo,
+  whistleDemo,
 } from './ghost';
 import type { DemoKind, GhostFrame, GhostScript } from './ghost';
 
@@ -50,7 +53,11 @@ const FIXTURE_KEY: Record<string, HintKey> = {
   sunflower: 'barrier_sunflower',
   can_tunnel: 'barrier_can_tunnel',
   bucket_lift: 'barrier_bucket_lift',
+  trash_can: 'trash',
 };
+
+/** The whistle demo waits for at least this many things in view that it would send home. */
+const CLUTTER = 3;
 
 /** What the director needs from the game each frame. */
 export interface HintFrame {
@@ -95,6 +102,8 @@ export class HintDirector {
       brewed: sim.cauldron.state.brewed,
       benchUsed: sim.bench.state.made.length > 0,
       secrets: sim.secrets,
+      eaten: sim.trash.state.eaten,
+      blown: sim.tidy.state.blown,
     }))
       this.ghost.markDone(k);
     this.unsubscribe.push(
@@ -145,6 +154,25 @@ export class HintDirector {
     return null;
   }
 
+  private whistle(views: readonly EntityView[]): EntityView | undefined {
+    return views.find((v) => v.defId === 'item_tidy_whistle' && !v.held && v.pocket === undefined);
+  }
+
+  /** How many loose things in view the whistle would send home now. */
+  private clutter(): number {
+    const sim = this.sim;
+    const x0 = this.camera.x;
+    const x1 = x0 + VIEW_WIDTH_M;
+    const built = builtLinked(sim);
+    let n = 0;
+    for (const e of sim.entities.ofKind('item')) {
+      if (sim.isSleeping(e.id)) continue;
+      const x = sim.physics.getState(e.id).x;
+      if (x >= x0 && x <= x1 && sim.tidy.whistleTarget(e, built)) n++;
+    }
+    return n;
+  }
+
   private lattice(views: readonly EntityView[]): EntityView | undefined {
     return views.find((v) => v.defId === 'item_lattice_panel' && !v.held && v.pocket === undefined);
   }
@@ -193,6 +221,18 @@ export class HintDirector {
       targets.push({ key, at, reach: 3, done: false });
       spots.push({ key, x: at.x, y: at.y, size, marks: false });
     }
+    // The trash can's lid and the tidy whistle (playtest F1 and F2).
+    const can = this.fixture('trash_can');
+    if (can) {
+      const rim = { x: can.x, y: can.y - 0.9 };
+      targets.push({ key: 'trash', at: rim, reach: 2.6, done: done.has('trash') });
+      spots.push({ key: 'trash', x: rim.x, y: rim.y - 0.2, size: 0.9, marks: false });
+    }
+    const whistle = this.whistle(views);
+    if (whistle) {
+      targets.push({ key: 'whistle', at: whistle, reach: 1.8, done: done.has('whistle') });
+      spots.push({ key: 'whistle', x: whistle.x, y: whistle.y, size: 0.45, marks: false });
+    }
     // The pocket's tab, in view pixels at the bottom middle.
     targets.push({
       key: 'pocket',
@@ -222,6 +262,7 @@ export class HintDirector {
     if (input.hoverId !== null) {
       const v = views.find((q) => q.id === input.hoverId);
       if (v?.defId === 'item_lattice_panel') return 'barrier_lattice';
+      if (v?.defId === 'item_tidy_whistle') return 'whistle';
       return null;
     }
     const w = input.hoverWorld;
@@ -340,6 +381,19 @@ export class HintDirector {
         ),
       );
     }
+    const can = this.fixture('trash_can');
+    if (can && this.onScreen({ x: can.x, y: can.y })) {
+      const mouth = { x: can.x, y: can.y - 0.9 };
+      const item = this.smallItem(
+        views.filter((v) => v.defId !== 'item_tidy_whistle'),
+        mouth,
+        7,
+      );
+      if (item) scripts.set('trash', () => trashDemo(this.toView(item), this.toView(mouth), item.defId));
+    }
+    const whistle = this.whistle(views);
+    if (whistle && this.onScreen(whistle) && this.clutter() >= CLUTTER)
+      scripts.set('whistle', () => whistleDemo(this.toView(whistle)));
     const knob = this.leverKnob();
     const lever = this.fixture('bench_lever');
     if (knob && lever && sim.barriers.isOpen(lever.area) && this.onScreen(knob))

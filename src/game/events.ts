@@ -545,6 +545,63 @@ export interface GameEvents {
   /** A bug-shaped firework burst over the stump (the `n`th of the finale). */
   firework_burst: { defId: string; x: number; y: number; n: number };
   finale_ended: Record<string, never>;
+
+  // Playtest F1: the trash can. F2: tidying up.
+  /**
+   * The trash can ate something. `fate`: it goes home in a while (`home`),
+   * it came apart into its parts, which go home (`recycled`), or it is gone
+   * for good (`gone`: a potion bottle, or a crafted thing with no parts).
+   * `by`: dropped or tossed in, or sent there by tidying.
+   */
+  trash_chomped: {
+    id: EntityId;
+    defId: string;
+    fate: 'home' | 'recycled' | 'gone';
+    parts: number;
+    by: 'player' | 'tidy';
+    x: number;
+    y: number;
+  };
+  /** The trash can burped after a meal. `size` grows with the things it ate in a row. */
+  trash_burped: { size: number; x: number; y: number };
+  /**
+   * The trash can spat something back out: a bug (never trashed), a thing too
+   * big or part of the player's build, or, on a click, the last thing it ate.
+   */
+  trash_spat: {
+    id: EntityId;
+    kind: EntityKind;
+    defId: string;
+    why: 'bug' | 'big' | 'setup' | 'hiccup';
+    x: number;
+    y: number;
+  };
+  /** A click on the empty trash can: its lid clacks. */
+  trash_poked: { x: number; y: number };
+  /** A bug dived into the trash can and came up with something, or with nothing. */
+  trash_rummaged: { bugId: EntityId; itemId: EntityId | null; defId: string | null; x: number; y: number };
+  /** Something the trash can ate came home: it drops in from the sky over its home spot. */
+  item_came_home: { id: EntityId; defId: string; x: number; y: number };
+  /** The tidy whistle blew. `count` things are about to swoosh home. */
+  whistle_blown: { id: EntityId; count: number; x: number; y: number };
+  /**
+   * A loose thing went home: swooshed by the whistle (`whistle`), sent by
+   * the junk cap (`cap`, into the trash can), or drifted home while nobody
+   * was looking (`drift`). It left (fromX, fromY) and lands at (x, y), or in
+   * the trash can (`to` is `can`).
+   */
+  item_tidied: {
+    id: EntityId;
+    defId: string;
+    to: 'home' | 'can';
+    cause: 'whistle' | 'cap' | 'drift';
+    fromX: number;
+    fromY: number;
+    x: number;
+    y: number;
+  };
+  /** Rain or wind nudged a bit of litter a hop toward home. */
+  litter_nudged: { id: EntityId; dir: 1 | -1; cause: 'rain' | 'wind'; x: number; y: number };
 }
 
 /** What a chat line is about. The renderer draws it as a pictogram. */
@@ -618,6 +675,8 @@ export type Liking = 'loved' | 'liked' | 'neutral' | 'disliked';
  * After M8: `later` (a busy bug glancing at food held out to it: "in a
  * minute") and `whee` (riding the leaf slide, wading in the bead pit).
  * M11 adds `camera` (the camera comes out: posing, photobombing, hiding).
+ * The playtest's F1 adds `trashed` (spat out of the trash can, smelly and
+ * indignant).
  */
 export type ReactionType =
   | 'grab'
@@ -655,7 +714,8 @@ export type ReactionType =
   | 'wow'
   | 'later'
   | 'whee'
-  | 'camera';
+  | 'camera'
+  | 'trashed';
 
 export const REACTION_TYPES: readonly ReactionType[] = [
   'grab',
@@ -694,6 +754,7 @@ export const REACTION_TYPES: readonly ReactionType[] = [
   'later',
   'whee',
   'camera',
+  'trashed',
 ];
 
 /** Variants per reaction type. */

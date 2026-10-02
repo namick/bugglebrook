@@ -76,7 +76,7 @@ export const BUGS = createRegistry<BugDef>('bug', [
       generous: 0.9,
       nervous: 1,
     },
-    habits: { rowsPebbles: true },
+    habits: { rowsPebbles: true, rummages: true },
     needWeights: { need_hunger: 1.1, need_fun: 0.8, need_energy: 1.2, need_social: 1.1, need_clean: 0.7 },
     // His weird favorite is compost goo.
     loves: ['item_rotten_banana_bit', 'item_compost_goo'],
@@ -318,7 +318,7 @@ export const BUGS = createRegistry<BugDef>('bug', [
       generous: 0.9,
       nervous: 0.7,
     },
-    habits: { stinkCloud: true },
+    habits: { stinkCloud: true, rummages: true },
     needWeights: { need_hunger: 1, need_fun: 0.8, need_energy: 1, need_social: 1.2, need_clean: 0.6 },
     // His weird favorite is the mint leaf: he eats it hoping to smell nice. He doesn't.
     loves: ['item_onion_ring', 'item_compost_goo', 'item_mint_leaf'],
@@ -410,7 +410,7 @@ export const BUGS = createRegistry<BugDef>('bug', [
       generous: 0.2,
       nervous: 0.1,
     },
-    habits: { rollsBalls: true },
+    habits: { rollsBalls: true, rummages: true },
     needWeights: { need_hunger: 1, need_fun: 1.2, need_energy: 0.9, need_social: 0.8, need_clean: 0.5 },
     loves: ['item_compost_goo', 'item_rotten_banana_bit'],
     likes: ['item_apple_core', 'item_coffee_bean', 'item_crumb_cookie'],

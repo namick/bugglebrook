@@ -12,11 +12,13 @@ import type { ClueState } from '../systems/clues';
 import type { HiddenState } from '../systems/hidden';
 import type { BenchState } from '../systems/bench';
 import type { CauldronState } from '../systems/cauldron';
+import type { TrashState } from '../systems/trash';
+import type { TidyState } from '../systems/tidy';
 import type { Brew } from '../systems/brewing';
 import type { ActiveEffect, SavedPart, ToyState } from '../core/entities';
 
 /** Bump when the save shape changes, and add a migration in migrations.ts. */
-export const SAVE_VERSION = 14;
+export const SAVE_VERSION = 15;
 
 export interface SavedEntity {
   id: number;
@@ -44,7 +46,7 @@ export interface SavedEntity {
   toasted?: boolean;
   /** A crafted toy's state (version 9). */
   toy?: ToyState;
-  /** A unique item's home spot (version 14). */
+  /** A unique item's home spot (version 15). */
   home?: { x: number; y: number };
 }
 
@@ -83,12 +85,16 @@ export interface WorldSave {
   bench?: BenchState;
   /** The cauldron: what is in it and how far it is stirred. Absent before version 9. */
   cauldron?: CauldronState;
-  /** The journal's memory: bugs met, items found, observations, and what is new. Absent before version 14. */
+  /** The journal's memory: bugs met, items found, observations, and what is new. Absent before version 15. */
   journal?: JournalState;
-  /** M10's clue state: the boot, the stump's door, streaks and counts. Absent before version 14. */
+  /** M10's clue state: the boot, the stump's door, streaks and counts. Absent before version 15. */
   clues?: ClueState;
-  /** M10's hidden areas: the ants' sugar, the queen, and the finale. Optional within version 14. */
+  /** M10's hidden areas: the ants' sugar, the queen, and the finale. Absent before version 15. */
   hidden?: HiddenState;
+  /** The trash can: what waits inside to go home (version 14). */
+  trash?: TrashState;
+  /** The tidy whistle's queue and tidying's dice (version 14). */
+  tidy?: TidyState;
 }
 
 /** Running counts about how the world has been played. */

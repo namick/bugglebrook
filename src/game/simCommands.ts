@@ -54,13 +54,17 @@ export function apply(sim: Sim, command: Command): void {
       return;
     }
     case 'drag': {
-      // The hand cannot push what it holds through a locked area's wall.
+      // The hand cannot push what it holds through a locked area's wall, or into an end wall.
       const held = sim.physics.grabbed;
       let x = command.x;
       if (held !== null) {
         const at = sim.physics.position(held).x;
         const span = sim.barriers.span(at);
-        if (at >= span.x0 && at <= span.x1) x = Math.min(span.x1 - 0.05, Math.max(span.x0 + 0.05, x));
+        const e = sim.entities.get(held);
+        const box = e?.kind === 'item' ? sim.boxOf(held) : null;
+        const half = box ? Math.min((box.x1 - box.x0) / 2, (span.x1 - span.x0) / 4) : 0;
+        if (at >= span.x0 && at <= span.x1)
+          x = Math.min(span.x1 - half - 0.05, Math.max(span.x0 + half + 0.05, x));
       }
       sim.physics.moveGrab(x, command.y);
       return;
@@ -328,6 +332,11 @@ export function poke(sim: Sim, x: number, y: number): void {
     else sim.removeTag(entity.id, 'tag_glowing', 'player');
     sim.events.emit('light_toggled', { id: entity.id, on, x: s.x, y: s.y });
     sim.weather.noteLight(s.x, s.y);
+  } else if (sim.content.items.get(entity.defId).whistle) {
+    // The tidy whistle: a toot, and loose things in view head home.
+    sim.setup.touch(entity.id);
+    sim.physics.setVelocity(entity.id, s.vx, -1.6);
+    sim.tidy.blow(entity);
   } else if (sim.toys.poked(entity)) {
     // A toy did its thing: fired, launched, let its air out.
     sim.setup.touch(entity.id);

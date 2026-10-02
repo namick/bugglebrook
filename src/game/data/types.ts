@@ -195,7 +195,9 @@ export type FixtureKind =
   | 'larva'
   | 'telescope'
   | 'lost_shelf'
-  | 'moon_pedestal';
+  | 'moon_pedestal'
+  // Playtest F1: the trash can, which eats things and sends them home.
+  | 'trash_can';
 
 /** A fixed part of an area. Positions are area-local x and world y, in meters. */
 export interface FixtureDef {
@@ -315,6 +317,8 @@ export interface BugHabits {
   shy?: boolean;
   /** Pats dizzy bugs nearby, who get over it twice as fast (Wubbo). */
   pats?: boolean;
+  /** Dives head first into the trash can to rummage, and comes up with whatever is in it (Rollo, Barty, Whiff). */
+  rummages?: boolean;
 }
 
 /**
@@ -500,6 +504,8 @@ export type ItemArt =
   | 'domino'
   | 'spinning_top'
   | 'yo_yo'
+  // Playtest F2: the tidy whistle.
+  | 'whistle'
   // M8: materials, paints, potions, and crafted things.
   | 'string'
   | 'balloon'
@@ -588,7 +594,9 @@ export type AdvertAction =
   | 'wade'
   // M9: playing an instrument, and hopping on the mushroom sequencer's caps.
   | 'play'
-  | 'tap';
+  | 'tap'
+  // Playtest F1: a dive into the trash can.
+  | 'rummage';
 
 export const ADVERT_ACTIONS: readonly AdvertAction[] = [
   'eat',
@@ -609,6 +617,7 @@ export const ADVERT_ACTIONS: readonly AdvertAction[] = [
   'wade',
   'play',
   'tap',
+  'rummage',
 ];
 
 /** What an object offers a bug (game design doc, section 5). */
@@ -689,6 +698,8 @@ export interface ItemDef {
    * where it first appeared rather than the nearest open spot.
    */
   unique?: boolean;
+  /** The tidy whistle (playtest F2): a click blows it, and loose things in view swoosh home. */
+  whistle?: boolean;
 }
 
 /**

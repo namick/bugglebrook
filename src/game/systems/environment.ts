@@ -187,6 +187,7 @@ const CLICKABLE: ReadonlySet<FixtureDef['kind']> = new Set<FixtureDef['kind']>([
   'root_knot',
   'telescope',
   'moon_pedestal',
+  'trash_can',
 ]);
 
 const pairKey = (a: EntityId, b: EntityId): string => (a < b ? `${a}:${b}` : `${b}:${a}`);

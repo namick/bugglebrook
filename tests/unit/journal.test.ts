@@ -280,6 +280,12 @@ describe('unique items', () => {
     expect(sim.entities.get(key.id)).toBeDefined();
   });
 
+  it('are never trashed', () => {
+    const sim = world();
+    const map = sim.spawn('item', 'item_treasure_map', PLAZA_X + 9, GROUND_Y - 0.5);
+    expect(sim.trash.refusal(map)).toBe('big');
+  });
+
   it('are never brewed or crafted', () => {
     for (const def of CONTENT.items.all.filter((d) => d.unique)) {
       expect(def.tags).not.toContain('tag_edible');
@@ -289,7 +295,7 @@ describe('unique items', () => {
   });
 });
 
-describe('save version 14', () => {
+describe('save version 15', () => {
   it('round-trips the journal', () => {
     const sim = world();
     sim.findSecret('secret_sun_shades', PLAZA_X, 5);
@@ -301,11 +307,11 @@ describe('save version 14', () => {
     expect(back.serialize().journal).toEqual(save.journal);
   });
 
-  it('migrates a version 13 save and seeds its journal from what it proves', () => {
-    expect(SAVE_VERSION).toBe(14);
-    expect(MIGRATIONS[13]).toBeDefined();
+  it('migrates a version 13 save (through 14) and seeds its journal from what it proves', () => {
+    expect(SAVE_VERSION).toBe(15);
+    expect(MIGRATIONS[14]).toBeDefined();
     const file = loadSaveFile(JSON.stringify(v13));
-    expect(file.version).toBe(14);
+    expect(file.version).toBe(15);
     expect(file.world.journal).toBeUndefined();
     const sim = Sim.load(file.world);
     const j = sim.journal.state;

@@ -33,6 +33,32 @@ export function listen(view: WorldView): void {
       view.particles.puff(px(e.x), y, 0xffffff, 7, 0, 30, 22);
       view.particles.sparkles(px(e.x), y, 5);
     }),
+    // Playtest F1 and F2: things coming home, the whistle, and litter in the weather.
+    ev.on('item_came_home', (e) => {
+      const y = px(Math.max(e.y, 0.4));
+      view.particles.puff(px(e.x), y, 0xffffff, 6, 0, 30, 20);
+      view.particles.sparkles(px(e.x), y, 4);
+    }),
+    ev.on('item_tidied', (e) => {
+      const def = view.sim.content.items.tryGet(e.defId);
+      if (e.cause === 'drift' || !def) {
+        // Nobody saw it go: it just turns up at home.
+        view.particles.puff(px(e.x), px(Math.max(e.y, 0.4)), 0xffffff, 5, 0, 30, 18);
+        return;
+      }
+      view.swooshes.add(def, { x: px(e.fromX), y: px(e.fromY) }, { x: px(e.x), y: px(e.y) });
+    }),
+    ev.on('whistle_blown', (e) => {
+      view.juiceFor(e.id).squash.poke();
+      view.particles.ring(px(e.x), px(e.y), 40);
+      view.particles.ring(px(e.x), px(e.y), 80);
+      view.particles.burst(px(e.x), px(e.y) - 20, 8, 0xffd23f, Math.PI, -Math.PI);
+      if (e.count > 0) view.particles.sparkles(px(e.x), px(e.y) - 40, 6);
+    }),
+    ev.on('litter_nudged', (e) => {
+      if (e.cause === 'rain') view.particles.drops(px(e.x), px(e.y), e.dir * 60, -120, 0x9fd8ff, 3);
+      else view.particles.puff(px(e.x) - e.dir * 20, px(e.y), 0xffffff, 2, e.dir * 60, -20, 10);
+    }),
     ev.on('bonked', (e) => {
       const j = view.juiceFor(e.id);
       if (e.kind === 'item') j.squash.land(e.speed * 0.6);

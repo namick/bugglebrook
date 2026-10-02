@@ -20,7 +20,10 @@ export type HintKey =
   | 'barrier_sunflower'
   | 'barrier_lattice'
   | 'barrier_can_tunnel'
-  | 'barrier_bucket_lift';
+  | 'barrier_bucket_lift'
+  // Playtest F1 and F2: the trash can's lid and the tidy whistle.
+  | 'trash'
+  | 'whistle';
 
 export interface HintTarget {
   key: HintKey;

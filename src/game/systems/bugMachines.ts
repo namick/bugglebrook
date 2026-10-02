@@ -8,7 +8,15 @@
 import type { BugBrain, EntityId } from '../core/entities';
 import { SIM_HZ } from '../core/loop';
 import type { AdvertCandidate, BugContext, BugDecision, Machines } from './bugTypes';
-import { EMPTY_WORLD, SPOT_BEADS, SPOT_CAULDRON, SPOT_DIAL, SPOT_SLIDE, SPOT_TRAY } from './bugTypes';
+import {
+  EMPTY_WORLD,
+  SPOT_BEADS,
+  SPOT_CAULDRON,
+  SPOT_DIAL,
+  SPOT_SLIDE,
+  SPOT_TRASH,
+  SPOT_TRAY,
+} from './bugTypes';
 import {
   SEEK_TIMEOUT,
   clearIntent,
@@ -43,6 +51,11 @@ export const MACHINE_RANGE = 8;
 /** Stirring: radians a second, and how long a bug keeps at it. */
 export const STIR_RATE = 2.6;
 export const STIR_TICKS = 6 * SIM_HZ;
+/** A bug that loves the trash can dives in at most this often, and some bug at most this often. */
+export const RUMMAGE_REST = 100 * SIM_HZ;
+export const RUMMAGE_GAP = 30 * SIM_HZ;
+/** A rummage lasts this long: a dive, legs kicking, and up it comes. */
+export const RUMMAGE_TICKS = 150;
 /** How long a wish lasts (set by the bench). */
 export const WISH_TICKS = 40 * SIM_HZ;
 
@@ -51,10 +64,17 @@ const PUSH_AT = 40;
 const TOSS_WINDUP = 36;
 const SKID_TICKS = 24;
 
-export type MachineKind = 'dial' | 'tray' | 'cauldron' | 'slide' | 'beads';
+export type MachineKind = 'dial' | 'tray' | 'cauldron' | 'slide' | 'beads' | 'trash';
 
 /** The actions that run as machine use in `st_use`. */
-export const MACHINE_ACTIONS: ReadonlySet<string> = new Set(['turn', 'tinker', 'brew', 'slide', 'wade']);
+export const MACHINE_ACTIONS: ReadonlySet<string> = new Set([
+  'turn',
+  'tinker',
+  'brew',
+  'slide',
+  'wade',
+  'rummage',
+]);
 
 function lastUse(brain: BugBrain, kind: MachineKind): number {
   return brain.machines?.[kind] ?? -Infinity;
@@ -207,6 +227,27 @@ export function machineAdverts(me: EntityId, brain: BugBrain, ctx: BugContext): 
           bonus: 6,
         });
 
+  // Rollo, Barty, and Whiff love the trash can (playtest F1): a dive in, legs kicking, and up with whatever is in it.
+  const can = m.trash;
+  if (
+    can &&
+    def.habits.rummages &&
+    n.need_fun < 75 &&
+    n.need_energy > 25 &&
+    Math.abs(can.ground - state.y) < 2 &&
+    near(can.x, can.ground - 0.5) &&
+    rested(brain, 'trash', tick, RUMMAGE_REST) &&
+    !usedLately(ctx, 'trash', RUMMAGE_GAP)
+  )
+    spot(
+      SPOT_TRASH,
+      besideX(state.x, can.x, 0.75, def.radius),
+      can.ground,
+      'rummage',
+      24,
+      can.count > 0 ? 14 : 5,
+    );
+
   // The treehouse: up the leaf and slide down it, or a wade through the beads.
   const playful = n.need_fun < 85 && n.need_energy > 30;
   if (playful && m.slide && near(m.slide.topX, m.slide.topY + 3) && rested(brain, 'slide', tick, PLAY_REST))
@@ -264,7 +305,7 @@ export function arriveAtMachine(brain: BugBrain, ctx: BugContext, id: EntityId, 
   const { state, rng, tick, def } = ctx;
   const n = ctx.support;
   if (!m || !n) return false;
-  const start = (action: 'turn' | 'tinker' | 'brew' | 'slide' | 'wade', ticks: number): void => {
+  const start = (action: 'turn' | 'tinker' | 'brew' | 'slide' | 'wade' | 'rummage', ticks: number): void => {
     enter(brain, 'st_use', ticks);
     brain.targetId = id;
     brain.action = action;
@@ -295,6 +336,12 @@ export function arriveAtMachine(brain: BugBrain, ctx: BugContext, id: EntityId, 
       out.notices.push(react(brain, 'whee', rng, tick));
       return true;
     }
+    case SPOT_TRASH:
+      if (!m.trash || Math.abs(m.trash.x - state.x) > 0.75 + def.radius + 0.6) return false;
+      brain.facing = m.trash.x >= state.x ? 1 : -1;
+      start('rummage', RUMMAGE_TICKS);
+      out.velocity = grip(n);
+      return true;
     case SPOT_BEADS:
       if (!m.beads || state.y < m.beads.y - def.radius - 1.2) return false;
       start('wade', rng.int(3 * SIM_HZ, 5 * SIM_HZ));
@@ -460,6 +507,17 @@ export function useMachine(brain: BugBrain, ctx: BugContext, out: BugDecision): 
       }
       enterIdle(brain, rng, def);
       out.velocity = grip(n);
+      return out;
+    }
+    case 'rummage': {
+      // Head first in the can, legs kicking; then up, with whatever was in there.
+      out.velocity = n ? grip(n) : null;
+      if (m?.trash) brain.facing = m.trash.x >= state.x ? 1 : -1;
+      if (--brain.timer > 0) return out;
+      done('trash', SPOT_TRASH, 24);
+      enter(brain, 'st_react', 80);
+      clearIntent(brain);
+      out.notices.push({ type: 'rummaged' });
       return out;
     }
     default:

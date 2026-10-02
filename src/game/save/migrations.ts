@@ -324,11 +324,19 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
    */
   12: (save) => ({ ...save, version: 13 }),
   /**
-   * Version 14 (M10) adds `world.journal`. A world without one starts an
-   * empty journal on load, with the bugs, items, and areas its secrets and
-   * bench already prove the player found.
+   * Version 14 (playtest F1 and F2) adds `world.trash` (what the trash can
+   * holds until it goes home) and `world.tidy` (the whistle's queue and its
+   * dice). A world without them has an empty can; loading gives it the tidy
+   * whistle.
    */
   13: (save) => ({ ...save, version: 14 }),
+  /**
+   * Version 15 (M10) adds `world.journal`, `world.clues`, and
+   * `world.hidden`, and entity `home`. A world without a journal starts one
+   * on load, with the bugs, items, and areas its secrets and bench already
+   * prove the player found, and gets the two hidden areas built, still shut.
+   */
+  14: (save) => ({ ...save, version: 15 }),
 };
 
 export class SaveError extends Error {

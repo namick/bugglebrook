@@ -132,7 +132,9 @@ export const HOLLOW_X = 220.8;
 const FLAT: readonly [number, number][] = [
   [PLAZA_X + 1, PLAZA_X + 11.8],
   [PLAZA_X + 16.6, PLAZA_X + 22.4],
-  [PLAZA_X + 27, PLAZA_X + 37.5],
+  [PLAZA_X + 27, PLAZA_X + 31.9],
+  // Not under the trash can's mouth (playtest F1).
+  [PLAZA_X + 34.1, PLAZA_X + 37.5],
 ];
 
 /** The nearest spot to x on flat ground with nothing within 0.7 m. */

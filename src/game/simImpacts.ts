@@ -11,12 +11,15 @@ import { springLaunched } from './systems/bugAi';
 import { SHATTER_SPEED } from './systems/potions';
 import type { Sim } from './sim';
 import { THROWN_TICKS } from './simShared';
+import { inAir } from './simSetupGuard';
 
 export function handleImpacts(sim: Sim, impacts: Impact[]): void {
   const bonked = new Map<EntityId, number>();
   const launched = new Set<EntityId>();
   const breaks = new Map<EntityId, { other: EntityId | null; x: number; y: number }>();
   for (const impact of impacts) {
+    // A contact the setup rule let a hopping bug drop through is no bump and no landing.
+    if (impact.a !== null && impact.b !== null && droppedPast(sim, impact.a, impact.b, impact.ny)) continue;
     for (const [self, other, sign] of [
       [impact.a, impact.b, 1],
       [impact.b, impact.a, -1],
@@ -142,4 +145,17 @@ export function trySpring(
   if (other?.bug && springLaunched(other.bug, springId, sim.tick))
     sim.events.emit('bug_used', { id: otherId, defId: other.defId, targetId: springId, action: 'bounce' });
   return true;
+}
+
+/**
+ * Did a bug in the air (a hop, a spring's throw) just drop past a player
+ * setup? The pre-solve rule switched the contact off, but planck still
+ * reports it as begun, and it must not count as landing on the setup (which
+ * would stand the bug on it).
+ */
+function droppedPast(sim: Sim, a: EntityId, b: EntityId, ny: number): boolean {
+  const ea = sim.entities.get(a);
+  const bug = ea?.bug ? ea : sim.entities.get(b);
+  if (!bug?.bug || !inAir(sim, bug)) return false;
+  return sim.softContact(a, b, ny);
 }
