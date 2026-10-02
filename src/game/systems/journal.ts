@@ -31,6 +31,9 @@ export interface BugObservations {
   photo: boolean;
 }
 
+/** The area every new game starts in. */
+const START_AREA = 'area_stump_plaza';
+
 export interface JournalState {
   /** Bugs met (touched, fed, or found), in order. */
   bugs: string[];
@@ -338,10 +341,13 @@ export class Journal {
     const x = f ? (f.x0 + f.x1) / 2 : null;
     const areas = this.sim.content.areas.all;
     // With no camera (tests, a fresh world), the plaza counts as visited.
-    const area = x === null ? this.sim.content.areas.tryGet('area_stump_plaza') : this.sim.areaOf(x);
+    const area = x === null ? this.sim.content.areas.tryGet(START_AREA) : this.sim.areaOf(x);
     if (!area || areas.length === 0) return;
     if (!this.sim.barriers.isOpen(area.id)) return;
-    if (!this.state.areas.includes(area.id)) this.addTo(this.state.areas, area.id, `area:${area.id}`);
+    if (this.state.areas.includes(area.id)) return;
+    this.addTo(this.state.areas, area.id, `area:${area.id}`);
+    // Every game starts here: it is on the map from the first frame, never a "new!" find (PM-05).
+    if (area.id === START_AREA) this.viewed([`area:${area.id}`]);
   }
 
   /**

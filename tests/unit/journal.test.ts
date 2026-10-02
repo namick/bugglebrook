@@ -17,7 +17,7 @@ import { SAVE_VERSION } from '../../src/game/save/schema';
 import type { SecretDef } from '../../src/game';
 import { MIGRATIONS } from '../../src/game/save/migrations';
 import { validateSaveFile } from '../../src/game/save/validate';
-import { PLAZA_X } from './world';
+import { PLAZA_X, POND_X } from './world';
 import v13 from './fixtures/save-v13.json';
 
 // M10, the journal (game design doc, section 13): entry states, completion,
@@ -47,6 +47,13 @@ describe('the journal book', () => {
     expect(book.areas.filter((a) => a.state === 'discovered').map((a) => a.id)).toEqual(['area_stump_plaza']);
     expect(book.completion.found).toBe(1);
     expect(book.completion.percent).toBeCloseTo(100 / countable());
+    // A new world opens with nothing new on the button: the plaza is where it starts (PM-05).
+    expect(book.newCount).toBe(0);
+    expect(book.areas.find((a) => a.id === 'area_stump_plaza')!.isNew).toBe(false);
+    // Somewhere else, opened and visited, is a find.
+    sim.send({ type: 'focus', x0: POND_X, x1: POND_X + 19.2 });
+    sim.run(60);
+    expect(sim.book().newCount).toBe(1);
     // Blocked secrets are not in the book.
     expect(book.secrets.some((s) => CONTENT.secrets.get(s.id).blocked)).toBe(false);
     expect(book.secrets.every((s) => s.state === 'unknown' && s.hint.length > 0)).toBe(true);
@@ -95,10 +102,10 @@ describe('the journal book', () => {
     expect(feather.isNew).toBe(true);
     expect(feather.stamp).toEqual({ night: false, day: 1 });
     expect(book.fresh.page_items).toBe(1);
-    // The plaza counts on the badge; the feather marks only its tab (P-17).
-    expect(book.fresh.page_map).toBe(1);
-    expect(book.newCount).toBe(1);
-    sim.send({ type: 'journal_seen', keys: ['item:item_feather', 'area:area_stump_plaza'] });
+    // The feather marks only its tab (P-17), and the plaza, where every game starts, is not new (PM-05).
+    expect(book.fresh.page_map).toBe(0);
+    expect(book.newCount).toBe(0);
+    sim.send({ type: 'journal_seen', keys: ['item:item_feather'] });
     sim.step();
     book = sim.book();
     expect(book.items.find((i) => i.id === 'item_feather')!.isNew).toBe(false);
