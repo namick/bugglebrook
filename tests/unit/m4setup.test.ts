@@ -133,3 +133,24 @@ describe('the setup rule over 10 minutes (M4 acceptance)', () => {
     expect(sim.rescues).toBe(0);
   });
 });
+
+describe('the setup rule against things flying', () => {
+  it('a bug a spring threw mid-chase drops past a player stack instead of landing on it', () => {
+    const sim = Sim.empty({ seed: 'spring-thrown' });
+    const x = PLAZA_X + 6.3;
+    const caps = buildStack(sim, x);
+    const start = caps.map((id) => sim.view(id)!);
+    const log = record(sim);
+    // Boing, thrown by a spring in the middle of a game of tag, comes down hard on the stack.
+    const boing = sim.spawn('bug', 'bug_grasshopper_boing', x - 0.25, GROUND_Y - 1.6);
+    boing.bug!.mode = 'st_airborne';
+    boing.bug!.selfLaunched = true;
+    sim.physics.setVelocity(boing.id, 2, 11);
+    sim.run(90);
+    caps.forEach((id, i) => {
+      const b = sim.view(id)!;
+      expect(Math.hypot(b.x - start[i]!.x, b.y - start[i]!.y)).toBeLessThan(0.05);
+    });
+    expect(find(log, 'bonked').filter((e) => caps.includes(e.id))).toEqual([]);
+  });
+});
