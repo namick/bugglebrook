@@ -336,6 +336,20 @@ The journal (M10) and the adaptive music (M9) will subscribe the same way.
 - Signatures (`habits` on each `BugDef`): Dot climbs to the stump top, poses, and glides down on open wings, and walks into view to pose when ignored. Rollo curls into a rolling ball after three pokes in 1.5 s or a fall of 3 m, and lines loose pebbles up in a row by his resting spot. Glorp leaves a slime trail (`env.slime`, 30 s) that makes others slide. Boing gets about in hops of 2.2 to 4.6 m, never hops down more than 1.2 m, hops again after a fling, bounces in place when idle, and shoots out of water in one kick. Skeet hops clear of four or more bugs within 2.5 m.
 - Idle bugs fidget every few seconds: a hum, a yawn when tired, a groom when grubby, a kick when bored, a look around; Skeet twirls on the water.
 
+#### After M8: machines, room to stand, outings, and "later"
+
+- Machines (`systems/bugMachines.ts`, review R20). `BugWorld.machines()` (built by `machinesOf` in `simBugWorld.ts`) shows the AI the sundial, the bench's empty trays, the cauldron, the leaf slide, the bead pit, and the claw jar's walls, each null while its area is shut or asleep. `machineAdverts` adds them to what a bug can choose; the jar's walls hide anything on their far side. A bug uses some machine at most every 75 s, and `brain.machines` keeps when it last used each one.
+  - Sundial: a bored day bug (fun under 50) walks up, leans on the rim, and pushes it two game hours on (`turned_dial`, which calls `Weather.turnDial` and `releaseDial`, the player's path), then looks up in `wonder`. Only between 07:00 and 14:30, only while the dial is in view, and only once in 5 minutes for the whole cast.
+  - Bench: `Bench.wishes` keeps the wish on the brain (`brain.wish`, 40 s). A wishing bug fetches a loose thing that fits the recipe, carries it to the end of the table, and tosses it at the nearest empty tray (`out.throw`, then `tossed`); `Bench.expect` drops it in if it comes down on the tray.
+  - Cauldron: with the pot empty, a bug (fun under 60) tosses an ingredient into the mouth and stirs (`stirred` notices go to `Cauldron.stir`) until it bubbles. It never touches a pot with something in it, and brews at most once in 4 minutes. The ladle follows a stirring bug.
+  - Treehouse: bugs walk up the leaf slide and ride it down (physics does the ride; `whee`), and wade through the bead pit, then hop out over the rim.
+  - Every carried thing comes from `world.loose()` and every toss checks `setupBetween`, so the setup rule holds.
+- Room to stand (R15). An idle bug within 0.22 m of another bug standing still (0.5 m of a sleeper) shuffles a step away (`scoot`), unless it is squeezed on that side too or the player's things are close. Wander targets stop short of a sleeper, food right beside a sleeper is left alone, and obstacle hops never land on a bug, so the first scene's Dot sleeps undisturbed.
+- Outings (R04). On about one wander in 14 (worked out from the tick and ID, no dice), a lively bug at ease heads 2 to 7 m past the nearer edge of its home area, clamped to `ctx.reach`; the home drift brings it back.
+- Signs of life. Moose, stuck, heaves and looks round (`huh`) every 6 to 10 s; Barty stops to polish his ball. Neither takes dice.
+- "Later" (R21). Food held within reach of a busy bug (`st_use`, `st_perform`, `st_social`, `st_seek`, a hop) gets one `later` reaction, with the food in its bubble. For 25 s after, once free, the bug walks over to food still held out up to 6 m away and waits to be fed.
+- `addTreehouseRun` (`save/treehouseRun.ts`) brings saves made before the pegboard's four-piece starting run up to date.
+
 #### The setup rule
 
 `systems/setup.ts`. Grabbing, dropping, or poking an item gives it `tag_player_setup` for 300 s, restarted on every touch. Every 15 ticks the sim finds structures: three or more things resting on each other, or things glued by sticky welds, with at least one touched by the player. Their pieces keep the tag for good (`PERMANENT`), and go back to a 300 s timer when they leave the structure. A structure falling apart fast emits `stack_fell`.

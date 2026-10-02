@@ -600,9 +600,12 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_spinning_top', x: 26.8 },
       { kind: 'item', defId: 'item_jelly_bean', x: 28.9 },
       { kind: 'item', defId: 'item_marble_track_straight', x: 30.2 },
-      // Two pieces already pinned to the pegboard, to show how it works.
+      // A short run already pinned to the pegboard, to show how it works: a
+      // marble dropped on the top piece runs down two more straights, flicks
+      // off the curve, and trundles away across the floor toward the bead pit. The
+      // middle pieces are at the end of this list, so older things keep their IDs.
       { kind: 'item', defId: 'item_marble_track_straight', x: 6.4, y: 2.9, pin: 0.785 },
-      { kind: 'item', defId: 'item_marble_track_curve', x: 8, y: 4.4, pin: 0 },
+      { kind: 'item', defId: 'item_marble_track_curve', x: 11.6, y: 5.6, pin: 0.3 },
       { kind: 'item', defId: 'item_jelly_bean', x: 29.8 },
       // M8: maple seeds, beads from the pit, and a blueprint in the corner.
       { kind: 'item', defId: 'item_maple_seed', x: 25.9 },
@@ -610,6 +613,9 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_glass_bead', x: 21.2 },
       { kind: 'item', defId: 'item_glass_bead', x: 25.4 },
       { kind: 'item', defId: 'item_blueprint_balloon_basket', x: 31.6 },
+      // After M8: the pegboard run's middle pieces (see above).
+      { kind: 'item', defId: 'item_marble_track_straight', x: 7.8, y: 3.9, pin: 0.4 },
+      { kind: 'item', defId: 'item_marble_track_straight', x: 9.4, y: 4.6, pin: 0.4 },
     ],
     respawn: [{ item: 'item_jelly_bean', count: 2 }],
     skyTop: 0x8fd6f2,
@@ -651,7 +657,8 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { id: 'fix_bead_pit', kind: 'bead_pit', x: 17.7, y: 7.9, radius: 0.5, w: 5.6 },
       { id: 'fix_jar_claw', kind: 'jar_claw', x: 23.2, y: 3.8, radius: 0.4, w: 2.8 },
       { id: 'fix_claw_button', kind: 'claw_button', x: 26.2, y: 4.5, radius: 0.35 },
-      { id: 'fix_leaf_slide', kind: 'leaf_slide', x: 31.4, y: 3.1, radius: 0.5 },
+      // The slide's top perch; `w` reaches back to where it meets the floor.
+      { id: 'fix_leaf_slide', kind: 'leaf_slide', x: 31.4, y: 3.1, radius: 0.5, w: 4.6 },
     ],
   },
 ]);

@@ -111,6 +111,37 @@ export class Cauldron {
     return brew(drops, this.sim.content.potions);
   }
 
+  /**
+   * The cauldron as the bug AI sees it (R20): its mouth, how much is in it,
+   * whether it takes more, and which things would tint the brew. Null while
+   * its area is shut or asleep.
+   */
+  bugView(): {
+    x: number;
+    y: number;
+    count: number;
+    ready: boolean;
+    ingredient: (itemId: EntityId) => boolean;
+  } | null {
+    const m = this.mouth();
+    if (!m || !this.ready()) return null;
+    const sim = this.sim;
+    return {
+      x: m.x,
+      y: m.y,
+      count: this.state.contents.length,
+      ready: !this.bubbling && this.state.contents.length < MAX_INGREDIENTS,
+      ingredient: (itemId) => {
+        const e = sim.entities.get(itemId);
+        if (!e || e.kind !== 'item') return false;
+        const def = sim.content.items.get(e.defId);
+        // Bottles and crafted things stay out of it; a bug brews from plain stuff.
+        if (def.potion || def.toy || e.parts) return false;
+        return essenceOf(def, sim.tagsOf(itemId), sim.weather.dark).essence !== null;
+      },
+    };
+  }
+
   /** The drop target over the brew while it has room. */
   candidates(): DropCandidate[] {
     const m = this.mouth();

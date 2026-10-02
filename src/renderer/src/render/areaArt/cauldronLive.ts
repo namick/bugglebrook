@@ -2,6 +2,7 @@ import { Container, Graphics } from 'pixi.js';
 import { PIXELS_PER_METER } from '../../../../game/constants';
 import type { AreaDef, FixtureDef } from '../../../../game/data/types';
 import type { Sim } from '../../../../game/sim';
+import { STIR_RATE } from '../../../../game/systems/bugMachines';
 import { MOUTH_HALF } from '../../../../game/systems/cauldron';
 import { ItemSprite } from '../draw/item';
 import { drawTagIcon } from '../draw/tagIcon';
@@ -123,7 +124,16 @@ export class CauldronLive extends AreaLive {
     this.flash = Math.max(0, this.flash - f.dt * 1.2);
     this.tip = Math.max(0, this.tip - f.dt * 1.4);
     this.splash = Math.max(0, this.splash - f.dt * 2);
-    const want = f.drag?.kind === 'stir' ? f.drag.angle : this.ladle + f.dt * 0.15 * Math.sin(f.time * 0.7);
+    // A bug stirring on its own (R20) sends the ladle round at its pace.
+    const bugStirs = f.sim.entities
+      .ofKind('bug')
+      .some((b) => b.bug?.mode === 'st_use' && b.bug.action === 'brew' && b.bug.done);
+    const want =
+      f.drag?.kind === 'stir'
+        ? f.drag.angle
+        : bugStirs
+          ? this.ladle + STIR_RATE / 14
+          : this.ladle + f.dt * 0.15 * Math.sin(f.time * 0.7);
     this.ladle += angleDiff(want, this.ladle) * Math.min(1, f.dt * 14);
     this.updateLens(f);
     if (!this.shows(f)) return;

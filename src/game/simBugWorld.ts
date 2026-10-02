@@ -4,6 +4,8 @@
 
 import type { EntityId } from './core/entities';
 import type { BugWorld, LooseItem, OtherBug } from './systems/bugAi';
+import type { Machines } from './systems/bugTypes';
+import { hourOf } from './systems/sky';
 import type { Sim } from './sim';
 import { halfExtents } from './simShared';
 
@@ -82,6 +84,7 @@ export function bugWorld(
     return loose;
   };
   const slime = sim.environment.state.slime;
+  let machines: Machines | null = null;
   const world = {
     setups,
     bugs: () => bugs,
@@ -103,6 +106,7 @@ export function bugWorld(
     summit: (x: number) => sim.summitOf(x),
     waterEdge: (x: number) => sim.waterEdge(x),
     stage: () => sim.places.stage(),
+    machines: () => (machines ??= machinesOf(sim)),
     isLight: (id: EntityId) => sim.hasTag(id, 'tag_light'),
     cover: (x: number, fromX: number) => {
       let best: { id: EntityId; x: number } | null = null;
@@ -121,6 +125,50 @@ export function bugWorld(
   };
   sim.worldCache = world;
   return world;
+}
+
+/** A bug pushes the sundial only between these hours: never into the evening, so bedtime stays put. */
+export const DIAL_HOURS: readonly [number, number] = [7, 14.5];
+
+/** The machines of the newer areas, for the bug AI (R20). */
+export function machinesOf(sim: Sim): Machines {
+  const awake = (areaId: string): boolean => sim.barriers.isOpen(areaId) && !sim.isAreaAsleep(areaId);
+  const one = (kind: Parameters<Sim['places']['fixtures']>[0]) => {
+    const f = sim.places.fixtures(kind)[0];
+    return f && awake(f.area.id) ? f : null;
+  };
+  const dialFix = one('sundial');
+  let dial: Machines['dial'] = null;
+  if (dialFix) {
+    const hour = hourOf(sim.weather.state.clock);
+    const view = sim.focus;
+    // Only where somebody can see it, and only in the day's middle.
+    const seen = !view || (dialFix.x > view.x0 && dialFix.x < view.x1);
+    dial = {
+      x: dialFix.x,
+      y: dialFix.fixture.y,
+      turnable: seen && !sim.weather.fastForward && hour >= DIAL_HOURS[0] && hour <= DIAL_HOURS[1],
+    };
+  }
+  const slideFix = one('leaf_slide');
+  const pit = one('bead_pit');
+  const pitHalf = (pit?.fixture.w ?? 4) / 2;
+  const jar = one('jar_claw') ? sim.places.jar() : null;
+  return {
+    dial,
+    bench: sim.bench.bugView(),
+    cauldron: sim.cauldron.bugView(),
+    // The top is a step down from the perch, where a bug standing up there fits.
+    slide: slideFix
+      ? {
+          topX: slideFix.x - 1,
+          topY: slideFix.fixture.y + 0.3,
+          bottomX: slideFix.x - (slideFix.fixture.w ?? 4.6),
+        }
+      : null,
+    beads: pit ? { x0: pit.x - pitHalf + 0.7, x1: pit.x + pitHalf - 0.7, y: pit.fixture.y } : null,
+    walls: jar ? [{ x0: jar.x0, x1: jar.x1 }] : [],
+  };
 }
 
 /** The flat top of the highest ground in the area around x, at least 1.5 m up. */

@@ -26,6 +26,7 @@ import {
   walkVelocity,
 } from './bugMove';
 import { endSocial, updateRide, updateSocial } from './bugSocial';
+import { sliding } from './bugMachines';
 import { addNeeds, decayNeeds, freshNeeds, urgency } from './needs';
 
 export type {
@@ -52,6 +53,7 @@ import {
   GRUMPY_TICKS,
   LIKE_MULTIPLIER,
   PERCEPTION,
+  OFFER_RANGE,
   POKE_WINDOW,
   REACT_TICKS,
   RECENT_KIND,
@@ -165,7 +167,8 @@ function isAirborne(brain: BugBrain): boolean {
     brain.mode === 'st_airborne' ||
     brain.mode === 'st_held' ||
     brain.mode === 'st_swim' ||
-    (brain.mode === 'st_use' && brain.action === 'bounce')
+    (brain.mode === 'st_use' && brain.action === 'bounce') ||
+    sliding(brain)
   );
 }
 
@@ -440,6 +443,10 @@ export function shiftBrain(brain: BugBrain, ticks: number): void {
   brain.fidgetAt = later(brain.fidgetAt);
   brain.slippedAt = later(brain.slippedAt);
   brain.touchedAt = later(brain.touchedAt);
+  if (brain.machines)
+    brain.machines = Object.fromEntries(Object.entries(brain.machines).map(([k, t]) => [k, t + ticks]));
+  if (brain.wish) brain.wish = { ...brain.wish, until: brain.wish.until + ticks };
+  if (brain.later !== undefined) brain.later += ticks;
   brain.used = brain.used.map((u) => ({ ...u, tick: u.tick + ticks }));
   brain.memory = brain.memory.map((m) => ({ ...m, tick: m.tick + ticks }));
   brain.pokes = brain.pokes.map((t) => t + ticks);
@@ -784,9 +791,12 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
     brain.mode === 'st_seek' ||
     (brain.mode === 'st_airborne' && brain.selfLaunched);
   if (brain.social && !socialOk) endSocial(me, brain, ctx, false, out);
+  // Winding up to toss something into a bench tray or the cauldron.
+  const tossing =
+    brain.mode === 'st_use' && (brain.action === 'tinker' || brain.action === 'brew') && !brain.done;
   // Umbrellas, things lifted overhead, and balls rolled along stay in hand through everyday modes.
   const heldUp = (!!brain.umbrella || !!brain.overhead || !!brain.rolling) && UMBRELLA_MODES.has(brain.mode);
-  if (brain.carrying !== null && !socialOk && !heldUp) brain.carrying = null;
+  if (brain.carrying !== null && !socialOk && !heldUp && !tossing) brain.carrying = null;
   if (brain.umbrella && brain.carrying === null) brain.umbrella = false;
   if (brain.carrying === null) {
     delete brain.overhead;
@@ -856,6 +866,7 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
     out.velocity ??= n ? grip(n) : null;
     return out;
   }
+  sayLater(brain, ctx, out);
   switch (brain.mode) {
     case 'st_airborne':
     case 'st_use': {
@@ -1005,6 +1016,7 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
       }
       const liking = food.toasted ? toastedLiking(likingOf(def, food.defId)) : likingOf(def, food.defId);
       brain.mouthful = null;
+      delete brain.later;
       recordUse(brain, itemId, ctx.tick);
       if (liking === 'disliked') {
         // Chews once, pulls a face, and spits it out. Grumpy for a bit.
@@ -1025,6 +1037,39 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
     case 'st_pocketed':
       return out;
   }
+}
+
+/** Busy with something: food held out gets a glance and a "later" instead of a stop (R21). */
+const BUSY: ReadonlySet<BugMode> = new Set<BugMode>([
+  'st_use',
+  'st_perform',
+  'st_social',
+  'st_ride',
+  'st_seek',
+  'st_hide',
+  'st_airborne',
+]);
+/** A "later" lasts this long: once free, the bug goes for food nearby. */
+export const LATER_TICKS = 25 * SIM_HZ;
+/** At most one "later" this often. */
+const LATER_EVERY = 6 * SIM_HZ;
+
+/**
+ * Food held out to a busy bug (R21: Dot on the spring, a cheese puff at her
+ * mouth). It can't stop, but it glances at it and says "later" with the
+ * food in its bubble, and goes for food nearby once it is free. Disliked
+ * food gets nothing; a bug already going to eat just carries on.
+ */
+function sayLater(brain: BugBrain, ctx: BugContext, out: BugDecision): void {
+  const o = ctx.offered;
+  if (!o || !BUSY.has(brain.mode) || brain.pending || ctx.held) return;
+  if (brain.mode === 'st_airborne' && !brain.selfLaunched) return;
+  if (brain.mode === 'st_seek' && brain.action === 'eat') return;
+  if (Math.hypot(o.x - ctx.state.x, o.y - ctx.state.y) > OFFER_RANGE) return;
+  if (o.defId && likingOf(ctx.def, o.defId) === 'disliked') return;
+  if (brain.later !== undefined && ctx.tick < brain.later - LATER_TICKS + LATER_EVERY) return;
+  brain.later = ctx.tick + LATER_TICKS;
+  out.notices.push(react(brain, 'later', ctx.rng, ctx.tick));
 }
 
 /** Five leafy meals, and the next night Munch spins a cocoon. */
