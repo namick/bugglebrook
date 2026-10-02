@@ -145,6 +145,7 @@ export class Hollow {
     sim.physics.setPinned(e.id, true);
     e.pinned = true;
     sim.events.emit('marble_seated', { id: e.id, x: cup.x, y: cup.y });
+    if (sim.findSecret('secret_golden_marble_home', cup.x, cup.y)) this.startFinale();
   }
 
   // --- The finale ----------------------------------------------------------

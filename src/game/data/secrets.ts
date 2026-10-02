@@ -9,12 +9,6 @@ import { createRegistry } from './registry';
  * `tests/unit/secretAudit.test.ts` checks that every other secret has a
  * trigger in the code.
  */
-/**
- * Secrets being built in M10, blocked until their trigger lands. Each one
- * leaves this list when it does; the list must be empty when M10 ships.
- */
-export const M10_PENDING: ReadonlySet<string> = new Set(['secret_golden_marble_home']);
-
 function secret(
   id: string,
   tier: 1 | 2 | 3,
@@ -31,11 +25,7 @@ function secret(
     unlocks: extra.unlocks ?? [],
     hint,
     ...(extra.requires ? { requires: extra.requires } : {}),
-    ...(extra.blocked
-      ? { blocked: extra.blocked }
-      : M10_PENDING.has(id)
-        ? { blocked: 'Being built in M10' }
-        : {}),
+    ...(extra.blocked ? { blocked: extra.blocked } : {}),
   };
 }
 
