@@ -391,7 +391,20 @@ describe('save migrations from every shipped version', () => {
   const fixture = (v: number): Record<string, unknown> =>
     JSON.parse(readFileSync(join(import.meta.dirname, 'fixtures', `save-v${v}.json`), 'utf8'));
 
-  for (const v of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12]) {
+  // Every fixture in the folder, so a new one is never left out (P-10).
+  const versions = readdirSync(join(import.meta.dirname, 'fixtures'))
+    .map((f) => /^save-v(\d+)\.json$/.exec(f)?.[1])
+    .filter((v): v is string => v !== undefined)
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  it('has a real save for every shipped version', () => {
+    // The newest version may not have shipped yet; every one before it has.
+    const upTo = Math.max(SAVE_VERSION - 1, versions.at(-1) ?? 0);
+    expect(versions).toEqual(Array.from({ length: upTo }, (_, i) => i + 1));
+  });
+
+  for (const v of versions) {
     it(`loads a real version ${v} save and plays on`, () => {
       const raw = fixture(v);
       expect(raw.version).toBe(v);
