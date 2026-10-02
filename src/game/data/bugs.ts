@@ -1,12 +1,12 @@
 import type { BugDef } from './types';
 import { createRegistry } from './registry';
 
-// The cast so far (game design doc, section 4): the five starting bugs, Flick,
-// M7's six found bugs, and M11's three music bugs (Buzzby, Fiddle, Luma). The rest of the sixteen arrive in later
-// milestones; keep these IDs stable. Likes follow the bug
-// profiles, limited to foods that exist so far. Every bug has at least one
-// loved, liked, neutral, and disliked food in the plaza, so players can
-// learn tastes from the mouth glow and the reactions.
+// The whole cast of sixteen (game design doc, section 4): the five starting
+// bugs, Flick, M7's six found bugs, M10's Wubbo, and M11's three
+// music bugs (Buzzby, Fiddle, Luma). Keep these IDs stable. Likes follow the
+// bug profiles. Every bug has at least one loved, liked, neutral, and
+// disliked food somewhere in the world (a test checks), so players can learn
+// tastes from the mouth glow and the reactions.
 export const BUGS = createRegistry<BugDef>('bug', [
   {
     id: 'bug_ladybug_dot',

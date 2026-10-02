@@ -1,6 +1,6 @@
 # Bugglebrook
 
-Bugglebrook is a sandbox game about tiny bugs in a backyard. The bugs wander around on their own, and everything in the world can be picked up, stacked, and flung. You can't lose, and nothing is timed. There are secrets to find. It's aimed at players around 13. Every picture and sound is generated in code, so the repo has no image or audio assets.
+Bugglebrook is a sandbox game about tiny bugs in a backyard. The bugs wander around on their own, and everything in the world can be picked up, stacked, and flung. You can't lose, and nothing is timed. There are secrets to find. It's aimed at players around 13. The pictures, sound effects, and bug voices are drawn and synthesized in code. The background music is the owner's own tracks (`assets/music/`, built into `src/renderer/public/music/`), and hand-drawn art and recorded sounds can replace the code-made ones one at a time, each keeping the code version as its fallback.
 
 It's an Electron app for Windows, macOS, and Linux. `docs/00-decisions.md` holds the product decisions, and `docs/04-architecture.md` explains how the code fits together.
 
@@ -16,7 +16,7 @@ pnpm dev          # run the app with hot reload
 ## Test
 
 ```sh
-pnpm typecheck    # four tsconfigs: sim core, main/preload, renderer, E2E
+pnpm typecheck    # five tsconfigs: sim core, main/preload, renderer, E2E, scripts
 pnpm lint         # ESLint and Prettier
 pnpm test         # Vitest, headless
 pnpm test:e2e     # builds, then drives the real app with Playwright
