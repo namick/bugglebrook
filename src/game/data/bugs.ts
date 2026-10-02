@@ -5,8 +5,9 @@ import { createRegistry } from './registry';
 // bugs, Flick, M7's six found bugs, M10's Wubbo, and M11's three
 // music bugs (Buzzby, Fiddle, Luma). Keep these IDs stable. Likes follow the
 // bug profiles. Every bug has at least one loved, liked, neutral, and
-// disliked food somewhere in the world (a test checks), so players can learn
-// tastes from the mouth glow and the reactions.
+// disliked food in the plaza, and a loved and a disliked food in its home
+// area (tests check both), so players can learn tastes from the mouth glow
+// and the reactions.
 export const BUGS = createRegistry<BugDef>('bug', [
   {
     id: 'bug_ladybug_dot',
@@ -192,8 +193,14 @@ export const BUGS = createRegistry<BugDef>('bug', [
     // His weird favorite is the ice cube.
     loves: ['item_blueberry', 'item_ice_cube'],
     likes: ['item_mint_leaf', 'item_berry_red', 'item_sugar_cube', 'item_acc_sunglasses', 'item_acc_snorkel'],
-    // Mud and muck: he keeps his long legs clean.
-    dislikes: ['item_rotten_banana_bit', 'item_moss_tuft', 'item_compost_goo', 'item_hat_yarn_beanie'],
+    // Mud and muck: he keeps his long legs clean. Soap breaks the water's skin under him.
+    dislikes: [
+      'item_soap_sliver',
+      'item_rotten_banana_bit',
+      'item_moss_tuft',
+      'item_compost_goo',
+      'item_hat_yarn_beanie',
+    ],
     likesFlinging: false,
     dizzyProof: false,
     mouth: [0.6, -0.1],
@@ -301,17 +308,16 @@ export const BUGS = createRegistry<BugDef>('bug', [
     habits: {},
     needWeights: { need_hunger: 0.8, need_fun: 1.3, need_energy: 0.9, need_social: 1.3, need_clean: 0.7 },
     // Sweet nectar for a firefly. His weird favorite, the toy battery, arrives with the porch.
-    loves: ['item_sugar_cube'],
-    likes: [
-      'item_blueberry',
-      'item_berry_red',
-      'item_jelly_bean',
-      'item_honey_drop',
-      'item_hat_candle',
-      'item_acc_headlamp',
+    loves: ['item_sugar_cube', 'item_blueberry'],
+    likes: ['item_berry_red', 'item_jelly_bean', 'item_honey_drop', 'item_hat_candle', 'item_acc_headlamp'],
+    // Stink clouds put his light out, and soap bubbles fog it.
+    dislikes: [
+      'item_soap_sliver',
+      'item_rotten_banana_bit',
+      'item_pepper_hot',
+      'item_onion_ring',
+      'item_acc_sunglasses',
     ],
-    // Stink clouds put his light out.
-    dislikes: ['item_rotten_banana_bit', 'item_pepper_hot', 'item_onion_ring', 'item_acc_sunglasses'],
     likesFlinging: true,
     dizzyProof: false,
     mouth: [0.4, 0.12],
@@ -363,15 +369,10 @@ export const BUGS = createRegistry<BugDef>('bug', [
     habits: { stinkCloud: true, rummages: true },
     needWeights: { need_hunger: 1, need_fun: 0.8, need_energy: 1, need_social: 1.2, need_clean: 0.6 },
     // His weird favorite is the mint leaf: he eats it hoping to smell nice. He doesn't.
-    loves: ['item_onion_ring', 'item_compost_goo', 'item_mint_leaf'],
-    likes: [
-      'item_cheese_puff',
-      'item_crumb_cookie',
-      'item_rotten_banana_bit',
-      'item_hat_goo',
-      'item_acc_bowtie_ribbon',
-    ],
-    dislikes: ['item_pepper_hot', 'item_fizz_candy', 'item_hat_party_cone'],
+    loves: ['item_onion_ring', 'item_compost_goo', 'item_mint_leaf', 'item_cheese_puff'],
+    likes: ['item_crumb_cookie', 'item_rotten_banana_bit', 'item_hat_goo', 'item_acc_bowtie_ribbon'],
+    // Popcorn kernels are too hard for him.
+    dislikes: ['item_pepper_hot', 'item_fizz_candy', 'item_popcorn_kernel', 'item_hat_party_cone'],
     likesFlinging: false,
     dizzyProof: false,
     mouth: [0.5, 0.2],
@@ -531,7 +532,8 @@ export const BUGS = createRegistry<BugDef>('bug', [
       'item_hat_flower_petal',
       'item_acc_bandaid',
     ],
-    dislikes: ['item_pepper_hot', 'item_onion_ring', 'item_hat_chef'],
+    // Pollen makes him sneeze.
+    dislikes: ['item_pepper_hot', 'item_onion_ring', 'item_pollen_puff', 'item_hat_chef'],
     likesFlinging: true,
     dizzyProof: false,
     mouth: [0.62, 0.18],
@@ -580,10 +582,16 @@ export const BUGS = createRegistry<BugDef>('bug', [
     },
     habits: { chops: true, fashion: true },
     needWeights: { need_hunger: 0.9, need_fun: 1.2, need_energy: 0.9, need_social: 1.1, need_clean: 1.4 },
-    loves: ['item_honey_drop', 'item_sugar_cube', 'item_hat_chef'],
+    loves: ['item_honey_drop', 'item_sugar_cube', 'item_jelly_bean', 'item_hat_chef'],
     likes: ['item_blueberry', 'item_petal', 'item_fizz_candy', 'item_acc_bowtie_ribbon', 'item_acc_monocle'],
-    // Mess and stink.
-    dislikes: ['item_rotten_banana_bit', 'item_compost_goo', 'item_onion_ring', 'item_hat_goo'],
+    // Mess and stink, and pollen dust on her green.
+    dislikes: [
+      'item_rotten_banana_bit',
+      'item_compost_goo',
+      'item_onion_ring',
+      'item_pollen_puff',
+      'item_hat_goo',
+    ],
     likesFlinging: true,
     dizzyProof: false,
     mouth: [0.7, -0.3],
@@ -686,7 +694,7 @@ export const BUGS = createRegistry<BugDef>('bug', [
     // He likes extremes of all kinds. He "dislikes" mint, but even that makes him laugh.
     loves: ['item_moss_tuft', 'item_pepper_hot', 'item_ice_cube'],
     likes: ['item_rotten_banana_bit', 'item_jelly_bean', 'item_compost_goo'],
-    dislikes: ['item_mint_leaf'],
+    dislikes: ['item_mint_leaf', 'item_coffee_bean'],
     likesFlinging: true,
     dizzyProof: true,
     mouth: [0.5, 0.06],
@@ -744,8 +752,8 @@ export const BUGS = createRegistry<BugDef>('bug', [
       'item_petal',
       'item_hat_flower_petal',
     ],
-    // Stink.
-    dislikes: ['item_rotten_banana_bit', 'item_onion_ring', 'item_compost_goo', 'item_hat_goo'],
+    // Stink, and plain old leaves (no flower in them).
+    dislikes: ['item_rotten_banana_bit', 'item_onion_ring', 'item_compost_goo', 'item_leaf', 'item_hat_goo'],
     likesFlinging: false,
     dizzyProof: false,
     mouth: [0.42, 0.14],
@@ -803,7 +811,14 @@ export const BUGS = createRegistry<BugDef>('bug', [
       'item_hat_tiny_top_hat',
       'item_hat_yarn_beanie',
     ],
-    dislikes: ['item_pepper_hot', 'item_coffee_bean', 'item_fizz_candy', 'item_hat_party_cone'],
+    // Pollen makes him sneeze mid-song.
+    dislikes: [
+      'item_pepper_hot',
+      'item_coffee_bean',
+      'item_fizz_candy',
+      'item_pollen_puff',
+      'item_hat_party_cone',
+    ],
     likesFlinging: false,
     dizzyProof: false,
     mouth: [0.5, 0.1],
@@ -853,9 +868,16 @@ export const BUGS = createRegistry<BugDef>('bug', [
     habits: { moth: true },
     needWeights: { need_hunger: 0.8, need_fun: 1, need_energy: 1.3, need_social: 1, need_clean: 0.8 },
     // Her weird favorite is the headlamp: she tries to fly toward her own head and spins in circles.
-    loves: ['item_honey_drop', 'item_acc_headlamp'],
+    loves: ['item_honey_drop', 'item_crumb_cookie', 'item_acc_headlamp'],
     likes: ['item_petal', 'item_sugar_cube', 'item_bluebell_bloom', 'item_acc_sunglasses'],
-    dislikes: ['item_pepper_hot', 'item_onion_ring', 'item_coffee_bean', 'item_hat_bubble'],
+    // Cheese dust sticks to her wings.
+    dislikes: [
+      'item_pepper_hot',
+      'item_onion_ring',
+      'item_coffee_bean',
+      'item_cheese_puff',
+      'item_hat_bubble',
+    ],
     likesFlinging: false,
     dizzyProof: false,
     mouth: [0.46, 0.1],

@@ -14,7 +14,8 @@ import {
   pickVariant,
 } from '../../src/game/systems/bugAi';
 import { DROP_RULES, pickDropTarget } from '../../src/game/systems/dropTargets';
-import { validateContent } from '../../src/game/data';
+import { CONTENT, validateContent } from '../../src/game/data';
+import { CLAW_POOL, GAP_POOL_DAY, GAP_POOL_NIGHT } from '../../src/game/systems/places';
 import { PLAZA_X } from './world';
 
 type Logged = { name: keyof GameEvents; payload: unknown; tick: number };
@@ -413,6 +414,30 @@ describe('content for M2', () => {
         ),
       );
       expect([...kinds].sort(), bug.id).toEqual(['disliked', 'liked', 'loved', 'neutral']);
+    }
+  });
+
+  it('every bug has a loved and a disliked food at home, so feeding there gets a real reaction (P-18)', () => {
+    // What turns up in each area: its start list, respawns, shelf jars, and the pools its fixtures drop from.
+    const POOLS: Record<string, readonly string[]> = {
+      area_treehouse_arcade: CLAW_POOL,
+      area_under_porch: [...GAP_POOL_DAY, ...GAP_POOL_NIGHT],
+    };
+    for (const bug of BUGS.all) {
+      const area = CONTENT.areas.get(bug.home);
+      const ids = new Set<string>(POOLS[area.id] ?? []);
+      for (const s of area.start) if (s.kind === 'item') ids.add(s.defId);
+      for (const r of area.respawn) ids.add(r.item);
+      for (const f of area.fixtures ?? []) if (f.kind === 'shelf_jar' && f.item) ids.add(f.item);
+      const foods = [...ids].filter((id) => CONTENT.items.get(id).tags.includes('tag_edible'));
+      expect(
+        foods.filter((f) => bug.loves.includes(f)),
+        `${bug.id} loves something in ${area.id}`,
+      ).not.toEqual([]);
+      expect(
+        foods.filter((f) => bug.dislikes.includes(f)),
+        `${bug.id} dislikes something in ${area.id}`,
+      ).not.toEqual([]);
     }
   });
 });
