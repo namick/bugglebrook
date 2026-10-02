@@ -67,6 +67,10 @@ export const WAKE_IMPACT = 6;
 /** Woken early, a bug is groggy for 3 s and nods off again 20 s later if still tired. */
 export const GROGGY_TICKS = 3 * SIM_HZ;
 export const RENAP_TICKS = 20 * SIM_HZ;
+/** Woken by the player (a poke, a grab, food at its nose), a bug stays up this long before it may nod off (P-14). */
+export const STAY_UP_TICKS = 60 * SIM_HZ;
+/** Food held this close (m) to a sleeping bug's middle wakes it. */
+export const SNIFF_WAKE = 1.2;
 /** Rested enough to wake up on its own. */
 export const RESTED = 99.5;
 /** Dot poses this long at the top before she leaps. */

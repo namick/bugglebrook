@@ -5,6 +5,8 @@ import { Rng } from '../../src/game/core/rng';
 import { BUGS } from '../../src/game/data/bugs';
 import { DECAY, NIGHT_ENERGY, decayNeeds } from '../../src/game/systems/needs';
 import { newBugBrain } from '../../src/game/systems/bugAi';
+import { PLAZA_X } from './world';
+import { STAY_UP_TICKS } from '../../src/game/systems/bugTuning';
 
 // M6 (game design doc, sections 11 and 19): the long runs, night and a
 // determinism check, in their own file so they run beside the rest.
@@ -84,7 +86,7 @@ describe('night', () => {
     for (const id of ids) expect(sim.view(id)!.bug!.mode).not.toBe('st_sleep');
   });
 
-  it('a woken bug at night is groggy, stays up a while, then goes back to bed', () => {
+  it('a woken bug at night is groggy, stays up a while for the player, then goes back to bed', () => {
     const sim = Sim.create({ seed: 'renap' });
     calm(sim);
     sim.send({ type: 'set_time', hour: 22 });
@@ -95,10 +97,69 @@ describe('night', () => {
     sim.send({ type: 'poke', x: g.x, y: g.y });
     sim.step();
     expect(sim.view(glorp)!.bug!.groggy).toBe(true);
-    sim.run(10 * 60);
-    expect(sim.view(glorp)!.bug!.mode).not.toBe('st_sleep');
+    // Up a good while for the one who woke him (P-14), checked every 5 s.
+    for (let t = 0; t < STAY_UP_TICKS - 5 * 60; t += 5 * 60) {
+      sim.run(5 * 60);
+      expect(sim.view(glorp)!.bug!.mode).not.toBe('st_sleep');
+    }
     sim.run(25 * 60);
     expect(sim.view(glorp)!.bug!.mode).toBe('st_sleep');
+  });
+
+  it('a sleeping day bug wakes for food held at its nose, and stays up a while (P-14)', () => {
+    const sim = Sim.create({ seed: 'snack' });
+    calm(sim);
+    sim.send({ type: 'set_time', hour: 23 });
+    sim.run(60 * 60);
+    const dot = byDef(sim, 'bug_ladybug_dot');
+    expect(sim.view(dot)!.bug!.mode).toBe('st_sleep');
+    const d = sim.view(dot)!;
+    const berry = sim.spawn('item', 'item_jelly_bean', d.x + 3, GROUND_Y - 0.3);
+    sim.run(10);
+    const b = sim.view(berry.id)!;
+    sim.send({ type: 'grab', x: b.x, y: b.y });
+    sim.step();
+    for (let i = 0; i < 60; i++) {
+      sim.send({ type: 'drag', x: d.x + 0.5, y: d.y - 0.3 });
+      sim.step();
+    }
+    expect(sim.view(dot)!.bug!.mode).not.toBe('st_sleep');
+    sim.send({ type: 'release', vx: 0, vy: 0 });
+    sim.run(40 * 60);
+    expect(sim.view(dot)!.bug!.mode).not.toBe('st_sleep');
+  });
+
+  it('Flick, Fiddle, and Luma are up and about in the middle of the night (P-14)', () => {
+    const sim = Sim.create({ seed: 'night-owls' });
+    sim.send({ type: 'unlock', area: 'area_under_porch' });
+    sim.send({ type: 'set_time', hour: 23 });
+    sim.step();
+    const owls = ['bug_firefly_flick', 'bug_cricket_fiddle', 'bug_moth_luma'];
+    const ids = owls.map((d, i) => sim.cast.find(d, PLAZA_X + 8 + i * 4, GROUND_Y - 1)!.id);
+    sim.send({ type: 'focus', x0: PLAZA_X + 4, x1: PLAZA_X + 23.2 });
+    const from = ids.map((id) => sim.view(id)!.x);
+    let awake = 0;
+    for (let s = 0; s < 120; s++) {
+      sim.run(60);
+      for (const id of ids) if (sim.view(id)!.bug!.mode !== 'st_sleep') awake++;
+    }
+    // Awake nearly all the time, and each gets about.
+    expect(awake).toBeGreaterThan(0.9 * 120 * ids.length);
+    const moved = ids.map((id, i) => Math.abs(sim.view(id)!.x - from[i]!));
+    expect(moved.filter((m) => m > 0.5).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('the first hour of the night only tired day bugs turn in (P-14)', () => {
+    const sim = Sim.create({ seed: 'evening' });
+    calm(sim);
+    sim.send({ type: 'set_time', hour: 20 });
+    const ids = DAY_BUGS.map((d) => byDef(sim, d));
+    for (const id of ids) sim.send({ type: 'set_need', id, need: 'need_energy', value: 90 });
+    sim.run(40 * 60);
+    for (const id of ids) expect(sim.view(id)!.bug!.mode, sim.view(id)!.defId).not.toBe('st_sleep');
+    sim.send({ type: 'set_time', hour: 21.5 });
+    sim.run(60 * 60);
+    for (const id of ids) expect(sim.view(id)!.bug!.mode, sim.view(id)!.defId).toBe('st_sleep');
   });
 
   it('energy runs down 2.5 times faster up past bedtime', () => {

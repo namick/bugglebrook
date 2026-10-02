@@ -55,6 +55,13 @@ export const FLASHES = 3;
 export const FLASH_WINDOW = 8 * SIM_HZ;
 /** Day bugs wake at dawn once rested, spread over this long so they don't all pop up at once. */
 const WAKE_SPREAD = 50 * MINUTE;
+/**
+ * Day bugs' deep sleep: from 21:00 to 04:30 (plus the spread). The first
+ * hour of the night only tired bugs turn in, so a kid who starts playing at
+ * dusk still finds the world awake (P-14).
+ */
+export const DAY_BEDTIME = 21 * HOUR;
+export const DAY_WAKE = 4.5 * HOUR;
 
 /**
  * Day, night, and weather in the world (game design doc, section 11): runs
@@ -130,13 +137,17 @@ export class Weather {
     const t = timeOfDay(this.state.clock);
     const spread = ((id * 7919) % 97) / 97;
     if (def.active === 'night') return t >= 7 * HOUR + spread * WAKE_SPREAD * 0.4 && t < 18 * HOUR;
-    return t >= 20 * HOUR || t < 5 * HOUR + spread * WAKE_SPREAD;
+    return t >= DAY_BEDTIME || t < DAY_WAKE + spread * WAKE_SPREAD;
   }
 
-  /** Dusk (or the last of the night for night bugs): tired bugs head to bed early. */
+  /**
+   * Dusk and the evening before bedtime (or the last of the night for night
+   * bugs): tired bugs head to bed early.
+   */
   eveningFor(def: BugDef): boolean {
-    const phase = this.phase;
-    return def.active === 'night' ? phase === 'phase_dawn' : phase === 'phase_dusk';
+    if (def.active === 'night') return this.phase === 'phase_dawn';
+    const t = timeOfDay(this.state.clock);
+    return this.phase === 'phase_dusk' || (t >= 18 * HOUR && t < DAY_BEDTIME);
   }
 
   // --- Commands -----------------------------------------------------------

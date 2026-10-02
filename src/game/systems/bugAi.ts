@@ -60,6 +60,8 @@ import {
   RECENT_USE,
   RECOVER_TICKS,
   RENAP_TICKS,
+  SNIFF_WAKE,
+  STAY_UP_TICKS,
   REPEAT_WINDOW,
   RESTED,
   SHY_RANGE,
@@ -393,7 +395,7 @@ export function pokeBug(brain: BugBrain): boolean {
  */
 export function pokedBug(brain: BugBrain, def: BugDef, rng: Rng, tick: number): BugNotice[] | null {
   brain.touchedAt = tick;
-  if (brain.mode === 'st_sleep') return wakeBug(brain, true, rng, tick);
+  if (brain.mode === 'st_sleep') return wakeBug(brain, true, rng, tick, STAY_UP_TICKS);
   brain.pokes = [...brain.pokes.filter((t) => tick - t < POKE_WINDOW), tick].slice(-3);
   if (!pokeBug(brain)) return null;
   if (def.curlsWhenFlung && def.traits.nervous >= 0.5 && brain.pokes.length >= 3) {
@@ -485,18 +487,30 @@ export function beckonBug(brain: BugBrain, def: BugDef, x: number, handX: number
   return true;
 }
 
+/** Food the player holds right at a sleeping bug (not one a sleepy potion keeps under). */
+function sniffsFood(ctx: BugContext): boolean {
+  const o = ctx.offered;
+  return !!o && !ctx.drowsy && Math.hypot(o.x - ctx.state.x, o.y - ctx.state.y) < SNIFF_WAKE;
+}
+
 /**
  * Wake a sleeping bug. Woken early (a poke, a grab, a bump), it is groggy
  * for 3 s and nods off again after 20 s if it is still tired.
  */
-export function wakeBug(brain: BugBrain, early: boolean, rng: Rng, tick: number): BugNotice[] {
+export function wakeBug(
+  brain: BugBrain,
+  early: boolean,
+  rng: Rng,
+  tick: number,
+  stayUp: number = RENAP_TICKS,
+): BugNotice[] {
   if (brain.mode !== 'st_sleep') return [];
   enter(brain, 'st_react', early ? GROGGY_TICKS : 70);
   clearIntent(brain);
   if (early) {
     brain.groggyUntil = tick + GROGGY_TICKS;
-    // Still tired, or woken at bedtime: back to sleep in 20 s.
-    brain.napAt = tick + RENAP_TICKS;
+    // Still tired, or woken at bedtime: back to sleep in a while (longer when the player woke it).
+    brain.napAt = tick + stayUp;
   }
   return [{ type: 'woke', early }, react(brain, 'wake', rng, tick)];
 }
@@ -912,6 +926,8 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
         return out;
       }
       if (ctx.impact > WAKE_IMPACT) out.notices.push(...wakeBug(brain, true, rng, ctx.tick));
+      // Food held at its nose: it wakes up for a snack and stays up a while.
+      else if (sniffsFood(ctx)) out.notices.push(...wakeBug(brain, true, rng, ctx.tick, STAY_UP_TICKS));
       // Rested, it wakes on its own; but never in the middle of its night.
       // A sleepy potion keeps it asleep until it wears off.
       else if (brain.needs.need_energy >= RESTED && !ctx.sky?.bedtime && !ctx.drowsy)
