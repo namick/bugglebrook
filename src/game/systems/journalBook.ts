@@ -21,6 +21,29 @@ export type PageId =
   | 'page_photos'
   | 'page_map';
 
+/** What one item counts for in the completion jar, against 1 for a bug, recipe, potion, secret, or place (P-35). */
+export const ITEM_WEIGHT = 0.25;
+
+/**
+ * The tabs whose new finds count on the journal button's badge. Items are
+ * left out (P-17): every new kind picked up would keep the number climbing
+ * like a to-do list. They still mark their own tab.
+ */
+export const BADGE_PAGES: readonly PageId[] = [
+  'page_bugs',
+  'page_recipes',
+  'page_potions',
+  'page_secrets',
+  'page_mysteries',
+  'page_photos',
+  'page_map',
+];
+
+/** The badge's number: new finds on the tabs in BADGE_PAGES. */
+export function badgeCount(fresh: Readonly<Record<PageId, number>>): number {
+  return BADGE_PAGES.reduce((n, page) => n + fresh[page], 0);
+}
+
 export const PAGE_IDS: readonly PageId[] = [
   'page_bugs',
   'page_items',
@@ -347,9 +370,13 @@ export function journalBook(input: BookInput): JournalBook {
     };
   });
 
-  const counted = [...bugs.map((b) => b.entry), ...items, ...recipes, ...potions, ...secrets, ...areas];
-  const done = counted.filter((e) => e.state === 'discovered').length;
-  const total = counted.length;
+  // Items are a side shelf (P-35): each weighs ITEM_WEIGHT of an entry, so
+  // the jar fills mostly from bugs, recipes, potions, secrets, and places.
+  const counted = [...bugs.map((b) => b.entry), ...recipes, ...potions, ...secrets, ...areas];
+  const discovered = (list: readonly JournalEntry[]): number =>
+    list.filter((e) => e.state === 'discovered').length;
+  const done = discovered(counted) + ITEM_WEIGHT * discovered(items);
+  const total = counted.length + ITEM_WEIGHT * items.length;
   const fresh: Record<PageId, number> = {
     page_bugs: bugs.filter((b) => b.entry.isNew).length,
     page_items: items.filter((e) => e.isNew).length,
@@ -380,7 +407,7 @@ export function journalBook(input: BookInput): JournalBook {
     areaCounts,
     completion: { found: done, total, percent: total === 0 ? 0 : (100 * done) / total },
     fresh,
-    newCount: Object.values(fresh).reduce((a, b) => a + b, 0),
+    newCount: badgeCount(fresh),
     sparklePage,
   };
 }

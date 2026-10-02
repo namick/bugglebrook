@@ -1,6 +1,6 @@
 import type { Content } from '../../../game/data';
 import type { ItemGroup, JournalBook, JournalEntry, PageId } from '../../../game';
-import { ITEM_GROUPS, MAP_AREAS, PAGE_IDS } from '../../../game';
+import { ITEM_GROUPS, MAP_AREAS, PAGE_IDS, badgeCount } from '../../../game';
 
 /**
  * How the journal's pages split into spreads, the jar's glowing dots, the
@@ -198,7 +198,7 @@ export function withSeen(book: JournalBook, seen: ReadonlySet<string>): JournalB
     secrets,
     areas,
     fresh,
-    newCount: Object.values(fresh).reduce((a, b) => a + b, 0),
+    newCount: badgeCount(fresh),
   };
 }
 

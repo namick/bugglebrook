@@ -36,9 +36,12 @@ export type {
   PageId,
 } from './systems/journalBook';
 export {
+  BADGE_PAGES,
   ITEM_GROUPS,
+  ITEM_WEIGHT,
   MAP_AREAS,
   PAGE_IDS,
+  badgeCount,
   dateStamp,
   itemGroup,
   journalBook,

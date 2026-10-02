@@ -3,6 +3,7 @@ import {
   BUTTERFLY_KEY,
   CONTENT,
   GROUND_Y,
+  ITEM_WEIGHT,
   MAP_AREAS,
   SPARKLE_AFTER,
   Sim,
@@ -31,7 +32,7 @@ function world(seed = 'journal'): Sim {
 const countable = (): number =>
   CONTENT.bugs.all.length +
   1 + // Munch's butterfly form.
-  journalItems(CONTENT).length +
+  ITEM_WEIGHT * journalItems(CONTENT).length + // Items are a side shelf (P-35).
   CONTENT.recipes.all.length +
   journalPotions(CONTENT).length +
   CONTENT.secrets.all.filter((s) => !s.blocked).length +
@@ -51,7 +52,7 @@ describe('the journal book', () => {
     expect(book.secrets.every((s) => s.state === 'unknown' && s.hint.length > 0)).toBe(true);
   });
 
-  it('completion percent is discovered over all countable entries', () => {
+  it('completion percent is discovered over all countable entries, items weighing less', () => {
     const sim = world();
     sim.findSecret('secret_sun_shades', PLAZA_X, 5);
     sim.findSecret('secret_bug_totem', PLAZA_X, 5);
@@ -62,12 +63,23 @@ describe('the journal book', () => {
     sim.send({ type: 'poke', x: s.x, y: s.y });
     sim.run(3);
     const book = sim.book();
-    const found = [...book.bugs.map((b) => b.entry), ...book.items, ...book.recipes, ...book.potions]
+    const found = [...book.bugs.map((b) => b.entry), ...book.recipes, ...book.potions]
       .concat(book.secrets, book.areas)
       .filter((e) => e.state === 'discovered').length;
-    expect(found).toBe(4);
-    expect(book.completion.found).toBe(found);
-    expect(book.completion.percent).toBeCloseTo((100 * found) / book.completion.total);
+    expect(found).toBe(3);
+    expect(book.items.filter((e) => e.state === 'discovered')).toHaveLength(1);
+    expect(book.completion.found).toBe(found + ITEM_WEIGHT);
+    expect(book.completion.percent).toBeCloseTo((100 * (found + ITEM_WEIGHT)) / book.completion.total);
+  });
+
+  it('fills the jar mostly from discoveries, not pickups (P-35)', () => {
+    const sim = world();
+    sim.journal.state.items.push(...journalItems(CONTENT).map((d) => d.id));
+    const book = sim.book();
+    expect(book.items.every((e) => e.state === 'discovered')).toBe(true);
+    // Every item picked up is still well under a third of the jar.
+    expect(book.completion.percent).toBeLessThan(33);
+    expect(book.completion.percent).toBeGreaterThan(15);
   });
 
   it('marks found entries new until the player looks at them', () => {
@@ -83,7 +95,9 @@ describe('the journal book', () => {
     expect(feather.isNew).toBe(true);
     expect(feather.stamp).toEqual({ night: false, day: 1 });
     expect(book.fresh.page_items).toBe(1);
-    expect(book.newCount).toBeGreaterThanOrEqual(2); // the feather and the plaza
+    // The plaza counts on the badge; the feather marks only its tab (P-17).
+    expect(book.fresh.page_map).toBe(1);
+    expect(book.newCount).toBe(1);
     sim.send({ type: 'journal_seen', keys: ['item:item_feather', 'area:area_stump_plaza'] });
     sim.step();
     book = sim.book();
