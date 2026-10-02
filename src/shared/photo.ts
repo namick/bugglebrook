@@ -11,10 +11,8 @@ export const PHOTO_HEIGHT = 1080;
 /** Photo thumbnails in the save are 320x180. */
 export const PHOTO_THUMB_WIDTH = 320;
 
-/** The most text main will accept for one photo: a 1920x1080 PNG, base64, with room to spare. */
-export const MAX_PHOTO_CHARS = 24_000_000;
-
-export const PNG_DATA_URL_PREFIX = 'data:image/png;base64,';
+/** The most bytes main will accept for one photo's PNG. */
+export const MAX_PHOTO_BYTES = 18_000_000;
 
 /** The eight bytes every PNG starts with. */
 export const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] as const;
@@ -45,15 +43,14 @@ export function uniquePhotoName(name: string, taken: (candidate: string) => bool
 }
 
 /**
- * The base64 payload of a PNG data URL, or null if `raw` is not a string
- * with the PNG prefix, is too long, or holds anything but base64.
+ * A photo's PNG bytes as main accepts them over IPC: a byte array of a sane
+ * length that starts like a PNG and says it is 1920x1080. Null otherwise.
  */
-export function pngBase64(raw: unknown): string | null {
-  if (typeof raw !== 'string' || raw.length > MAX_PHOTO_CHARS) return null;
-  if (!raw.startsWith(PNG_DATA_URL_PREFIX)) return null;
-  const data = raw.slice(PNG_DATA_URL_PREFIX.length);
-  if (data.length < 16 || !/^[A-Za-z0-9+/]+={0,2}$/.test(data)) return null;
-  return data;
+export function photoPng(raw: unknown): Uint8Array | null {
+  if (!(raw instanceof Uint8Array) || raw.length < 24 || raw.length > MAX_PHOTO_BYTES) return null;
+  const size = pngSize(raw);
+  if (!size || size.width !== PHOTO_WIDTH || size.height !== PHOTO_HEIGHT) return null;
+  return raw;
 }
 
 /** Do these bytes start like a PNG? */

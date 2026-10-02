@@ -72,8 +72,8 @@ export interface BugglebrookApi {
   };
   /** Photo mode (game design doc, section 14). */
   readonly photos: {
-    /** Write a 1920x1080 PNG (as a data URL) to `<Pictures>/Bugglebrook/`. Resolves to the file's path. */
-    save(png: string): Promise<string>;
+    /** Write a 1920x1080 PNG (its bytes) to `<Pictures>/Bugglebrook/`. Resolves to the file's path. */
+    save(png: Uint8Array): Promise<string>;
   };
   /** Close the app (saving first, like any close). */
   quit(): void;

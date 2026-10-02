@@ -4,12 +4,11 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PhotoStore } from '../../src/main/photoStore';
 import {
-  MAX_PHOTO_CHARS,
-  PNG_DATA_URL_PREFIX,
+  MAX_PHOTO_BYTES,
   PNG_SIGNATURE,
   isPng,
   photoFileName,
-  pngBase64,
+  photoPng,
   pngSize,
   uniquePhotoName,
 } from '../../src/shared/photo';
@@ -27,7 +26,6 @@ const png = (w = 1920, h = 1080): Buffer => {
   b.writeUInt32BE(h, 20);
   return b;
 };
-const url = (bytes: Buffer): string => `${PNG_DATA_URL_PREFIX}${bytes.toString('base64')}`;
 
 describe('photo file names', () => {
   it('names photos by local time, with a counter for a second photo in the same second', () => {
@@ -45,14 +43,20 @@ describe('photo file names', () => {
 });
 
 describe('what main accepts over IPC', () => {
-  it('accepts only a PNG data URL of a sane size, and reads its size', () => {
-    expect(pngBase64(url(png()))).toBe(png().toString('base64'));
-    expect(pngBase64(undefined)).toBeNull();
-    expect(pngBase64(42)).toBeNull();
-    expect(pngBase64('data:image/jpeg;base64,AAAAAAAAAAAAAAAAAAAA')).toBeNull();
-    expect(pngBase64(`${PNG_DATA_URL_PREFIX}not base64!!`)).toBeNull();
-    expect(pngBase64(`${PNG_DATA_URL_PREFIX}AAAA`)).toBeNull();
-    expect(pngBase64(`${PNG_DATA_URL_PREFIX}${'A'.repeat(MAX_PHOTO_CHARS)}`)).toBeNull();
+  it('accepts only the bytes of a 1920x1080 PNG of a sane length (P-29), and reads its size', () => {
+    expect(photoPng(png())).toEqual(png());
+    expect(photoPng(new Uint8Array(png()))).not.toBeNull();
+    expect(photoPng(undefined)).toBeNull();
+    expect(photoPng(42)).toBeNull();
+    expect(photoPng('data:image/png;base64,AAAA')).toBeNull();
+    expect(photoPng([...png()])).toBeNull();
+    expect(photoPng(Buffer.from('GIF89a..........................'))).toBeNull();
+    // A PNG of any other size is refused: a huge one could eat the disk or a viewer's memory.
+    expect(photoPng(png(1920, 1081))).toBeNull();
+    expect(photoPng(png(100_000, 100_000))).toBeNull();
+    const huge = Buffer.alloc(MAX_PHOTO_BYTES + 1);
+    png().copy(huge);
+    expect(photoPng(huge)).toBeNull();
     expect(isPng(png())).toBe(true);
     expect(isPng(Buffer.from('GIF89a..........'))).toBe(false);
     expect(pngSize(png(1920, 1080))).toEqual({ width: 1920, height: 1080 });
@@ -67,8 +71,8 @@ describe('PhotoStore (main process)', () => {
     try {
       const store = new PhotoStore(join(dir, 'Bugglebrook'));
       const when = new Date(2026, 9, 1, 9, 30, 0);
-      const first = await store.save(url(png()), when);
-      const second = await store.save(url(png()), when);
+      const first = await store.save(png(), when);
+      const second = await store.save(png(), when);
       expect(first).toBe(join(dir, 'Bugglebrook', 'bugglebrook-20261001-093000.png'));
       expect(second).toBe(join(dir, 'Bugglebrook', 'bugglebrook-20261001-093000-2.png'));
       expect(pngSize(readFileSync(first))).toEqual({ width: 1920, height: 1080 });
@@ -76,10 +80,11 @@ describe('PhotoStore (main process)', () => {
         'bugglebrook-20261001-093000-2.png',
         'bugglebrook-20261001-093000.png',
       ]);
-      const notPng = `${PNG_DATA_URL_PREFIX}${Buffer.from('not a png at all').toString('base64')}`;
-      await expect(store.save(notPng)).rejects.toThrow(/not a PNG/);
-      await expect(store.save({ png: url(png()) })).rejects.toThrow(/PNG data URL/);
-      await expect(store.save(url(png()).replace('png', 'webp'))).rejects.toThrow(/PNG data URL/);
+      await expect(store.save(Buffer.from('not a png at all, not even close'))).rejects.toThrow(
+        /1920x1080 PNG/,
+      );
+      await expect(store.save({ png: png() })).rejects.toThrow(/1920x1080 PNG/);
+      await expect(store.save(png(4000, 4000))).rejects.toThrow(/1920x1080 PNG/);
       // Nothing half-written is left behind.
       expect(readdirSync(join(dir, 'Bugglebrook')).filter((f) => f.endsWith('.tmp'))).toEqual([]);
     } finally {

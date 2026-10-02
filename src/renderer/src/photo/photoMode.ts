@@ -36,8 +36,8 @@ import type { StickerDef } from './stickers';
 export interface PhotoHooks {
   sound(name: SfxName, strength?: number): void;
   send(command: Command): void;
-  /** Write the PNG (a data URL). Resolves to its path. */
-  save(png: string): Promise<string>;
+  /** Write the PNG (its bytes). Resolves to its path. */
+  save(png: Uint8Array): Promise<string>;
   reduceMotion(): boolean;
   /** A photo was taken. The record's `file` fills in once the write finishes. */
   onPhoto(record: PhotoRecord): void;
@@ -760,8 +760,10 @@ export class PhotoMode extends Container {
     });
     this.hooks.onPhoto(record);
     const flying = this.launchPolaroid(canvas, record);
-    const png = canvas?.toDataURL('image/png') ?? null;
-    const saved = png ? this.hooks.save(png) : Promise.reject(new Error('No picture'));
+    // `toBlob` encodes the PNG off the main thread; `toDataURL` held the game up for a visible beat (P-20).
+    const saved = canvas
+      ? encodePng(canvas).then((png) => this.hooks.save(png))
+      : Promise.reject(new Error('No picture'));
     saved.then(
       (path) => {
         record.file = path;
@@ -908,6 +910,16 @@ export class PhotoMode extends Container {
 }
 
 /** A 320x180 JPEG of the photo, for the save and the journal. */
+/** The canvas as PNG bytes, encoded without blocking the frame. */
+function encodePng(canvas: HTMLCanvasElement): Promise<Uint8Array> {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error('The PNG did not encode'))),
+      'image/png',
+    );
+  }).then(async (blob) => new Uint8Array(await blob.arrayBuffer()));
+}
+
 function thumbOf(canvas: HTMLCanvasElement): string {
   try {
     const small = document.createElement('canvas');
