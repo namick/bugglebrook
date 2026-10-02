@@ -22,6 +22,8 @@ export const SPOT_SLIDE = -11;
 export const SPOT_BEADS = -12;
 /** The mushroom sequencer's bank of caps (M9). */
 export const SPOT_CAPS = -13;
+/** The trash can (playtest F1), where Rollo, Barty, and Whiff rummage. */
+export const SPOT_TRASH = -14;
 
 /** The machines in the newer areas, as a bug's AI sees them. Each is null when its area is shut or asleep. */
 export interface Machines {
@@ -47,6 +49,8 @@ export interface Machines {
   slide: { topX: number; topY: number; bottomX: number } | null;
   /** The bead pit's sunken floor. */
   beads: { x0: number; x1: number; y: number } | null;
+  /** The trash can: its rim, the ground at its foot, and how many things wait inside. */
+  trash?: { x: number; y: number; ground: number; count: number } | null;
   /** Tall things standing on the floor that no bug walks past (the claw machine's jar). */
   walls: readonly { x0: number; x1: number }[];
   /**
@@ -276,6 +280,8 @@ export type BugNotice = (
   | { type: 'tapped_cap'; row: number; col: number }
   /** Stopped hopping on the sequencer: its bug pattern goes. */
   | { type: 'left_caps' }
+  /** Came up out of the trash can (playtest F1): whatever is in it comes out. */
+  | { type: 'rummaged' }
 ) & { by?: EntityId };
 
 export interface BugDecision {

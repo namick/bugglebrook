@@ -172,7 +172,9 @@ export type FixtureKind =
   | 'cauldron'
   | 'bug_scope'
   // M9: the mushroom sequencer.
-  | 'sequencer';
+  | 'sequencer'
+  // Playtest F1: the trash can, which eats things and sends them home.
+  | 'trash_can';
 
 /** A fixed part of an area. Positions are area-local x and world y, in meters. */
 export interface FixtureDef {
@@ -287,6 +289,8 @@ export interface BugHabits {
   chops?: boolean;
   /** Freezes whenever the hand is near, and only moves when nobody is looking (Twig). */
   shy?: boolean;
+  /** Dives head first into the trash can to rummage, and comes up with whatever is in it (Rollo, Barty, Whiff). */
+  rummages?: boolean;
 }
 
 /**
@@ -472,6 +476,8 @@ export type ItemArt =
   | 'domino'
   | 'spinning_top'
   | 'yo_yo'
+  // Playtest F2: the tidy whistle.
+  | 'whistle'
   // M8: materials, paints, potions, and crafted things.
   | 'string'
   | 'balloon'
@@ -549,7 +555,9 @@ export type AdvertAction =
   | 'wade'
   // M9: playing an instrument, and hopping on the mushroom sequencer's caps.
   | 'play'
-  | 'tap';
+  | 'tap'
+  // Playtest F1: a dive into the trash can.
+  | 'rummage';
 
 export const ADVERT_ACTIONS: readonly AdvertAction[] = [
   'eat',
@@ -570,6 +578,7 @@ export const ADVERT_ACTIONS: readonly AdvertAction[] = [
   'wade',
   'play',
   'tap',
+  'rummage',
 ];
 
 /** What an object offers a bug (game design doc, section 5). */
@@ -644,6 +653,8 @@ export interface ItemDef {
   shatters?: { into: string; count: number; speed: number };
   /** A musical thing's note, as a scale step (0 is the area's root), for rule R20. */
   note?: number;
+  /** The tidy whistle (playtest F2): a click blows it, and loose things in view swoosh home. */
+  whistle?: boolean;
 }
 
 /**

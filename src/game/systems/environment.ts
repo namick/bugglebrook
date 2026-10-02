@@ -173,6 +173,7 @@ const CLICKABLE: ReadonlySet<FixtureDef['kind']> = new Set<FixtureDef['kind']>([
   'bench_lever',
   'cauldron',
   'bug_scope',
+  'trash_can',
 ]);
 
 const pairKey = (a: EntityId, b: EntityId): string => (a < b ? `${a}:${b}` : `${b}:${a}`);

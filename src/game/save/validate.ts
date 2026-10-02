@@ -357,6 +357,8 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
     if (!(isObj(c) && isParts(c.contents) && isNum(c.stir) && isNum(c.brewAt) && isNum(c.brewed)))
       errors.push('world.cauldron is invalid');
   }
+  if (world.trash !== undefined && !isTrash(world.trash)) errors.push('world.trash is invalid');
+  if (world.tidy !== undefined && !isTidy(world.tidy)) errors.push('world.tidy is invalid');
   const meta = save.meta;
   if (
     !isObj(meta) ||
@@ -366,6 +368,38 @@ export function validateSaveFile(save: Record<string, unknown>): string[] {
     errors.push('meta is invalid');
   else if (meta.photos !== undefined && !isPhotos(meta.photos)) errors.push('meta.photos is invalid');
   return errors;
+}
+
+/** The trash can (version 13): things waiting to go home, and its burp. */
+function isTrash(v: unknown): boolean {
+  return (
+    isObj(v) &&
+    Array.isArray(v.inside) &&
+    v.inside.every((t) => isObj(t) && isNum(t.back) && isParts([t.part])) &&
+    isNum(v.eaten) &&
+    isNum(v.burpAt) &&
+    isNum(v.meal)
+  );
+}
+
+/** Tidying (version 13): the whistle's queue and its dice. */
+function isTidy(v: unknown): boolean {
+  return (
+    isObj(v) &&
+    Array.isArray(v.queue) &&
+    v.queue.every(
+      (j) =>
+        isObj(j) &&
+        isNum(j.id) &&
+        isNum(j.at) &&
+        (j.to === 'home' || j.to === 'can') &&
+        (j.cause === 'whistle' || j.cause === 'cap'),
+    ) &&
+    isNum(v.blown) &&
+    Array.isArray(v.rng) &&
+    v.rng.length === 4 &&
+    v.rng.every(isNum)
+  );
 }
 
 /** The photos a save keeps (M11): each a time, a picture, and maybe a file. */

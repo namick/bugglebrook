@@ -319,6 +319,8 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_flashlight_pen', x: 0.45 },
       // New in M7: Twig, pretending to be the toy pile's second twig.
       { kind: 'bug', defId: 'bug_stickinsect_twig', x: 35.35, pending: 'disguised' },
+      // Playtest F2: the tidy whistle, leaning on the trash can (older saves get it on load).
+      { kind: 'item', defId: 'item_tidy_whistle', x: 33 },
     ],
     respawn: [
       { item: 'item_berry_red', count: 3 },
@@ -348,6 +350,9 @@ export const AREAS = createRegistry<AreaDef>('area', [
       // The two dips in the ground fill with rain.
       { id: 'fix_puddle_west', kind: 'puddle', x: 2.2, y: 9.1, radius: 0.8 },
       { id: 'fix_puddle_east', kind: 'puddle', x: 36.4, y: 9.1, radius: 0.8 },
+      // Playtest F1: a tin can with a hinged lid, past the toy pile. Its y is its middle, so the
+      // click box covers it; the rim is half its height up. Not a solid: bugs walk past it.
+      { id: 'fix_trash_can', kind: 'trash_can', x: 33, y: 8.1, radius: 0.9, w: 1.5, h: 1.8 },
     ],
   },
   {

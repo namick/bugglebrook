@@ -308,6 +308,11 @@ export class Places {
       case 'cauldron':
         sim.cauldron.tip();
         return true;
+      case 'trash_can': {
+        const can = sim.trash.cans().find((c) => c.fixture.id === f.id);
+        if (can) sim.trash.poke(can);
+        return true;
+      }
       case 'bug_scope':
         this.scope(f.x, f.y);
         return true;

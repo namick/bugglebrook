@@ -7,7 +7,7 @@ import type { EntityId } from '../core/entities';
  * physics drop. M8 adds containers (the bench's trays, the cauldron),
  * potions at a mouth, and paint on a bug. Heads, hands, and seats come later.
  */
-export type DropTargetKind = 'mouth' | 'tray' | 'cauldron' | 'body';
+export type DropTargetKind = 'mouth' | 'tray' | 'cauldron' | 'trash' | 'body';
 
 export interface DropRule {
   kind: DropTargetKind;
@@ -26,6 +26,8 @@ export const DROP_RULES: readonly DropRule[] = [
   // 2: a container's opening (the bench's trays, the cauldron). 60 px; the cauldron's mouth is wide.
   { kind: 'tray', priority: 2, radius: 0.6, tag: 'item' },
   { kind: 'cauldron', priority: 2, radius: 1.1, tag: 'item' },
+  // The trash can's mouth (playtest F1), while the held thing fits.
+  { kind: 'trash', priority: 2, radius: 0.9, tag: 'item' },
   // 4: a bug's mouth, for anything edible or a potion. 50 px from the mouth anchor.
   { kind: 'mouth', priority: 4, radius: 0.5, tag: 'tag_edible' },
   { kind: 'mouth', priority: 4, radius: 0.5, tag: 'potion' },

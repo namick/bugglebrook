@@ -9,11 +9,13 @@ import type { BarrierState } from '../systems/barriers';
 import type { PlaceState } from '../systems/places';
 import type { BenchState } from '../systems/bench';
 import type { CauldronState } from '../systems/cauldron';
+import type { TrashState } from '../systems/trash';
+import type { TidyState } from '../systems/tidy';
 import type { Brew } from '../systems/brewing';
 import type { ActiveEffect, SavedPart, ToyState } from '../core/entities';
 
 /** Bump when the save shape changes, and add a migration in migrations.ts. */
-export const SAVE_VERSION = 13;
+export const SAVE_VERSION = 14;
 
 export interface SavedEntity {
   id: number;
@@ -78,6 +80,10 @@ export interface WorldSave {
   bench?: BenchState;
   /** The cauldron: what is in it and how far it is stirred. Absent before version 9. */
   cauldron?: CauldronState;
+  /** The trash can: what waits inside to go home (version 14). */
+  trash?: TrashState;
+  /** The tidy whistle's queue and tidying's dice (version 14). */
+  tidy?: TidyState;
 }
 
 /** Running counts about how the world has been played. */

@@ -308,6 +308,11 @@ export function poke(sim: Sim, x: number, y: number): void {
     else sim.removeTag(entity.id, 'tag_glowing', 'player');
     sim.events.emit('light_toggled', { id: entity.id, on, x: s.x, y: s.y });
     sim.weather.noteLight(s.x, s.y);
+  } else if (sim.content.items.get(entity.defId).whistle) {
+    // The tidy whistle: a toot, and loose things in view head home.
+    sim.setup.touch(entity.id);
+    sim.physics.setVelocity(entity.id, s.vx, -1.6);
+    sim.tidy.blow(entity);
   } else if (sim.toys.poked(entity)) {
     // A toy did its thing: fired, launched, let its air out.
     sim.setup.touch(entity.id);

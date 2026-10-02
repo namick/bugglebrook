@@ -167,6 +167,7 @@ export function machinesOf(sim: Sim): Machines {
         }
       : null,
     beads: pit ? { x0: pit.x - pitHalf + 0.7, x1: pit.x + pitHalf - 0.7, y: pit.fixture.y } : null,
+    trash: sim.trash.bugView(),
     walls: jar ? [{ x0: jar.x0, x1: jar.x1 }] : [],
     sequencer: sequencerView(sim, awake),
   };

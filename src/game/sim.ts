@@ -59,6 +59,8 @@ import type { Placed } from './world/startLayout';
 import { leanAgainst, stackTop } from './world/startLayout';
 import { Bench } from './systems/bench';
 import { Cauldron } from './systems/cauldron';
+import { Trash } from './systems/trash';
+import { Tidy } from './systems/tidy';
 import { Bounds } from './systems/bounds';
 import type { PhotoState } from './systems/photo';
 import { PHOTO_MOMENT_TICKS, TOTEM_TICKS, findTotem, inFrame } from './systems/photo';
@@ -337,6 +339,10 @@ export class Sim {
   readonly toys: Toys;
   /** Brings back anything that leaves the world. */
   readonly bounds: Bounds;
+  /** The trash can (playtest F1). */
+  readonly trash: Trash;
+  /** The tidy whistle, slow tidying, and the junk cap (playtest F2). */
+  readonly tidy: Tidy;
   /** Where the player's hand is over the world, or null. Sent by the renderer (`hand`). */
   hand: { x: number; y: number } | null = null;
   /** Areas whose starting things are in the world. Saved, so areas added later get theirs on load. */
@@ -365,6 +371,8 @@ export class Sim {
     this.potions = new Potions(this);
     this.toys = new Toys(this);
     this.bounds = new Bounds(this);
+    this.trash = new Trash(this);
+    this.tidy = new Tidy(this);
     this.buildFixtures();
     this.buildSolids();
     this.barriers.build();
@@ -549,6 +557,8 @@ export class Sim {
     if (save.places) sim.places.restore(clone(save.places));
     if (save.bench) sim.bench.restore(clone(save.bench));
     if (save.cauldron) sim.cauldron.restore(clone(save.cauldron));
+    if (save.trash) sim.trash.restore(clone(save.trash));
+    if (save.tidy) sim.tidy.restore(clone(save.tidy));
     // Areas new since the save get their starting things (M7's four areas, in older saves).
     sim.built = save.built ? [...save.built] : sim.content.areas.all.map((a) => a.id);
     sim.populate(sim.content.areas.all.filter((a) => !sim.built.includes(a.id)));
@@ -557,6 +567,8 @@ export class Sim {
     if (!save.bench) sim.addMissingItems(M8_STARTERS);
     // M9's instruments join worlds saved before the sequencer.
     if (!save.places?.sequencer) sim.addMissingItems(M9_STARTERS);
+    // The tidy whistle joins worlds saved before the trash can.
+    if (!save.trash) sim.addMissingItems(['item_tidy_whistle']);
     sim.toys.restore();
     for (const e of sim.entities.all()) if (e.effects) sim.potions.sync(e);
     sim.refreshFriction();
@@ -631,6 +643,7 @@ export class Sim {
     this.bench.taken(id);
     this.toys.forget(id);
     this.potions.forget(id);
+    this.trash.forget(id);
     this.sleeping.delete(id);
     // The setup cache may list it; later systems this step would look up its gone body.
     this.linkedCache = null;
@@ -682,6 +695,8 @@ export class Sim {
     this.places.update();
     this.bench.update();
     this.cauldron.update();
+    this.trash.update();
+    this.tidy.update();
     if (this.tick % 15 === 0) this.updateSleep();
     if (this.tick % 15 === 0) this.totem();
     this.offscreen.update();
@@ -1940,7 +1955,11 @@ export class Sim {
 
   /** Every drop target available right now, except on `exclude` itself. */
   private dropCandidates(exclude: EntityId): DropCandidate[] {
-    const out: DropCandidate[] = [...this.bench.candidates(), ...this.cauldron.candidates()];
+    const out: DropCandidate[] = [
+      ...this.bench.candidates(),
+      ...this.cauldron.candidates(),
+      ...this.trash.candidates(exclude),
+    ];
     for (const bug of this.entities.ofKind('bug')) {
       if (bug.id === exclude || !bug.bug || this.physics.grabbed === bug.id) continue;
       if (bug.bug.pending) continue;
@@ -2319,6 +2338,8 @@ export class Sim {
       built: [...this.built],
       bench: this.bench.serialize(),
       cauldron: this.cauldron.serialize(),
+      trash: this.trash.serialize(),
+      tidy: this.tidy.serialize(),
     };
   }
 }

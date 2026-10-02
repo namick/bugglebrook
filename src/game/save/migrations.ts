@@ -323,6 +323,13 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
    * gives it an empty one and the new instruments (`Sim.load`).
    */
   12: (save) => ({ ...save, version: 13 }),
+  /**
+   * Version 14 (playtest F1 and F2) adds `world.trash` (what the trash can
+   * holds until it goes home) and `world.tidy` (the whistle's queue and its
+   * dice). A world without them has an empty can; loading gives it the tidy
+   * whistle.
+   */
+  13: (save) => ({ ...save, version: 14 }),
 };
 
 export class SaveError extends Error {
