@@ -13,3 +13,4 @@ tests/unit/fixtures
 src/renderer/art
 art/src/**/*.rig.json
 tests/e2e/fixtures/art
+src/renderer/public/music
