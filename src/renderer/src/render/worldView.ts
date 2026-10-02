@@ -39,6 +39,7 @@ import { Particles } from './particles';
 import type { Move, Picto, ReactionLook } from './reactions';
 import { movePose, reactionLook, reactionShowing } from './reactions';
 import { thoughtFor } from './thoughts';
+import { HINT_CHANCE, hintThought } from './hintThoughts';
 import { SoapBubbles } from './soapBubbles';
 import type { Obstacle } from './soapBubbles';
 import { tagLook } from './tagLooks';
@@ -1165,10 +1166,41 @@ export class WorldView extends Container {
     const thought = thoughtFor(def, view.bug!.needs, this.sim.content.items, this.bestFriend(view.defId));
     j.thinkIn = THOUGHT_EVERY;
     if (j.hovered >= HOVER_THOUGHT) j.hovered = -60; // once per hover
-    if (!thought) return;
+    if (!thought) {
+      // Bugs hint too: idle near a secret still waiting, now and then it thinks of its pictogram.
+      if ((mode !== 'st_idle' && mode !== 'st_wander') || Math.random() >= HINT_CHANCE) return;
+      const sim = this.sim;
+      const hint = hintThought(
+        sim.content,
+        view.x,
+        sim.secrets,
+        (a) => sim.content.areas.has(a) && sim.barriers.isOpen(a),
+        (id) => this.fixtureSpot(id),
+      );
+      if (!hint) return;
+      const food = hint.food ? sim.content.items.get(hint.food) : null;
+      this.bubbles.show(view.id, 'thought', hint.pictos, 2.6, food, null);
+      this.hintsShown.push(hint.secret);
+      if (this.hintsShown.length > 20) this.hintsShown.shift();
+      return;
+    }
     const food = thought.food ? this.sim.content.items.get(thought.food) : null;
     const friend = thought.friend ? this.sim.content.bugs.get(thought.friend) : null;
     this.bubbles.show(view.id, 'thought', thought.pictos, 2.6, food, friend);
+  }
+
+  /** Secrets bugs have hinted at in thought bubbles, newest last (test hook). */
+  readonly hintsShown: string[] = [];
+  private fixtureSpots: Map<string, { x: number }> | null = null;
+
+  /** A fixture's world x, by ID. */
+  private fixtureSpot(id: string): { x: number } | null {
+    if (!this.fixtureSpots) {
+      this.fixtureSpots = new Map();
+      for (const a of this.sim.content.areas.all)
+        for (const f of a.fixtures ?? []) this.fixtureSpots.set(f.id, { x: a.xStart + f.x });
+    }
+    return this.fixtureSpots.get(id) ?? null;
   }
 
   /** The bug this one likes best, among bugs in the world. */
