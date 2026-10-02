@@ -38,7 +38,7 @@ import {
 
 /** The knothole gives something at most once per 10 game minutes. */
 export const KNOTHOLE_EVERY = 10 * MINUTE;
-/** The knothole tosses nothing out while this many of the picked kind lie about the plaza (P-19). */
+/** The knothole tosses out no kind that already has this many lying about the plaza (P-19). */
 export const KNOTHOLE_CAP = 3;
 /** What can pop out of the knothole. */
 export const KNOTHOLE_POOL: readonly string[] = [
@@ -244,8 +244,13 @@ export class Weather {
     let itemId: EntityId | null = null;
     if (s.knotholeAt < 0 || s.clock - s.knotholeAt >= KNOTHOLE_EVERY) {
       s.knotholeAt = s.clock;
-      const defId = this.rng.pick(KNOTHOLE_POOL);
-      if (sim.content.items.has(defId) && sim.looseIn(defId, sim.areaOf(f.x)) < KNOTHOLE_CAP) {
+      // Only kinds the plaza is not already full of.
+      const area = sim.areaOf(f.x);
+      const pool = KNOTHOLE_POOL.filter(
+        (id) => sim.content.items.has(id) && sim.looseIn(id, area) < KNOTHOLE_CAP,
+      );
+      const defId = pool.length > 0 ? this.rng.pick(pool) : null;
+      if (defId) {
         // Out over the stump's rim, tossed toward the player.
         const top = sim.surfaceY(f.x);
         const item = sim.spawn('item', defId, f.x, top - 0.45);

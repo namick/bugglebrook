@@ -70,13 +70,18 @@ export function shatterPotion(
   });
 }
 
+/** At most this many pieces of one kind lie about an area; past it, a break leaves fewer. */
+export const SHARD_CAP = 6;
+
 /** Rule R11: a fragile thing knocked hard breaks into pieces. */
 export function shatter(sim: Sim, e: Entity, into: string, count: number): void {
   const s = sim.physics.getState(e.id);
   sim.remove(e.id);
   sim.trash.owe(e.defId);
   const pieces: EntityId[] = [];
-  for (let i = 0; i < count; i++) {
+  // Broken jars come back (`Trash.owe`), so their beads would pile up: no more than SHARD_CAP lie about an area (P-19).
+  const n = Math.min(count, Math.max(0, SHARD_CAP - sim.looseIn(into, sim.areaOf(s.x))));
+  for (let i = 0; i < n; i++) {
     const a = (i / count) * Math.PI * 2;
     const piece = sim.spawn('item', into, s.x + Math.cos(a) * 0.15, s.y - 0.05 + Math.sin(a) * 0.08);
     sim.physics.setVelocity(piece.id, s.vx * 0.3 + Math.cos(a) * 2, -2 - sim.rng.range(0, 1.5));

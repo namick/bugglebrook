@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Sim } from '../../src/game';
 import { Rng } from '../../src/game/core/rng';
+import { SHARD_CAP } from '../../src/game/simPotions';
 import { GOO_CAP, JAR_LOOSE_CAP } from '../../src/game/systems/places';
 import { KNOTHOLE_CAP, KNOTHOLE_POOL } from '../../src/game/systems/weather';
 
@@ -73,7 +74,9 @@ describe('clutter caps (P-19)', () => {
     const before = perArea(sim);
     const total = (m: Record<string, number>): number => Object.values(m).reduce((a, b) => a + b, 0);
     const rng = new Rng('busy-hands');
+    let half: Record<string, number> = {};
     for (let minute = 0; minute < 12; minute++) {
+      if (minute === 6) half = perArea(sim);
       const a = open[minute % open.length]!;
       sim.send({ type: 'focus', x0: a.xStart, x1: a.xStart + 19.2 });
       for (let k = 0; k < 6; k++) {
@@ -109,8 +112,12 @@ describe('clutter caps (P-19)', () => {
       }
     }
     const after = perArea(sim);
-    expect(sim.looseIn('item_compost_goo', sim.content.areas.get(LAB))).toBeLessThanOrEqual(GOO_CAP);
-    for (const a of open) expect(after[a.id] ?? 0, a.id).toBeLessThanOrEqual((before[a.id] ?? 0) + 12);
+    const lab = sim.content.areas.get(LAB);
+    expect(sim.looseIn('item_compost_goo', lab)).toBeLessThanOrEqual(GOO_CAP);
+    expect(sim.looseIn('item_glass_bead', lab)).toBeLessThanOrEqual(SHARD_CAP);
+    for (const a of open) expect(after[a.id] ?? 0, a.id).toBeLessThanOrEqual((before[a.id] ?? 0) + 18);
     expect(total(after)).toBeLessThanOrEqual(total(before) + 30);
+    // Capped pools level off: the second six minutes add little to the first six.
+    expect(total(after) - total(half)).toBeLessThanOrEqual(10);
   });
 });
