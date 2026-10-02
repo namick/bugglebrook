@@ -93,24 +93,93 @@ describe('settling (R12)', () => {
     expect(sim.physics.isSettled(pebble.id)).toBe(true);
     const bug = sim.spawn('bug', 'bug_ladybug_dot', X - 0.6, GROUND_Y - 0.4);
     const physics = sim.physics;
-    // Walk in until the bug stands over the pebble, then stop.
-    for (let i = 0; i < 120 && physics.position(bug.id).x < X + 0.6; i++) {
-      physics.setVelocity(bug.id, 1.2, physics.velocity(bug.id).y);
+    const walk = (): void => {
+      physics.setVelocity(bug.id, 0.6, physics.velocity(bug.id).y);
       physics.step(SIM_DT);
-    }
-    physics.setVelocity(bug.id, 0, 0);
-    physics.step(SIM_DT);
+    };
+    // Walk in until the bug is halfway over the pebble.
+    for (let i = 0; i < 240 && physics.position(bug.id).x < X + 0.3; i++) walk();
     const bugAt = physics.position(bug.id).y;
     const pebbleAt = sim.view(pebble.id)!;
     // Something wakes the pebble: it gets new contacts, and the pair keeps slipping instead of popping apart.
     physics.setFriction(pebble.id, 0.1);
     expect(physics.isSettled(pebble.id)).toBe(false);
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 10; i++) walk();
+    expect(Math.abs(physics.position(bug.id).y - bugAt)).toBeLessThan(0.02);
+    expect(moved(sim.view(pebble.id)!, pebbleAt)).toBeLessThan(0.02);
+  });
+
+  it('stops slipping when a bug stops in a thing: it ends up standing on it, not inside it (PM-02)', () => {
+    const sim = Sim.empty();
+    const pebble = sim.spawn('item', 'item_pebble', X + 0.6, GROUND_Y - 0.2);
+    sim.run(120);
+    const bug = sim.spawn('bug', 'bug_ladybug_dot', X - 0.6, GROUND_Y - 0.4);
+    const physics = sim.physics;
+    for (let i = 0; i < 120 && physics.position(bug.id).x < X + 0.6; i++) {
+      physics.setVelocity(bug.id, 1.2, physics.velocity(bug.id).y);
+      physics.step(SIM_DT);
+    }
+    const r = sim.content.bugs.get('bug_ladybug_dot').radius;
+    const p = sim.view(pebble.id)!;
+    // Walking, it is right over the pebble.
+    expect(Math.abs(physics.position(bug.id).x - p.x)).toBeLessThan(r * 0.3);
+    expect(physics.position(bug.id).y - p.y).toBeGreaterThan(-r);
+    // It stops: the pebble pushes it out.
+    for (let i = 0; i < 30; i++) {
       physics.setVelocity(bug.id, 0, physics.velocity(bug.id).y);
       physics.step(SIM_DT);
     }
-    expect(Math.abs(physics.position(bug.id).y - bugAt)).toBeLessThan(0.02);
-    expect(moved(sim.view(pebble.id)!, pebbleAt)).toBeLessThan(0.02);
+    const b = physics.position(bug.id);
+    const q = sim.view(pebble.id)!;
+    expect(Math.hypot(b.x - q.x, b.y - q.y)).toBeGreaterThan(r);
+  });
+
+  it('never leaves a bug resting inside a settled heap it was dropped on (PM-02)', () => {
+    const KINDS = [
+      'item_pebble',
+      'item_cork',
+      'item_sugar_cube',
+      'item_blueberry',
+      'item_berry_red',
+      'item_button',
+    ];
+    for (const [bugId, dx] of [
+      ['bug_pillbug_rollo', -0.2],
+      ['bug_ladybug_dot', -0.2],
+      ['bug_pillbug_rollo', 0.8],
+      ['bug_ladybug_dot', 1.2],
+    ] as const) {
+      const sim = Sim.empty({ seed: 'heap' });
+      sim.step();
+      const heap: EntityId[] = [];
+      for (let i = 0; i < 24; i++) {
+        const col = i % 6;
+        const row = Math.floor(i / 6);
+        const x = X + col * 0.3 + (row % 2) * 0.15;
+        heap.push(sim.spawn('item', KINDS[i % KINDS.length]!, x, GROUND_Y - 0.3 - row * 0.35).id);
+      }
+      sim.run(300);
+      expect(heap.filter((id) => sim.physics.isSettled(id)).length).toBeGreaterThan(12);
+      // A hungry bug let go over the heap, its favorite food on the far side.
+      const bug = sim.spawn('bug', bugId, X + dx, GROUND_Y - 1.6);
+      sim.send({ type: 'set_need', id: bug.id, need: 'need_hunger', value: 10 });
+      sim.spawn('item', 'item_rotten_banana_bit', X + 4, GROUND_Y - 0.3);
+      const r = sim.content.bugs.get(bugId).radius;
+      // How long it stays still with a heap thing's middle well inside it.
+      let run = 0;
+      let longest = 0;
+      for (let t = 0; t < 900; t++) {
+        sim.step();
+        const b = sim.view(bug.id)!;
+        const inside = heap.some((id) => {
+          const v = sim.view(id);
+          return v && Math.hypot(v.x - b.x, v.y - b.y) < 0.75 * r;
+        });
+        run = inside && Math.hypot(b.vx, b.vy) < 0.05 ? run + 1 : 0;
+        longest = Math.max(longest, run);
+      }
+      expect(longest, `${bugId} at ${dx}`).toBeLessThan(10);
+    }
   });
 
   it('wakes a settled thing in the hand, and what rests on it', () => {

@@ -125,6 +125,10 @@ const RESTING_STEPS = 15;
 const SLIP_REACH = 0.45;
 /** A contact more upright than this (|normal y|) is standing on it, or it resting on the bug: no slipping. */
 const SLIP_NORMAL = 0.8;
+/** A bug slips past things only while walking at least this fast (m/s) across the ground. */
+const SLIP_WALK = 0.15;
+/** How long (steps) a bug keeps slipping after it last walked along: a stride's wobble, not a stop. */
+const SLIP_GRACE = 6;
 /** A thing moving at least this fast (m/s) wakes settled things it is about to touch, if it is at least half as heavy. */
 const WAKE_SPEED = 0.5;
 /** A thing moving at least this fast (m/s) wakes settled things it is about to touch, however heavy. */
@@ -274,13 +278,19 @@ export class Physics {
    * rest instead of shoving it, so a pile it brushes stays at rest (and may
    * settle). Standing on it still works, a thing resting on a bug still
    * rests there, and a moving thing still hits the bug. Once slipping, a
-   * pair keeps slipping until they part, so they never pop apart. Only a
+   * pair keeps slipping until they part, so they never pop apart, or until
+   * the bug stops moving along, so it never rests inside the thing. Only a
    * contact that just began can start slipping: something that came to rest
    * leaning on a bug stays on it instead of sinking in.
    */
   private slipsPast(contact: Contact, ba: Body, bb: Body): boolean {
     const ga = this.gentle.has(ba);
     if (ga === this.gentle.has(bb)) return false;
+    if (!this.striding(ga ? ba : bb)) {
+      // Stopped (or stuck sinking in place): the slip ends and the solver pushes the bug out.
+      this.slipping.delete(contact);
+      return false;
+    }
     if (this.slipping.has(contact)) return true;
     if (!this.fresh.has(contact)) return false;
     if (this.slipCarry.size > 0 && this.slipCarry.delete(this.slipKey(ba, bb))) {
@@ -305,7 +315,31 @@ export class Physics {
   setGentle(id: EntityId, gentle: boolean): void {
     const body = this.requireBody(id);
     if (gentle) this.gentle.add(body);
-    else this.gentle.delete(body);
+    else {
+      this.gentle.delete(body);
+      this.strode.delete(body);
+    }
+  }
+
+  /** The step each walking bug was last moving along. */
+  private readonly strode = new Map<Body, number>();
+
+  /**
+   * Has this bug been moving along in the last few steps? Only then may it
+   * slip past things. A bug that stops in a thing, or sinks into a heap
+   * without getting anywhere, hits them again and is pushed out, so it never
+   * rests inside a thing (PM-02 of the post-merge playtest).
+   */
+  private striding(bug: Body): boolean {
+    const at = this.strode.get(bug);
+    return at !== undefined && this.steps - at <= SLIP_GRACE;
+  }
+
+  /** Before the solve: note which walking bugs are moving along. */
+  private noteStrides(): void {
+    for (const bug of this.gentle) {
+      if (Math.abs(bug.getLinearVelocity().x) >= SLIP_WALK) this.strode.set(bug, this.steps);
+    }
   }
 
   /**
@@ -476,6 +510,7 @@ export class Physics {
     this.halfExtents.delete(id);
     this.bugs.delete(body);
     this.gentle.delete(body);
+    this.strode.delete(body);
     this.still.delete(body);
   }
 
@@ -1238,6 +1273,7 @@ export class Physics {
     // Any velocity above it, from any cause, is scaled down as the step integrates.
     Settings.maxTranslation = MAX_BODY_SPEED * dt;
     this.wakeAhead(dt);
+    if (this.gentle.size > 0) this.noteStrides();
     this.fresh.clear();
     if (this.slipCarry.size > 0)
       for (const [key, until] of this.slipCarry) if (until < this.steps) this.slipCarry.delete(key);
