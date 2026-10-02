@@ -1,4 +1,396 @@
 {
- "assets": {},
+ "assets": {
+  "bug_caterpillar_munch": {
+   "face": [],
+   "faceAnchors": {
+    "eye": {
+     "r": 8.74,
+     "x": 48.76,
+     "y": 0.92
+    },
+    "mouth": {
+     "s": 18.4,
+     "x": 44.16,
+     "y": 13.34
+    }
+   },
+   "id": "bug_caterpillar_munch",
+   "kind": "bug",
+   "pages": {
+    "1": [],
+    "2": []
+   },
+   "parts": {},
+   "report": [
+    {
+     "level": "info",
+     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+    }
+   ],
+   "rigHash": "32e747c0d1c2daf6",
+   "sourceHash": "9cd5c392fa91fc898412a38ad35aae54a2fba9f46edd93ee507b7b1d14c2db6a",
+   "status": "empty"
+  },
+  "bug_dungbeetle_barty": {
+   "face": [],
+   "faceAnchors": {
+    "eye": {
+     "r": 8.84,
+     "x": 50.96,
+     "y": 2.08
+    },
+    "mouth": {
+     "s": 14.56,
+     "x": 50.96,
+     "y": 16.64
+    }
+   },
+   "id": "bug_dungbeetle_barty",
+   "kind": "bug",
+   "pages": {
+    "1": [],
+    "2": []
+   },
+   "parts": {},
+   "report": [
+    {
+     "level": "info",
+     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+    }
+   ],
+   "rigHash": "1e0bb470693de6c9",
+   "sourceHash": "a1280581b7751b6b92ccc899eb5194be29ace3498334b6fd08b73b49a54e1bf4",
+   "status": "empty"
+  },
+  "bug_firefly_flick": {
+   "face": [],
+   "faceAnchors": {
+    "eye": {
+     "r": 12,
+     "x": 39.2,
+     "y": 0
+    },
+    "mouth": {
+     "s": 13.6,
+     "x": 38.8,
+     "y": 15.2
+    }
+   },
+   "id": "bug_firefly_flick",
+   "kind": "bug",
+   "pages": {
+    "1": [],
+    "2": []
+   },
+   "parts": {},
+   "report": [
+    {
+     "level": "info",
+     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+    }
+   ],
+   "rigHash": "b4d884d628ce9ab8",
+   "sourceHash": "ab52439a7e7ede75da0e4552279876dc1f32fd231ec83f7efc7261dc8f794eca",
+   "status": "empty"
+  },
+  "bug_grasshopper_boing": {
+   "face": [],
+   "faceAnchors": {
+    "eye": {
+     "r": 11.5,
+     "x": 47.5,
+     "y": -15
+    },
+    "mouth": {
+     "s": 21,
+     "x": 45,
+     "y": 3
+    }
+   },
+   "id": "bug_grasshopper_boing",
+   "kind": "bug",
+   "pages": {
+    "1": [],
+    "2": []
+   },
+   "parts": {},
+   "report": [
+    {
+     "level": "info",
+     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+    }
+   ],
+   "rigHash": "a5b9a792ff33d7e4",
+   "sourceHash": "c41bebe878624f47a4e96c14f5f87beedd1e89406517b2084ae8984c0dd9f0a0",
+   "status": "empty"
+  },
+  "bug_ladybug_dot": {
+   "face": [],
+   "faceAnchors": {
+    "eye": {
+     "r": 15,
+     "x": 49,
+     "y": 0
+    },
+    "mouth": {
+     "s": 17,
+     "x": 48.5,
+     "y": 19
+    }
+   },
+   "id": "bug_ladybug_dot",
+   "kind": "bug",
+   "pages": {
+    "1": [],
+    "2": []
+   },
+   "parts": {},
+   "report": [
+    {
+     "level": "info",
+     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+    }
+   ],
+   "rigHash": "309ee1610201cf74",
+   "sourceHash": "69608cc4707884e673cedbd5eb85f0542ee633057d634b34c4d7e42644cebf23",
+   "status": "empty"
+  },
+  "bug_mantis_prim": {
+   "face": [],
+   "faceAnchors": {
+    "eye": {
+     "r": 15.6,
+     "x": 81.6,
+     "y": -58.8
+    },
+    "mouth": {
+     "s": 14.4,
+     "x": 66,
+     "y": -33.6
+    }
+   },
+   "id": "bug_mantis_prim",
+   "kind": "bug",
+   "pages": {
+    "1": [],
+    "2": []
+   },
+   "parts": {},
+   "report": [
+    {
+     "level": "info",
+     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+    }
+   ],
+   "rigHash": "c14cf7ba530014bb",
+   "sourceHash": "feeecad1e30471c238ec86dfe530094cedf182672c8aa33d2bce43f9769854eb",
+   "status": "empty"
+  },
+  "bug_pillbug_rollo": {
+   "face": [],
+   "faceAnchors": {
+    "eye": {
+     "r": 10.12,
+     "x": 59.8,
+     "y": 11.04
+    },
+    "mouth": {
+     "s": 15.64,
+     "x": 55.2,
+     "y": 27.6
+    }
+   },
+   "id": "bug_pillbug_rollo",
+   "kind": "bug",
+   "pages": {
+    "1": [],
+    "2": []
+   },
+   "parts": {},
+   "report": [
+    {
+     "level": "info",
+     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+    }
+   ],
+   "rigHash": "263ecbf10476b9f4",
+   "sourceHash": "4281160ed3a63f992162de7b1ba13a8a8d21b7d3727abb76f0e423f9cb1f61d9",
+   "status": "empty"
+  },
+  "bug_snail_glorp": {
+   "face": [],
+   "faceAnchors": {
+    "eye": {
+     "r": 14,
+     "x": 78.467,
+     "y": -73.216
+    },
+    "mouth": {
+     "s": 19.04,
+     "x": 67.2,
+     "y": 20.16
+    }
+   },
+   "id": "bug_snail_glorp",
+   "kind": "bug",
+   "pages": {
+    "1": [],
+    "2": []
+   },
+   "parts": {},
+   "report": [
+    {
+     "level": "info",
+     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+    }
+   ],
+   "rigHash": "d3d96208442ca942",
+   "sourceHash": "59881e8fa9e69d48462e061cc33077e631051d55d3ab2feb77a24513812159b3",
+   "status": "empty"
+  },
+  "bug_stagbeetle_moose": {
+   "face": [],
+   "faceAnchors": {
+    "eye": {
+     "r": 8,
+     "x": 82.24,
+     "y": 7.52
+    },
+    "mouth": {
+     "s": 19.2,
+     "x": 78.8,
+     "y": 21.6
+    }
+   },
+   "id": "bug_stagbeetle_moose",
+   "kind": "bug",
+   "pages": {
+    "1": [],
+    "2": []
+   },
+   "parts": {},
+   "report": [
+    {
+     "level": "info",
+     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+    }
+   ],
+   "rigHash": "515753ab116ad1d5",
+   "sourceHash": "06c05bfd63f655ac952209f301393111dd4ef282bd6a1256d7d477feac9cf325",
+   "status": "empty"
+  },
+  "bug_stickinsect_twig": {
+   "face": [],
+   "faceAnchors": {
+    "eye": {
+     "r": 5.19,
+     "x": 48,
+     "y": -18
+    },
+    "mouth": {
+     "s": 9.99,
+     "x": 51,
+     "y": -14.01
+    }
+   },
+   "id": "bug_stickinsect_twig",
+   "kind": "bug",
+   "pages": {
+    "1": [],
+    "2": []
+   },
+   "parts": {},
+   "report": [
+    {
+     "level": "info",
+     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+    }
+   ],
+   "rigHash": "20e3a5f62c599b01",
+   "sourceHash": "4216e4d8871c5ada4d08739a4d215213a8fc15efa448b3e57be9ac819eb34d03",
+   "status": "empty"
+  },
+  "bug_stinkbug_whiff": {
+   "face": [],
+   "faceAnchors": {
+    "eye": {
+     "r": 7.304,
+     "x": 50.952,
+     "y": 4.048
+    },
+    "mouth": {
+     "s": 12.54,
+     "x": 49.324,
+     "y": 15.4
+    }
+   },
+   "id": "bug_stinkbug_whiff",
+   "kind": "bug",
+   "pages": {
+    "1": [],
+    "2": []
+   },
+   "parts": {},
+   "report": [
+    {
+     "level": "info",
+     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+    }
+   ],
+   "rigHash": "43bf9045589fe098",
+   "sourceHash": "aa3ad22eb9df10660825cd63178244863f7311d3b833422e7a7ea4947a473e7d",
+   "status": "empty"
+  },
+  "bug_waterstrider_skeet": {
+   "face": [],
+   "faceAnchors": {
+    "eye": {
+     "r": 9.5,
+     "x": 52,
+     "y": -19
+    },
+    "mouth": {
+     "s": 13,
+     "x": 50,
+     "y": -7.5
+    }
+   },
+   "id": "bug_waterstrider_skeet",
+   "kind": "bug",
+   "pages": {
+    "1": [],
+    "2": []
+   },
+   "parts": {},
+   "report": [
+    {
+     "level": "info",
+     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+    }
+   ],
+   "rigHash": "f1fc47344f27f3e4",
+   "sourceHash": "55fafb56d33778c76449b6513f42641b8ee6b0ad0b2f7e76ca73ec8337024154",
+   "status": "empty"
+  },
+  "face_kit": {
+   "face": [],
+   "id": "face_kit",
+   "kind": "face_kit",
+   "pages": {
+    "1": [],
+    "2": []
+   },
+   "parts": {},
+   "report": [
+    {
+     "level": "info",
+     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+    }
+   ],
+   "rigHash": "b1f5b96fd54564b4",
+   "sourceHash": "d803f545799a7716dec2a528050331d603d57e6d7fa0edc1fac0d5a220a0ba68",
+   "status": "empty"
+  }
+ },
  "schema": 1
 }

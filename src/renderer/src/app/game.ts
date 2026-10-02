@@ -13,6 +13,8 @@ import { BugVoices } from '../audio/voices';
 import { PointerController } from '../input/pointerController';
 import { Camera } from '../render/camera';
 import { GhostHand, HintMarks } from '../render/hintView';
+import { ArtLab } from '../art/artLab';
+import { artStore } from '../art/artStore';
 import { WorldView } from '../render/worldView';
 import type { PictureButton } from '../ui/button';
 import { isUi } from '../ui/button';
@@ -275,7 +277,29 @@ export class Game {
 
   async start(): Promise<void> {
     await this.settings.load();
+    // Hand-drawn art: tests start code-drawn and switch it on when they are about it.
+    if (this.api.testMode) artStore.setMode('code');
+    await artStore.loadBundled().catch((err: unknown) => console.error('Art failed to load', err));
     await this.showMenu();
+    const lab = import.meta.env.DEV ? import.meta.env.VITE_BB_ART_LAB : undefined;
+    if (lab) this.openArtLab(lab === '1' ? 'bug_ladybug_dot' : lab);
+  }
+
+  /** The Art Lab, open over everything (dev builds and tests), or null. */
+  artLab: ArtLab | null = null;
+
+  openArtLab(bugId: string): void {
+    this.closeArtLab();
+    const lab = new ArtLab(bugId);
+    lab.on('close', () => this.closeArtLab());
+    this.app.stage.addChild(lab);
+    this.artLab = lab;
+    this.raiseOverlays();
+  }
+
+  closeArtLab(): void {
+    this.artLab?.destroy();
+    this.artLab = null;
   }
 
   /** Settings take effect at once: volumes, reduce motion, edge scroll. */
@@ -880,6 +904,7 @@ export class Game {
 
   private frame(dt: number): void {
     this.frameCount++;
+    this.artLab?.update(dt);
     if (this.menu && !this.menuFrozen) this.menu.update(dt);
     if (this.panel) this.panel.update(dt);
     if (this.album) this.album.update(dt);

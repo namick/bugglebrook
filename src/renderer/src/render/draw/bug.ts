@@ -82,28 +82,28 @@ export class BugSprite extends Container {
   readonly r: number;
   /** The skeleton: joints and anchors, shared with the cutout renderer. */
   readonly bones: BugRig;
-  private readonly stretchA = new Container();
-  private readonly stretchB = new Container();
-  private readonly stretchC = new Container();
-  private readonly spinLayer = new Container();
-  private readonly squash = new Container();
-  private readonly rig = new Container();
-  private readonly rim = new Graphics();
-  private readonly legsBack = new Graphics();
-  private readonly wings = new Graphics();
-  private readonly body = new Graphics();
-  private readonly shell = new Graphics();
-  private readonly legsFront = new Graphics();
-  private readonly faceG = new Graphics();
-  private readonly antennae = new Graphics();
-  private readonly ball = new Graphics();
-  private readonly fx = new Graphics();
+  protected readonly stretchA = new Container();
+  protected readonly stretchB = new Container();
+  protected readonly stretchC = new Container();
+  protected readonly spinLayer = new Container();
+  protected readonly squash = new Container();
+  protected readonly rig = new Container();
+  protected readonly rim = new Graphics();
+  protected readonly legsBack = new Graphics();
+  protected readonly wings = new Graphics();
+  protected readonly body = new Graphics();
+  protected readonly shell = new Graphics();
+  protected readonly legsFront = new Graphics();
+  protected readonly faceG = new Graphics();
+  protected readonly antennae = new Graphics();
+  protected readonly ball = new Graphics();
+  protected readonly fx = new Graphics();
   /** Paint patches over the lower body, clipped to `paintMask`. */
-  private readonly paintG = new Graphics();
-  private readonly paintMask = new Graphics();
-  private readonly springs = [new AntennaSpring(), new AntennaSpring()];
-  private lastV = { x: 0, y: 0 };
-  private form: BugFace['form'] | null = null;
+  protected readonly paintG = new Graphics();
+  protected readonly paintMask = new Graphics();
+  protected readonly springs = [new AntennaSpring(), new AntennaSpring()];
+  protected lastV = { x: 0, y: 0 };
+  protected form: BugFace['form'] | null = null;
   /** The species painter for bugs drawn in their own module (M7 and later), or null. */
   private readonly painter: SpeciesPainter | null;
   /** Pixels from the root down to the ground: the radius, or half a box collider's height. */
@@ -750,7 +750,7 @@ export class BugSprite extends Container {
   }
 
   /** Steam and dizzy stars; `crown` (rig space) is where they circle, for painted species. */
-  private drawStars(frame: BugFrame, crown?: { x: number; y: number }): void {
+  protected drawStars(frame: BugFrame, crown?: { x: number; y: number }): void {
     const g = this.fx.clear();
     const { r } = this;
     if (frame.face.steam) {

@@ -26,6 +26,8 @@ import { bugFace } from './bugFace';
 import { bugPose } from './bugPose';
 import type { Camera, Point } from './camera';
 import { BugSprite } from './draw/bug';
+import { artStore } from '../art/artStore';
+import { makeBugView } from '../art/bugViews';
 import type { BugFrame } from './draw/bug';
 import type { Look } from './draw/face';
 import { ItemSprite } from './draw/item';
@@ -175,6 +177,8 @@ export class WorldView extends Container {
   /** Where each weld sits on its two bodies, so the goo blob follows them. */
   readonly welds = new Map<string, { la: Point; lb: Point }>();
   readonly sprites = new Map<EntityId, BugSprite | ItemSprite>();
+  /** The art store's version the bug views were built for. */
+  private artVersion = artStore.version;
   private readonly juice = new Map<EntityId, Juice>();
   readonly offs: Array<() => void> = [];
   time = 0;
@@ -643,6 +647,15 @@ export class WorldView extends Container {
     this.drawGlows(offer);
     const rimPulse = pulseAt(this.time);
     const seen = new Set<EntityId>();
+    // New art (hot reload, or the art switched on or off): rebuild every bug's view.
+    if (this.artVersion !== artStore.version) {
+      this.artVersion = artStore.version;
+      for (const [id, sprite] of this.sprites) {
+        if (!(sprite instanceof BugSprite)) continue;
+        sprite.destroy({ children: true });
+        this.sprites.delete(id);
+      }
+    }
     for (const view of views) {
       seen.add(view.id);
       const sprite = this.sprites.get(view.id) ?? this.createSprite(view);
@@ -1449,7 +1462,7 @@ export class WorldView extends Container {
   private createSprite(view: EntityView): BugSprite | ItemSprite {
     const sprite =
       view.kind === 'bug'
-        ? new BugSprite(this.sim.content.bugs.get(view.defId))
+        ? makeBugView(this.sim.content.bugs.get(view.defId))
         : new ItemSprite(this.sim.content.items.get(view.defId), view.id);
     // Keep draw order equal to ID order so hit testing (highest ID) matches.
     sprite.zIndex = view.id;

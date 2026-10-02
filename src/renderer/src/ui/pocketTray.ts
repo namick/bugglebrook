@@ -1,6 +1,7 @@
 import { Container, Graphics } from 'pixi.js';
 import type { Sim } from '../../../game';
 import { POCKET_SLOTS } from '../../../game/systems/pocket';
+import { makeBugView } from '../art/bugViews';
 import { BugSprite, standaloneFrame } from '../render/draw/bug';
 import { bugSpan } from '../render/draw/species';
 import { ItemSprite } from '../render/draw/item';
@@ -178,7 +179,7 @@ export class PocketTray extends Container {
         let size: number;
         if (slot.kind === 'bug') {
           const def = this.sim.content.bugs.get(slot.defId);
-          sprite = new BugSprite(def);
+          sprite = makeBugView(def);
           size = bugSpan(def);
         } else {
           const def = this.sim.content.items.get(slot.defId);

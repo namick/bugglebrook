@@ -1205,3 +1205,30 @@ export function walkJoints(pose: BugPose, o: WalkSpec): WalkJoint[] {
   }
   return out;
 }
+
+/** Near eye and mouth at rest for the painted species, in radii (from their painters). */
+const PAINTED_FACE: Partial<
+  Record<BugArt, { eye: [number, number, number]; mouth: [number, number, number] }>
+> = {
+  stinkbug: { eye: [1.158, 0.092, 0.166], mouth: [1.121, 0.35, 0.285] },
+  stagbeetle: { eye: [1.028, 0.094, 0.1], mouth: [0.985, 0.27, 0.24] },
+  dungbeetle: { eye: [0.98, 0.04, 0.17], mouth: [0.98, 0.32, 0.28] },
+  caterpillar: { eye: [1.06, 0.02, 0.19], mouth: [0.96, 0.29, 0.4] },
+  mantis: { eye: [1.36, -0.98, 0.26], mouth: [1.1, -0.56, 0.24] },
+  stickinsect: { eye: [1.6, -0.6, 0.173], mouth: [1.7, -0.467, 0.333] },
+};
+
+/** Where the near eye and the mouth sit at rest, in rig pixels: face pieces drawn for one bug are placed from here. */
+export function faceRest(rig: BugRig, def: BugDef): { eye: Pt & { r: number }; mouth: Pt & { s: number } } {
+  const spot = facePlacement(rig, def, REST_FRAME, [ZERO_TIP, ZERO_TIP], 'normal');
+  if (spot && spot.mouth) {
+    const e = spot.eyes[spot.eyes.length - 1]!;
+    return { eye: { x: e.x, y: e.y, r: e.r }, mouth: { x: spot.mouth.x, y: spot.mouth.y, s: spot.mouth.s } };
+  }
+  const t = PAINTED_FACE[rig.art] ?? { eye: [0.8, 0, 0.2], mouth: [0.9, 0.3, 0.3] };
+  const { r } = rig;
+  return {
+    eye: { x: t.eye[0] * r, y: t.eye[1] * r, r: t.eye[2] * r },
+    mouth: { x: t.mouth[0] * r, y: t.mouth[1] * r, s: t.mouth[2] * r },
+  };
+}

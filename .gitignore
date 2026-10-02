@@ -15,3 +15,8 @@ assets/music/**/*.mp3
 assets/music/**/*.flac
 assets/music/**/*.zip
 assets/music/import-report.txt
+
+# Art pipeline: fresh templates for comparing, and Krita working files (docs/06-art-guide.md, B12)
+art/templates/
+*.kra
+*.kra~

@@ -100,3 +100,10 @@ export interface ArtMessage {
   layer?: string;
   text: string;
 }
+
+/** Built art to install at run time (hot reload, tests): manifest entries and each page's picture and JSON. */
+export interface ArtPack {
+  assets: ManifestAsset[];
+  /** By page path (as in `entry.pages`): a PNG data URL and the page JSON. */
+  pages: Record<string, { png: string; json: AtlasJson }>;
+}

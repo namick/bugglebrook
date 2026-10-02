@@ -61,7 +61,7 @@ const SCENES: Scene[] = [
   { name: 'peek', mode: 'st_idle', extra: { pending: 'disguised', peeking: true } },
   { name: 'cocoon', mode: 'st_sleep', eyes: 'sleepy', extra: { morph: 'cocoon' } },
   { name: 'butterfly', mode: 'st_wander', vx: 1, extra: { morph: 'butterfly' } },
-  { name: 'painted', mode: 'st_idle', extra: { paint: ['item_paint_blue', 'item_paint_red'] } },
+  { name: 'painted', mode: 'st_idle', extra: { paint: ['paint_blue', 'paint_red'] } },
   { name: 'rim', mode: 'st_idle', extra: { rim: 0.8, facing: -1 } },
   { name: 'tint', mode: 'st_react', eyes: 'x', mouth: 'puff' },
 ];

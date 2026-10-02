@@ -10,6 +10,7 @@ import { pathToFileURL } from 'node:url';
 import { KIT_EYE_R, KIT_MOUTH_W, kitCell } from '../../src/renderer/src/art/kit.ts';
 import type {
   ArtMessage,
+  ArtPack,
   AtlasFrame,
   AtlasJson,
   Manifest,
@@ -208,6 +209,18 @@ export function buildAsset(bytes: Uint8Array, rig: RigFile): BuiltAsset {
     });
   }
   return { entry, files, messages: a.messages };
+}
+
+/** Built assets as a pack the game can install while running (hot reload, tests). */
+export function toArtPack(built: readonly BuiltAsset[]): ArtPack {
+  const pages: ArtPack['pages'] = {};
+  for (const b of built)
+    for (const page of [...b.entry.pages['1'], ...b.entry.pages['2']]) {
+      const png = b.files[`${page}.png`]!;
+      const json = JSON.parse(new TextDecoder().decode(b.files[`${page}.json`]!)) as AtlasJson;
+      pages[page] = { png: `data:image/png;base64,${Buffer.from(png).toString('base64')}`, json };
+    }
+  return { assets: built.map((b) => b.entry), pages };
 }
 
 /** Face anchors in game pixels from the rig origin. */

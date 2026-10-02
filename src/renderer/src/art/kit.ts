@@ -46,21 +46,25 @@ export const FACE_KIT: readonly KitPiece[] = [...KIT_EYES, ...KIT_MOUTHS];
 /** Tintable kit pieces: drawn in greys and colored by the game. */
 export const KIT_TINTABLE: ReadonlySet<string> = new Set(['eye_sleepy_lid']);
 
-/** The kit's canvas, in template pixels (4 times game size). */
-export const KIT_CANVAS = { w: 2048, h: 1024 } as const;
+/** The kit's canvas, in template pixels (4 times game size): four rows of cells and a band for notes. */
+export const KIT_CANVAS = { w: 2048, h: 1152 } as const;
 export const KIT_COLS = 7;
 export const KIT_CELL = { w: 292, h: 256 } as const;
 
 /** The eye white's radius in the kit, in template pixels. The game scales each eye by its radius over this. */
-export const KIT_EYE_R = 96;
+export const KIT_EYE_R = 72;
 /** A mouth's width in the kit, in template pixels. The game scales each mouth by its width over this. */
-export const KIT_MOUTH_W = 256;
+export const KIT_MOUTH_W = 160;
 
-/** The center of a kit piece's cell, in template pixels: the piece's pivot. */
+/** Mouths hang down from their line, so their pivot sits a little above the cell's middle. */
+const MOUTH_LIFT = 24;
+
+/** A kit piece's pivot in its cell, in template pixels: where the game puts the eye's center or the mouth's line. */
 export function kitCell(name: string): { x: number; y: number; col: number; row: number } {
   const i = FACE_KIT.indexOf(name as KitPiece);
   if (i < 0) throw new Error(`not a face kit piece: ${name}`);
   const col = i % KIT_COLS;
   const row = Math.floor(i / KIT_COLS);
-  return { x: col * KIT_CELL.w + KIT_CELL.w / 2, y: row * KIT_CELL.h + KIT_CELL.h / 2, col, row };
+  const lift = name.startsWith('mouth_') ? MOUTH_LIFT : 0;
+  return { x: col * KIT_CELL.w + KIT_CELL.w / 2, y: row * KIT_CELL.h + KIT_CELL.h / 2 - lift, col, row };
 }

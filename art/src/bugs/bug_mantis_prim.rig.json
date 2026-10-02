@@ -1,0 +1,173 @@
+{
+ "canvas": {
+  "h": 1408,
+  "w": 1280
+ },
+ "face": [
+  "eye_white",
+  "eye_pupil",
+  "eye_closed",
+  "eye_happy",
+  "eye_squint",
+  "eye_squeezed",
+  "eye_spiral",
+  "eye_heart",
+  "eye_sleepy_lid",
+  "brow_angry",
+  "brow_worried",
+  "brow_polite",
+  "cheek",
+  "mouth_smile",
+  "mouth_grin",
+  "mouth_o",
+  "mouth_whee",
+  "mouth_aah",
+  "mouth_chew_1",
+  "mouth_chew_2",
+  "mouth_wobble_1",
+  "mouth_wobble_2",
+  "mouth_flat",
+  "mouth_frown",
+  "mouth_lick",
+  "mouth_tongue",
+  "mouth_teeth",
+  "mouth_puff"
+ ],
+ "faceAnchors": {
+  "eye": {
+   "r": 62.4,
+   "x": 838.4,
+   "y": 532.8
+  },
+  "mouth": {
+   "s": 57.6,
+   "x": 776,
+   "y": 633.6
+  }
+ },
+ "ground": 1008,
+ "id": "bug_mantis_prim",
+ "kind": "bug",
+ "origin": {
+  "x": 512,
+  "y": 768
+ },
+ "parts": [
+  {
+   "form": "thrown",
+   "kind": "form",
+   "name": "wing_open",
+   "note": "Wings spread, shown when thrown.",
+   "pivot": {
+    "x": 401.6,
+    "y": 624
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_upper",
+   "length": 149.957,
+   "name": "leg_upper",
+   "note": "Hip to knee, drawn straight down from the hip dot. Round nub at the top.",
+   "pivot": {
+    "x": 507.2,
+    "y": 840
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_lower",
+   "length": 297.523,
+   "name": "leg_lower",
+   "note": "Knee to foot, straight down from the knee dot, with the foot.",
+   "pivot": {
+    "x": 507.2,
+    "y": 989.957
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "abdomen",
+   "note": "The long leaf-shaped body.",
+   "pivot": {
+    "x": 348.8,
+    "y": 830.4
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "wing_folded",
+   "note": "Folded wings along her back.",
+   "pivot": {
+    "x": 516.8,
+    "y": 808.8
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "neck",
+   "note": "The long neck, base on the dot.",
+   "pivot": {
+    "x": 512,
+    "y": 820.8
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "head",
+   "note": "The triangle head. No face.",
+   "pivot": {
+    "x": 723.2,
+    "y": 600
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_upper",
+   "length": 149.495,
+   "name": "arm_thigh",
+   "note": "Hip to knee, drawn straight down from the hip dot. Round nub at the top.",
+   "pivot": {
+    "x": 632,
+    "y": 696
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_lower",
+   "length": 114.498,
+   "name": "arm_blade",
+   "note": "Knee to foot, straight down from the knee dot, with the foot.",
+   "pivot": {
+    "x": 632,
+    "y": 845.495
+   },
+   "required": true
+  },
+  {
+   "kind": "rope",
+   "length": 201.157,
+   "name": "antenna",
+   "note": "One feeler, drawn straight up from its base dot. The game bends it.",
+   "pivot": {
+    "x": 776,
+    "y": 484.8
+   },
+   "required": true
+  }
+ ],
+ "rigHash": "c14cf7ba530014bb",
+ "safe": {
+  "x0": 32,
+  "x1": 1248,
+  "y0": 32,
+  "y1": 1376
+ },
+ "scale": 4,
+ "schema": 1,
+ "title": "Prim the praying mantis (bug_mantis_prim)"
+}

@@ -37,7 +37,9 @@
     "dist:mac": "electron-vite build && electron-builder --mac --publish never",
     "shots": "electron-vite build && node scripts/display.mjs playwright test -c playwright.shots.config.ts",
     "art:build": "node scripts/art/build.ts",
-    "art:check": "node scripts/art/build.ts --check"
+    "art:check": "node scripts/art/build.ts --check",
+    "art:templates": "node scripts/art/templates.ts",
+    "art:watch": "node scripts/art/dev.ts"
   },
   "dependencies": {
     "electron-updater": "6.8.9"

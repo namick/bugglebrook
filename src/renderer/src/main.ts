@@ -4,6 +4,8 @@ import 'pixi.js/unsafe-eval';
 import { Application } from 'pixi.js';
 import { VIEW_HEIGHT_PX, VIEW_WIDTH_PX } from '../../game/constants';
 import { Game } from './app/game';
+import { SpriteBugView } from './art/spriteBug';
+import './art/hot';
 import { memoryApi } from './app/memorySaves';
 import { WebAudioBackend } from './audio/synth';
 import { installTestHook } from './debug/testHook';
@@ -49,6 +51,7 @@ async function boot(): Promise<void> {
     const fit = fitViewport(window.innerWidth, window.innerHeight, VIEW_WIDTH_PX, VIEW_HEIGHT_PX);
     const resolution = software ? (lite ? 0.125 : 0.5) : Math.min(2, fit.scale * window.devicePixelRatio);
     app.renderer.resize(VIEW_WIDTH_PX, VIEW_HEIGHT_PX, resolution);
+    SpriteBugView.resolution = resolution;
     Object.assign(canvas.style, {
       width: `${fit.width}px`,
       height: `${fit.height}px`,
