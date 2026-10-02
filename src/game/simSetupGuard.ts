@@ -111,18 +111,29 @@ export function touchesSetup(sim: Sim, id: EntityId): boolean {
 
 /**
  * Player setups plus every item touching them, directly or through other
- * items: a bug pushing any of these would push the player's work.
+ * items: a bug pushing any of these would push the player's work. The thing
+ * in the hand is not set up anywhere yet, so it links nothing: food carried
+ * to a bug napping on the bottle cap does not make the cap the player's
+ * (PM-03 of the post-merge playtest).
  */
 export function setupLinked(sim: Sim): Set<EntityId> {
   if (sim.linkedCache?.tick === sim.tick) return sim.linkedCache.ids;
   const ids = new Set<EntityId>();
+  const held = sim.physics.grabbed;
   for (const e of sim.entities.ofKind('item'))
     // Things out of the world (pocketed, in a mouth) are nobody's obstacle.
-    if (sim.setup.has(e.id) && !sim.pocketed.has(e.id) && sim.physics.isActive(e.id)) ids.add(e.id);
+    if (sim.setup.has(e.id) && e.id !== held && !sim.pocketed.has(e.id) && sim.physics.isActive(e.id))
+      ids.add(e.id);
   if (ids.size > 0) {
     const pairs = sim.physics
       .touchingPairs()
-      .filter(([a, b]) => sim.entities.get(a)?.kind === 'item' && sim.entities.get(b)?.kind === 'item');
+      .filter(
+        ([a, b]) =>
+          a !== held &&
+          b !== held &&
+          sim.entities.get(a)?.kind === 'item' &&
+          sim.entities.get(b)?.kind === 'item',
+      );
     let grew = true;
     while (grew) {
       grew = false;
@@ -137,7 +148,7 @@ export function setupLinked(sim: Sim): Set<EntityId> {
     // Anything about to bump into them counts too: a buffer of a few centimeters.
     const boxes = [...ids].map((id) => sim.boxOf(id));
     for (const e of sim.entities.ofKind('item')) {
-      if (ids.has(e.id) || sim.isSleeping(e.id) || !sim.physics.isActive(e.id)) continue;
+      if (ids.has(e.id) || e.id === held || sim.isSleeping(e.id) || !sim.physics.isActive(e.id)) continue;
       const b = sim.boxOf(e.id);
       if (
         boxes.some((o) => b.x0 < o.x1 + 0.3 && b.x1 > o.x0 - 0.3 && b.y0 < o.y1 + 0.15 && b.y1 > o.y0 - 0.15)

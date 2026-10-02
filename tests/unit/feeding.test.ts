@@ -531,3 +531,65 @@ describe('offering food mid-reaction', () => {
     expect(sim.view(bug)!.bug!.facing).toBe(-1);
   });
 });
+
+describe('the first feed (PM-03 of the post-merge playtest)', () => {
+  it('Dot, woken on her bottle cap, takes the berry carried to her mouth: no hop, no "later"', () => {
+    for (const reach of [20, 60]) {
+      const sim = Sim.create({ seed: 'first-feed' });
+      sim.send({ type: 'stage_intro' });
+      sim.run(240);
+      const dot = sim.entities.ofKind('bug').find((b) => b.defId === 'bug_ladybug_dot')!;
+      const log = record(sim);
+      // The hand comes near: the first scene wakes her.
+      sim.send({ type: 'wake', id: dot.id });
+      sim.run(reach);
+      const at = sim.view(dot.id)!;
+      const berry = sim.entities
+        .ofKind('item')
+        .filter((e) => e.defId === 'item_berry_red')
+        .sort((a, b) => Math.abs(sim.view(a.id)!.x - at.x) - Math.abs(sim.view(b.id)!.x - at.x))[0]!;
+      const b = sim.view(berry.id)!;
+      sim.send({ type: 'grab', x: b.x, y: b.y });
+      sim.step();
+      expect(sim.physics.grabbed).toBe(berry.id);
+      // Carried to her mouth: the cap she stands on is not the player's, so she stays put.
+      for (let i = 0; i < 50; i++) {
+        const m = sim.mouthAnchor(dot.id)!;
+        sim.send({ type: 'drag', x: m.x, y: m.y - 0.1 });
+        sim.step();
+        expect(dot.bug!.mode).not.toBe('st_airborne');
+      }
+      sim.send({ type: 'release', vx: 0, vy: 0 });
+      sim.run(30);
+      const dotSaid = find(log, 'bug_reacted').filter((r) => r.id === dot.id);
+      expect(dotSaid.map((r) => r.reaction)).not.toContain('later');
+      expect(find(log, 'bug_fed').filter((f) => f.id === dot.id)).toContainEqual(
+        expect.objectContaining({ itemDefId: 'item_berry_red' }),
+      );
+    }
+  });
+
+  it('a thing in the hand makes nothing it touches part of a setup', () => {
+    const sim = Sim.empty({ seed: 'held-link' });
+    const x = PLAZA_X + 7;
+    const cap = sim.spawn('item', 'item_bottle_cap', x, GROUND_Y - 0.1);
+    const pebble = sim.spawn('item', 'item_pebble', x + 2, GROUND_Y - 0.2);
+    sim.run(60);
+    const p = sim.view(pebble.id)!;
+    sim.send({ type: 'grab', x: p.x, y: p.y });
+    sim.step();
+    expect(sim.setup.has(pebble.id)).toBe(true);
+    const c = sim.view(cap.id)!;
+    for (let i = 0; i < 30; i++) {
+      sim.send({ type: 'drag', x: c.x + 0.2, y: c.y - 0.3 });
+      sim.step();
+    }
+    expect(sim.setupLinked().has(cap.id)).toBe(false);
+    expect(sim.setupLinked().has(pebble.id)).toBe(false);
+    // Let go on the cap, it is set up there, and the cap leans on it.
+    sim.send({ type: 'release', vx: 0, vy: 0 });
+    sim.run(30);
+    expect(sim.setupLinked().has(pebble.id)).toBe(true);
+    expect(sim.setupLinked().has(cap.id)).toBe(true);
+  });
+});

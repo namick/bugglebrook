@@ -11,6 +11,8 @@ import {
   content,
   entities,
   entity,
+  framesUntil,
+  holdNearMouth,
   launchApp,
   pressOn,
   scrollTo,
@@ -387,6 +389,54 @@ test('the first scene: Dot naps on the bottle cap and wakes when the hand comes 
       .not.toBe('st_sleep');
     const woke = (await page.evaluate(() => window.__bb!.events())).filter((e) => e.name === 'bug_woke');
     expect(woke.length).toBeGreaterThan(0);
+  } finally {
+    await bb.close();
+  }
+});
+
+test('the first feed: Dot, woken by the hand, eats the berry carried to her mouth (PM-03, PM-05)', async () => {
+  const bb = await launchApp();
+  try {
+    const { page } = bb;
+    await waitForScene(page, 'menu');
+    await page.evaluate(() => window.__bb!.enableIntro(true));
+    await clickSlot(page, 0);
+    await expect.poll(async () => (await bugNamed(page, 'bug_ladybug_dot')).bug!.mode).toBe('st_sleep');
+    // A new world: nothing new on the journal button, from the first frame on (PM-05).
+    expect((await page.evaluate(() => window.__bb!.stamps()))!.badge).toBe(0);
+    await expect
+      .poll(() => page.evaluate(() => window.__bb!.intro()?.t ?? 0), { timeout: 60_000 })
+      .toBeGreaterThan(3.2);
+    expect((await page.evaluate(() => window.__bb!.stamps()))!.badge).toBe(0);
+    const dot = await bugNamed(page, 'bug_ladybug_dot');
+    // The hand comes near and wakes her, as the first scene does.
+    const near = await toClient(page, dot.x + 1.2, dot.y - 1);
+    await page.mouse.move(near.x - 300, near.y - 200);
+    await page.mouse.move(near.x, near.y, { steps: 8 });
+    await expect
+      .poll(async () => (await entity(page, dot.id))!.bug!.mode, { timeout: 30_000 })
+      .not.toBe('st_sleep');
+    const d = (await entity(page, dot.id))!;
+    const berry = (await entities(page))
+      .filter((e) => e.defId === 'item_berry_red')
+      .sort((a, b) => Math.abs(a.x - d.x) - Math.abs(b.x - d.x))[0]!;
+    // Carried to her mouth and let go: the guided start's first lesson.
+    await holdNearMouth(page, berry.id, dot.id, 0.05, -0.3, true);
+    await page.mouse.up();
+    const fed = async (): Promise<boolean> =>
+      (await page.evaluate(() => window.__bb!.events())).some(
+        (e) => e.name === 'bug_fed' && (e.payload as { id: number }).id === dot.id,
+      );
+    expect(await framesUntil(page, fed, 300, 10)).toBe(true);
+    const log = await page.evaluate(() => window.__bb!.events());
+    const fedOn = log.find((e) => e.name === 'bug_fed' && (e.payload as { id: number }).id === dot.id)!;
+    expect((fedOn.payload as { itemId: number }).itemId).toBe(berry.id);
+    // No "later" and no hop off her bottle cap on the way.
+    const mine = log.filter((e) => (e.payload as { id?: number }).id === dot.id);
+    expect(
+      mine.filter((e) => e.name === 'bug_reacted').map((e) => (e.payload as { reaction: string }).reaction),
+    ).not.toContain('later');
+    expect(mine.filter((e) => e.name === 'bug_hopped')).toEqual([]);
   } finally {
     await bb.close();
   }
