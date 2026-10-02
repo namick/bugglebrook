@@ -103,6 +103,11 @@ const MAX_SLIME = 40;
 
 /** Area rules run at 4 Hz (game design doc, section 6). */
 export const RULE_TICKS = 15;
+/**
+ * Which step of the 15 they run on: not the one where the setup check and the
+ * other every-15-step work run, so no single step carries all of it.
+ */
+const RULE_PHASE = 7;
 /** A weld tears when pulled faster than this, m/s (900 px/s). */
 export const STICK_BREAK = 9;
 /** New welds ignore the pull test for a moment while the bodies settle. */
@@ -766,7 +771,7 @@ export class Environment {
       else if (sim.hasTag(impact.b, 'tag_sticky')) this.tryStick(impact.b, impact.a);
       this.snapMagnet(impact.a, impact.b, impact);
     }
-    if (this.tick % RULE_TICKS === 0) this.ruleTick();
+    if (this.tick % RULE_TICKS === RULE_PHASE) this.ruleTick();
   }
 
   private enterWater(e: Entity, frac: number): void {
@@ -991,7 +996,11 @@ export class Environment {
       if (e.bug && this.skating.has(e.id))
         e.bug.needs.need_clean = Math.min(100, e.bug.needs.need_clean + 0.3);
       // R7: soap and water blow bubbles every half second.
-      if (this.tick % (RULE_TICKS * 2) === 0 && sim.hasTag(e.id, 'tag_soapy') && sim.hasTag(e.id, 'tag_wet'))
+      if (
+        this.tick % (RULE_TICKS * 2) === RULE_PHASE &&
+        sim.hasTag(e.id, 'tag_soapy') &&
+        sim.hasTag(e.id, 'tag_wet')
+      )
         sim.events.emit('bubbles_blown', { id: e.id, x: s.x, y: s.y, count: frac > 0 ? 3 : 2 });
       // R8: stink reaches bugs nearby.
       if (sim.hasTag(e.id, 'tag_smelly') && physics.isActive(e.id) && physics.grabbed !== e.id)

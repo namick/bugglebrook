@@ -99,6 +99,9 @@ export function wrapAngle(a: number): number {
   return r;
 }
 
+/** A number for a pair of entity IDs, lower first (IDs stay well under 2^26). */
+const pairKey = (a: EntityId, b: EntityId): number => a * 0x4000000 + b;
+
 const VELOCITY_ITERATIONS = 8;
 const POSITION_ITERATIONS = 3;
 /** How thick the world's end walls and ceiling are: thick enough that nothing is ever pushed through. */
@@ -794,7 +797,7 @@ export class Physics {
    */
   restingPairs(): [EntityId, EntityId][] {
     const out: [EntityId, EntityId][] = [];
-    const seen = new Set<string>();
+    const seen = new Set<number>();
     for (let c = this.world.getContactList(); c; c = c.getNext()) {
       if (!c.isTouching()) continue;
       const a = c.getFixtureA().getBody().getUserData() as EntityId | null;
@@ -803,7 +806,7 @@ export class Physics {
       const m = c.getWorldManifold(null);
       if (!m || Math.abs(m.normal.y) < 0.6) continue;
       const pair: [EntityId, EntityId] = a < b ? [a, b] : [b, a];
-      const key = `${pair[0]}:${pair[1]}`;
+      const key = pairKey(pair[0], pair[1]);
       if (seen.has(key)) continue;
       seen.add(key);
       out.push(pair);
@@ -813,7 +816,7 @@ export class Physics {
   }
 
   /** Pairs of entities touching through settled bodies' links (planck keeps no contact between two static bodies). */
-  private settledPairs(out: [EntityId, EntityId][], seen: Set<string>, minNy: number): void {
+  private settledPairs(out: [EntityId, EntityId][], seen: Set<number>, minNy: number): void {
     for (const [body, s] of this.settled) {
       const a = body.getUserData() as EntityId | null;
       if (a == null) continue;
@@ -821,7 +824,7 @@ export class Physics {
         const b = l.body.getUserData() as EntityId | null;
         if (b == null || a === b || Math.abs(l.ny) < minNy) continue;
         const pair: [EntityId, EntityId] = a < b ? [a, b] : [b, a];
-        const key = `${pair[0]}:${pair[1]}`;
+        const key = pairKey(pair[0], pair[1]);
         if (seen.has(key)) continue;
         seen.add(key);
         out.push(pair);
@@ -889,14 +892,14 @@ export class Physics {
   /** Pairs of entities touching right now, lower ID first, sorted. */
   touchingPairs(): [EntityId, EntityId][] {
     const out: [EntityId, EntityId][] = [];
-    const seen = new Set<string>();
+    const seen = new Set<number>();
     for (let c = this.world.getContactList(); c; c = c.getNext()) {
       if (!c.isTouching()) continue;
       const a = c.getFixtureA().getBody().getUserData() as EntityId | null;
       const b = c.getFixtureB().getBody().getUserData() as EntityId | null;
       if (a == null || b == null || a === b) continue;
       const pair: [EntityId, EntityId] = a < b ? [a, b] : [b, a];
-      const key = `${pair[0]}:${pair[1]}`;
+      const key = pairKey(pair[0], pair[1]);
       if (seen.has(key)) continue;
       seen.add(key);
       out.push(pair);
