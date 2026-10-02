@@ -11,6 +11,11 @@ import { WebAudioBackend } from './audio/synth';
 import { NullMusicSink } from './audio/musicPlayer';
 import { installTestHook } from './debug/testHook';
 import { fitViewport } from './render/viewport';
+import { installErrorBoundary } from './ui/oops';
+
+const api = window.bugglebrook ?? memoryApi();
+// Before anything else: an uncaught error from here on shows the oops screen and lands in the log.
+const boundary = installErrorBoundary(window, (text) => api.logError(text));
 
 /**
  * Does WebGL run in software here (SwiftShader or llvmpipe, as on CI under
@@ -28,7 +33,6 @@ function softwareGl(): boolean {
 }
 
 async function boot(): Promise<void> {
-  const api = window.bugglebrook ?? memoryApi();
   // Software WebGL (CI under xvfb, VMs) is fill-rate bound: no multisampling, and fewer pixels.
   const software = softwareGl();
   const app = new Application();
@@ -67,15 +71,20 @@ async function boot(): Promise<void> {
   // Tests decode no music: the null sink keeps time and reports what would play.
   const music = api.testMode ? new NullMusicSink() : (audio.musicSink() ?? new NullMusicSink());
   const game = new Game(app, api, audio, music);
+  boundary.onCrash = () => {
+    app.ticker.stop();
+    audio.setMuted(true);
+  };
   game.softwareRenderer = software;
   game.setLiteRender = (on) => {
     lite = on;
     resize();
   };
-  if (api.testMode) installTestHook(game);
+  if (api.testMode) installTestHook(game, boundary);
   await game.start();
 }
 
 boot().catch((err: unknown) => {
   console.error('Failed to start', err);
+  boundary.crash(err, 'boot');
 });

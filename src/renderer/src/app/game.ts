@@ -28,6 +28,7 @@ import type { MenuSound } from '../ui/menu';
 import { cameraButton } from '../ui/photoButtons';
 import { PocketTray } from '../ui/pocketTray';
 import { CreditsBoard } from '../ui/creditsBoard';
+import { UpdateToast } from '../ui/updateToast';
 import { CREDITS } from '../ui/credits';
 import { SettingsPanel } from '../ui/settingsPanel';
 import { HiddenDirector } from './hiddenDirector';
@@ -190,6 +191,10 @@ export class Game {
   private readonly curtain = new Graphics();
   private curtainAlpha = 0;
   private switching = false;
+  /** The "update ready" toast, once an update has downloaded. */
+  updateToast: UpdateToast | null = null;
+  /** The toast's button was pressed (for the test hook). */
+  updateRestartAsked = false;
 
   constructor(
     readonly app: Application,
@@ -207,6 +212,7 @@ export class Game {
     this.wireInput();
     this.wireCursor();
     api.onFlushRequest(() => this.saveNow().then(() => this.settings.flush()));
+    api.updates.onReady((version) => this.showUpdateReady(version));
     document.addEventListener('visibilitychange', () => this.setHidden(document.hidden));
     window.addEventListener('keydown', (e) => {
       this.session?.hints.noteInput();
@@ -274,8 +280,23 @@ export class Game {
     this.app.stage.addChild(this.cursor);
   }
 
-  /** Keep the curtain and the hand above everything else. */
+  /** An update has downloaded: show the toast whose button saves and restarts into it. */
+  showUpdateReady(version: string): void {
+    if (this.updateToast) return;
+    this.updateToast = new UpdateToast(version, () => {
+      if (this.updateRestartAsked) return;
+      this.updateRestartAsked = true;
+      void this.saveNow()
+        .then(() => this.settings.flush())
+        .finally(() => this.api.updates.restart());
+    });
+    this.updateToast.button.onHover = () => this.sfx.play('hover', 0.5);
+    this.raiseOverlays();
+  }
+
+  /** Keep the update toast, the curtain, and the hand above everything else. */
   private raiseOverlays(): void {
+    if (this.updateToast) this.app.stage.addChild(this.updateToast);
     this.app.stage.addChild(this.curtain);
     this.app.stage.addChild(this.cursor);
   }
@@ -1067,6 +1088,7 @@ export class Game {
       this.curtainAlpha = Math.max(0, this.curtainAlpha - dt * 4);
       this.curtain.alpha = this.curtainAlpha;
     }
+    this.updateToast?.update(dt);
     this.refreshCursor();
     if (this.pointer) this.cursor.update(dt, this.pointer.x, this.pointer.y);
     const s = this.session;

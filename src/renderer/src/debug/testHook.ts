@@ -27,6 +27,7 @@ import type { CursorPose } from '../ui/cursor';
 import { withSeen } from '../journal/layout';
 import { DAY, HOUR } from '../../../game/systems/sky';
 import type { ToggleKey, VolumeKey } from '../ui/settingsPanel';
+import type { ErrorBoundary, OopsState } from '../ui/oops';
 
 /**
  * Named UI controls the tests can find: buttons, sliders' tracks, toggles,
@@ -46,6 +47,7 @@ export type UiName =
   | 'to_menu'
   | 'gear'
   | 'door'
+  | 'update_restart'
   | 'credits'
   | 'credits_close'
   | 'bin'
@@ -191,6 +193,14 @@ export interface TestHook extends ArtHook {
   liteRender(on: boolean): void;
   /** Live particles and entity sprites. */
   renderStats(): { particles: number; sprites: number };
+  /** M12: throw from inside the next frame, to test the error boundary. */
+  crash(): void;
+  /** M12: the oops screen (shown, its reload button in client pixels, errors logged). */
+  oops(): OopsState;
+  /** M12: pretend an update finished downloading, as main would announce it. */
+  fakeUpdateReady(version: string): void;
+  /** M12: the update toast (shown, slid in, its version) and whether its button was pressed. */
+  updateToast(): { shown: boolean; settled: boolean; version: string | null; restartAsked: boolean };
   saveNow(): Promise<void>;
   listSlots(): Promise<SlotInfo[]>;
   /**
@@ -510,7 +520,7 @@ declare global {
   }
 }
 
-export function installTestHook(game: Game): void {
+export function installTestHook(game: Game, boundary?: ErrorBoundary): void {
   const logicalToClient = (p: Point): Point => {
     const rect = game.app.canvas.getBoundingClientRect();
     const k = rect.width / VIEW_WIDTH_PX;
@@ -569,6 +579,8 @@ export function installTestHook(game: Game): void {
         return game.menu?.gear ?? null;
       case 'door':
         return game.menu?.door ?? null;
+      case 'update_restart':
+        return game.updateToast?.button ?? null;
       case 'credits':
         return game.menu?.heart ?? null;
       case 'credits_close':
@@ -803,6 +815,19 @@ export function installTestHook(game: Game): void {
     updateTimes: (n) => game.updateTimes.slice(-n),
     softwareRenderer: () => game.softwareRenderer,
     liteRender: (on) => game.setLiteRender?.(on),
+    crash: () => {
+      game.app.ticker.addOnce(() => {
+        throw new Error('Test crash: bugs got loose');
+      });
+    },
+    oops: () => boundary?.state() ?? { shown: false, reload: null, logged: 0 },
+    fakeUpdateReady: (version) => game.showUpdateReady(version),
+    updateToast: () => ({
+      shown: game.updateToast !== null,
+      settled: game.updateToast?.settled ?? false,
+      version: game.updateToast?.version ?? null,
+      restartAsked: game.updateRestartAsked,
+    }),
     renderStats: () => ({
       particles: game.session?.view.particles.count ?? 0,
       sprites: game.session?.view.spriteCount ?? 0,
