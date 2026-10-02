@@ -202,9 +202,16 @@ test('a ball bowled with the mouse rolls through the can tunnel and opens the la
     const ball = (await entities(page))
       .filter((e) => e.defId === 'item_rubber_ball')
       .sort((a, b) => b.id - a.id)[0]!;
-    // Pick it up, set it down by the wall, then bowl it along the floor at the tunnel.
+    // Pick it up, set it down by the wall in the clearest gap in the porch's junk, then bowl it along the floor at the tunnel.
+    const others = (await entities(page)).filter((e) => e.id !== ball.id && Math.abs(e.x - wall) < 6);
+    let spot = wall - 3.2;
+    let best = -1;
+    for (let x = wall - 4; x <= wall - 2; x += 0.05) {
+      const gap = Math.min(...others.map((e) => Math.abs(e.x - x)));
+      if (gap > best) [spot, best] = [x, gap];
+    }
     const from = await pressFrozen(page, ball.id);
-    const low = await toClient(page, wall - 3.2, 8.6);
+    const low = await toClient(page, spot, 8.6);
     await glideFrames(page, from, low.x - from.x, low.y - from.y, 8, 4);
     await frames(page, 20);
     await glideFrames(page, low, 64, 0, 8, 1);
