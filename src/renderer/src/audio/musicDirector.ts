@@ -73,7 +73,7 @@ export class MusicDirector {
       backend,
       this.engine.clock,
       () => sink.now(),
-      () => this.engine.report().area,
+      () => this.engine.area,
     );
     this.lastInput = wallClock();
   }
@@ -150,13 +150,16 @@ export class MusicDirector {
     const bar = this.engine.clock.period * this.engine.clock.beatsPerBar;
     let active = 0;
     const players: { bug: number; defId: string; x: number }[] = [];
-    for (const v of sim.views()) {
-      if (v.kind !== 'bug' || !v.bug || v.asleep || v.pocket !== undefined || v.bug.pending) continue;
-      if (v.x < f.x0 || v.x > f.x1) continue;
-      if (!QUIET_MODES.has(v.bug.mode)) active++;
-      if (v.bug.mode === 'st_use' && v.bug.action === 'play' && v.bug.targetId !== null) {
-        const item = sim.view(v.bug.targetId);
-        if (item) players.push({ bug: v.id, defId: item.defId, x: v.x });
+    // Straight from the entities: building every view twice a frame costs too much.
+    for (const e of sim.entities.ofKind('bug')) {
+      const b = e.bug;
+      if (!b || b.pending || sim.isSleeping(e.id)) continue;
+      const x = sim.physics.getState(e.id).x;
+      if (x < f.x0 || x > f.x1) continue;
+      if (!QUIET_MODES.has(b.mode)) active++;
+      if (b.mode === 'st_use' && b.action === 'play' && b.targetId !== null) {
+        const item = sim.entities.get(b.targetId);
+        if (item) players.push({ bug: e.id, defId: item.defId, x });
       }
     }
     const input: MusicInput = {
@@ -183,7 +186,7 @@ export class MusicDirector {
     if (this.toys.bandActive) {
       live.add('band');
       this.toys.updateBand(
-        this.engine.report().area === 'area_flowerbed_stage' ? 1 : this.speakersOn(sim) ? SPEAKER_VOLUME : 0,
+        this.engine.area === 'area_flowerbed_stage' ? 1 : this.speakersOn(sim) ? SPEAKER_VOLUME : 0,
       );
     }
     this.toys.endPartsExcept(live);
@@ -199,7 +202,7 @@ export class MusicDirector {
     const layout = sim.places.sequencerLayout();
     const s = sim.places.sequencer;
     const rows = playingRows(s);
-    const here = this.engine.report().area === 'area_flowerbed_stage';
+    const here = this.engine.area === 'area_flowerbed_stage';
     const volume = !layout || isEmpty(rows) ? 0 : here ? 1 : this.speakersOn(sim) ? SPEAKER_VOLUME : 0;
     this.seqVolume = volume;
     const mine = !isEmpty(s.patterns[s.current]);
@@ -263,6 +266,11 @@ export class MusicDirector {
 
   report(): MusicReport {
     return this.engine.report();
+  }
+
+  /** Beats on the music clock now (for drawing things on the beat). */
+  beat(): number {
+    return this.engine.clock.beatAt(this.sink.now());
   }
 
   notes(): NoteLog[] {

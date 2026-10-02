@@ -522,7 +522,7 @@ export class Game {
     view.hints = hints.affordance;
     view.music = () => {
       const seq = this.music.sequencerReport();
-      return { seqColumn: seq?.column ?? -1, seqVolume: seq?.volume ?? 0, beat: this.music.report().beat };
+      return { seqColumn: seq?.column ?? -1, seqVolume: seq?.volume ?? 0, beat: this.music.beat() };
     };
     const marks = new HintMarks();
     const ghost = new GhostHand((defId) => sim.content.items.tryGet(defId));

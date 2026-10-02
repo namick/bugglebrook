@@ -97,7 +97,8 @@ export class MusicEngine {
   private switchAt: { at: number; choice: MusicChoice; barTime: number } | null = null;
   private target: MusicChoice | null = null;
   private pendingFade: FadeKind = 'menu';
-  private area: string | null = null;
+  /** The area the music follows (null on the menu). */
+  area: string | null = null;
   private phase: 'day' | 'night' = 'day';
   private thinning = false;
   private lastPlayerNote = -Infinity;

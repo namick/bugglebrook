@@ -11,6 +11,7 @@ import {
   launchApp,
   openFrozen,
   scrollTo,
+  spawnFrozen,
   toClient,
   waitForScene,
 } from './app';
@@ -179,14 +180,8 @@ test('rain wets things in the open within 5 s, raises the pond, fills puddles, a
       const gap = Math.min(...around.map((e) => Math.abs(e.x - x)));
       if (gap > best) [spot, best] = [x, gap];
     }
-    const pebble = await page.evaluate((x) => {
-      window.__bb!.send({ type: 'spawn', kind: 'item', defId: 'item_pebble', x, y: 3.4 });
-      window.__bb!.frames(60);
-      return window
-        .__bb!.entities()
-        .filter((e) => e.defId === 'item_pebble')
-        .at(-1)!.id;
-    }, spot);
+    // Dropped on flat ground there: from the sky above the stump it would roll down its side to who knows where.
+    const pebble = await spawnFrozen(page, 'item_pebble', spot);
     const level = async (): Promise<number> =>
       (await page.evaluate(() => window.__bb!.water())).surfaces.find((s) => s.areaId === 'area_puddle_pond')!
         .level;

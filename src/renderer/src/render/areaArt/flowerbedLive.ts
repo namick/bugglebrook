@@ -539,8 +539,9 @@ export class FlowerbedLive extends AreaLive {
       this.birdTilt = (Math.random() - 0.5) * 0.8;
     }
     if (f.sim.places.state.stageLights === 2) this.birdTilt = Math.sin(f.time * 4) * 0.4;
-    const x = this.ax + 2860;
-    const y = 716;
+    // Perched on top of the sequencer's soil bank.
+    const x = this.ax + 2830;
+    const y = 505;
     g.ellipse(x, y, 30, 24).fill(0x5a7bd6).stroke(stroke(4));
     g.ellipse(x - 26, y + 4, 16, 8)
       .fill(0x3d5bb0)
