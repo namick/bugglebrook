@@ -143,6 +143,8 @@ export const ORBIT_SPEED = 24;
 export const BRIDGE_BUGS = 3;
 /** Wubbo pats dizzy bugs within this reach (m). */
 export const PAT_REACH = 1.8;
+/** A giant potion breaking this close to the moss tuft (m) splashes it. */
+export const SPLASH_REACH = 1;
 
 const SCRAPS = ['item_map_scrap_1', 'item_map_scrap_2', 'item_map_scrap_3', 'item_map_scrap_4'];
 
@@ -441,9 +443,18 @@ export class Clues {
       case 'shatter': {
         // Wubbo (mystery_tiny_squeak): the giant potion broken on the moss tuft grows the tiny
         // water bear seen under the scope to bug size. He pops out and joins.
-        if (n.potion !== 'potion_giant' || n.target === null) return;
-        const moss = sim.entities.get(n.target);
-        if (moss?.defId !== 'item_moss_tuft' || !sim.canFind('secret_wubbo_found')) return;
+        if (n.potion !== 'potion_giant' || !sim.canFind('secret_wubbo_found')) return;
+        // The splash counts if it lands on the moss or right beside it.
+        const hit = n.target === null ? undefined : sim.entities.get(n.target);
+        const moss =
+          hit?.defId === 'item_moss_tuft'
+            ? hit
+            : this.items('item_moss_tuft').find((m) => {
+                if (sim.isSleeping(m.id)) return false;
+                const p = sim.physics.getState(m.id);
+                return Math.hypot(p.x - n.x, p.y - n.y) <= SPLASH_REACH;
+              });
+        if (!moss) return;
         const m = sim.physics.getState(moss.id);
         const wubbo = sim.cast.find('bug_tardigrade_wubbo', m.x, m.y - 0.6);
         if (wubbo) sim.events.emit('wubbo_grew', { id: wubbo.id, x: m.x, y: m.y });
@@ -728,7 +739,7 @@ export class Clues {
     if (!lit || s.shine < SHINE_TICKS || sim.tick - s.shadowAt < 12 * SIM_HZ) return;
     s.shadowAt = sim.tick;
     const p = sim.physics.getState(lit.id);
-    sim.events.emit('shadow_puppet', { x: p.x, y: 3.6 });
+    sim.events.emit('shadow_puppet', { x: p.x, y: 5.2 });
     sim.findSecret('secret_flashlight_shadow', p.x, p.y);
   }
 

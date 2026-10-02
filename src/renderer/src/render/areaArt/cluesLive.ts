@@ -418,8 +418,8 @@ export class PorchCluesLive extends AreaLive {
 
   constructor(area: AreaDef) {
     super(area.xStart * PPM, area.xEnd * PPM);
-    this.back.addChild(this.g);
-    this.front.addChild(this.fg);
+    // The shadow falls on the back wall but must show over the porch's clutter, so both draw in front.
+    this.front.addChild(this.g, this.fg);
   }
 
   override listen(sim: Sim): Array<() => void> {
@@ -450,9 +450,9 @@ export class PorchCluesLive extends AreaLive {
   private drawShadow(g: Graphics, f: AreaFrame): void {
     const t = this.shadow;
     if (t < 0 || t > 5) return;
-    const a = Math.min(1, t / 0.5, (5 - t) / 0.8) * 0.85;
+    const a = Math.min(1, t / 0.5, (5 - t) / 0.8) * 0.7;
     const x = this.shadowX;
-    const y = 360;
+    const y = 520;
     const c = { color: 0x1a1030, alpha: a };
     for (let i = 0; i < 4; i++) {
       for (const side of [-1, 1]) {
@@ -474,7 +474,7 @@ export class PorchCluesLive extends AreaLive {
     const t = this.shadow;
     if (t < 0 || t > 5 || !this.shows(f)) return;
     const a = Math.min(1, t / 0.4, (5 - t) / 0.8);
-    light(this.shadowX + 30, 340, 420, 0xfff1c0, 0.55 * a, 1.2, 1);
+    light(this.shadowX + 30, 520, 420, 0xfff1c0, 0.55 * a, 1.2, 1);
   }
 
   private drawMoths(g: Graphics, f: AreaFrame): void {
