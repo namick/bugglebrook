@@ -63,6 +63,28 @@ export class NullAudioBackend implements AudioBackend {
   }
 }
 
+/** The part of an AudioContext that `resumeAudio` needs. */
+export interface Resumable {
+  readonly state: string;
+  resume(): Promise<void>;
+}
+
+/**
+ * Wake a suspended audio context. Never throws or leaves a rejected promise
+ * behind (a missing or busy audio device rejects `resume`); resolves false
+ * when it failed, and the next click simply tries again (P-33).
+ */
+export async function resumeAudio(ctx: Resumable | null): Promise<boolean> {
+  if (!ctx || ctx.state !== 'suspended') return true;
+  try {
+    await ctx.resume();
+    return true;
+  } catch (err) {
+    console.warn('Audio could not start; trying again on the next click', err);
+    return false;
+  }
+}
+
 /**
  * WebAudio synth. Each tone is an oscillator (or looping noise) with a gain
  * envelope, optionally through band-pass filters, into an sfx or voice bus,
@@ -77,6 +99,8 @@ export class WebAudioBackend implements AudioBackend {
   private muted = false;
   private active = 0;
   private sink: WebAudioMusicSink | null = null;
+  /** Making the context failed (no audio device): stay quiet until the next click tries again. */
+  private failed = false;
 
   /** The background music's player, on this context's music bus (M9). Null without WebAudio. */
   musicSink(): MusicSink | null {
@@ -87,8 +111,15 @@ export class WebAudioBackend implements AudioBackend {
 
   private context(): AudioContext | null {
     if (!this.ctx) {
-      if (typeof AudioContext === 'undefined') return null;
-      const ctx = new AudioContext();
+      if (typeof AudioContext === 'undefined' || this.failed) return null;
+      let ctx: AudioContext;
+      try {
+        ctx = new AudioContext();
+      } catch (err) {
+        console.warn('No audio; trying again on the next click', err);
+        this.failed = true;
+        return null;
+      }
       const limiter = ctx.createDynamicsCompressor();
       limiter.threshold.value = -6;
       limiter.ratio.value = 12;
@@ -199,8 +230,10 @@ export class WebAudioBackend implements AudioBackend {
     };
   }
 
+  /** A click: wake the audio (or try to make it again, if that failed before). */
   resume(): void {
-    if (this.ctx?.state === 'suspended') void this.ctx.resume();
+    this.failed = false;
+    void resumeAudio(this.ctx);
   }
 
   setMuted(muted: boolean): void {

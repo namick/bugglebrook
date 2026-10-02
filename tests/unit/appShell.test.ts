@@ -3,7 +3,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { MAX_LOG_MESSAGE, RotatingLog, describeError } from '../../src/main/log';
-import { MAX_RENDERER_ERROR, ReloadBudget, rendererErrorText, updateBlock } from '../../src/main/policy';
+import {
+  MAX_RENDERER_ERROR,
+  ReloadBudget,
+  isGameUrl,
+  parseGpuFlag,
+  rendererErrorText,
+  updateBlock,
+  useSoftwareGl,
+} from '../../src/main/policy';
 import type { UpdateGate } from '../../src/main/policy';
 import {
   DEFAULT_WINDOW_SIZE,
@@ -158,6 +166,7 @@ describe('the updater gate', () => {
     testMode: false,
     env: {},
     builtWithUpdater: true,
+    platform: 'win32',
     ...over,
   });
 
@@ -171,6 +180,61 @@ describe('the updater gate', () => {
   it('is off in builds made without it (Steam), whatever else holds', () => {
     expect(updateBlock(gate({ builtWithUpdater: false }))).toBe('build');
     expect(updateBlock(gate({ builtWithUpdater: false, testMode: true, packaged: false }))).toBe('build');
+  });
+
+  it('on Linux updates only the AppImage; a .deb belongs to the package manager (P-21)', () => {
+    expect(
+      updateBlock(gate({ platform: 'linux', env: { APPIMAGE: '/home/kid/Bugglebrook.AppImage' } })),
+    ).toBeNull();
+    expect(updateBlock(gate({ platform: 'linux' }))).toBe('package');
+  });
+
+  it('is off on macOS while Mac builds are unsigned (P-09)', () => {
+    expect(updateBlock(gate({ platform: 'darwin' }))).toBe('unsigned');
+  });
+
+  it('never posts an OS notification: it checks quietly and the game shows its own toast', () => {
+    const source = readFileSync(join(import.meta.dirname, '../../src/main/updater.ts'), 'utf8');
+    expect(source).not.toMatch(/checkForUpdatesAndNotify/);
+    expect(source).toMatch(/checkForUpdates\(\)/);
+  });
+});
+
+describe('who may use IPC (P-29)', () => {
+  it('only the bundled game page, or the dev server in a dev run', () => {
+    const page = 'file:///opt/Bugglebrook/resources/app.asar/out/renderer/index.html';
+    expect(isGameUrl(page, null)).toBe(true);
+    expect(isGameUrl(`${page}#menu`, null)).toBe(true);
+    expect(isGameUrl('file:///home/kid/Downloads/evil.html', null)).toBe(false);
+    expect(isGameUrl('https://example.com/out/renderer/index.html', null)).toBe(false);
+    expect(isGameUrl('about:blank', null)).toBe(false);
+    expect(isGameUrl('not a url', null)).toBe(false);
+    expect(isGameUrl('http://localhost:5173/', 'http://localhost:5173')).toBe(true);
+    expect(isGameUrl('http://localhost:5174/', 'http://localhost:5173')).toBe(false);
+    expect(isGameUrl('http://localhost:5173/', null)).toBe(false);
+    expect(isGameUrl('http://localhost:5173/', 'nonsense')).toBe(false);
+  });
+});
+
+describe('software WebGL only as a fallback (P-29)', () => {
+  it('is on for tests, when asked for, or after a run found no WebGL; off for a player with a GPU', () => {
+    expect(useSoftwareGl({ testMode: false, env: {}, flagged: false })).toBe(false);
+    expect(useSoftwareGl({ testMode: true, env: {}, flagged: false })).toBe(true);
+    expect(useSoftwareGl({ testMode: false, env: { BUGGLEBROOK_SOFTWARE_GL: '1' }, flagged: false })).toBe(
+      true,
+    );
+    expect(useSoftwareGl({ testMode: false, env: {}, flagged: true })).toBe(true);
+    expect(useSoftwareGl({ testMode: true, env: { BUGGLEBROOK_SOFTWARE_GL: '0' }, flagged: true })).toBe(
+      false,
+    );
+  });
+
+  it('reads the flag file strictly', () => {
+    expect(parseGpuFlag(null)).toBe(false);
+    expect(parseGpuFlag('{ nope')).toBe(false);
+    expect(parseGpuFlag('{"software": "yes"}')).toBe(false);
+    expect(parseGpuFlag('null')).toBe(false);
+    expect(parseGpuFlag('{"software": true}')).toBe(true);
   });
 });
 

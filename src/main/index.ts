@@ -1,11 +1,15 @@
 import { BrowserWindow, Menu, app, dialog, ipcMain, screen, shell } from 'electron';
+import type { IpcMainEvent, IpcMainInvokeEvent } from 'electron';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { IPC } from '../shared/ipc';
 import { DEFAULT_SETTINGS } from '../shared/settings';
 import { RotatingLog, describeError } from './log';
 import { PhotoStore } from './photoStore';
-import { ReloadBudget, rendererErrorText } from './policy';
+import { ReloadBudget, isGameUrl, parseGpuFlag, rendererErrorText, useSoftwareGl } from './policy';
+import { QuitFlow } from './quitFlow';
 import { SaveStore } from './saveStore';
+import { gameSaveVerdict } from './saveVerdict';
 import { SettingsStore } from './settingsStore';
 import { Updates } from './updater';
 import { MIN_WINDOW_SIZE, WindowStateStore, placeWindow } from './windowState';
@@ -19,10 +23,6 @@ if (process.env.BUGGLEBROOK_USER_DATA) app.setPath('userData', process.env.BUGGL
 // One copy at a time: a second launch focuses the first and exits.
 if (!testMode && !app.requestSingleInstanceLock()) app.exit(0);
 
-// Let WebGL fall back to the software renderer on machines without a usable
-// GPU (VMs, CI under xvfb). We only ever load our own bundled content.
-app.commandLine.appendSwitch('enable-unsafe-swiftshader');
-
 const userData = app.getPath('userData');
 // A local log file only. Nothing is ever sent anywhere.
 const log = new RotatingLog(join(userData, 'logs', 'main.log'));
@@ -32,7 +32,28 @@ log.info(
 process.on('uncaughtException', (err) => log.error(`Main process: ${describeError(err)}`));
 process.on('unhandledRejection', (err) => log.error(`Main process (promise): ${describeError(err)}`));
 
-const saves = new SaveStore(join(userData, 'saves'));
+function readTextOrNull(path: string): string | null {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+// Software WebGL (SwiftShader) only as a fallback: tests and CI (no GPU under
+// xvfb), or after a run found no WebGL at all (`gpu.json`, see `needSoftwareGl`).
+const gpuFlagPath = join(userData, 'gpu.json');
+const softwareGl = useSoftwareGl({
+  testMode,
+  env: process.env,
+  flagged: parseGpuFlag(readTextOrNull(gpuFlagPath)),
+});
+if (softwareGl) {
+  log.info('Software WebGL allowed');
+  app.commandLine.appendSwitch('enable-unsafe-swiftshader');
+}
+
+const saves = new SaveStore(join(userData, 'saves'), gameSaveVerdict);
 // Fullscreen by default for players; windowed under test so E2E runs stay predictable.
 const settings = new SettingsStore(join(userData, 'settings.json'), {
   ...DEFAULT_SETTINGS,
@@ -48,30 +69,94 @@ const photos = new PhotoStore(
 const windowState = testMode ? null : new WindowStateStore(join(userData, 'window-state.json'));
 const updates = new Updates(log);
 let mainWindow: BrowserWindow | null = null;
+/** Each window's save-before-close state (P-12). */
+const quitFlows = new WeakMap<BrowserWindow, QuitFlow>();
+const devUrl = !app.isPackaged ? (process.env.ELECTRON_RENDERER_URL ?? null) : null;
+
+/** Only the game's own top-level page may use IPC. */
+function trusted(e: IpcMainEvent | IpcMainInvokeEvent): boolean {
+  const frame = e.senderFrame;
+  return !!frame && frame.parent === null && isGameUrl(frame.url, devUrl);
+}
+
+function handle(channel: string, fn: (e: IpcMainInvokeEvent, ...args: unknown[]) => unknown): void {
+  ipcMain.handle(channel, (e, ...args: unknown[]) => {
+    if (!trusted(e)) {
+      log.warn(`Refused ${channel} from ${e.senderFrame?.url ?? 'a frame that is gone'}`);
+      throw new Error(`Refused ${channel}`);
+    }
+    return fn(e, ...args);
+  });
+}
+
+function listen(channel: string, fn: (e: IpcMainEvent, ...args: unknown[]) => void): void {
+  ipcMain.on(channel, (e, ...args: unknown[]) => {
+    if (!trusted(e)) {
+      log.warn(`Refused ${channel} from ${e.senderFrame?.url ?? 'a frame that is gone'}`);
+      return;
+    }
+    fn(e, ...args);
+  });
+}
+
+/**
+ * The renderer found no WebGL at all: remember to allow software WebGL and
+ * start again. Resolves true if the app is about to relaunch, false if
+ * software WebGL was already allowed (then nothing more can be done).
+ */
+function needSoftwareGl(): boolean {
+  if (softwareGl) {
+    log.error('No WebGL, even with software WebGL allowed');
+    return false;
+  }
+  log.warn('No WebGL: relaunching with software WebGL allowed');
+  try {
+    writeFileSync(gpuFlagPath, JSON.stringify({ software: true }));
+  } catch (err) {
+    log.error(`Could not write ${gpuFlagPath}: ${describeError(err)}`);
+    return false;
+  }
+  setTimeout(() => {
+    app.relaunch();
+    app.exit(0);
+  }, 50);
+  return true;
+}
 
 function registerIpc(): void {
-  ipcMain.handle(IPC.savesList, () => saves.list());
-  ipcMain.handle(IPC.savesRead, (_e, slot: unknown) => saves.read(SaveStore.assertSlot(slot)));
-  ipcMain.handle(IPC.savesWrite, (_e, slot: unknown, data: unknown) =>
-    saves.write(SaveStore.assertSlot(slot), data),
+  handle(IPC.savesList, () => saves.list());
+  handle(IPC.savesRead, (_e, slot) => saves.read(SaveStore.assertSlot(slot)));
+  handle(IPC.savesWrite, (_e, slot, data) => saves.write(SaveStore.assertSlot(slot), data));
+  handle(IPC.savesRemove, (_e, slot) => saves.remove(SaveStore.assertSlot(slot)));
+  handle(IPC.savesReadBackup, (_e, slot, kind) =>
+    saves.readBackup(SaveStore.assertSlot(slot), SaveStore.assertBackup(kind)),
   );
-  ipcMain.handle(IPC.savesRemove, (_e, slot: unknown) => saves.remove(SaveStore.assertSlot(slot)));
-  ipcMain.handle(IPC.savesReadBackup, (_e, slot: unknown) => saves.readBackup(SaveStore.assertSlot(slot)));
-  ipcMain.handle(IPC.savesRecover, (_e, slot: unknown) => saves.recover(SaveStore.assertSlot(slot)));
-  ipcMain.handle(IPC.settingsGet, () => settings.get());
-  ipcMain.handle(IPC.settingsSet, async (e, raw: unknown) => {
+  handle(IPC.savesRecover, (_e, slot, from) =>
+    saves.recover(SaveStore.assertSlot(slot), SaveStore.assertBackup(from)),
+  );
+  handle(IPC.savesSetAside, (_e, slot) => saves.setAside(SaveStore.assertSlot(slot)));
+  handle(IPC.settingsGet, () => settings.get());
+  handle(IPC.settingsSet, async (e, raw) => {
     const next = await settings.set(raw);
     const win = BrowserWindow.fromWebContents(e.sender);
     if (win && win.isFullScreen() !== next.fullscreen) win.setFullScreen(next.fullscreen);
     return next;
   });
-  ipcMain.handle(IPC.photosSave, (_e, png: unknown) => photos.save(png));
-  ipcMain.on(IPC.quit, (e) => BrowserWindow.fromWebContents(e.sender)?.close());
-  ipcMain.on(IPC.logError, (_e, raw: unknown) => {
+  handle(IPC.photosSave, (_e, png) => photos.save(png));
+  handle(IPC.needSoftwareGl, () => needSoftwareGl());
+  // The menu's door quits the app (on macOS too), saving first like any quit.
+  listen(IPC.quit, () => app.quit());
+  listen(IPC.logError, (_e, raw) => {
     const text = rendererErrorText(raw);
     if (text) log.error(`Renderer: ${text}`);
   });
-  ipcMain.on(IPC.updateRestart, () => updates.restart());
+  listen(IPC.updateRestart, (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    // The renderer saved before asking: the quit need not wait for it again.
+    updates.restart(() => {
+      if (win) quitFlows.get(win)?.skip();
+    });
+  });
 }
 
 function displayAreas(): DisplayArea[] {
@@ -174,24 +259,36 @@ function createWindow(fullscreen: boolean): BrowserWindow {
     if (url !== win.webContents.getURL()) event.preventDefault();
   });
 
-  // Ask the renderer to save before closing. Give up after a short wait.
-  let flushed = false;
-  win.on('close', (event) => {
-    if (flushed || win.webContents.isDestroyed()) return;
-    event.preventDefault();
-    const finish = (): void => {
-      if (flushed) return;
-      flushed = true;
-      ipcMain.removeListener(IPC.flushDone, onDone);
-      win.close();
-    };
-    const onDone = (e: Electron.IpcMainEvent): void => {
-      if (e.sender === win.webContents) finish();
-    };
-    ipcMain.on(IPC.flushDone, onDone);
-    win.webContents.send(IPC.flushRequest);
-    setTimeout(finish, 2000);
+  // Ask the renderer to save before closing or quitting (see quitFlow.ts). Give up after a few seconds.
+  const onDone = (e: IpcMainEvent): void => {
+    if (e.sender === win.webContents) flow.flushed();
+  };
+  const stopListening = (): void => {
+    ipcMain.removeListener(IPC.flushDone, onDone);
+  };
+  const flow = new QuitFlow({
+    requestFlush: () => {
+      if (win.isDestroyed() || win.webContents.isDestroyed() || win.webContents.isCrashed()) return false;
+      ipcMain.on(IPC.flushDone, onDone);
+      win.webContents.send(IPC.flushRequest);
+      return true;
+    },
+    closeWindow: () => {
+      stopListening();
+      if (!win.isDestroyed()) win.close();
+    },
+    quit: () => {
+      stopListening();
+      app.quit();
+    },
+    later: (fn, ms) => setTimeout(fn, ms),
+    log: (m) => log.info(m),
   });
+  quitFlows.set(win, flow);
+  win.on('close', (event) => {
+    if (flow.close()) event.preventDefault();
+  });
+  win.on('closed', stopListening);
 
   if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
     void win.loadURL(process.env.ELECTRON_RENDERER_URL);
@@ -229,6 +326,12 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0)
       void settings.get().then((s) => (mainWindow = createWindow(s.fullscreen)));
   });
+});
+
+// Cmd+Q, the dock's Quit, app.quit(): save first, then quit for real (P-12).
+app.on('before-quit', (event) => {
+  const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
+  if (win && quitFlows.get(win)?.beforeQuit()) event.preventDefault();
 });
 
 app.on('window-all-closed', () => {

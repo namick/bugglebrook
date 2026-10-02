@@ -28,6 +28,7 @@ test('launches to the menu with three slot buttons and a locked-down renderer', 
     expect(surface.process).toBe('undefined');
     expect(surface.api).toEqual([
       'logError',
+      'needSoftwareGl',
       'onFlushRequest',
       'photos',
       'platform',

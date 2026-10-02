@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { GROUND_Y, Rng, Sim } from '../../src/game';
 import { BUGS } from '../../src/game/data/bugs';
 import { PLAZA_X } from './world';
 import { Sfx } from '../../src/renderer/src/audio/sfx';
-import { NullAudioBackend } from '../../src/renderer/src/audio/synth';
+import { NullAudioBackend, resumeAudio } from '../../src/renderer/src/audio/synth';
 import { BugVoices, voiceLine } from '../../src/renderer/src/audio/voices';
 
 describe('Sfx', () => {
@@ -151,5 +151,26 @@ describe('bug voices', () => {
     expect(voices.say(13, 'bug_ladybug_dot', 'happy')).toBe(false);
     expect(voices.say(10, 'bug_ladybug_dot', 'happy')).toBe(false);
     voices.detach();
+  });
+});
+
+describe('waking the audio (P-33)', () => {
+  it('never leaves a rejected promise when the device is missing, and tries again next time', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    let tries = 0;
+    const ctx = {
+      state: 'suspended',
+      resume: () => {
+        tries++;
+        return tries === 1 ? Promise.reject(new Error('no audio device')) : Promise.resolve();
+      },
+    };
+    expect(await resumeAudio(ctx)).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(await resumeAudio(ctx)).toBe(true);
+    expect(tries).toBe(2);
+    // Nothing to do for a running context or none at all.
+    expect(await resumeAudio({ state: 'running', resume: () => Promise.reject(new Error('x')) })).toBe(true);
+    expect(await resumeAudio(null)).toBe(true);
   });
 });

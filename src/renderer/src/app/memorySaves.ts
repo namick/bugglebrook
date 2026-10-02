@@ -77,6 +77,7 @@ export function memoryApi(): BugglebrookApi {
     quit: () => window.close(),
     onFlushRequest: () => undefined,
     logError: (text) => console.error(text),
+    needSoftwareGl: async () => false,
     updates: { onReady: () => undefined, restart: () => undefined },
   };
 }

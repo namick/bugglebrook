@@ -30,6 +30,7 @@ export class Updates {
       testMode,
       env: process.env,
       builtWithUpdater: __BB_UPDATER__,
+      platform: process.platform,
     });
     if (block) {
       this.log.info(`Auto-update off (${block})`);
@@ -64,14 +65,18 @@ export class Updates {
     if (this.ready && !win.webContents.isDestroyed()) win.webContents.send(IPC.updateReady, this.ready);
   }
 
-  /** The toast's restart button. Ignored when no update is waiting. */
-  restart(): void {
+  /**
+   * The toast's restart button. Ignored when no update is waiting.
+   * `saved` runs first: the renderer saved before asking, so the quit need
+   * not wait for another save.
+   */
+  restart(saved: () => void = () => undefined): void {
     if (!this.enabled || !this.ready) {
       this.log.info('Restart for update asked, but no update is waiting');
       return;
     }
     this.log.info(`Restarting to install ${this.ready}`);
-    // Closing the window runs the usual save-before-close handshake first.
+    saved();
     electronUpdater.autoUpdater.quitAndInstall(true, true);
   }
 }

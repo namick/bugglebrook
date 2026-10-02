@@ -25,11 +25,16 @@ export const IPC = {
   updateReady: 'app:update-ready',
   /** renderer -> main: the update toast's restart button. */
   updateRestart: 'app:update-restart',
+  /** renderer -> main: no WebGL at all; allow software WebGL and relaunch. Resolves true if relaunching. */
+  needSoftwareGl: 'app:need-software-gl',
 } as const;
 
 export const SLOT_COUNT = 3;
 /** Largest save payload main will accept, in bytes of UTF-16 text length. */
 export const MAX_SAVE_CHARS = 5_000_000;
+
+/** Which backup: `bak` is the save before the last write, `old` an older one (a session or a day back). */
+export type BackupKind = 'bak' | 'old';
 
 export interface SlotInfo {
   slot: number;
@@ -76,6 +81,11 @@ export interface BugglebrookApi {
   onFlushRequest(handler: () => Promise<void>): void;
   /** Write an uncaught renderer error to the log file (`<userData>/logs/main.log`). */
   logError(text: string): void;
+  /**
+   * There is no WebGL at all. Main allows software WebGL and relaunches the
+   * app; resolves true if it will (stop starting up), false if it cannot.
+   */
+  needSoftwareGl(): Promise<boolean>;
   /** Auto-updates (off in dev, tests, and Steam builds). */
   readonly updates: {
     /** Called with the version when an update has downloaded and waits for a restart. */

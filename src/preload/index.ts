@@ -43,6 +43,7 @@ const api: BugglebrookApi = {
     flushHandler = handler;
   },
   logError: (text) => ipcRenderer.send(IPC.logError, String(text)),
+  needSoftwareGl: () => ipcRenderer.invoke(IPC.needSoftwareGl),
   updates: {
     onReady(handler) {
       updateHandler = handler;

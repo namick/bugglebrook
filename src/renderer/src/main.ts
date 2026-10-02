@@ -18,23 +18,27 @@ const api = window.bugglebrook ?? memoryApi();
 const boundary = installErrorBoundary(window, (text) => api.logError(text));
 
 /**
- * Does WebGL run in software here (SwiftShader or llvmpipe, as on CI under
- * xvfb and in VMs)? Asked of a throwaway context before Pixi starts, so the
- * real one can skip multisampling, which costs a software rasterizer dearly.
+ * How WebGL runs here: on the GPU, in software (SwiftShader or llvmpipe, as
+ * on CI under xvfb and in VMs), or not at all. Asked of a throwaway context
+ * before Pixi starts, so the real one can skip multisampling, which costs a
+ * software rasterizer dearly.
  */
-function softwareGl(): boolean {
+function webGlKind(): 'gpu' | 'software' | 'none' {
   const canvas = document.createElement('canvas');
   const gl = (canvas.getContext('webgl2') ?? canvas.getContext('webgl')) as WebGLRenderingContext | null;
-  if (!gl) return false;
+  if (!gl) return 'none';
   const info = gl.getExtension('WEBGL_debug_renderer_info');
   const name = String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
   gl.getExtension('WEBGL_lose_context')?.loseContext();
-  return /swiftshader|llvmpipe|software/i.test(name);
+  return /swiftshader|llvmpipe|software/i.test(name) ? 'software' : 'gpu';
 }
 
 async function boot(): Promise<void> {
+  const kind = webGlKind();
+  // No WebGL at all (a blocklisted GPU, a VM): main allows software WebGL and relaunches.
+  if (kind === 'none' && (await api.needSoftwareGl())) return;
   // Software WebGL (CI under xvfb, VMs) is fill-rate bound: no multisampling, and fewer pixels.
-  const software = softwareGl();
+  const software = kind === 'software';
   const app = new Application();
   await app.init({
     width: VIEW_WIDTH_PX,
@@ -74,6 +78,9 @@ async function boot(): Promise<void> {
   boundary.onCrash = () => {
     app.ticker.stop();
     audio.setMuted(true);
+    // Try to keep the last moments (the autosave may be 30 s old). Main only
+    // writes a save that loads, and the one before it stays as the backup.
+    void game.saveNow({ thumb: false });
   };
   game.softwareRenderer = software;
   game.setLiteRender = (on) => {
