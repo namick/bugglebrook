@@ -130,23 +130,28 @@ describe('night', () => {
   });
 
   it('Flick, Fiddle, and Luma are up and about in the middle of the night (P-14)', () => {
-    const sim = Sim.create({ seed: 'night-owls' });
-    sim.send({ type: 'unlock', area: 'area_under_porch' });
-    sim.send({ type: 'set_time', hour: 23 });
-    sim.step();
+    // Over a few worlds: any one owl may take a half-minute nap on a leaf now and then.
     const owls = ['bug_firefly_flick', 'bug_cricket_fiddle', 'bug_moth_luma'];
-    const ids = owls.map((d, i) => sim.cast.find(d, PLAZA_X + 8 + i * 4, GROUND_Y - 1)!.id);
-    sim.send({ type: 'focus', x0: PLAZA_X + 4, x1: PLAZA_X + 23.2 });
-    const from = ids.map((id) => sim.view(id)!.x);
+    const seeds = ['night-owls', 'owls-a', 'owls-b'];
     let awake = 0;
-    for (let s = 0; s < 120; s++) {
-      sim.run(60);
-      for (const id of ids) if (sim.view(id)!.bug!.mode !== 'st_sleep') awake++;
+    for (const seed of seeds) {
+      const sim = Sim.create({ seed });
+      sim.send({ type: 'unlock', area: 'area_under_porch' });
+      sim.send({ type: 'set_time', hour: 23 });
+      sim.step();
+      const ids = owls.map((d, i) => sim.cast.find(d, PLAZA_X + 8 + i * 4, GROUND_Y - 1)!.id);
+      sim.send({ type: 'focus', x0: PLAZA_X + 4, x1: PLAZA_X + 23.2 });
+      const from = ids.map((id) => sim.view(id)!.x);
+      for (let s = 0; s < 120; s++) {
+        sim.run(60);
+        for (const id of ids) if (sim.view(id)!.bug!.mode !== 'st_sleep') awake++;
+      }
+      // Each gets about.
+      const moved = ids.map((id, i) => Math.abs(sim.view(id)!.x - from[i]!));
+      expect(moved.filter((m) => m > 0.5).length, seed).toBeGreaterThanOrEqual(2);
     }
-    // Awake nearly all the time, and each gets about.
-    expect(awake).toBeGreaterThan(0.9 * 120 * ids.length);
-    const moved = ids.map((id, i) => Math.abs(sim.view(id)!.x - from[i]!));
-    expect(moved.filter((m) => m > 0.5).length).toBeGreaterThanOrEqual(2);
+    // Awake nearly all the time.
+    expect(awake).toBeGreaterThan(0.9 * 120 * owls.length * seeds.length);
   });
 
   it('the first hour of the night only tired day bugs turn in (P-14)', () => {

@@ -331,6 +331,9 @@ describe('instruments', () => {
     const xs = [stage.x0 + 1.2, stage.x0 + 3.2, stage.x0 + 5.2];
     const bugs = (['bug_ladybug_dot', 'bug_pillbug_rollo', 'bug_grasshopper_boing'] as const).map((d, i) => {
       const b = sim.spawn('bug', d, xs[i]!, stage.y - 0.6);
+      // Content, so none of them hops off to chat or eat while the drums are set out.
+      for (const need of ['need_hunger', 'need_fun', 'need_social', 'need_clean', 'need_energy'] as const)
+        sim.send({ type: 'set_need', id: b.id, need, value: 100 });
       return b;
     });
     const drums = xs.map((x) => sim.spawn('item', 'item_inst_thimble_drum', x + 0.75, stage.y - 0.4));
