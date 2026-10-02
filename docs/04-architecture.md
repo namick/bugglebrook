@@ -37,10 +37,11 @@ src/main/index.ts   <-- IPC -->     src/preload/index.ts   -->        window.bug
 src/main/saveStore.ts                exposes a narrow API               src/renderer/src/**
 src/main/settingsStore.ts                                               src/game/** (bundled in)
 src/main/updater.ts
+src/main/log.ts, windowState.ts, policy.ts
 ```
 
 - `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`. The renderer has no `require` or `process`, and an E2E test asserts that.
-- The preload exposes exactly seven keys on `window.bugglebrook`: `saves`, `settings`, `photos`, `quit`, `testMode`, `platform`, and `onFlushRequest`. The type is `BugglebrookApi` in `src/shared/ipc.ts`.
+- The preload exposes exactly nine keys on `window.bugglebrook`: `saves`, `settings`, `photos`, `quit`, `testMode`, `platform`, `onFlushRequest`, `logError`, and `updates` (`onReady`, `restart`). The type is `BugglebrookApi` in `src/shared/ipc.ts`. Main accepts a `logError` report only as a string and cuts it to 8000 characters (`rendererErrorText`).
 - Main validates every IPC argument. Slots must be integers 0 to 2. Save payloads must be strings under 5 MB that parse as JSON. Settings must be an object and are normalized by `normalizeSettings` (`src/shared/settings.ts`) before they are stored. Main does not understand the save format; it stores opaque text. A photo (`photos:save`) must be a PNG data URL under `MAX_PHOTO_CHARS` whose bytes start with the PNG signature (`src/shared/photo.ts`); `PhotoStore` writes it to `<Pictures>/Bugglebrook/bugglebrook-YYYYMMDD-HHMMSS.png` (a counter suffix if that name is taken) through a temp file, and resolves to the path. In test mode `BUGGLEBROOK_PICTURES` points that folder somewhere else, so tests never write to the real one.
 - The window denies popups and blocks navigation. `index.html` sets a Content Security Policy with no `unsafe-eval`. Pixi normally compiles shaders with `new Function`, so the renderer imports `pixi.js/unsafe-eval`, which swaps in a polyfill that does not need eval.
 - Main appends `enable-unsafe-swiftshader` so WebGL still works on machines without a usable GPU, such as VMs and CI under xvfb. This is acceptable because the app only loads its own bundled files.
@@ -613,6 +614,7 @@ Launching with `BUGGLEBROOK_TEST=1` does three things:
 - Main passes `--bb-test` to the preload, which sets `bugglebrook.testMode`, and the renderer installs `window.__bb`.
 - Auto-update stays off.
 - The single-instance lock is skipped, so tests can run apps back to back.
+- The window opens at 1280x720 and windowed. Main neither reads nor writes `window-state.json`, and a hung renderer never pops a dialog.
 
 Setting `BUGGLEBROOK_USER_DATA=/some/dir` points userData at a throwaway directory, so tests never touch real saves.
 
@@ -627,6 +629,7 @@ Setting `BUGGLEBROOK_USER_DATA=/some/dir` points userData at a throwaway directo
 - M5 state: `pocket()`, `pocketOpen()`, `binProgress()`, `panelOpen()`, `settings()`, `shakeOffset()`, `shakeStats()` and `resetShakeStats()` (shakes asked for and the biggest offset drawn), `menuSettled()`, `reduceMotion()`, `slotPictures()`, `recoveries()`, `intro()`
 - coordinate helpers for driving the real mouse: `worldToClient(x, y)`, `slotButtonClient(slot)`, `homeButtonClient()`, `uiClient(name)` (pause, home, resume, to_menu, gear, door, bin, `toggle_*`), `sliderClient(key, value)`, `pocketSlotClient(i)`
 - control: `send(command)`, `step(n)`, `frames(n)` (n frames of input and sim at 60 Hz, right now), `setPaused()` (a freeze without the pause board), `freezeMenu(on)` and `menuFrames(n)` (the menu's clock, for the compost bin's lid), `enableIntro(on)`, `saveNow()`, `clearLogs()`
+- M12 app shell: `crash()` (throw inside the next frame), `oops()` (the oops screen, its reload button in client pixels, errors logged), `fakeUpdateReady(version)` and `updateToast()` (shown, settled, version, restart asked), and the `uiClient` name `update_restart`
 - M11 photo mode: `photo()` (open, frozen, zoom and window, frame, filter, stickers, the tray page, the flash's peak, photos taken and kept, the last record, bugs in frame), `stickerClient(i)` and `stickerHandleClient(i)` for the mouse, `placeSticker(id, x, y)` for staging, and `uiClient` names `camera`, `shutter`, `tab_frames`, `tab_filters`, `tab_stickers`, `tray_prev`, `tray_next`, `frame_<id>`, `filter_<id>`, and `sticker_<id>` (only while that tray is open)
 - M10 journal: `journal()` (the book's counts with what was looked at this visit, the badge, and while it is open the tab, spread, whether it is still moving, and the entries shown), `openJournal(page?)` and `stageJournal(...)` (write finds into the world's journal, for screenshots), `stamps()` (the stamps on the button), and `uiClient` names `journal` (also `stamps`), `journal_close`, `journal_home` (the ladybug ribbon back to the jar), `journal_prev`, `journal_next`, `journal_tab_<page>`, and on the open spread `journal_entry_<key>`, `journal_area_<id>`, `journal_contents_<page>`, `journal_photo_<i>`
 
@@ -657,11 +660,20 @@ E2E tests move the real mouse with `page.mouse`, then assert on game state throu
 ## Packaging, CI, and releases
 
 - `electron-builder.yml` defines the targets: Windows NSIS x64, macOS dmg and zip for x64 and arm64 (zip is what the Mac auto-updater downloads), and Linux AppImage and deb for x64. Mac builds are unsigned (`identity: null`), and so are Windows builds.
-- `.github/workflows/ci.yml` runs on every push to `main` and on every PR. The `check` job runs typecheck, lint, and unit tests. The `e2e` job is a four-way matrix: each builds the app and runs its Playwright shard (`--shard=n/4`) under xvfb. `fullyParallel` splits the suite test by test, so the shards come out even; each test launches its own app. On software WebGL the renderer skips multisampling. The `build` matrix runs on native Ubuntu, Windows, and macOS runners, builds the installers, and uploads them as workflow artifacts.
+- `.github/workflows/ci.yml` runs on every push to `main` and on every PR. The `check` job runs typecheck, lint, and unit tests. The `e2e` job is an eight-way matrix: each builds the app and runs its Playwright shard (`--shard=n/8`) under xvfb. `fullyParallel` splits the suite test by test, so the shards come out even; each test launches its own app. On software WebGL the renderer skips multisampling. The `build` matrix runs on native Ubuntu, Windows, and macOS runners, builds the installers, and uploads them as workflow artifacts.
 - `.github/workflows/release.yml` runs when a `v*` tag is pushed. It fails if the tag does not match `package.json`, creates a draft release if none exists, and refuses to continue if the release is already published. Each platform then runs `electron-builder --publish always`, which uploads installers and the `latest*.yml` update metadata to the draft. `releaseType: draft` in the builder config keeps it a draft. A person publishes it by hand.
-- electron-updater ignores drafts, so players only get an update after someone publishes the release. The updater runs only in packaged builds, and never when `BUGGLEBROOK_TEST=1` or `BUGGLEBROOK_NO_UPDATES=1` is set.
+- The release workflow's last job checks that the draft holds every installer and all three `latest*.yml` files. Both workflows list installer sizes in the job summary.
+- electron-updater ignores drafts, so players only get an update after someone publishes the release. `Updates` in `src/main/updater.ts` checks at launch and every four hours, downloads in the background, and installs on quit. When a download finishes, main sends `app:update-ready` and the renderer shows `UpdateToast` (`ui/updateToast.ts`), whose button saves and calls `updates.restart()`. `updateBlock` (`src/main/policy.ts`) keeps the updater off in dev runs, with `BUGGLEBROOK_TEST=1` or `BUGGLEBROOK_NO_UPDATES=1`, and in builds made with `pnpm build:steam`, which sets the compile-time `__BB_UPDATER__` to false.
+- `pnpm icon` draws the icon at every size and writes `build/icon.png`, `build/icon.ico`, `build/icon.icns`, and `build/icons/NxN.png`. The Windows installer is a one-click, per-user NSIS installer that keeps saves on uninstall.
 
-To cut a release, bump `version` in `package.json`, commit, tag `vX.Y.Z`, and push the tag. Then review the draft on GitHub and publish it.
+`RELEASING.md` explains how to cut a release and test the installers. `docs/09-steam-readiness.md` covers a later Steam build.
+
+## App shell
+
+- **Single instance.** A second launch focuses the first window and exits.
+- **Window.** No menu bar (macOS keeps its app menu). Fullscreen by default for players. In a window, `window-state.json` in userData remembers the size, position, and maximized state. `placeWindow` (`src/main/windowState.ts`, pure) keeps a saved spot that is still on a display, nudges it inside the work area, and recenters on the same or the primary display when the monitor is gone.
+- **Log.** `RotatingLog` (`src/main/log.ts`) writes `logs/main.log` in userData: the version at launch, main-process errors, renderer crashes and hangs, renderer errors sent through `logError`, and the updater's messages. It rotates at 1 MB and keeps three old files. There is no telemetry.
+- **Crashes.** If the renderer process dies, main reloads it, at most three times a minute (`ReloadBudget`). A hung renderer gets a wordless dialog that offers a reload. In the renderer, `installErrorBoundary` (`ui/oops.ts`) catches uncaught errors before the game boots. It logs each one, stops the ticker, mutes audio, and shows a DOM "oops, bugs got loose" screen with a reload button. The screen is DOM rather than Pixi because Pixi may be what failed. Unhandled promise rejections are only logged. Main allows navigation only to the page already loaded, which lets the reload through. `__bb.crash()` throws inside the next frame, and `tests/e2e/m12.spec.ts` checks the screen, the log, and the reload.
 
 ## Conventions
 
