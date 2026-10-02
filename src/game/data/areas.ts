@@ -151,8 +151,9 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_seed_sunflower', x: 11.2 },
       { kind: 'item', defId: 'item_pollen_puff', x: 12.3 },
       { kind: 'item', defId: 'item_bluebell_bloom', x: 12.9 },
-      { kind: 'item', defId: 'item_pollen_puff', x: 17.2, lift: 0 },
-      { kind: 'item', defId: 'item_seed_sunflower', x: 20.4 },
+      // Pollen by the bluebells, and a third seed on the pile by the leaf.
+      { kind: 'item', defId: 'item_pollen_puff', x: 13.75 },
+      { kind: 'item', defId: 'item_seed_sunflower', x: 9.4 },
       { kind: 'item', defId: 'item_honey_drop', x: 30.3 },
       { kind: 'item', defId: 'item_bluebell_bloom', x: 30.9 },
       { kind: 'item', defId: 'item_leaf', x: 31.4 },
@@ -160,18 +161,19 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_paint_red', x: 23.7 },
       { kind: 'item', defId: 'item_paint_blue', x: 24.15 },
       { kind: 'item', defId: 'item_paint_yellow', x: 24.6 },
-      { kind: 'item', defId: 'item_paint_white', x: 16.2 },
-      { kind: 'item', defId: 'item_paint_black', x: 21.4 },
+      // A paint pot at each corner of the stage.
+      { kind: 'item', defId: 'item_paint_white', x: 15.95 },
+      { kind: 'item', defId: 'item_paint_black', x: 21.5 },
       { kind: 'item', defId: 'item_balloon_blue', x: 10.9 },
       { kind: 'item', defId: 'item_balloon_red', x: 6.9 },
       // M11: a party cone and a ribbon bow tie left over from a show.
       { kind: 'item', defId: 'item_hat_party_cone', x: 6.3 },
       { kind: 'item', defId: 'item_acc_bowtie_ribbon', x: 1.5 },
       { kind: 'item', defId: 'item_blueprint_disco_ball', x: 13.6 },
-      // M9: instruments to play, one on the stage.
+      // M9: instruments to play. The drum and the castanets wait together on the stage, a band set (P-32).
       { kind: 'item', defId: 'item_inst_seedpod_maraca', x: 9.1 },
-      { kind: 'item', defId: 'item_inst_acorn_castanets', x: 14.6 },
-      { kind: 'item', defId: 'item_inst_thimble_drum', x: 17.9 },
+      { kind: 'item', defId: 'item_inst_thimble_drum', x: 17.3 },
+      { kind: 'item', defId: 'item_inst_acorn_castanets', x: 17.85 },
     ],
     respawn: [
       { item: 'item_pollen_puff', count: 1 },

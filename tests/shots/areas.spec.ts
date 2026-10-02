@@ -14,7 +14,7 @@ async function shot(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: join(DIR, `${name}.png`) });
 }
 
-const AREAS: readonly [string, string, number][] = [
+const ALL_AREAS: readonly [string, string, number][] = [
   ['area_flowerbed_stage', 'flowerbed', 0],
   ['area_puddle_pond', 'pond', 32],
   ['area_stump_plaza', 'plaza', 64],
@@ -22,9 +22,32 @@ const AREAS: readonly [string, string, number][] = [
   ['area_compost_lab', 'compost', 134.4],
   ['area_treehouse_arcade', 'treehouse', 163.2],
 ];
+/** `BB_AREAS=flowerbed,porch` tours only those areas (the locked previews too are skipped). */
+const ONLY = process.env.BB_AREAS?.split(',') ?? null;
+const AREAS = ALL_AREAS.filter(([, name]) => !ONLY || ONLY.includes(name));
 
 const send = (page: Page, command: Record<string, unknown>): Promise<void> =>
   page.evaluate((c) => window.__bb!.send(c as never), command);
+
+/** The barriers, and a peek past each one. */
+async function lockedPreviews(page: Page): Promise<void> {
+  await scrollTo(page, 32);
+  await page.waitForTimeout(600);
+  await shot(page, '130-locked-sunflower');
+  // A peek past the barrier: drag the sky and hold it, and the camera looks into the dim
+  // locked flowerbed until let go.
+  await page.mouse.move(700, 120);
+  await page.mouse.down();
+  await page.mouse.move(1100, 120, { steps: 12 });
+  await expect.poll(async () => (await page.evaluate(() => window.__bb!.camera())).x).toBeLessThan(31);
+  await page.waitForTimeout(400);
+  await shot(page, '130b-locked-sunflower-peek');
+  await page.mouse.up();
+  await page.waitForTimeout(800);
+  await scrollTo(page, 88);
+  await page.waitForTimeout(600);
+  await shot(page, '131-locked-lattice');
+}
 
 test('areas tour', async () => {
   test.setTimeout(1_800_000);
@@ -42,24 +65,9 @@ test('areas tour', async () => {
     await clickSlot(page, 0);
     await page.mouse.move(960, 60);
     // Locked: the barriers, and a peek past each one.
-    await scrollTo(page, 32);
-    await page.waitForTimeout(600);
-    await shot(page, '130-locked-sunflower');
-    // A peek past the barrier: drag the sky and hold it, and the camera looks into the dim
-    // locked flowerbed until let go.
-    await page.mouse.move(700, 120);
-    await page.mouse.down();
-    await page.mouse.move(1100, 120, { steps: 12 });
-    await expect.poll(async () => (await page.evaluate(() => window.__bb!.camera())).x).toBeLessThan(31);
-    await page.waitForTimeout(400);
-    await shot(page, '130b-locked-sunflower-peek');
-    await page.mouse.up();
-    await page.waitForTimeout(800);
-    await scrollTo(page, 88);
-    await page.waitForTimeout(600);
-    await shot(page, '131-locked-lattice');
+    if (!ONLY) await lockedPreviews(page);
     // Everything open for the rest of the tour.
-    for (const [id] of AREAS) await send(page, { type: 'unlock', area: id });
+    for (const [id] of ALL_AREAS) await send(page, { type: 'unlock', area: id });
     await page.waitForTimeout(300);
     let n = 140;
     for (const [, name, x] of AREAS) {

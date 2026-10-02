@@ -515,6 +515,21 @@ export class FlowerbedLive extends AreaLive {
           );
       if (mode === 3 && this.spotX !== null) light(this.spotX, y - 30, 150, 0xffffff, k + 0.2, 1, 0.7);
     }
+    // Night in the garden (P-16): the stage keeps a warm night-light on, the
+    // bluebells glow softly, and moonlight pools along the floor, so the
+    // gnome, the stage, and the loose things stay readable in the dark.
+    const night = Math.max(0, (f.look.glow - 0.2) / 0.8);
+    if (night > 0) {
+      if (stage && mode === 0)
+        light(((stage.x0 + stage.x1) / 2) * PPM, stage.y * PPM - 10, 440, 0xffd9a0, 0.45 * night, 1.7, 0.55);
+      for (const fix of this.area.fixtures ?? []) {
+        if (fix.kind === 'bluebell')
+          light(this.ax + fix.x * PPM, fix.y * PPM, 110, 0x9fb4ff, 0.35 * night, 1, 1);
+        if (fix.kind === 'gnome')
+          light(this.ax + fix.x * PPM, fix.y * PPM + 40, 420, 0xd6dcff, 0.5 * night, 1.4, 0.55);
+      }
+      for (let x = 300; x < 3200; x += 420) light(this.ax + x, 870, 380, 0xc8d0ff, 0.32 * night, 1.8, 0.4);
+    }
     // Glowing paint at night: a faint sheen on each puddle.
     if (f.look.glow > 0.4)
       for (const fix of this.area.fixtures ?? []) {
