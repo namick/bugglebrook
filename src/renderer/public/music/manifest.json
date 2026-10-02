@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "sampleRate": 48000,
+  "lufs": -18,
+  "tracks": {
+    "main_menu": {
+      "phase": "always",
+      "bpm": 96,
+      "bpmDetected": 97,
+      "beatsPerBar": 4,
+      "key": {
+        "tonic": "C",
+        "mode": "major",
+        "confidence": 0.86,
+        "source": "detected"
+      },
+      "scale": [
+        0,
+        2,
+        4,
+        7,
+        9
+      ],
+      "loop": {
+        "samples": 2400000,
+        "start": 4800,
+        "bars": 20,
+        "sourceStart": 36.341,
+        "score": 0.757
+      },
+      "layers": {
+        "lead": "main_menu/lead.ogg",
+        "drums": "main_menu/drums.ogg",
+        "harmony": "main_menu/harmony.ogg",
+        "bass": "main_menu/bass.ogg"
+      },
+      "stems": {
+        "1 Woodwinds.wav": "lead",
+        "10 Drums.wav": "drums",
+        "11 Backing_Vocals.wav": "dropped: silent",
+        "12 Vocals.wav": "dropped: silent",
+        "2 Brass.wav": "lead",
+        "3 FX.wav": "harmony",
+        "4 Synth.wav": "harmony",
+        "5 Strings.wav": "dropped: silent",
+        "6 Percussion.wav": "drums",
+        "7 Keyboard.wav": "harmony",
+        "8 Guitar.wav": "harmony",
+        "9 Bass.wav": "bass"
+      },
+      "warnings": [
+        "sum check -3.6 dB: a stem is probably missing or from another take",
+        "envelope correlation 0.80: a stem may come from a different take"
+      ],
+      "source": {
+        "hash": "sha1:89b3013e5606a725ae72a7063e7e291f9ba75c7a",
+        "importedAt": "2026-10-02"
+      }
+    },
+    "stump_plaza_day": {
+      "area": "area_stump_plaza",
+      "phase": "day",
+      "bpm": 96,
+      "bpmDetected": 98,
+      "beatsPerBar": 4,
+      "key": {
+        "tonic": "C",
+        "mode": "major",
+        "confidence": 0.91,
+        "source": "detected"
+      },
+      "scale": [
+        0,
+        2,
+        4,
+        7,
+        9
+      ],
+      "loop": {
+        "samples": 3840000,
+        "start": 4800,
+        "bars": 32,
+        "sourceStart": 56.354,
+        "score": 0.799
+      },
+      "layers": {
+        "drums": "stump_plaza_day/drums.ogg",
+        "harmony": "stump_plaza_day/harmony.ogg",
+        "lead": "stump_plaza_day/lead.ogg",
+        "bass": "stump_plaza_day/bass.ogg"
+      },
+      "stems": {
+        "1 Woodwinds.wav": "dropped: silent",
+        "10 Drums.wav": "drums",
+        "11 Backing_Vocals.wav": "dropped: silent",
+        "12 Vocals.wav": "dropped: silent",
+        "2 Brass.wav": "dropped: silent",
+        "3 FX.wav": "dropped: silent",
+        "4 Synth.wav": "harmony",
+        "5 Strings.wav": "dropped: silent",
+        "6 Percussion.wav": "drums",
+        "7 Keyboard.wav": "lead",
+        "8 Guitar.wav": "harmony",
+        "9 Bass.wav": "bass"
+      },
+      "warnings": [
+        "no stem is a lead by name; made 7 Keyboard.wav the lead (it plays most of the song and sits highest). Check by ear and pin it in overrides.json (\"keyboard\": \"lead\" or \"harmony\")",
+        "sum check -5.6 dB: a stem is probably missing or from another take",
+        "envelope correlation 0.86: a stem may come from a different take"
+      ],
+      "source": {
+        "hash": "sha1:923ac16a998833b14257b7d805c918713ee1c305",
+        "importedAt": "2026-10-02"
+      }
+    }
+  }
+}
