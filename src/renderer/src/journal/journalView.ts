@@ -65,6 +65,8 @@ export class JournalView extends Container {
   private readonly bookRoot = new Container();
   private readonly tabLayer = new Container();
   private readonly coverBack = new Graphics();
+  /** The open cover's left half and the spine: hidden while the book is shut. */
+  private readonly coverLeft = new Graphics();
   private readonly pages = new Container();
   private readonly gutter = new Graphics();
   private readonly fx = new Graphics();
@@ -166,6 +168,7 @@ export class JournalView extends Container {
       this.home,
       this.tabLayer,
       this.coverBack,
+      this.coverLeft,
       this.pages,
       this.leaf,
       this.gutter,
@@ -194,8 +197,11 @@ export class JournalView extends Container {
     const g = this.coverBack;
     const w = PAGE_W + COVER_PAD;
     const h = PAGE_H + COVER_PAD * 2;
-    g.roundRect(-w + 10, -h / 2 + 16, w * 2, h, 34).fill({ color: OUTLINE, alpha: 0.3 });
+    g.roundRect(10, -h / 2 + 16, w, h, 34).fill({ color: OUTLINE, alpha: 0.3 });
+    const left = this.coverLeft;
+    left.roundRect(-w + 10, -h / 2 + 16, w, h, 34).fill({ color: OUTLINE, alpha: 0.3 });
     for (const sx of [-1, 1]) {
+      const g = sx < 0 ? left : this.coverBack;
       g.roundRect(sx < 0 ? -w : 0, -h / 2, w, h, 34)
         .fill(LEAF)
         .stroke(stroke(8));
@@ -207,10 +213,11 @@ export class JournalView extends Container {
           .stroke({ width: 4, color: darken(LEAF, 0.12), alpha: 0.6, cap: 'round' });
       }
     }
-    g.roundRect(-24, -h / 2, 48, h, 14)
+    left
+      .roundRect(-24, -h / 2, 48, h, 14)
       .fill(LEAF_DARK)
       .stroke(stroke(6));
-    for (let y = -h / 2 + 40; y < h / 2 - 20; y += 60) g.circle(0, y, 5).fill(lighten(LEAF, 0.6));
+    for (let y = -h / 2 + 40; y < h / 2 - 20; y += 60) left.circle(0, y, 5).fill(lighten(LEAF, 0.6));
   }
 
   /** Shade in the gutter over the pages, so the spread looks bound. */
@@ -751,7 +758,11 @@ export class JournalView extends Container {
     this.closeButton.alpha = this.dim.alpha;
     const p = Math.max(0, Math.min(1, (this.phaseT - OPEN_FLY_S) / OPEN_FLIP_S));
     this.flip = null;
-    this.left!.view.root.visible = p >= 0.5;
+    const opened = p >= 0.5;
+    this.left!.view.root.visible = opened;
+    this.coverLeft.visible = opened;
+    this.controls.visible = opened;
+    this.gutter.visible = opened;
     const e = 1 - Math.pow(1 - p, 3);
     this.applyLeaf(e);
     if (p >= 1) {
@@ -794,7 +805,7 @@ export class JournalView extends Container {
       if (p >= 0.5) {
         this.right!.view.root.visible = false;
         this.tabLayer.visible = false;
-        this.coverBack.visible = false;
+        this.coverLeft.visible = false;
         this.controls.visible = false;
         this.gutter.visible = false;
       }
