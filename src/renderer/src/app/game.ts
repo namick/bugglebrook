@@ -1,6 +1,15 @@
 import type { Application, FederatedPointerEvent, FederatedWheelEvent } from 'pixi.js';
 import { Container, Graphics, Point, UPDATE_PRIORITY } from 'pixi.js';
-import { CONTENT, FixedStepper, Sim, VIEW_HEIGHT_PX, VIEW_WIDTH_M, VIEW_WIDTH_PX } from '../../../game';
+import {
+  CONTENT,
+  FixedStepper,
+  GROUND_Y,
+  Sim,
+  VIEW_HEIGHT_PX,
+  VIEW_WIDTH_M,
+  VIEW_WIDTH_PX,
+} from '../../../game';
+import { PIXELS_PER_METER } from '../../../game/constants';
 import type { PageId, PhotoRecord } from '../../../game';
 import type { BugglebrookApi } from '../../../shared/ipc';
 import type { Settings } from '../../../shared/settings';
@@ -44,13 +53,24 @@ import { JOURNAL_AT, JournalButton } from '../ui/journalButton';
 import { JournalView } from '../journal/journalView';
 import { withSeen } from '../journal/layout';
 import { PhotoMode } from '../photo/photoMode';
-import { INTRO, Intro } from './intro';
+import { INTRO, Intro, introZoom } from './intro';
 import { SaveService } from './saveService';
 import { SaveTrouble } from './saveTrouble';
 import { saveCloudIcon } from '../ui/saveIcons';
 import { token } from '../ui/icons';
 import { SettingsService } from './settingsService';
 import { captureThumb } from './thumbnail';
+
+/** The first scene zooms about the ground line, so the garden floor stays put as it pulls back. */
+const INTRO_GROUND_PX = GROUND_Y * PIXELS_PER_METER;
+
+/** Zoom the world view about the ground line in the middle of the screen. */
+function zoomView(s: { view: Container; zoomPeak: number }, k: number): void {
+  s.view.pivot.set(VIEW_WIDTH_PX / 2, INTRO_GROUND_PX);
+  s.view.position.set(VIEW_WIDTH_PX / 2, INTRO_GROUND_PX);
+  s.view.scale.set(k);
+  s.zoomPeak = Math.max(s.zoomPeak, k);
+}
 
 export type SceneName = 'boot' | 'menu' | 'world';
 
@@ -99,6 +119,8 @@ interface WorldSession {
   /** The area the camera was last over, for area-change saves. */
   area: string;
   intro: Intro | null;
+  /** The most the world view has been zoomed since it opened (the first scene), for the test hook. */
+  zoomPeak: number;
   grabbedBug: boolean;
   panned: boolean;
   /** The last slot picture, kept if a new one cannot be taken. */
@@ -703,6 +725,7 @@ export class Game {
       createdAt: save?.meta.createdAt,
       area: sim.areaOf(camera.centerX).id,
       intro,
+      zoomPeak: 1,
       grabbedBug: false,
       panned: false,
       thumb: save?.meta.thumb ?? null,
@@ -715,6 +738,8 @@ export class Game {
       guideSkip,
       hidden,
     };
+    // The first scene opens close on the ground (P-15).
+    if (intro) zoomView(session, introZoom(0));
     input.onGesture = (gesture, strength) => {
       if (gesture === 'pan' || gesture === 'scroll' || gesture === 'edge') session.panned = true;
       this.sfx.play(gesture, strength);
@@ -1130,6 +1155,8 @@ export class Game {
       cameraX: s.camera.x,
     });
     s.cover.alpha = intro.cover;
+    // Close on the ground at first, pulling back as the camera arrives: zoomed about the ground line.
+    zoomView(s, introZoom(intro.t));
     for (const a of actions) {
       if (a.type === 'wake') s.sim.send({ type: 'wake', id: a.id });
       else if (a.type === 'beckon') s.sim.send({ type: 'beckon', id: a.id, x: a.x });

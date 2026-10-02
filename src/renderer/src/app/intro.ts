@@ -25,7 +25,23 @@ export const INTRO = {
   drift: 2,
   driftSeconds: 1.2,
   endAt: 120,
+  /**
+   * The scene opens close on the garden floor and pulls back as the camera
+   * arrives, so the first thing seen is the bugs, not the sky (P-15).
+   */
+  zoom: 1.6,
+  /** The pull-back starts this long in and ends with the slide. */
+  zoomOutFrom: 1.2,
 } as const;
+
+/** How far the first scene is zoomed in `t` seconds after it starts: 1 once the camera has arrived. Pure. */
+export function introZoom(t: number): number {
+  if (t >= INTRO.slideSeconds) return 1;
+  if (t <= INTRO.zoomOutFrom) return INTRO.zoom;
+  const u = (t - INTRO.zoomOutFrom) / (INTRO.slideSeconds - INTRO.zoomOutFrom);
+  const ease = u * u * (3 - 2 * u);
+  return INTRO.zoom + (1 - INTRO.zoom) * ease;
+}
 
 export type IntroAction =
   | { type: 'wake'; id: number }

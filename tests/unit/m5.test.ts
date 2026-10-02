@@ -7,7 +7,7 @@ import type { SaveFile } from '../../src/game';
 import { SaveStore } from '../../src/main/saveStore';
 import { SettingsStore } from '../../src/main/settingsStore';
 import { DEFAULT_SETTINGS, normalizeSettings } from '../../src/shared/settings';
-import { Intro, INTRO } from '../../src/renderer/src/app/intro';
+import { Intro, INTRO, introZoom } from '../../src/renderer/src/app/intro';
 import type { IntroInput } from '../../src/renderer/src/app/intro';
 import { memoryApi } from '../../src/renderer/src/app/memorySaves';
 import { SaveService } from '../../src/renderer/src/app/saveService';
@@ -741,6 +741,20 @@ describe('menu and pocket layout (pure)', () => {
 });
 
 describe('the first two minutes', () => {
+  it('opens close on the garden floor and pulls back smoothly as the camera arrives (P-15)', () => {
+    expect(introZoom(0)).toBe(INTRO.zoom);
+    expect(INTRO.zoom).toBeGreaterThan(1.4);
+    let last = introZoom(0);
+    for (let t = 0; t <= INTRO.slideSeconds + 1; t += 0.05) {
+      const k = introZoom(t);
+      expect(k).toBeLessThanOrEqual(last + 1e-9);
+      expect(last - k).toBeLessThan(0.06);
+      last = k;
+    }
+    expect(introZoom(INTRO.slideSeconds)).toBe(1);
+    expect(introZoom(INTRO.endAt)).toBe(1);
+  });
+
   const input = (over: Partial<IntroInput> = {}): IntroInput => ({
     cursor: null,
     dot: { id: 7, x: 39, y: 8.6, asleep: true },

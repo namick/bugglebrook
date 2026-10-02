@@ -198,6 +198,8 @@ export interface TestHook extends ArtHook {
   enableIntro(on: boolean): void;
   /** The first scene's clock and fade, or null when it is not running. */
   intro(): { t: number; cover: number } | null;
+  /** How far the world view is zoomed now, and the most it has been since the world opened (the first scene). */
+  viewZoom(): { now: number; peak: number } | null;
   send(command: Command): void;
   step(n: number): void;
   /** Run `n` frames of input and sim at 60 Hz right now, whatever the screen's speed. */
@@ -869,6 +871,10 @@ export function installTestHook(game: Game, boundary?: ErrorBoundary): void {
     intro: () => {
       const i = game.session?.intro;
       return i ? { t: i.t, cover: i.cover } : null;
+    },
+    viewZoom: () => {
+      const s = game.session;
+      return s ? { now: s.view.scale.x, peak: s.zoomPeak } : null;
     },
     send: (command) => game.session?.sim.send(command),
     step: (n) => game.stepSim(n),

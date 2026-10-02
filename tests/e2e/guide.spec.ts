@@ -64,3 +64,27 @@ test('without the first scene there is no guide', async () => {
     await bb.close();
   }
 });
+
+test('the first scene opens close and pulls back, and a resting hand sees all four demos, the shake too', async () => {
+  test.setTimeout(240_000);
+  const bb = await launchApp();
+  const { page } = bb;
+  try {
+    await page.evaluate(() => window.__bb!.enableIntro(true));
+    await clickSlot(page, 0);
+    // P-15: close on the garden floor at first, then the whole view once the camera has arrived.
+    expect((await page.evaluate(() => window.__bb!.viewZoom()))!.peak).toBeGreaterThan(1.4);
+    await expect
+      .poll(async () => (await page.evaluate(() => window.__bb!.viewZoom()))!.now, { timeout: 30_000 })
+      .toBe(1);
+    // P-34: rest the hand in the sky and every guided demo gets staged in turn, the shake last.
+    await page.mouse.move(640, 60, { steps: 3 });
+    await expect
+      .poll(async () => (await hints(page)).ghost.shown.shake ?? 0, { timeout: 180_000, intervals: [500] })
+      .toBeGreaterThan(0);
+    const shown = (await hints(page)).ghost.shown;
+    for (const k of ['feed', 'fling', 'tickle', 'shake']) expect(shown[k] ?? 0, k).toBeGreaterThan(0);
+  } finally {
+    await bb.close();
+  }
+});

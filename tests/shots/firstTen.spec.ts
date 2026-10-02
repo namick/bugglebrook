@@ -39,7 +39,7 @@ test('first minutes audit', async () => {
     const evs = await page.evaluate(() => window.__bb!.events().map((e) => e.name));
     const verbs = [...new Set(evs.map((n) => VERBS[n]).filter(Boolean))].join(', ');
     log.push(
-      `${stamp()}  ${name}: ${note}. Ghost: ${h?.ghost.active ?? '-'}; guide left: ${h?.ghost.guide?.join(' ') ?? 'none'}; verbs so far: ${verbs || '-'}`,
+      `${stamp()}  ${name}: ${note}. Ghost: ${h?.ghost.active ?? '-'}; shown: ${JSON.stringify(h?.ghost.shown ?? {})}; guide left: ${h?.ghost.guide?.join(' ') ?? 'none'}; verbs so far: ${verbs || '-'}`,
     );
   };
   const idle = async (seconds: number): Promise<void> => page.waitForTimeout(seconds * 1000);
@@ -55,7 +55,7 @@ test('first minutes audit', async () => {
     await page.evaluate(() => window.__bb!.enableIntro(true));
     await clickSlot(page, 0);
     await page.mouse.move(640, 60);
-    await idle(1.5);
+    await idle(0.6);
     await shot('00-fade-in', 'The world fades in, the camera slides toward Dot asleep');
     await idle(3.5);
     await shot('01-dot-asleep', 'Dot asleep on the bottle cap, a berry beside her');
@@ -123,7 +123,7 @@ test('first minutes audit', async () => {
       await page.mouse.up();
     }
     await page.mouse.move(640, 60, { steps: 4 });
-    await waitGhost('shake');
+    await waitGhost('shake', 60);
     await idle(1.8);
     await shot('10-guide-shake', 'The ghost hand shakes something');
     // Pan by dragging the sky.
@@ -134,8 +134,13 @@ test('first minutes audit', async () => {
     await idle(1.5);
     await shot('11-panned', 'Dragging the sky pans toward the pond');
     // Then the player rests, and the ordinary demos take over.
+    // (Ordinary demos wait out a 90 s cooldown after the last guided one.)
     await page.mouse.move(640, 60, { steps: 2 });
-    await idle(32);
+    for (let i = 0; i < 160; i++) {
+      const h = await page.evaluate(() => window.__bb!.hints());
+      if (h?.ghost.active && h.ghost.frame && h.ghost.frame.alpha > 0.5) break;
+      await page.waitForTimeout(1000);
+    }
     await shot('12-later-demo', 'After a longer rest: an ordinary ghost demo');
     writeFileSync(join(DIR, 'first-log.txt'), `${log.join('\n')}\n`);
   } finally {

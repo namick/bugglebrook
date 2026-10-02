@@ -53,7 +53,7 @@ export const GHOST = {
   fadeIn: 0.4,
   fadeOut: 0.5,
   /** How see-through the ghost is at its brightest. */
-  alpha: 0.7,
+  alpha: 0.85,
 } as const;
 
 /**

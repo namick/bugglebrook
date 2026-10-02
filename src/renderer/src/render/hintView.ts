@@ -1,7 +1,8 @@
-import { Container, Graphics } from 'pixi.js';
+import { ColorMatrixFilter, Container, Graphics } from 'pixi.js';
 import { PIXELS_PER_METER } from '../../../game/constants';
 import type { ItemDef } from '../../../game/data/types';
 import type { GhostFrame } from '../app/ghost';
+import { solidMatrix } from '../journal/entryArt';
 import { HandCursor } from '../ui/cursor';
 import { ItemSprite } from './draw/item';
 import { twinkle } from './fixtureArt';
@@ -10,6 +11,9 @@ import type { HintKey, HintLook } from './hints';
 const PPM = PIXELS_PER_METER;
 /** The ghost hand's pale, cool tint. */
 const GHOST_TINT = 0xdde8ff;
+/** The ghost's warm glow, and how far its light outline reaches, in pixels. */
+const GHOST_GLOW = 0xfff1b8;
+const RIM_PX = 4;
 
 /** Where a hint glints, in world meters, and whether it needs drawn shake marks (its art does not wobble itself). */
 export interface HintSpot {
@@ -76,7 +80,9 @@ export class HintMarks extends Container {
  */
 export class GhostHand extends Container {
   private readonly hand = new HandCursor();
-  /** A soft pale halo, so the ghost reads as a ghost and not as a second cursor. */
+  /** Copies of the hand nudged out in eight directions, in white: a light outline around the ghost (P-15). */
+  private readonly rim = Array.from({ length: 8 }, () => new HandCursor());
+  /** A soft warm glow, so the ghost reads as a ghost and not as a second cursor, even against the ant hill. */
   private readonly halo = new Graphics();
   private carried: ItemSprite | null = null;
   private carriedDef: string | null = null;
@@ -87,9 +93,16 @@ export class GhostHand extends Container {
     super();
     this.eventMode = 'none';
     this.hand.tint = GHOST_TINT;
-    this.halo.circle(0, 0, 54).fill({ color: 0xffffff, alpha: 0.18 });
-    this.halo.circle(0, 0, 38).fill({ color: 0xffffff, alpha: 0.22 });
-    this.addChild(this.halo, this.hand);
+    this.halo.circle(0, 0, 78).fill({ color: GHOST_GLOW, alpha: 0.14 });
+    this.halo.circle(0, 0, 60).fill({ color: GHOST_GLOW, alpha: 0.2 });
+    this.halo.circle(0, 0, 42).fill({ color: 0xffffff, alpha: 0.26 });
+    // The copies drawn solid white: a light outline the size of RIM_PX.
+    const rimLayer = new Container();
+    rimLayer.addChild(...this.rim);
+    const solid = new ColorMatrixFilter();
+    solid.matrix = solidMatrix(0xffffff, 0) as typeof solid.matrix;
+    rimLayer.filters = [solid];
+    this.addChild(this.halo, rimLayer, this.hand);
     this.visible = false;
   }
 
@@ -105,6 +118,13 @@ export class GhostHand extends Container {
     this.hand.update(dt, frame.x, frame.y);
     // A size up from the real hand, so it is easy to see from across the screen.
     this.hand.scale.set(this.hand.scale.x * 1.3);
+    this.rim.forEach((r, i) => {
+      if (r.pose !== frame.pose) r.setPose(frame.pose);
+      const a = (i / this.rim.length) * Math.PI * 2;
+      r.update(dt, frame.x + Math.cos(a) * RIM_PX, frame.y + Math.sin(a) * RIM_PX);
+      r.scale.copyFrom(this.hand.scale);
+      r.rotation = this.hand.rotation;
+    });
     const fist = frame.pose === 'grab';
     this.halo.position.set(frame.x + (fist ? 0 : 14), frame.y + (fist ? -20 : 18));
     this.halo.scale.set(1 + 0.06 * Math.sin(frame.progress * 40));
