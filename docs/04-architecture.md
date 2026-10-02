@@ -40,8 +40,8 @@ src/main/updater.ts
 ```
 
 - `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`. The renderer has no `require` or `process`, and an E2E test asserts that.
-- The preload exposes exactly six keys on `window.bugglebrook`: `saves`, `settings`, `quit`, `testMode`, `platform`, and `onFlushRequest`. The type is `BugglebrookApi` in `src/shared/ipc.ts`.
-- Main validates every IPC argument. Slots must be integers 0 to 2. Save payloads must be strings under 5 MB that parse as JSON. Settings must be an object and are normalized by `normalizeSettings` (`src/shared/settings.ts`) before they are stored. Main does not understand the save format; it stores opaque text.
+- The preload exposes exactly seven keys on `window.bugglebrook`: `saves`, `settings`, `photos`, `quit`, `testMode`, `platform`, and `onFlushRequest`. The type is `BugglebrookApi` in `src/shared/ipc.ts`.
+- Main validates every IPC argument. Slots must be integers 0 to 2. Save payloads must be strings under 5 MB that parse as JSON. Settings must be an object and are normalized by `normalizeSettings` (`src/shared/settings.ts`) before they are stored. Main does not understand the save format; it stores opaque text. A photo (`photos:save`) must be a PNG data URL under `MAX_PHOTO_CHARS` whose bytes start with the PNG signature (`src/shared/photo.ts`); `PhotoStore` writes it to `<Pictures>/Bugglebrook/bugglebrook-YYYYMMDD-HHMMSS.png` (a counter suffix if that name is taken) through a temp file, and resolves to the path. In test mode `BUGGLEBROOK_PICTURES` points that folder somewhere else, so tests never write to the real one.
 - The window denies popups and blocks navigation. `index.html` sets a Content Security Policy with no `unsafe-eval`. Pixi normally compiles shaders with `new Function`, so the renderer imports `pixi.js/unsafe-eval`, which swaps in a polyfill that does not need eval.
 - Main appends `enable-unsafe-swiftshader` so WebGL still works on machines without a usable GPU, such as VMs and CI under xvfb. This is acceptable because the app only loads its own bundled files.
 
@@ -74,6 +74,8 @@ src/
                         bench.ts and cauldron.ts run them in the world,
                         potions.ts runs potion effects, and toys.ts the
                         crafted toys and balloons.
+                        M11: photo.ts is photo mode's side of the sim (the camera
+                        moment, the freeze, the totem secret's geometry).
     world/terrain.ts    The ground surface as a height field built from area polylines.
     data/               Content registries: areas, bugs, items, recipes, potions, secrets.
                         materials.ts is the material table, affinity.ts the bug-pair table.
@@ -81,7 +83,8 @@ src/
     save/               schema.ts (SAVE_VERSION, types), migrations.ts, validate.ts
     commands.ts         The Command union: grab, drag, release, poke, tickle, shake, spawn,
                         focus, set_need, set_tag, set_weather, set_time, dial_turn,
-                        dial_release, pocket_put, pocket_take, stage_intro, wake, beckon
+                        dial_release, pocket_put, pocket_take, stage_intro, wake, beckon,
+                        photo_mode, photo_taken, photo_saved
     events.ts           GameEvents: every event name and payload
     constants.ts        Units, gravity, logical resolution
     sim.ts              The Sim class that ties it together. Big parts of it live
@@ -94,8 +97,9 @@ src/
     index.ts            Public exports for the renderer
   shared/ipc.ts         IPC channel names, BugglebrookApi, SlotInfo. Types and constants only.
   shared/settings.ts    The Settings type, defaults, and normalizeSettings (pure, used by both sides)
+  shared/photo.ts       Photo file names and the PNG checks both sides make (pure)
   main/                 Electron main: window, IPC handlers, SaveStore (backups, recovery),
-                        SettingsStore (settings.json), auto-updater
+                        SettingsStore (settings.json), PhotoStore (the Pictures folder), auto-updater
   preload/              contextBridge API
   renderer/
     index.html          CSP and the canvas host
@@ -123,7 +127,13 @@ src/
                         settingsPanel.ts (pause and settings board), controls.ts (vine
                         slider, toggle, plank board), pocketTray.ts, pocketLayout.ts (pure),
                         icons.ts, button.ts (PictureButton, Bounce, markUi), cursor.ts,
-                        holdArm.ts and stamps.ts (pure), stampStrip.ts
+                        holdArm.ts and stamps.ts (pure), stampStrip.ts,
+                        photoButtons.ts (the camera and the album, top right)
+      photo/            Photo mode (M11): photoMath.ts (zoom window, pan, sticker
+                        transforms, what is in frame; pure), stickers.ts, frames.ts, and
+                        filters.ts (the catalogs, all drawn in code; filters.ts holds the
+                        look shader), photoMode.ts (the viewfinder and its controls),
+                        album.ts (the recent photos board)
       debug/testHook.ts window.__bb, only in test mode
 tests/
   unit/                 Vitest. Headless. Covers src/game, the pure renderer modules, and SaveStore.
@@ -412,6 +422,16 @@ The renderer reads the sim and never writes to it.
 - M8. `BenchLive` and `CauldronLive` (in `areaArt/`) draw the bench and the cauldron each frame from the sim's state, plus the hand's drag (`AreaFrame.drag`: the lever's pull, the ladle's angle). `potionLooks.ts` (pure) turns a thing's effects into a size, tint, transparency, trail, squash (heavy), boing (bouncy), notes (opera, squeaky), and extras, and `potionView.ts` draws the extras (wings, fur, bubbles, a snowball, frost, flies, a ghost's hem, speed lines, a slow-mo clock and echo, a sweat drop, spring feet, a squeaky shine, a nightcap, fizz, soap bubbles, embers, drips, wobble marks, a rocket's jet, and the magnet's dotted pull field). Every potion effect has a lasting look; `potionLook`'s switch has no default, so a new effect does not compile until it gets one. Arcs in these extras start with `moveTo`, or Pixi joins them on to whatever was drawn last (that was the long white line under a copycat bug). Sizes spring to the sim's with an overshoot. While the player holds something, the cauldron, a mouth for a potion, or a bug for paint glow, and the bench's empty trays light up and lift as it comes near (`trayGlow`), brightest for the one it would go in (R10). A pull plays out in `benchPose` (R09): the bench crouches, rattles harder and harder with steam and sawdust (and a rattle and hiss in `craftSfx.ts`), then holds still and squashed for 7 ticks before the pop. The new thing grows out of a puff from a quarter size with a stretch and an overshoot (`CRAFT_POP`), and the bench bounces. The cork board starts with a how-to card and a faded card hinting at the matchbox racer, until a blueprint is pinned. `__bb.benchLook()` reports the tray glows, the phase, and the cards. `draw/itemArt8.ts` draws M8's items, and `draw/tagIcon.ts` the tag pictograms for the scope and the cork board.
 - Tag looks. `tagLook(tags, submerged)` in `tagLooks.ts` is the pure table. `WorldView.tagEffects` draws it: wet tints darker and drips (faster for sponges, not in water) with beads on top, hot glows and shimmers, frozen sits in an ice block, cold sparkles with frost, smelly gives off stink lines and green puffs, soapy foams, sticky shines, and fuzzy grows spiky hair. Goo blobs mark welds, and red and blue field lines show a magnet pulling. `SoapBubbles` floats bubbles that pop on anything they touch.
 
+### Photo mode (M11)
+
+Section 14 of the design doc. The camera button (top right, left of the album) opens `PhotoMode`, which moves the `WorldView` into its `scene` container under a zoom transform, a look filter, the sticker layer, and the frame. Everything the shutter captures is in `scene`; the viewfinder brackets, sticker handles, strips, tray, shutter, and flash sit outside it.
+
+- The sim runs the camera moment and the freeze (`photo_mode` command, `sim.photo`): the renderer only sends the command and, once `sim.photo.frozen`, calls `WorldView.update` with `dt` 0 so animations hold too. Pause, the album, and photo mode are the `overlaid` states in `Game`; while any is up, pointer events do not reach `PointerController`.
+- Zoom (1x to 3x, on the cursor) and pan are pure math in `photoMath.ts`: a `PhotoView` is a window of the 1920x1080 view, clamped inside it; a pan that wants past the window's edge pans the camera by the rest, so dragging at the edge keeps going into the world. Stickers are `StickerPlacement`s (center, scale, rotation) worked by a corner handle (`dragHandle` keeps the handle under the finger); a sticker let go over the tray band or off the screen is thrown away.
+- Frames draw over the whole photo (`frames.ts`); the strip's thumbnails are the same drawing scaled down over a tiny sky-and-grass scene. Filters are one GLSL filter with a mode uniform (`LookFilter`): warm, cool, night vision (green, scanlines, vignette), old photo (sepia, grain), comic (posterize, inked edges), bug eye (a hex mosaic). Locked frames, filters, and stickers (`unlock`: a secret ID) show greyed with a lock or a question mark until `sim.secrets` has the secret.
+- The shutter: `renderer.extract.canvas` renders `scene` at 1920x1080 whatever the screen's resolution, so the PNG is always full size. The flash is a white cover that fades (a quarter-strength fade with reduce motion), the sound is `shutter`, and the picture flies as a polaroid to the album button, which wiggles when it lands. The renderer sends `photo_taken` (frame, filter, sticker count, zoom, bugs in frame) at once and `photo_saved` when main answers; a failed write shows a red x on the polaroid and in the album. Each photo is a `PhotoRecord` (time, a 320x180 JPEG thumb, the file path or null, frame, filter) in `session.photos`, saved as `meta.photos` (the last 60).
+- The album (`AlbumBoard`) stands in for the journal's photos page until M10 ships it: a board over the paused world with the recent photos as polaroids, newest first, twelve to a page.
+
 ### Menu, pause, and the first scene
 
 Section 17 of the design doc. All of it is wordless and drawn in code.
@@ -463,8 +483,8 @@ The renderer does not interpolate between sim steps yet. At 60 Hz that does not 
 - If a save will not load (bad JSON, or it fails migration or validation), `SaveService.loadWithRecovery` asks main to `recover` the slot: the bad file is kept as `slot-N.corrupt.json` and the backup is put back in its place. With no backup the slot is empty. The menu's slot list recovers the same way.
 - A `SaveFile` is `{ version, savedAt, world: WorldSave, view: { cameraX }, meta: { createdAt, thumb } }`. `WorldSave` holds the seed, tick, RNG state, next entity ID, every entity with its body state and component data, the pond and weather (`env`), affinity (`social`), the pocket, and `counters` (times the player fed each bug, for the badge). A held item is saved as if it had been dropped. `meta.thumb` is a 320x180 JPEG of the camera view as a data URL. `captureThumb` renders the world view alone, without the hand or UI. Any string passes validation, and the menu shows only image data URLs, so a bad picture never costs a world.
 - `loadSaveFile(raw)` parses the JSON, refuses versions newer than the game, runs migrations one version at a time, then validates the structure. Any failure throws `SaveError`.
-- To change the format, bump `SAVE_VERSION` and add `MIGRATIONS[oldVersion]`. Never edit a migration that has shipped. `tests/unit/fixtures/save-v1.json` to `save-v10.json` are real saves written by the game at each shipped version, generated from the commits that shipped them (`save-v8.json` has the flowerbed and porch open; `save-v10.json` has every area open and Dot glowing from a potion); `m5.test.ts` loads every one, plays it, and saves it again. Add a fixture for each new version. Prettier skips the fixtures so they stay byte for byte.
-- The format is at version 10. Version 10 changes no shapes. Its migration brings back anything a version 9 save left outside the world (the fast-drag escapes of R01): bodies past the 195.2 m world, above -30 m, or below the ground go to a row of drops over the plaza, still. Loading also runs the bounds sweep, so any save gets the same rescue with the real geometry.
+- To change the format, bump `SAVE_VERSION` and add `MIGRATIONS[oldVersion]`. Never edit a migration that has shipped. `tests/unit/fixtures/save-v1.json` to `save-v10.json` and `save-v12.json` are real saves written by the game at each shipped version, generated from the commits that shipped them (`save-v8.json` has the flowerbed and porch open; `save-v10.json` has every area open and Dot glowing from a potion; `save-v12.json` has a photo in `meta.photos`; version 11 shipped without one); `m5.test.ts` loads every one, plays it, and saves it again. Add a fixture for each new version. Prettier skips the fixtures so they stay byte for byte.
+- The format is at version 12. Version 12 (M11) adds `meta.photos`, the player's last photos as `PhotoRecord`s; its migration only bumps the version. Version 11 (the post-M8 content pass) re-lays a porch still behind its lattice and a treehouse pegboard still holding its two starting pieces. Version 10 changes no shapes. Its migration brings back anything a version 9 save left outside the world (the fast-drag escapes of R01): bodies past the 195.2 m world, above -30 m, or below the ground go to a row of drops over the plaza, still. Loading also runs the bounds sweep, so any save gets the same rescue with the real geometry.
 - Version 9 (M8) adds `world.bench` and `world.cauldron`, and entity `parts`, `brew`, `effects`, `toasted`, and `toy`; its migration only bumps the version, and loading an older world gives it M8's new start items (`M8_STARTERS`).
 - Version 8 Version 8 moves every saved x (bodies, bug targets, resting spots, off-screen plans, ice, welds, slime, the camera) 32 m right for the flowerbed, and records `built` (the pond and the plaza). Loading builds the areas a save lacks from their start lists, all locked, and adds Twig, disguised. It adds `world.barriers`, `world.places`, and entity `paint`, `pinned`, and `bites`, and bug `pending`, `form`, and a few timers.
 - Version 7 adds `world.sky` (the clock, the weather and its timers, the vane, the dial, puddles, and the weather's RNG) and `world.secrets`, and each bug may have `umbrella`. Its migration only adds an empty secrets list: a world without a sky starts at 09:00 in clear weather when loaded, and gets the flashlight pen.
@@ -495,6 +515,7 @@ Setting `BUGGLEBROOK_USER_DATA=/some/dir` points userData at a throwaway directo
 - M5 state: `pocket()`, `pocketOpen()`, `binProgress()`, `panelOpen()`, `settings()`, `shakeOffset()`, `shakeStats()` and `resetShakeStats()` (shakes asked for and the biggest offset drawn), `menuSettled()`, `reduceMotion()`, `slotPictures()`, `recoveries()`, `intro()`
 - coordinate helpers for driving the real mouse: `worldToClient(x, y)`, `slotButtonClient(slot)`, `homeButtonClient()`, `uiClient(name)` (pause, home, resume, to_menu, gear, door, bin, `toggle_*`), `sliderClient(key, value)`, `pocketSlotClient(i)`
 - control: `send(command)`, `step(n)`, `frames(n)` (n frames of input and sim at 60 Hz, right now), `setPaused()` (a freeze without the pause board), `freezeMenu(on)` and `menuFrames(n)` (the menu's clock, for the compost bin's lid), `enableIntro(on)`, `saveNow()`, `clearLogs()`
+- M11 photo mode: `photo()` (open, frozen, zoom and window, frame, filter, stickers, the tray page, the flash's peak, photos taken and kept, the last record, the album, bugs in frame), `stickerClient(i)` and `stickerHandleClient(i)` for the mouse, `placeSticker(id, x, y)` for staging, and `uiClient` names `camera`, `shutter`, `album`, `tray_prev`, `tray_next`, `frame_<id>`, `filter_<id>`, and `sticker_<id>` (on the tray's current page)
 
 E2E tests move the real mouse with `page.mouse`, then assert on game state through the hook. They never compare pixels.
 
