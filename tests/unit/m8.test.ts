@@ -471,6 +471,10 @@ describe('M8 secrets', () => {
     const dot = bugAt(sim, 'bug_ladybug_dot', spider.x - 0.5);
     sim.send({ type: 'give_potion', id: dot.id, potion: 'potion_upside_down' });
     sim.run(240);
+    // It needs the moon pebble found first (section 12's "Requires").
+    expect(sim.secrets).not.toContain('secret_upside_tea');
+    sim.findSecret('secret_moon_pebble', 0, 0);
+    sim.run(240);
     expect(sim.secrets).toContain('secret_upside_tea');
   });
 

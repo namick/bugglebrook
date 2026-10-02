@@ -59,6 +59,9 @@ import type { Placed } from './world/startLayout';
 import { leanAgainst, stackTop } from './world/startLayout';
 import { Bench } from './systems/bench';
 import { Cauldron } from './systems/cauldron';
+import { Journal } from './systems/journal';
+import { journalBook } from './systems/journalBook';
+import type { JournalBook } from './systems/journalBook';
 import { Bounds } from './systems/bounds';
 import type { PhotoState } from './systems/photo';
 import { PHOTO_MOMENT_TICKS, TOTEM_TICKS, findTotem, inFrame } from './systems/photo';
@@ -337,6 +340,8 @@ export class Sim {
   readonly toys: Toys;
   /** Brings back anything that leaves the world. */
   readonly bounds: Bounds;
+  /** The journal's memory (M10): what the player met, found, and saw (saved as `world.journal`). */
+  readonly journal: Journal;
   /** Where the player's hand is over the world, or null. Sent by the renderer (`hand`). */
   hand: { x: number; y: number } | null = null;
   /** Areas whose starting things are in the world. Saved, so areas added later get theirs on load. */
@@ -365,6 +370,7 @@ export class Sim {
     this.potions = new Potions(this);
     this.toys = new Toys(this);
     this.bounds = new Bounds(this);
+    this.journal = new Journal(this);
     this.buildFixtures();
     this.buildSolids();
     this.barriers.build();
@@ -503,6 +509,7 @@ export class Sim {
       if (saved.brew) entity.brew = clone(saved.brew);
       if (saved.effects) entity.effects = clone(saved.effects);
       if (saved.toasted) entity.toasted = true;
+      if (saved.home) entity.home = { ...saved.home };
       if (saved.toy) entity.toy = clone(saved.toy);
       sim.entities.restore(entity);
       sim.addBodyFor(entity, saved.body);
@@ -548,6 +555,7 @@ export class Sim {
     if (save.barriers) sim.barriers.restore(clone(save.barriers));
     if (save.places) sim.places.restore(clone(save.places));
     if (save.bench) sim.bench.restore(clone(save.bench));
+    if (save.journal) sim.journal.restore(clone(save.journal));
     if (save.cauldron) sim.cauldron.restore(clone(save.cauldron));
     // Areas new since the save get their starting things (M7's four areas, in older saves).
     sim.built = save.built ? [...save.built] : sim.content.areas.all.map((a) => a.id);
@@ -562,6 +570,7 @@ export class Sim {
     sim.refreshFriction();
     // Anything a save left outside the world (R01) drops back in.
     sim.bounds.sweep();
+    if (!save.journal) sim.journal.seed();
     return sim;
   }
 
@@ -614,6 +623,7 @@ export class Sim {
     if (!this.defExists(kind, defId)) throw new Error(`Unknown ${kind} def: ${defId}`);
     const entity = this.entities.create(kind, defId);
     if (kind === 'bug') entity.bug = newBugBrain(x, this.rng);
+    if (kind === 'item' && this.content.items.get(defId).unique) entity.home = { x, y };
     this.addBodyFor(entity, { x, y, angle: 0, vx: 0, vy: 0, av: 0 });
     this.events.emit('entity_spawned', { id: entity.id, kind, defId });
     return entity;
@@ -675,7 +685,10 @@ export class Sim {
     // the clock stops, so no timer runs out while the player frames a shot.
     if (this.photo) {
       if (!this.photo.frozen && this.tick - this.photo.at >= PHOTO_MOMENT_TICKS) this.photo.frozen = true;
-      if (this.photo.frozen) return;
+      if (this.photo.frozen) {
+        this.journal.update();
+        return;
+      }
     }
     this.weather.update();
     this.barriers.update();
@@ -712,6 +725,7 @@ export class Sim {
     this.rescueBuried();
     this.bounds.update();
     if (this.tick > 0 && this.tick % RESPAWN_TICKS === 0) this.respawn();
+    this.journal.update();
     this.tick++;
   }
 
@@ -1632,11 +1646,35 @@ export class Sim {
     this.findSecret('secret_bug_totem', top.x, top.y);
   }
 
-  /** A secret was found: the first time, it is logged and announced. */
-  findSecret(id: string, x: number, y: number): void {
-    if (this.secrets.includes(id)) return;
+  /**
+   * A secret was found: the first time, it is logged and announced. A
+   * blocked secret, or one whose prerequisites are not all found yet, does
+   * not fire (section 12's "Requires"). True if it was found just now.
+   */
+  findSecret(id: string, x: number, y: number): boolean {
+    if (!this.canFind(id)) return false;
     this.secrets.push(id);
     this.events.emit('secret_found', { id, x, y });
+    return true;
+  }
+
+  /** Could `id` be found now: not found yet, not blocked, and its prerequisites found? */
+  canFind(id: string): boolean {
+    if (this.secrets.includes(id)) return false;
+    const def = this.content.secrets.tryGet(id);
+    if (def?.blocked) return false;
+    return (def?.requires ?? []).every((r) => this.secrets.includes(r));
+  }
+
+  /** The journal as pages (M10), from the saved state. Pure read; the renderer draws it. */
+  book(): JournalBook {
+    return journalBook({
+      content: this.content,
+      secrets: this.secrets,
+      journal: this.journal.state,
+      made: this.bench.state.made,
+      hinted: this.bench.state.hinted,
+    });
   }
 
   /** The world x range the camera shows, or the whole world when nobody is watching. */
@@ -2299,6 +2337,7 @@ export class Sim {
       if (e.brew) saved.brew = clone(e.brew);
       if (e.effects && e.effects.length > 0) saved.effects = clone(e.effects);
       if (e.toasted) saved.toasted = true;
+      if (e.home) saved.home = { ...e.home };
       if (e.toy && Object.keys(e.toy).length > 0) saved.toy = clone(e.toy);
       return saved;
     });
@@ -2319,6 +2358,7 @@ export class Sim {
       built: [...this.built],
       bench: this.bench.serialize(),
       cauldron: this.cauldron.serialize(),
+      journal: this.journal.serialize(),
     };
   }
 }

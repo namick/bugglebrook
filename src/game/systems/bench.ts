@@ -228,6 +228,13 @@ export class Bench {
     const e = sim.entities.get(id);
     if (!e || this.state.trays[i] !== null || e.kind !== 'item') return;
     const t = this.trayAt(i);
+    // One-of-a-kind treasures are never crafted (M10): they hop off.
+    if (sim.content.items.get(e.defId).unique) {
+      const s = sim.physics.getState(id);
+      sim.physics.setVelocity(id, s.x < t.x ? -3 : 3, -4.5);
+      sim.events.emit('bench_shrugged', { id, x: s.x, y: s.y });
+      return;
+    }
     sim.environment.unstickAll(id);
     sim.physics.place(id, t.x, t.y - sim.halfHeight(e) - 0.01, 0);
     sim.physics.setPinned(id, true);

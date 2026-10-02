@@ -282,6 +282,8 @@ export interface Entity {
   toasted?: boolean;
   /** A crafted toy's state (M8): where it pivots, hangs, or whether it is switched off. */
   toy?: ToyState;
+  /** A one-of-a-kind item's home (M10): where it first appeared, and where it comes back to. */
+  home?: { x: number; y: number };
 }
 
 /**

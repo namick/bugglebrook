@@ -323,6 +323,12 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
    * gives it an empty one and the new instruments (`Sim.load`).
    */
   12: (save) => ({ ...save, version: 13 }),
+  /**
+   * Version 14 (M10) adds `world.journal`. A world without one starts an
+   * empty journal on load, with the bugs, items, and areas its secrets and
+   * bench already prove the player found.
+   */
+  13: (save) => ({ ...save, version: 14 }),
 };
 
 export class SaveError extends Error {

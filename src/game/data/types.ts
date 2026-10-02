@@ -522,7 +522,18 @@ export type ItemArt =
   | 'maraca'
   | 'castanets'
   | 'bottle_flute'
-  | 'leaf_xylophone';
+  | 'leaf_xylophone'
+  // M10's treasures and rewards.
+  | 'key_tiny'
+  | 'map_scrap'
+  | 'treasure_map'
+  | 'marble_gold'
+  | 'gnome_nose'
+  | 'hat_bubble'
+  | 'hat_candle'
+  | 'cloud_jar'
+  | 'paint_rainbow'
+  | 'monocle';
 
 /**
  * What a bug can do with an advert (game design doc, section 5). Items offer
@@ -644,6 +655,12 @@ export interface ItemDef {
   shatters?: { into: string; count: number; speed: number };
   /** A musical thing's note, as a scale step (0 is the area's root), for rule R20. */
   note?: number;
+  /**
+   * One of a kind, needed for a secret (M10): never eaten, broken, crafted,
+   * brewed, or composted, and when it leaves the world it comes back to
+   * where it first appeared rather than the nearest open spot.
+   */
+  unique?: boolean;
 }
 
 /**
@@ -770,10 +787,47 @@ export type SecretTrigger =
   | { type: 'recipe'; recipe: string }
   | { type: 'potion_on_bug'; potion: string; bug: string };
 
+/**
+ * A journal hint: a glyph name from `GLYPHS` (data/glyphs.ts), or a content
+ * ID (`item_*`, `bug_*`, `area_*`) drawn as that thing's own picture.
+ */
+export type HintGlyph = string;
+
 export interface SecretDef {
   id: string;
+  /** A short label for the journal (1 to 3 words). */
   name: string;
+  /** T1 is found by poking around, T2 needs a combination, time, or weather, T3 a chain (section 12). */
+  tier: 1 | 2 | 3;
   trigger: SecretTrigger;
   /** Content unlocked when found. */
   unlocks: readonly { kind: 'bug' | 'area' | 'item'; id: string }[];
+  /** The pictograms on the journal's silhouette before it is found: where or when, never how. */
+  hint: readonly HintGlyph[];
+  /** Secrets that must be found first. `findSecret` refuses this one until they are. */
+  requires?: readonly string[];
+  /**
+   * Why this secret cannot be found yet (a bug or a system that is not in
+   * the game). Blocked secrets are left out of the journal and its counts.
+   */
+  blocked?: string;
+}
+
+/** One panel of a mystery's comic strip (section 12). */
+export interface MysteryStep {
+  /** The secret that fills this panel, if it is one. */
+  secret?: string;
+  /** Or something the player noticed (`journal.noticed`), or an item they found. */
+  noticed?: string;
+  item?: string;
+  /** The panel's pictograms. */
+  hint: readonly HintGlyph[];
+}
+
+export interface MysteryDef {
+  id: string;
+  name: string;
+  /** The areas the chain crosses, in order. */
+  areas: readonly string[];
+  steps: readonly MysteryStep[];
 }

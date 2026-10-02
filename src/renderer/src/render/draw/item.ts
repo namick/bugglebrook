@@ -14,6 +14,7 @@ import {
   outlineItemArt8,
   pinwheelHub,
 } from './itemArt8';
+import { drawItemArt10 } from './itemArt10';
 
 /** The outline behind small loose things' art (px): about 2 px heavier than their own. */
 const SMALL_OUTLINE = 9;
@@ -186,7 +187,11 @@ export class ItemSprite extends Container {
         break;
       }
       default:
-        if (!drawItemArt7(this.g, def, w, h, seed) && !drawItemArt9(this.g, def, w, h))
+        if (
+          !drawItemArt7(this.g, def, w, h, seed) &&
+          !drawItemArt9(this.g, def, w, h) &&
+          !drawItemArt10(this.g, def, w, h)
+        )
           drawItemArt8(this.g, def, w, h, seed);
     }
     // Traced once per style (the soft glow, then the crisp rim): a stroke uses up its path.

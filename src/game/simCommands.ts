@@ -247,6 +247,12 @@ export function apply(sim: Sim, command: Command): void {
     case 'photo_saved':
       sim.events.emit('photo_saved', { ok: command.ok === true });
       return;
+    case 'journal_seen':
+      if (Array.isArray(command.keys)) sim.journal.viewed(command.keys.slice(0, 400).map(String));
+      return;
+    case 'notice':
+      sim.journal.notice(String(command.what));
+      return;
     case 'beckon': {
       const bug = sim.entities.get(command.id);
       if (!bug?.bug || sim.isSleeping(bug.id) || !Number.isFinite(command.x)) return;

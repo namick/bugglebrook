@@ -93,6 +93,10 @@ export type Command =
    * The player's hand on the mushroom sequencer (M9): a press (`start`) on a
    * cap or a control, or a drag across caps that paints them like the first.
    */
-  | { type: 'seq_touch'; x: number; y: number; start: boolean };
+  | { type: 'seq_touch'; x: number; y: number; start: boolean }
+  /** The player looked at these journal entries (M10): they lose their "new!" badge. */
+  | { type: 'journal_seen'; keys: string[] }
+  /** The player noticed a clue the renderer shows on hover (M10, `NOTICES` in `systems/journal.ts`). */
+  | { type: 'notice'; what: string };
 
 export type CommandType = Command['type'];

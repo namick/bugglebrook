@@ -77,8 +77,23 @@ export class Bounds {
   /** Drop a lost thing in from the sky over the open stretch nearest to `fromX`. */
   private bringBack(e: Entity, fromX: number): void {
     const sim = this.sim;
-    const span = sim.barriers.span();
     const half = sim.halfHeight(e);
+    // One-of-a-kind things go home, where they first appeared (M10).
+    if (e.home) {
+      const x = e.home.x;
+      const y = Math.min(e.home.y, sim.surfaceY(x) - half - 0.05);
+      sim.bringBack(e, x, y);
+      sim.events.emit('entity_returned', {
+        id: e.id,
+        kind: e.kind,
+        defId: e.defId,
+        fromX: Number.isFinite(fromX) ? fromX : x,
+        x,
+        y,
+      });
+      return;
+    }
+    const span = sim.barriers.span();
     const setups = sim.bugWorld().setups;
     let spot: { x: number; y: number } | null = null;
     for (const x of dropSpots(fromX, span.x0 + EDGE_MARGIN, span.x1 - EDGE_MARGIN)) {

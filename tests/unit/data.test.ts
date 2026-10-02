@@ -144,8 +144,11 @@ describe('validateContent', () => {
         {
           id: 's',
           name: 'S',
+          tier: 1,
           trigger: { type: 'bug_holds_item', bug: 'nobody', item: 'item_pebble', area: 'moon' },
           unlocks: [{ kind: 'bug', id: 'nobody' }],
+          hint: ['moon', 'item_nothing', 'wiggle'],
+          requires: ['secret_nobody'],
         },
       ]),
     });
@@ -153,6 +156,9 @@ describe('validateContent', () => {
     expect(errors).toContain('recipe r references unknown item "void"');
     expect(errors).toContain('secret s references unknown bug "nobody"');
     expect(errors).toContain('secret s references unknown area "moon"');
+    expect(errors).toContain('secret s references unknown item "item_nothing"');
+    expect(errors).toContain('secret s has an unknown hint pictogram "wiggle"');
+    expect(errors).toContain('secret s references unknown secret "secret_nobody"');
   });
 
   it('reports gaps between areas', () => {
