@@ -10,7 +10,7 @@ import { stroke } from '../render/palette';
 import { HOLD } from './holdArm';
 import { PictureButton, markUi } from './button';
 import { CompostBin, binProgress } from './compostBin';
-import { doorIcon, gearIcon, pauseIcon, stumpIcon, token } from './icons';
+import { doorIcon, gearIcon, heartIcon, pauseIcon, stumpIcon, token } from './icons';
 import { Logo } from './logo';
 import { SIGN_H, SlotSign, slotPicture } from './slotSign';
 
@@ -21,6 +21,8 @@ export interface MenuHooks {
   /** Delete a slot. Resolves when it is gone. */
   remove(slot: number): Promise<void>;
   settings(): void;
+  /** The heart: who made the game. */
+  credits(): void;
   quit(): void;
   sound(name: MenuSound, strength?: number): void;
 }
@@ -60,14 +62,16 @@ function sunset(): Container {
 /**
  * The main menu (game design doc, section 17): the plaza at sunset, live,
  * with its bugs wandering; the twig-and-shell logo; three wooden signs, one
- * per save slot; a compost bin for deleting slots; a settings gear; and a
- * door that quits. No words anywhere.
+ * per save slot; a compost bin for deleting slots; a settings gear; a door
+ * that quits; and a heart for the credits. No words anywhere but the makers'
+ * names on the credits board.
  */
 export class MenuScene extends Container {
   readonly signs: SlotSign[] = [];
   readonly bin = new CompostBin();
   readonly gear: PictureButton;
   readonly door: PictureButton;
+  readonly heart: PictureButton;
   readonly logo = new Logo();
   private readonly gearArt: Graphics;
   private readonly doorArt = new Graphics();
@@ -155,7 +159,13 @@ export class MenuScene extends Container {
     this.door.position.set(90, 90);
     this.door.label = 'door';
     this.door.onHover = () => this.hooks.sound('hover');
-    this.ui.addChild(this.gear, this.door);
+    // The heart, bottom left: the credits board.
+    const heartArt = heartIcon(token(new Graphics(), 46), 70);
+    this.heart = new PictureButton(heartArt, 110, 110, () => this.hooks.credits());
+    this.heart.position.set(90, VIEW_HEIGHT_PX - 90);
+    this.heart.label = 'credits';
+    this.heart.onHover = () => this.hooks.sound('hover');
+    this.ui.addChild(this.gear, this.door, this.heart);
   }
 
   /** Reduce motion for the live plaza (a setting). */
@@ -193,6 +203,7 @@ export class MenuScene extends Container {
     this.logo.update(dt);
     this.gear.update(dt);
     this.door.update(dt);
+    this.heart.update(dt);
     this.gearArt.rotation = this.time * 0.25 + (this.gear.isHovered ? this.time * 2 : 0);
     doorIcon(this.doorArt.clear(), 90, this.door.isHovered ? 0.8 : 0.1 + Math.sin(this.time * 1.5) * 0.05);
 

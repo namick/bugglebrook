@@ -27,6 +27,8 @@ import { MenuScene, homeButton, pauseButton } from '../ui/menu';
 import type { MenuSound } from '../ui/menu';
 import { AlbumButton, ALBUM_AT, cameraButton } from '../ui/photoButtons';
 import { PocketTray } from '../ui/pocketTray';
+import { CreditsBoard } from '../ui/creditsBoard';
+import { CREDITS } from '../ui/credits';
 import { SettingsPanel } from '../ui/settingsPanel';
 import { StampStrip } from '../ui/stampStrip';
 import { HintDirector } from './hintDirector';
@@ -118,6 +120,9 @@ export class Game {
   session: WorldSession | null = null;
   /** The settings board, open over the world (pause) or the menu. */
   panel: SettingsPanel | null = null;
+  /** The credits board, over the menu. */
+  credits: CreditsBoard | null = null;
+  private closingCredits: CreditsBoard[] = [];
   /** Photo mode, while the camera is out. */
   photo: PhotoMode | null = null;
   /** The photo album, while it is open over the world. */
@@ -199,6 +204,7 @@ export class Game {
         if (this.photo) this.closePhoto();
         else if (this.album) this.closeAlbum();
         else if (this.panel) this.closePanel();
+        else if (this.credits) this.closeCredits();
         else if (this.session) this.openPause();
       }
     });
@@ -436,6 +442,7 @@ export class Game {
 
   private async buildMenu(): Promise<void> {
     this.closePanel(true);
+    this.closeCredits(true);
     if (this.session) {
       await this.saveNow();
       this.closeWorld();
@@ -452,6 +459,7 @@ export class Game {
         await this.saves.remove(slot);
       },
       settings: () => this.openSettings(),
+      credits: () => this.openCredits(),
       quit: () => {
         this.sfx.play('ui_close');
         void this.settings.flush().then(() => this.api.quit());
@@ -470,6 +478,7 @@ export class Game {
   }
 
   private async buildWorld(slot: number): Promise<void> {
+    this.closeCredits(true);
     const loaded = await this.saves.loadWithRecovery(slot);
     if (loaded.recovered) this.recoveries.push(slot);
     const save = loaded.save;
@@ -645,6 +654,30 @@ export class Game {
     if (this.album) this.closeAlbum(true);
     this.openPanel(true);
     void this.saveNow();
+  }
+
+  /** The menu's heart: the credits board. */
+  openCredits(): void {
+    if (this.credits || this.panel || !this.menu) return;
+    this.sfx.play('ui_open');
+    this.credits = new CreditsBoard(CREDITS, () => this.closeCredits());
+    this.app.stage.addChild(this.credits);
+    this.raiseOverlays();
+  }
+
+  /** Put the credits board away. `now` skips the slide. */
+  closeCredits(now = false): void {
+    const board = this.credits;
+    if (!board) return;
+    this.credits = null;
+    if (now) {
+      board.destroy({ children: true });
+      return;
+    }
+    this.sfx.play('ui_close');
+    board.onClosed = () => board.destroy({ children: true });
+    board.slideAway();
+    this.closingCredits.push(board);
   }
 
   /** The menu's gear: the same board, without the way back to the menu. */
@@ -928,6 +961,12 @@ export class Game {
     this.artLab?.update(dt);
     if (this.menu && !this.menuFrozen) this.menu.update(dt);
     if (this.panel) this.panel.update(dt);
+    this.credits?.update(dt);
+    this.closingCredits = this.closingCredits.filter((b) => {
+      if (b.destroyed) return false;
+      b.update(dt);
+      return !b.destroyed;
+    });
     if (this.album) this.album.update(dt);
     this.closingPanels = this.closingPanels.filter((p) => {
       if (p.destroyed) return false;

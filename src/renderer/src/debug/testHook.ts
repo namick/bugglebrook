@@ -38,6 +38,8 @@ export type UiName =
   | 'to_menu'
   | 'gear'
   | 'door'
+  | 'credits'
+  | 'credits_close'
   | 'bin'
   | 'stamps'
   | `toggle_${ToggleKey}`
@@ -121,6 +123,8 @@ export interface TestHook extends ArtHook {
   binProgress(): number;
   /** Is the settings board open (over the world or the menu)? */
   panelOpen(): boolean;
+  /** The credits board's lines (role and name), or null when it is closed. */
+  credits(): { role: string; name: string }[] | null;
   /** The settings as the game has them now. */
   settings(): Settings;
   /** How far the screen shake moves the world this frame, in pixels. */
@@ -437,6 +441,10 @@ export function installTestHook(game: Game): void {
         return game.menu?.gear ?? null;
       case 'door':
         return game.menu?.door ?? null;
+      case 'credits':
+        return game.menu?.heart ?? null;
+      case 'credits_close':
+        return game.credits?.close ?? null;
       case 'bin':
         return game.menu?.bin ?? null;
       case 'stamps':
@@ -473,6 +481,7 @@ export function installTestHook(game: Game): void {
     slotButtonClient: (slot) => centerOf(game.menu?.sign(slot)),
     homeButtonClient: () => centerOf(game.session?.home),
     uiClient: (name) => centerOf(uiControl(name)),
+    credits: () => (game.credits ? game.credits.lines.map((l) => ({ ...l })) : null),
     photo: () => {
       const p = game.photo;
       const s = game.session;

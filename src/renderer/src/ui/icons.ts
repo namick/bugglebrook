@@ -329,3 +329,55 @@ export function jarIcon(g: Graphics, s: number, fill: number): Graphics {
     .stroke({ width: 4 * k, color: 0xffffff, alpha: 0.7, cap: 'round' });
   return g;
 }
+
+/** Credits: a heart. */
+export function heartIcon(g: Graphics, s: number): Graphics {
+  const k = s / 100;
+  g.moveTo(0, 30 * k)
+    .bezierCurveTo(-46 * k, 2 * k, -36 * k, -40 * k, 0, -18 * k)
+    .bezierCurveTo(36 * k, -40 * k, 46 * k, 2 * k, 0, 30 * k)
+    .closePath()
+    .fill(0xff6f91)
+    .stroke(stroke(6 * k));
+  g.ellipse(-16 * k, -14 * k, 7 * k, 4 * k).fill({ color: 0xffffff, alpha: 0.7 });
+  return g;
+}
+
+/** Art: a paintbrush with a dab of paint. */
+export function brushIcon(g: Graphics, s: number): Graphics {
+  const k = s / 100;
+  g.ellipse(-14 * k, 24 * k, 22 * k, 10 * k)
+    .fill(0x4d7cff)
+    .stroke(stroke(4 * k));
+  g.moveTo(30 * k, -36 * k)
+    .lineTo(-2 * k, 4 * k)
+    .stroke({ width: 12 * k, color: OUTLINE, cap: 'round' });
+  g.moveTo(30 * k, -36 * k)
+    .lineTo(-2 * k, 4 * k)
+    .stroke({ width: 6 * k, color: WOOD, cap: 'round' });
+  g.moveTo(-2 * k, 0)
+    .quadraticCurveTo(-20 * k, 8 * k, -22 * k, 22 * k)
+    .quadraticCurveTo(-6 * k, 18 * k, 6 * k, 8 * k)
+    .closePath()
+    .fill(0xe8453c)
+    .stroke(stroke(4 * k));
+  return g;
+}
+
+/** Code: a little screen with lines of code on it. */
+export function screenIcon(g: Graphics, s: number): Graphics {
+  const k = s / 100;
+  g.rect(-6 * k, 22 * k, 12 * k, 12 * k).fill(WOOD_DARK);
+  g.roundRect(-38 * k, -30 * k, 76 * k, 54 * k, 8 * k)
+    .fill(0x2b2438)
+    .stroke(stroke(5 * k));
+  for (const [x, y, w, c] of [
+    [-26, -16, 30, LEAF],
+    [-18, -2, 36, SUNNY],
+    [-26, 12, 22, 0x7fd3ff],
+  ] as const)
+    g.moveTo(x * k, y * k)
+      .lineTo((x + w) * k, y * k)
+      .stroke({ width: 6 * k, color: c, cap: 'round' });
+  return g;
+}
