@@ -86,8 +86,15 @@ export const PAINT_SLOTS = 5;
 /** A thing rests this long on the heap to get warm, and food this long to turn into goo. */
 export const HEAP_WARM = 10 * SIM_HZ;
 export const HEAP_GOO = 60 * SIM_HZ;
+/** The heap makes no more goo while this many lie about its area: respawned food would pile it up (P-19). */
+export const GOO_CAP = 3;
 /** Shelf jars refill every 5 game minutes. */
 export const JAR_REFILL = 5 * MINUTE;
+/**
+ * A jar refills only while fewer than this many of its kind lie about its
+ * area: taken out and left, they would otherwise pile up without end (P-19).
+ */
+export const JAR_LOOSE_CAP = 2;
 /** Floor gaps drop something every 30 to 90 s, while the porch is open and awake. */
 export const GAP_EVERY: readonly [number, number] = [30 * SIM_HZ, 90 * SIM_HZ];
 const GAP_CAP = 10;
@@ -717,7 +724,12 @@ export class Places {
         if (t >= HEAP_WARM) sim.addTag(e.id, 'tag_hot', 'heap');
         const def = sim.content.items.get(e.defId);
         // R21: food left on the heap for a minute becomes compost goo.
-        if (t >= HEAP_GOO && def.tags.includes('tag_edible') && e.defId !== 'item_compost_goo') {
+        if (
+          t >= HEAP_GOO &&
+          def.tags.includes('tag_edible') &&
+          e.defId !== 'item_compost_goo' &&
+          sim.looseIn('item_compost_goo', heap.area) < GOO_CAP
+        ) {
           sim.remove(e.id);
           delete s.heap[key];
           if (!sim.content.items.has('item_compost_goo')) continue;
@@ -909,7 +921,7 @@ export class Places {
         return Math.abs(st.x - jar.x) < 0.45 && Math.abs(st.y - jar.fixture.y) < 0.6;
       });
       s.jars[jar.fixture.id] = sim.weather.clock;
-      if (there) continue;
+      if (there || sim.looseIn(item, jar.area) >= JAR_LOOSE_CAP) continue;
       const half = sim.content.items.get(item).shape;
       const h = half.type === 'circle' ? half.radius : half.height / 2;
       const e = sim.spawn('item', item, jar.x, jar.fixture.y - h - 0.02);

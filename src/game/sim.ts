@@ -2351,6 +2351,17 @@ export class Sim {
     }
   }
 
+  /** How many of an item kind lie in an area, not counting pocketed ones. */
+  looseIn(defId: string, area: AreaDef): number {
+    let n = 0;
+    for (const e of this.entities.ofKind('item')) {
+      if (e.defId !== defId || this.pocketed.has(e.id) || !this.physics.has(e.id)) continue;
+      const x = this.physics.getState(e.id).x;
+      if (x >= area.xStart && x < area.xEnd) n++;
+    }
+    return n;
+  }
+
   /** Snapshot of every entity for drawing and tests. */
   views(): EntityView[] {
     const grabbed = this.physics.grabbed;
