@@ -34,7 +34,7 @@ The eyes, and every other bug's mouths, come from `art/src/faces/face_kit.ora`. 
 
 - One piece per layer, in the layer with its name: `head` on `head`, `shell` on `shell`, and so on.
 - Draw each piece whole, even the bits another piece covers. When the shell flies open, the hidden part shows.
-- Legs start on their pink dot and go straight down. Feelers start on their dot and go straight up. The game bends them.
+- Legs start on their pink dot and go straight down. Feelers start on their dot and go straight up. Make each about as long as its guide line. The game bends them.
 - Keep everything inside the dashed blue box. The green line is the ground.
 - Don't rename, merge, or delete the part layers, and don't resize the canvas. Hiding layers is fine.
 - Want extra layers for sketches? Name them starting with `guide` (like `guide_sketch`) and the game ignores them.
@@ -75,5 +75,32 @@ Your Dot shows up once every part has a drawing and there are no `x` lines. Unti
 ## 8. When she's done (or at a good checkpoint)
 
 Tell Dad. He'll run `pnpm art:build` and commit your file and the pictures the game makes from it. Commit at checkpoints, not every save: every save rewrites the whole file.
+
+## 9. The other bugs
+
+Every bug works the same way as Dot. Open its file in `art/src/bugs/`, draw the layers in `parts`, save, and use "bug >" in the Art Lab to get to it. A bug shows up drawn once all its layers have a drawing, so the special shapes below count too.
+
+Some pieces get used in more than one way. Check these poses in the Art Lab before you call a bug done:
+
+| Bug   | File                     | Layers | Special shapes and poses to check                                                                                                                                                                                                             |
+| ----- | ------------------------ | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dot   | `bug_ladybug_dot`        | 8      | `shell` swings up and `wing` flaps to fly. Her `face` group has pink mouths.                                                                                                                                                                  |
+| Rollo | `bug_pillbug_rollo`      | 9      | `ball`: curled up, no face. It rolls, so it should look right upside down.                                                                                                                                                                    |
+| Glorp | `bug_snail_glorp`        | 4      | `shell_closed`: hiding. Leave the opening dark; the game puts his eyes in it. `stalk` is one eye stalk, used twice.                                                                                                                           |
+| Skeet | `bug_waterstrider_skeet` | 7      | No extra shapes. His long legs row ("skate") and spread out ("thrown"), so they have to look good at every angle.                                                                                                                             |
+| Boing | `bug_grasshopper_boing`  | 7      | No extra shapes. The big back legs fold standing and kick straight out on "hop".                                                                                                                                                              |
+| Flick | `bug_firefly_flick`      | 10     | Like Dot: `shell` and `wing` to fly. Draw `tail` in daylight colors; the game adds the glow at night.                                                                                                                                         |
+| Whiff | `bug_stinkbug_whiff`     | 8      | No extra shapes. The game gives him the polite brows from the face kit.                                                                                                                                                                       |
+| Moose | `bug_stagbeetle_moose`   | 9      | "on his back": the game flips `belly`, `shell`, and `thorax` upside down and keeps `head` up. Draw `antler` once; the game draws a smaller, darker one behind the head.                                                                       |
+| Barty | `bug_dungbeetle_barty`   | 11     | `shell_tint`, `thorax_tint`, `head_tint`, and `ball_tint` in light greys: the game slides teal and violet over them. `shine` stays white. `ball_tint` is him tucked in, with shut eyes drawn in.                                              |
+| Munch | `bug_caterpillar_munch`  | 15     | Six segments from `segment_a` and `segment_b`, so draw them the same size. "eat" makes one swell. `cocoon` needs a plain light green window: the game draws his sleeping face on it. The butterfly (`bf_...`) uses his `head`, a bit smaller. |
+| Prim  | `bug_mantis_prim`        | 10     | `arm_thigh` and `arm_blade` fold, punch ("karate"), and chop. `wing_open` shows twice when she flies, and `wing_folded` hides then.                                                                                                           |
+| Twig  | `bug_stickinsect_twig`   | 4      | `stick` is also the plaza's twig. Disguised, he is just `stick`, so it must look like an ordinary twig from both sides.                                                                                                                       |
+
+If a leg or feeler is drawn sideways, or a lot longer or shorter than its guide, the Art Lab warns you (`!`). It still works, but it bends in the wrong place.
+
+## 10. Your name in the game
+
+The heart on the main menu shows who made the game. Your name comes from `art/CREDITS.json`. Change `"Artist name here"` to the name you want, keep the quotes, and save.
 
 Your art is yours. See `LICENSE` in this folder.

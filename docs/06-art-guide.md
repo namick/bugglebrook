@@ -416,7 +416,7 @@ Paint lands on each segment separately, so keep the segments' lower halves fairl
 
 Cocoon (**form**):
 
-- `cocoon`: an upright, silk-wrapped teardrop with a window near the top. Leave the window empty and dark. The game puts his sleeping face there. The thread it hangs from is the game's.
+- `cocoon`: an upright, silk-wrapped teardrop with a window near the top. Fill the window with his light green skin and leave it plain: the game draws his sleeping face (shut eyes and a small smile, from the face kit) on it. The thread it hangs from is the game's.
 
 Butterfly (**form**), still clearly Munch:
 
@@ -775,6 +775,8 @@ Every message names the file and the layer, says what's wrong in plain words, an
 | Pixels outside the safe box | warning |
 | A part covers more than 90% of the canvas with opaque pixels | error ("a filled background on this layer?") |
 | A leg, antenna, or arm doesn't reach its pivot (no opaque pixel within 24 px of it) | warning |
+| A leg or arm doesn't go straight down from its pivot, or a feeler straight up (drawn sideways or backward) | warning |
+| A leg, arm, or feeler is under 0.6 or over 1.6 times its guide length | warning |
 | A `_tint` layer is too colorful | warning |
 | `rig.json` hash differs from the current rig | error: "This template is out of date. Run `pnpm art:templates --refresh-guides`." |
 | File over 8 MB | warning |
@@ -859,7 +861,22 @@ Built on 2026-10-01. Where it differs from the plan above:
 - A template's rig hash is stored as a hidden `guide_rig_<hash>` layer, because Krita keeps layer names but drops unknown `stack.xml` attributes. A unit test fails when the game's rig no longer matches a committed `rig.json`.
 - New bugs' templates go straight into `art/src/` (nothing to lose); an existing source gets a fresh copy in `art/templates/`, or its guides swapped in place with `--refresh-guides`.
 - `SpriteBugView` animates Dot and Flick (the beetle rig) so far. Every bug has a template, a part list, and pivots, but the other ten fall back to code with the reason "the cutout renderer can't animate <name> yet" until their joints are wired up. The species painters (M7 bugs) share the tripod walk through `walkJoints`; the rest of their joint math is still inside each painter, and their template pivots come from a table in `bugRig.ts`.
-- Not built yet: the Krita-saved fixture (needs Krita 5.3 to make), Twig and the twig item sharing a texture, Barty's sheen on tint layers, the credits board and `art/CREDITS.json`, and a frame-time check with all bugs drawn.
+- Not built yet: the Krita-saved fixture (needs Krita 5.3 to make), Twig and the twig item sharing a texture, Barty's sheen on tint layers, the credits board and `art/CREDITS.json`, and a frame-time check with all bugs drawn. B18 covers the first four of those.
+
+## B18. The second build: every bug
+
+Built on 2026-10-02.
+
+- **Skeletons.** `render/rig/skeleton.ts` describes a bug's pose for one frame as a list of items: rigid pieces (`at`, rotation, scale), limbs (hip, knee, foot, with an upper and lower part), ropes (9 points along a feeler), plus the face, a ball form, paint masks, and effects the game draws itself. `codeSkeleton` builds it for the bugs `BugSprite` draws (Dot, Rollo, Glorp, Skeet, Boing, Flick). Each species painter has a `skeleton(frame, springs)` method next to `update`, built from the same private joint methods, so the code-drawn and drawn bugs bend in the same places. The golden draw-call record (`bugDraw.test.ts`) proves the painters still draw the same calls.
+- **SpriteBugView** draws any skeleton. Pieces go to their slot (back legs, wings, body, shell, front legs, top), in order. A piece's rig pivot goes to `at`; if the artist moved the pivot with a `pivot_` dot, the art keeps its drawn offset. Limbs stretch between 0.8 and 1.25. Feelers stored as ropes lie along +x in the atlas, so a rope-kind part used as a rigid piece (the elbowed feelers of Rollo, Whiff, and Moose) turns without the quarter turn legs get.
+- **Forms.** Rollo's `ball` and Barty's `ball_tint` replace the body in a container that rolls with `frame.angle`. Glorp in his shell shows `shell_closed` with kit eyes in the opening. Moose on his back mirrors `belly`, `shell`, and `thorax` about his flip line (`sy = -1`) and keeps the head upright. Munch shows six segments (alternating `segment_a`, `segment_b`, scaled by the eating lump), the cocoon with the game's thread, or the butterfly with both wing pairs (the far pair mirrored) and his caterpillar `head` scaled to the butterfly head. Prim's arms are limbs (`arm_thigh` to `arm_blade`), the far one behind, the near one in the top slot; the chop swoosh is the game's. Twig disguised is only `stick`, with `sx = facing` to cancel the facing flip.
+- **Tints and faces.** Barty's `_tint` parts get `sheenColors()` every frame. The face wash tints the skeleton's `headPart`. Whiff's polite brows come from the kit's `brow_polite`. Munch's second blush and Barty's aloof glance ride on the skeleton's face.
+- **Paint** clips to one piece per patch: the body (or shell, shield, abdomen, stick), or each painted segment of Munch.
+- **The twig item.** When Twig is drawn from art, `itemArt` gives the twig item (in the world and the pocket) his `stick` texture and rim, at game size. The item twig's sprites rebuild when art changes.
+- **Credits.** The heart at the bottom left of the main menu opens a plank board with a picture and a name per line (art, music, code). The names come from `art/CREDITS.json`; an empty name leaves its line off.
+- **Tests.** The crude test pack (`tests/e2e/fixtures/art/make.ts`) now has every bug, drawn from its rig as flat shapes. `tests/unit/artBugs.test.ts` draws every bug in every pose and expression, checks that each skeleton part has a drawing, that every rig part is used, that the rest pose puts each part on its template pivot, and each special form. `pnpm shots -g "art every bug"` saves the Art Lab grid and each pose for all twelve bugs (`art-bug-*`).
+- **Art Lab poses added:** skate (Skeet), fly with wings open (Prim), karate pose without the chop (Prim), fluttering and floating (Munch).
+- Still not built: the Krita-saved fixture and a frame-time check with all bugs drawn.
 
 ## B17. What we're unsure about
 
