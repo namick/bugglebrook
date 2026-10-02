@@ -72,8 +72,8 @@ pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e
 
 ## Rules
 
-- CI runs typecheck, lint, and unit tests in one job and E2E as a four-way Playwright shard (`--shard=n/4`, tests split one by one since `fullyParallel` is on). Each E2E test launches its own app, so tests must not depend on each other.
-- All four commands above must pass before every commit. Don't commit with failing or skipped tests.
+- CI runs typecheck, lint, and unit tests in one job and E2E as an eight-way Playwright shard (`--shard=n/8`, tests split one by one since `fullyParallel` is on). Each E2E test launches its own app, so tests must not depend on each other.
+- The owner's machine has 6 cores and is shared by several agents, so heavy test runs belong on CI, whose minutes are free because the repo is public. Locally, before each commit, run `pnpm typecheck`, `pnpm lint`, `pnpm test`, and the E2E specs that cover what you changed (`pnpm test:e2e <spec files>`). Let CI run the full E2E suite on your PR, and treat a green PR run as the full-suite gate before anything reaches main. Don't commit with failing or skipped tests. Run `pnpm shots` only for the tours you need.
 - Every feature and every bug fix comes with tests. Sim behavior gets Vitest tests. Anything a player does gets at least one E2E test that uses the real mouse and asserts through `window.__bb`, not pixels. If the hook lacks a query you need, add it to `src/renderer/src/debug/testHook.ts`.
 - Keep commits small and logical. Write messages in the imperative, plainly ("Add seesaw toy", not "Added awesome seesaw!").
 - CI must stay green on all three platforms. Release workflows create draft releases only. Never publish a release or change `releaseType`.
