@@ -126,6 +126,9 @@ describe('stickers', () => {
   it('is thrown away over the tray or off the screen, and lands inside the photo', () => {
     expect(offPhoto({ x: 800, y: 500 })).toBe(false);
     expect(offPhoto({ x: 800, y: H - 20 })).toBe(true);
+    // With no tray open the bottom band is photo too.
+    expect(offPhoto({ x: 800, y: H - 20 }, false)).toBe(false);
+    expect(offPhoto({ x: 800, y: H + 5 }, false)).toBe(true);
     expect(offPhoto({ x: -5, y: 500 })).toBe(true);
     expect(offPhoto({ x: W + 5, y: 500 })).toBe(true);
     const settled = settleSticker({ ...s, x: -40, y: H });

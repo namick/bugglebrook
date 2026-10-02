@@ -7,7 +7,7 @@ import type { SfxName } from '../audio/sfx';
 import type { Camera, Point } from '../render/camera';
 import { OUTLINE, STAR, stroke } from '../render/palette';
 import { Bounce, PictureButton, markUi } from '../ui/button';
-import { CREAM, token } from '../ui/icons';
+import { CREAM, LEAF, LEAF_DARK, WOOD, WOOD_DARK, token } from '../ui/icons';
 import { FILTERS, LookFilter, filterById } from './filters';
 import type { FilterDef } from './filters';
 import { FRAMES, frameById } from './frames';
@@ -16,7 +16,6 @@ import {
   DEFAULT_VIEW,
   H,
   STICKER_SIZE,
-  TRAY_BAND,
   W,
   bugsInFrame,
   clampView,
@@ -50,15 +49,23 @@ export interface PhotoHooks {
   now(): string;
 }
 
+/** The three trays, one open at a time. */
+export type TrayKind = 'frames' | 'filters' | 'stickers';
+
 /** Stickers shown per tray page. */
-export const TRAY_PER_PAGE = 16;
+export const TRAY_PER_PAGE = 14;
 const TRAY_PITCH = 92;
-const TRAY_Y = H - 72;
-const FRAME_THUMB_W = 128;
-const FRAME_PITCH = 94;
-const FILTER_PITCH = 104;
-const FILTER_Y = 64;
-const SHUTTER_AT = { x: W - 130, y: H - TRAY_BAND - 120 };
+/** The tray band along the bottom: its top edge, and the y its cards sit on. */
+const TRAY_TOP = H - 150;
+const TRAY_Y = H - 76;
+/** The tray's left and right ends: it leaves room for the tabs and the shutter. */
+const TRAY_X0 = 170;
+const TRAY_X1 = W - 290;
+const FRAME_THUMB_W = 118;
+const FRAME_PITCH = 140;
+const FILTER_PITCH = 108;
+const TAB_X = 76;
+const SHUTTER_AT = { x: W - 140, y: H - 140 };
 /** How long the polaroid takes to fly to the album, in seconds. */
 export const POLAROID_FLIGHT = 1.1;
 
@@ -74,9 +81,10 @@ interface Flying {
  * Photo mode (game design doc, section 14). While it is open the world view
  * lives inside its `scene` (zoomed and filtered, with the frame and the
  * stickers over it), which is what the shutter captures. Everything else
- * here is the viewfinder and the wordless controls: frame thumbnails down
- * the left, filter tokens along the top, the sticker tray along the bottom,
- * and the big round shutter.
+ * here is the viewfinder: corner brackets, three small tabs at the bottom
+ * left that open one tray at a time (frames, filters, stickers), the big
+ * round shutter at the bottom right, and the flash. The chrome fades while
+ * the player drags the view, so the scene stays the point.
  */
 export class PhotoMode extends Container {
   /** What the photo is of: the zoomed world, the filter, the stickers, and the frame. */
@@ -95,14 +103,15 @@ export class PhotoMode extends Container {
   private readonly viewfinder = new Graphics();
   private readonly handles = new Graphics();
   private readonly flash = new Graphics();
+  /** Everything that is not the photo: tabs, the tray, the shutter. */
   private readonly ui = new Container();
-  private readonly frameStrip = new Container();
-  private readonly filterStrip = new Container();
   private readonly tray = new Container();
+  private readonly trayBand = new Graphics();
   private readonly trayCards = new Container();
   readonly shutter: PictureButton;
   readonly trayPrev: PictureButton;
   readonly trayNext: PictureButton;
+  readonly tabs = new Map<TrayKind, PictureButton>();
   readonly frameButtons = new Map<string, PictureButton>();
   readonly filterButtons = new Map<string, PictureButton>();
   readonly trayButtons = new Map<string, Container>();
@@ -113,8 +122,9 @@ export class PhotoMode extends Container {
   filter: FilterDef = FILTERS[0]!;
   stickers: StickerPlacement[] = [];
   private readonly stickerNodes: Container[] = [];
-  private readonly drawn = new Map<string, StickerDef>();
   selected = -1;
+  /** The open tray, or null. */
+  open: TrayKind | null = null;
   trayPage = 0;
   private readonly trayDefs: StickerDef[];
   private readonly lockedDefs: StickerDef[];
@@ -125,6 +135,10 @@ export class PhotoMode extends Container {
   flashPeak = 0;
   private readonly flying: Flying[] = [];
   private slide = 0;
+  /** How far the tray is out, 0 to 1. */
+  private trayOut = 0;
+  /** The chrome's alpha: it fades while the view is dragged. */
+  private chrome = 1;
   private closing = false;
   /** How many photos were taken this visit. */
   taken = 0;
@@ -182,10 +196,9 @@ export class PhotoMode extends Container {
     this.shutter = this.makeShutter();
     this.trayPrev = this.trayArrow(-1);
     this.trayNext = this.trayArrow(1);
-    this.buildFrames();
-    this.buildFilters();
     this.buildTray();
-    this.ui.addChild(this.frameStrip, this.filterStrip, this.tray, this.shutter);
+    this.buildTabs();
+    this.ui.addChild(this.tray, ...this.tabs.values(), this.shutter);
     this.addChild(this.scene, this.pad, this.viewfinder, this.handles, this.ui, this.flash);
     this.applyView();
     this.pop.value = 0.6;
@@ -216,6 +229,16 @@ export class PhotoMode extends Container {
         .lineTo(x + sx * len, y)
         .stroke({ width: 8, color: 0xffffff, cap: 'round', join: 'round' });
     }
+    // A thin middle mark on each edge, like a real viewfinder.
+    for (const [x0, y0, x1, y1] of [
+      [W / 2 - 26, 30, W / 2 + 26, 30],
+      [W / 2 - 26, H - 30, W / 2 + 26, H - 30],
+      [30, H / 2 - 26, 30, H / 2 + 26],
+      [W - 30, H / 2 - 26, W - 30, H / 2 + 26],
+    ] as const) {
+      g.moveTo(x0, y0).lineTo(x1, y1).stroke({ width: 10, color: OUTLINE, cap: 'round', alpha: 0.45 });
+      g.moveTo(x0, y0).lineTo(x1, y1).stroke({ width: 4, color: 0xffffff, cap: 'round' });
+    }
   }
 
   private makeShutter(): PictureButton {
@@ -232,38 +255,123 @@ export class PhotoMode extends Container {
   }
 
   private trayArrow(dir: 1 | -1): PictureButton {
-    const art = token(new Graphics(), 30);
+    const art = token(new Graphics(), 28);
     art
-      .moveTo(-8 * dir, -14)
-      .lineTo(10 * dir, 0)
-      .lineTo(-8 * dir, 14)
+      .moveTo(-7 * dir, -13)
+      .lineTo(9 * dir, 0)
+      .lineTo(-7 * dir, 13)
       .closePath()
-      .fill(0x3f9a34)
+      .fill(LEAF_DARK)
       .stroke(stroke(4));
-    const button = new PictureButton(art, 76, 76, () => this.turnTray(dir));
-    button.position.set(dir < 0 ? 60 : W - 60, TRAY_Y);
+    const button = new PictureButton(art, 70, 70, () => this.turnTray(dir));
+    button.position.set(dir < 0 ? TRAY_X0 + 44 : TRAY_X1 - 44, TRAY_Y);
     button.label = dir < 0 ? 'tray_prev' : 'tray_next';
     button.onHover = () => this.hooks.sound('hover', 0.5);
     return button;
   }
 
-  /** A card with a tiny picture of each frame, down the left. */
-  private buildFrames(): void {
+  /** Three small tabs at the bottom left: a frame, a sun behind a lens, a peeling star sticker. */
+  private buildTabs(): void {
+    const icons: Record<TrayKind, (g: Graphics) => void> = {
+      frames: (g) => {
+        g.roundRect(-24, -18, 48, 36, 4).fill(CREAM).stroke(stroke(4.5));
+        g.roundRect(-16, -11, 32, 22, 2).fill(0x7ec8ff);
+        g.rect(-16, 3, 32, 8).fill(LEAF);
+        g.circle(-6, -3, 4).fill(STAR);
+      },
+      filters: (g) => {
+        g.circle(0, 0, 22).fill(0xffffff).stroke(stroke(4.5));
+        g.moveTo(0, -22)
+          .arc(0, 0, 22, -Math.PI / 2, Math.PI / 2)
+          .closePath()
+          .fill(0xffb347);
+        g.moveTo(0, -22)
+          .arc(0, 0, 22, Math.PI / 2, (3 * Math.PI) / 2)
+          .closePath()
+          .fill(0x7fb8ff);
+        g.moveTo(0, -22).lineTo(0, 22).stroke(stroke(3.5));
+      },
+      stickers: (g) => {
+        g.star(2, 2, 5, 24, 11, 0.2).fill(STAR).stroke(stroke(4.5));
+        // A peeled corner.
+        g.moveTo(14, 16).lineTo(26, 6).lineTo(26, 20).closePath().fill(0xffffff).stroke(stroke(3));
+      },
+    };
+    (['frames', 'filters', 'stickers'] as const).forEach((kind, i) => {
+      const art = new Container();
+      art.addChild(token(new Graphics(), 36));
+      const icon = new Graphics();
+      icons[kind](icon);
+      art.addChild(icon);
+      const ring = new Graphics().circle(0, 0, 43).stroke({ width: 6, color: STAR });
+      ring.label = 'ring';
+      ring.visible = false;
+      art.addChild(ring);
+      const button = new PictureButton(art, 92, 92, () => this.toggleTray(kind));
+      button.position.set(TAB_X, H - 76 - (2 - i) * 96);
+      button.label = `tab_${kind}`;
+      button.onHover = () => this.hooks.sound('hover', 0.4);
+      this.tabs.set(kind, button);
+    });
+  }
+
+  /** The tray band along the bottom. Its cards are filled in for the open tab. */
+  private buildTray(): void {
+    const g = this.trayBand;
+    const w = TRAY_X1 - TRAY_X0;
+    g.roundRect(TRAY_X0 + 6, TRAY_TOP + 20, w, 170, 34).fill({ color: OUTLINE, alpha: 0.2 });
+    g.roundRect(TRAY_X0, TRAY_TOP + 12, w, 170, 34)
+      .fill(WOOD)
+      .stroke(stroke(6));
+    g.roundRect(TRAY_X0 + 18, TRAY_TOP + 28, w - 36, 7, 3).fill({ color: WOOD_DARK, alpha: 0.5 });
+    g.eventMode = 'static';
+    g.on('pointerdown', (e: FederatedPointerEvent) => e.stopPropagation());
+    this.tray.addChild(g, this.trayCards, this.trayPrev, this.trayNext);
+    this.tray.y = 230;
+    this.tray.visible = false;
+  }
+
+  /** Open a tray (closing the others), or close it if it is the open one. */
+  toggleTray(kind: TrayKind): void {
+    this.open = this.open === kind ? null : kind;
+    for (const [k, b] of this.tabs) b.art.getChildByLabel('ring')!.visible = k === this.open;
+    this.hooks.sound(this.open ? 'ui_open' : 'ui_close', 0.7);
+    if (this.open) this.fillTray();
+  }
+
+  private fillTray(): void {
+    this.trayCards.removeChildren().forEach((c) => c.destroy({ children: true }));
+    this.frameButtons.clear();
+    this.filterButtons.clear();
+    this.trayButtons.clear();
+    this.trayPrev.visible = this.trayNext.visible = false;
+    if (this.open === 'frames') this.fillFrames();
+    else if (this.open === 'filters') this.fillFilters();
+    else if (this.open === 'stickers') this.fillStickers();
+  }
+
+  /** A locked thing's cover: a dim pane with a little padlock ring. */
+  private lockOver(g: Graphics, w: number, h: number, round: number): void {
+    g.roundRect(-w / 2, -h / 2, w, h, round).fill({ color: 0x3a3045, alpha: 0.78 });
+    g.circle(0, -5, Math.min(w, h) * 0.22).stroke({ width: 4, color: 0xffffff, alpha: 0.7 });
+    g.circle(0, Math.min(w, h) * 0.18, 3.5).fill({ color: 0xffffff, alpha: 0.7 });
+  }
+
+  /** A card with a tiny picture of each frame, in a row. */
+  private fillFrames(): void {
     const thumbH = (FRAME_THUMB_W * H) / W;
-    const x0 = 24 + FRAME_THUMB_W / 2;
-    const y0 = (H - (FRAMES.length - 1) * FRAME_PITCH) / 2;
+    const x0 = (TRAY_X0 + TRAY_X1) / 2 - ((FRAMES.length - 1) * FRAME_PITCH) / 2;
     FRAMES.forEach((def, i) => {
       const unlocked = !def.unlock || this.sim.secrets.includes(def.unlock);
       const art = new Container();
       const card = new Graphics();
-      card.roundRect(-FRAME_THUMB_W / 2 - 6, -thumbH / 2 - 6 + 5, FRAME_THUMB_W + 12, thumbH + 12, 12).fill({
-        color: OUTLINE,
-        alpha: 0.2,
-      });
       card
-        .roundRect(-FRAME_THUMB_W / 2 - 6, -thumbH / 2 - 6, FRAME_THUMB_W + 12, thumbH + 12, 12)
+        .roundRect(-FRAME_THUMB_W / 2 - 6, -thumbH / 2 - 1, FRAME_THUMB_W + 12, thumbH + 12, 10)
+        .fill({ color: OUTLINE, alpha: 0.2 });
+      card
+        .roundRect(-FRAME_THUMB_W / 2 - 6, -thumbH / 2 - 6, FRAME_THUMB_W + 12, thumbH + 12, 10)
         .fill(CREAM)
-        .stroke(stroke(5));
+        .stroke(stroke(4.5));
       art.addChild(card);
       // A little sky and grass behind the frame, so its shape reads.
       const mini = new Container();
@@ -286,92 +394,73 @@ export class PhotoMode extends Container {
       art.addChild(mini, mask);
       if (!unlocked) {
         const lock = new Graphics();
-        lock
-          .roundRect(-FRAME_THUMB_W / 2, -thumbH / 2, FRAME_THUMB_W, thumbH, 6)
-          .fill({ color: 0x3a3045, alpha: 0.8 });
-        lock.circle(0, -6, 18).stroke({ width: 5, color: 0xffffff, alpha: 0.7 });
-        lock.circle(0, 14, 4).fill({ color: 0xffffff, alpha: 0.7 });
+        this.lockOver(lock, FRAME_THUMB_W, thumbH, 6);
         art.addChild(lock);
       }
       const ring = new Graphics();
-      ring.roundRect(-FRAME_THUMB_W / 2 - 10, -thumbH / 2 - 10, FRAME_THUMB_W + 20, thumbH + 20, 14).stroke({
-        width: 7,
-        color: STAR,
-      });
+      ring
+        .roundRect(-FRAME_THUMB_W / 2 - 10, -thumbH / 2 - 10, FRAME_THUMB_W + 20, thumbH + 20, 12)
+        .stroke({ width: 6, color: STAR });
       ring.label = 'ring';
-      ring.visible = i === 0;
+      ring.visible = def.id === this.frame.id;
       art.addChild(ring);
-      const button = new PictureButton(art, FRAME_THUMB_W + 16, FRAME_PITCH - 4, () => this.pickFrame(def));
+      const button = new PictureButton(art, FRAME_PITCH - 6, 110, () => this.pickFrame(def));
       button.enabled = unlocked;
-      if (!unlocked) button.alpha = 0.75;
-      button.position.set(x0, y0 + i * FRAME_PITCH);
+      if (!unlocked) button.alpha = 0.8;
+      button.position.set(x0 + i * FRAME_PITCH, TRAY_Y);
       button.label = def.id;
       button.onHover = () => this.hooks.sound('hover', 0.4);
       this.frameButtons.set(def.id, button);
-      this.frameStrip.addChild(button);
+      this.trayCards.addChild(button);
     });
   }
 
-  /** A token per filter along the top. */
-  private buildFilters(): void {
-    const x0 = (W - (FILTERS.length - 1) * FILTER_PITCH) / 2;
+  /** A token per filter, in a row. */
+  private fillFilters(): void {
+    const x0 = (TRAY_X0 + TRAY_X1) / 2 - ((FILTERS.length - 1) * FILTER_PITCH) / 2;
     FILTERS.forEach((def, i) => {
       const unlocked = !def.unlock || this.sim.secrets.includes(def.unlock);
       const art = new Container();
-      const back = token(new Graphics(), 40);
-      art.addChild(back);
+      art.addChild(token(new Graphics(), 40));
       const icon = new Graphics();
       def.icon(icon, 64);
       art.addChild(icon);
       if (!unlocked) {
         const lock = new Graphics();
-        lock.circle(0, 0, 40).fill({ color: 0x3a3045, alpha: 0.75 });
+        lock.circle(0, 0, 40).fill({ color: 0x3a3045, alpha: 0.78 });
         lock.circle(0, -4, 12).stroke({ width: 4, color: 0xffffff, alpha: 0.7 });
-        lock.circle(0, 10, 3).fill({ color: 0xffffff, alpha: 0.7 });
+        lock.circle(0, 10, 3.5).fill({ color: 0xffffff, alpha: 0.7 });
         art.addChild(lock);
       }
-      const ring = new Graphics().circle(0, 0, 47).stroke({ width: 7, color: STAR });
+      const ring = new Graphics().circle(0, 0, 47).stroke({ width: 6, color: STAR });
       ring.label = 'ring';
-      ring.visible = i === 0;
+      ring.visible = def.id === this.filter.id;
       art.addChild(ring);
-      const button = new PictureButton(art, 96, 96, () => this.pickFilter(def));
+      const button = new PictureButton(art, 100, 100, () => this.pickFilter(def));
       button.enabled = unlocked;
-      button.position.set(x0 + i * FILTER_PITCH, FILTER_Y);
+      button.position.set(x0 + i * FILTER_PITCH, TRAY_Y);
       button.label = def.id;
       button.onHover = () => this.hooks.sound('hover', 0.4);
       this.filterButtons.set(def.id, button);
-      this.filterStrip.addChild(button);
+      this.trayCards.addChild(button);
     });
   }
 
-  /** The sticker tray along the bottom: one page of stickers, arrows at each end. */
-  private buildTray(): void {
-    const band = new Graphics();
-    band.roundRect(110, H - TRAY_BAND + 12, W - 220, TRAY_BAND + 40, 40).fill({ color: 0xd49a5e });
-    band.roundRect(110, H - TRAY_BAND + 12, W - 220, TRAY_BAND + 40, 40).stroke(stroke(6));
-    band.roundRect(130, H - TRAY_BAND + 30, W - 260, 8, 4).fill({ color: 0x9a6436, alpha: 0.6 });
-    band.eventMode = 'static';
-    band.on('pointerdown', (e: FederatedPointerEvent) => e.stopPropagation());
-    this.tray.addChild(band, this.trayCards, this.trayPrev, this.trayNext);
-    this.fillTray();
-  }
-
-  private fillTray(): void {
-    this.trayCards.removeChildren().forEach((c) => c.destroy({ children: true }));
-    this.trayButtons.clear();
+  /** One page of stickers, arrows at each end when there is more than one. */
+  private fillStickers(): void {
     const all: { def: StickerDef; locked: boolean }[] = [
       ...this.trayDefs.map((def) => ({ def, locked: false })),
       ...this.lockedDefs.map((def) => ({ def, locked: true })),
     ];
-    const pages = Math.max(1, Math.ceil(all.length / TRAY_PER_PAGE));
+    const pages = this.trayPages;
     this.trayPage = ((this.trayPage % pages) + pages) % pages;
     const page = all.slice(this.trayPage * TRAY_PER_PAGE, (this.trayPage + 1) * TRAY_PER_PAGE);
-    const x0 = W / 2 - ((page.length - 1) * TRAY_PITCH) / 2;
+    const x0 = (TRAY_X0 + TRAY_X1) / 2 - ((page.length - 1) * TRAY_PITCH) / 2;
     page.forEach(({ def, locked }, i) => {
       const card = new Container();
       markUi(card);
       const back = new Graphics();
-      back.roundRect(-40, -40 + 4, 80, 80, 14).fill({ color: OUTLINE, alpha: 0.18 });
+      back.roundRect(-40, -36, 80, 80, 14).fill({ color: OUTLINE, alpha: 0.18 });
       back.roundRect(-40, -40, 80, 80, 14).fill(CREAM).stroke(stroke(4));
       card.addChild(back);
       const art = new Graphics();
@@ -407,7 +496,7 @@ export class PhotoMode extends Container {
     this.trayPrev.visible = this.trayNext.visible = pages > 1;
   }
 
-  /** How many tray pages there are. */
+  /** How many sticker pages there are. */
   get trayPages(): number {
     return Math.max(1, Math.ceil((this.trayDefs.length + this.lockedDefs.length) / TRAY_PER_PAGE));
   }
@@ -443,7 +532,6 @@ export class PhotoMode extends Container {
     const g = new Graphics();
     def.draw(g);
     node.addChild(g);
-    this.drawn.set(def.id, def);
     return node;
   }
 
@@ -461,7 +549,7 @@ export class PhotoMode extends Container {
   place(id: string, x: number, y: number, scale = 1, rotation = 0): number {
     const def = [...this.trayDefs, ...this.lockedDefs].find((d) => d.id === id);
     if (!def) return -1;
-    this.stickers.push(settleSticker({ id, x, y, scale, rotation }));
+    this.stickers.push(settleSticker({ id, x, y, scale, rotation }, this.open !== null));
     this.stickerNodes.push(this.stickerLayer.addChild(this.stickerNode(def)));
     this.selected = this.stickers.length - 1;
     return this.selected;
@@ -588,11 +676,11 @@ export class PhotoMode extends Container {
     const i = this.selected;
     const sel = this.stickers[i];
     if (sel && (d.kind === 'sticker' || d.kind === 'new')) {
-      if (offPhoto(p)) {
+      if (offPhoto(p, this.open !== null)) {
         this.removeSticker(i);
         this.hooks.sound('sticker_peel', 0.6);
       } else {
-        this.stickers[i] = settleSticker(d.kind === 'new' ? { ...sel, scale: 1 } : sel);
+        this.stickers[i] = settleSticker(d.kind === 'new' ? { ...sel, scale: 1 } : sel, this.open !== null);
         if (d.kind === 'new') this.pop.kick(1.25);
         this.hooks.sound('sticker_stick');
       }
@@ -626,12 +714,8 @@ export class PhotoMode extends Container {
       .filter((v) => v.bug && !v.bug.pending && v.pocket === undefined)
       .map((v) => {
         const p = this.camera.worldToView({ x: v.x, y: v.y });
-        return {
-          defId: v.defId,
-          x: p.x,
-          y: p.y,
-          r: this.sim.content.bugs.get(v.defId).radius * (v.scale ?? 1) * PIXELS_PER_METER,
-        };
+        const r = this.sim.content.bugs.get(v.defId).radius * (v.scale ?? 1) * PIXELS_PER_METER;
+        return { defId: v.defId, x: p.x, y: p.y, r };
       });
     return bugsInFrame(this.view, bugs);
   }
@@ -755,12 +839,25 @@ export class PhotoMode extends Container {
     // The controls slide in from the edges and slide out on close.
     this.slide = this.closing ? Math.max(0, this.slide - dt * 5) : Math.min(1, this.slide + dt * 4);
     const k = 1 - (1 - this.slide) ** 3;
-    this.frameStrip.x = -(1 - k) * 260;
-    this.filterStrip.y = -(1 - k) * 160;
-    this.tray.y = (1 - k) * 220;
+    // While the view is dragged the chrome fades, so the photo is all there is.
+    const want = this.drag?.kind === 'pan' ? 0 : 1;
+    this.chrome += (want - this.chrome) * Math.min(1, dt * (want ? 6 : 10));
+    this.ui.alpha = this.chrome;
+    this.viewfinder.alpha = k * (0.4 + 0.6 * this.chrome);
+    this.handles.alpha = this.chrome;
+    // The tray slides up when a tab opens and drops away when it closes.
+    const trayWant = this.open && !this.closing ? 1 : 0;
+    this.trayOut += (trayWant - this.trayOut) * Math.min(1, dt * 9);
+    if (Math.abs(this.trayOut - trayWant) < 0.002) this.trayOut = trayWant;
+    this.tray.y = (1 - this.trayOut) * 230;
+    this.tray.visible = this.trayOut > 0.01;
     this.shutter.scale.set(k);
-    this.viewfinder.alpha = k;
-    this.shutter.update(dt);
+    let i = 0;
+    for (const tab of this.tabs.values()) {
+      tab.x = TAB_X - (1 - k) * (200 + i * 60);
+      tab.update(dt);
+      i++;
+    }
     this.trayPrev.update(dt);
     this.trayNext.update(dt);
     for (const b of this.frameButtons.values()) b.update(dt);

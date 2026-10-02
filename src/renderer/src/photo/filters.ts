@@ -70,22 +70,27 @@ void main(void) {
   vec4 src = texture(uTexture, uv);
   vec3 c = src.rgb;
   int mode = int(uMode + 0.5);
+  vec2 d = (uv - 0.5) * vec2(uInputSize.x / uInputSize.y, 1.0);
   if (mode == 1) {
-    // Warm: golden, a touch more contrast.
-    c = (c - 0.5) * 1.06 + 0.5;
-    c *= vec3(1.1, 1.0, 0.86);
-    c += vec3(0.04, 0.02, 0.0);
+    // Warm: golden hour. Honey in the lights, rust in the shadows, a soft glow at the edges.
+    float l = luma(c);
+    c = (c - 0.5) * 1.12 + 0.5;
+    c = mix(c, c * vec3(1.18, 0.98, 0.72) + vec3(0.1, 0.04, 0.0), 0.85);
+    c = mix(c, vec3(0.55, 0.25, 0.1), (1.0 - l) * 0.18);
+    c += vec3(0.08, 0.04, 0.0) * smoothstep(0.3, 1.1, length(d));
   } else if (mode == 2) {
-    // Cool: blue shadows, a little paler.
-    c *= vec3(0.9, 0.98, 1.12);
-    c = mix(c, vec3(0.75, 0.85, 1.0), 0.08);
+    // Cool: a frosty morning. Blue everywhere, paler lights, a little less color.
+    float l = luma(c);
+    c = mix(c, vec3(l), 0.25);
+    c *= vec3(0.78, 0.95, 1.22);
+    c = mix(c, vec3(0.7, 0.85, 1.0), 0.14 + 0.1 * l);
+    c += vec3(0.0, 0.03, 0.08) * smoothstep(0.4, 1.1, length(d));
   } else if (mode == 3) {
     // Night vision: green on black with scanlines and a round vignette.
     float l = luma(c) * 1.5 + 0.08;
     c = vec3(0.1, 1.0, 0.3) * l;
     float line = 0.82 + 0.18 * sin(px.y * 1.6);
     c *= line;
-    vec2 d = (uv - 0.5) * vec2(uInputSize.x / uInputSize.y, 1.0);
     c *= smoothstep(1.05, 0.55, length(d));
   } else if (mode == 4) {
     // Old photo: sepia, grain, faded corners.
@@ -93,17 +98,22 @@ void main(void) {
     c = vec3(l * 1.08 + 0.06, l * 0.9 + 0.03, l * 0.68);
     float g = (hash(floor(px * 0.5) + uGrain) - 0.5) * 0.14;
     c += g;
-    vec2 d = (uv - 0.5) * vec2(uInputSize.x / uInputSize.y, 1.0);
     c *= 1.0 - 0.45 * smoothstep(0.45, 1.0, length(d));
     c = mix(c, vec3(0.93, 0.86, 0.72), 0.12);
   } else if (mode == 5) {
-    // Comic: five tones per channel and inked edges.
-    vec3 q = floor(c * 5.0 + 0.5) / 5.0;
-    vec2 o = uInputSize.zw;
+    // Comic: flat printed colors (four tones a channel, pushed brighter),
+    // halftone dots in the shadows, and thick ink along every edge.
+    vec3 sat = mix(vec3(luma(c)), c, 1.6);
+    vec3 q = floor(clamp(sat, 0.0, 1.0) * 4.0 + 0.5) / 4.0;
+    float l = luma(c);
+    vec2 cell = mod(px, 9.0) - 4.5;
+    float dot = step(length(cell), 4.4 * smoothstep(0.75, 0.0, l));
+    q = mix(q, q * 0.45, dot);
+    vec2 o = uInputSize.zw * 2.0;
     float lx = luma(texture(uTexture, uv + vec2(o.x, 0.0)).rgb) - luma(texture(uTexture, uv - vec2(o.x, 0.0)).rgb);
     float ly = luma(texture(uTexture, uv + vec2(0.0, o.y)).rgb) - luma(texture(uTexture, uv - vec2(0.0, o.y)).rgb);
-    float edge = smoothstep(0.08, 0.3, length(vec2(lx, ly)));
-    c = mix(q * 1.05, vec3(0.1, 0.07, 0.11), edge);
+    float edge = smoothstep(0.05, 0.22, length(vec2(lx, ly)));
+    c = mix(q, vec3(0.08, 0.05, 0.1), edge);
   } else if (mode == 6) {
     // Bug eye: a honeycomb of little lenses.
     float r = 22.0;

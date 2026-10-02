@@ -86,14 +86,24 @@ test('framing a shot: a frame, a filter, zoom, and pan with the real mouse', asy
     await page.waitForTimeout(500);
     await openCamera(page);
 
-    // A frame and a filter, by clicking their thumbnails.
+    // The trays start closed: the scene is the point. A tab opens one at a time.
+    expect((await photo(page)).tray).toBeNull();
+    expect(await page.evaluate(() => window.__bb!.uiClient('frame_leaf'))).toBeNull();
+    await clickUi(page, 'tab_frames');
+    await expect.poll(async () => (await photo(page)).tray).toBe('frames');
     await clickUi(page, 'frame_leaf');
     await expect.poll(async () => (await photo(page)).frame).toBe('frame_leaf');
-    await clickUi(page, 'filter_warm');
-    await expect.poll(async () => (await photo(page)).filter).toBe('filter_warm');
-    // Locked frames and filters do not pick.
+    // Locked frames do not pick.
     await clickUi(page, 'frame_totem');
     expect((await photo(page)).frame).toBe('frame_leaf');
+    await clickUi(page, 'tab_filters');
+    await expect.poll(async () => (await photo(page)).tray).toBe('filters');
+    expect(await page.evaluate(() => window.__bb!.uiClient('frame_leaf'))).toBeNull();
+    await clickUi(page, 'filter_warm');
+    await expect.poll(async () => (await photo(page)).filter).toBe('filter_warm');
+    // The same tab again closes its tray.
+    await clickUi(page, 'tab_filters');
+    await expect.poll(async () => (await photo(page)).tray).toBeNull();
 
     // Zoom with the wheel, centered on the cursor.
     const mid = await viewToClient(page, 1100, 600);
@@ -127,6 +137,8 @@ test('stickers: off the tray onto the photo, scaled and turned by the handle, th
     await openCamera(page);
 
     // A sticker from the tray onto the photo.
+    await clickUi(page, 'tab_stickers');
+    await expect.poll(async () => (await photo(page)).tray).toBe('stickers');
     const card = await uiAt(page, 'sticker_crown');
     const drop = await viewToClient(page, 900, 450);
     await page.mouse.move(card.x, card.y);
@@ -172,8 +184,11 @@ test('the shutter writes a 1920x1080 PNG to Pictures, keeps the photo in the sav
     await clickSlot(page, 0);
     await page.waitForTimeout(500);
     await openCamera(page);
+    await clickUi(page, 'tab_frames');
     await clickUi(page, 'frame_leaf');
+    await clickUi(page, 'tab_filters');
     await clickUi(page, 'filter_warm');
+    await clickUi(page, 'tab_filters');
     // Zoom a little, and two stickers for the photo, staged.
     const mid = await viewToClient(page, 1100, 600);
     await page.mouse.move(mid.x, mid.y);

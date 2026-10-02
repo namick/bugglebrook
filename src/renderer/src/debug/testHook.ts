@@ -9,6 +9,7 @@ import type { DemoKind } from '../app/ghost';
 import type { PhotoRecord } from '../../../game';
 import type { Point } from '../render/camera';
 import type { StickerPlacement } from '../photo/photoMath';
+import type { TrayKind } from '../photo/photoMode';
 import { stickerHandle } from '../photo/photoMath';
 import { LEVER_LENGTH, LEVER_PIVOT, LEVER_REST } from '../render/areaArt/benchLive';
 import type { CritterInfo } from '../render/areaArt/critterLive';
@@ -42,7 +43,8 @@ export type UiName =
   | 'tray_next'
   | `frame_${string}`
   | `filter_${string}`
-  | `sticker_${string}`;
+  | `sticker_${string}`
+  | `tab_${TrayKind}`;
 
 /** Photo mode as the tests see it. */
 export interface PhotoInfo {
@@ -57,6 +59,8 @@ export interface PhotoInfo {
   filter: string;
   stickers: StickerPlacement[];
   selected: number;
+  /** The open tray, or null. */
+  tray: TrayKind | null;
   trayPage: number;
   trayPages: number;
   /** How bright the flash got for the last photo (0 with reduce motion's fade). */
@@ -267,6 +271,8 @@ export interface TestHook {
   stickerHandleClient(i: number): Point | null;
   /** Staging: stick a sticker on at view pixels (x, y). Returns its index, or -1. */
   placeSticker(id: string, x: number, y: number, scale?: number, rotation?: number): number;
+  /** Staging: open the album board (its button only shows once there is a photo). */
+  openAlbum(): void;
   /**
    * Screenshots only: patch a bug's brain and paint directly, to stage a look
    * the AI would take a long time to reach. `null` clears a field;
@@ -358,6 +364,7 @@ export function installTestHook(game: Game): void {
     if (name.startsWith('frame_')) return photo?.frameButtons.get(name) ?? null;
     if (name.startsWith('filter_')) return photo?.filterButtons.get(name) ?? null;
     if (name.startsWith('sticker_')) return photo?.trayButtons.get(name) ?? null;
+    if (name.startsWith('tab_')) return photo?.tabs.get(name.slice('tab_'.length) as TrayKind) ?? null;
     switch (name) {
       case 'pause':
         return s?.pause ?? null;
@@ -433,6 +440,7 @@ export function installTestHook(game: Game): void {
         filter: p?.filter.id ?? 'filter_none',
         stickers: p ? p.stickers.map((st) => ({ ...st })) : [],
         selected: p?.selected ?? -1,
+        tray: p?.open ?? null,
         trayPage: p?.trayPage ?? 0,
         trayPages: p?.trayPages ?? 0,
         flashPeak: p?.flashPeak ?? 0,
@@ -452,6 +460,7 @@ export function installTestHook(game: Game): void {
       return st ? logicalToClient(stickerHandle(st)) : null;
     },
     placeSticker: (id, x, y, scale, rotation) => game.photo?.place(id, x, y, scale, rotation) ?? -1,
+    openAlbum: () => game.openAlbum(),
     sliderClient: (key, value) => {
       const slider = game.panel?.sliders.get(key);
       if (!slider) return null;

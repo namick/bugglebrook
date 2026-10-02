@@ -138,9 +138,13 @@ export function stickerAt(stickers: readonly StickerPlacement[], p: Point, size 
 /** The band along the bottom where the sticker tray lives: a sticker let go there is thrown away. */
 export const TRAY_BAND = 150;
 
-/** Is a sticker let go here off the photo (over the tray, or outside the screen)? */
-export function offPhoto(p: Point): boolean {
-  return p.x < 0 || p.x > W || p.y < 0 || p.y > H - TRAY_BAND;
+/**
+ * Is a sticker let go here off the photo: outside the screen, or over the
+ * tray band while a tray is open?
+ */
+export function offPhoto(p: Point, trayOpen = true): boolean {
+  if (p.x < 0 || p.x > W || p.y < 0 || p.y > H) return true;
+  return trayOpen && p.y > H - TRAY_BAND;
 }
 
 // --- What is in the frame -------------------------------------------------
@@ -167,7 +171,8 @@ export function bugsInFrame(v: PhotoView, bugs: readonly FramedBug[]): string[] 
     .map((b) => b.defId);
 }
 
-/** Where a sticker from the tray lands when dropped: snapped inside the photo. */
-export function settleSticker(s: StickerPlacement): StickerPlacement {
-  return { ...s, x: clamp(s.x, 20, W - 20), y: clamp(s.y, 20, H - TRAY_BAND - 20) };
+/** Where a sticker from the tray lands when dropped: snapped inside the photo (clear of an open tray). */
+export function settleSticker(s: StickerPlacement, trayOpen = true): StickerPlacement {
+  const bottom = trayOpen ? H - TRAY_BAND - 20 : H - 20;
+  return { ...s, x: clamp(s.x, 20, W - 20), y: clamp(s.y, 20, bottom) };
 }
