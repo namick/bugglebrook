@@ -10,7 +10,7 @@ export type CursorPose = 'open' | 'hover_grab' | 'hover_poke' | 'grab' | 'pan' |
 
 export interface CursorState {
   /** What the pointer controller is doing. */
-  mode: 'none' | 'hold' | 'pan' | 'dial' | 'lever' | 'stir';
+  mode: 'none' | 'hold' | 'pan' | 'dial' | 'lever' | 'stir' | 'seq';
   /** Actually holding something (a wriggling bug can get away). */
   holding: boolean;
   /** Over a grabbable item or bug. */
@@ -30,6 +30,8 @@ export function cursorPose(s: CursorState): CursorPose {
   // Turning the sundial's rim, pulling the bench's lever: a firm grip.
   if (s.mode === 'dial' || s.mode === 'lever') return 'grab';
   if (s.mode === 'pan') return 'pan';
+  // Painting the sequencer's caps: the pointing finger.
+  if (s.mode === 'seq') return 'hover_poke';
   if (s.overStir && !s.overButton) return 'stir';
   if (s.overButton || s.overFixture) return 'hover_poke';
   if (s.overGrabbable) return 'hover_grab';

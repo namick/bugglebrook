@@ -4,6 +4,7 @@ import type { ItemDef } from '../../../../game/data/types';
 import { OUTLINE, RIM_STYLES, darken, lighten, mix, stroke } from '../palette';
 import { hash01 } from '../bugPose';
 import { drawItemArt7, outlineItemArt7 } from './itemArt7';
+import { drawItemArt9, outlineItemArt9 } from './itemArt9';
 import {
   drawItemArt8,
   drawPinwheelStick,
@@ -169,7 +170,8 @@ export class ItemSprite extends Container {
         break;
       }
       default:
-        if (!drawItemArt7(this.g, def, w, h, seed)) drawItemArt8(this.g, def, w, h, seed);
+        if (!drawItemArt7(this.g, def, w, h, seed) && !drawItemArt9(this.g, def, w, h))
+          drawItemArt8(this.g, def, w, h, seed);
     }
     // Traced once per style (the soft glow, then the crisp rim): a stroke uses up its path.
     let traced = false;
@@ -252,7 +254,11 @@ export class ItemSprite extends Container {
           .lineTo(w / 2, h / 2);
         return true;
       default:
-        if (outlineItemArt7(g, this.def, w, h, this.seed) || outlineItemArt8(g, this.def, w, h, this.seed))
+        if (
+          outlineItemArt7(g, this.def, w, h, this.seed) ||
+          outlineItemArt9(g, this.def, w, h) ||
+          outlineItemArt8(g, this.def, w, h, this.seed)
+        )
           return true;
         g.roundRect(-w / 2, -h / 2, w, h, Math.min(8, h / 2));
         return false;

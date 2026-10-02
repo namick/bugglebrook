@@ -4,7 +4,7 @@ import type { Camera, Point } from '../render/camera';
 import { dialMinutes } from '../render/fixtureArt';
 
 /** `dial` is turning the sundial's rim; `lever` pulls the bench's lever; `stir` goes round the cauldron. */
-export type PointerMode = 'none' | 'hold' | 'pan' | 'dial' | 'lever' | 'stir';
+export type PointerMode = 'none' | 'hold' | 'pan' | 'dial' | 'lever' | 'stir' | 'seq';
 
 /** Input gestures that make a sound but are not sim events. */
 export type Gesture = 'hover' | 'swish' | 'pan' | 'scroll' | 'edge' | 'dial' | 'lever' | 'stir';
@@ -220,6 +220,10 @@ export class PointerController {
         unsent: 0,
         swept: 0,
       };
+    } else if (fixture?.kind === 'sequencer') {
+      // The mushroom sequencer: a press toggles a cap or works a control; a drag paints caps.
+      this.mode = 'seq';
+      this.sim.send({ type: 'seq_touch', x: world.x, y: world.y, start: true });
     } else if (fixture?.kind === 'sundial') {
       // The sundial's rim: turning it clockwise moves time forward.
       this.mode = 'dial';
@@ -329,6 +333,10 @@ export class PointerController {
         this.sim.send({ type: 'pull_lever' });
         this.gesture('lever');
       }
+    }
+    if (this.mode === 'seq') {
+      const w = this.hoverWorld;
+      this.sim.send({ type: 'seq_touch', x: w.x, y: w.y, start: false });
     }
     if (this.mode === 'stir' && this.stir) {
       const st = this.stir;

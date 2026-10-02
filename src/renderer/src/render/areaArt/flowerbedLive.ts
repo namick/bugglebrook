@@ -8,6 +8,7 @@ import { OUTLINE, darken, lighten, mix, stroke } from '../palette';
 import { flower, soft } from './common';
 import { FLOWERBED } from './flowerbed';
 import { AreaLive } from './live';
+import { drawSequencer, drawThemeChalk } from './sequencerArt';
 import type { AreaFrame, LightFn } from './live';
 
 const PPM = PIXELS_PER_METER;
@@ -148,6 +149,12 @@ export class FlowerbedLive extends AreaLive {
       ev.on('bug_joined', (e) => {
         if (e.defId === 'bug_caterpillar_munch') this.wobble.fix_munch_leaf = 1;
       }),
+      ev.on('sequencer_changed', (e) => {
+        if (e.action === 'wobbled') this.wobble.fix_mushroom_sequencer = 1;
+        else if (e.action === 'cleared' && e.by === null)
+          particles.puff(px(e.x) + 60, px(e.y) + 40, 0x9a7a4a, 8);
+        else if (e.action === 'cap' && e.on) particles.boop(px(e.x), px(e.y) - 10);
+      }),
     ];
   }
 
@@ -165,7 +172,10 @@ export class FlowerbedLive extends AreaLive {
     const rain = f.weather.rain;
     const wind = f.sim.environment.state.wind;
     this.drawFlowers(g, f, open, rain, wind);
+    this.drawSequencer(g, f);
     this.drawPuddles(g, f);
+    // The theme, chalked on the flowerpot's front.
+    drawThemeChalk(g, this.ax + 18.7 * PPM, 8.3 * PPM, 13);
     this.drawHideouts(g, f);
     this.drawBluebells(g, f);
     this.drawStageLights(g, f);
@@ -278,6 +288,26 @@ export class FlowerbedLive extends AreaLive {
       p.y += (p.vy + 40) * f.dt;
       p.rot += p.spin * f.dt;
     }
+  }
+
+  /** The mushroom sequencer, with its playhead on the music clock. */
+  private drawSequencer(g: Graphics, f: AreaFrame): void {
+    const layout = f.sim.places.sequencerLayout();
+    if (!layout) return;
+    const state = f.sim.places.sequencer;
+    const music = f.music;
+    const perStep = state.fast ? 1 : 2;
+    const steps = music ? (music.beat * 4) / perStep : 0;
+    drawSequencer(g, {
+      layout,
+      state,
+      column: music && music.seqVolume > 0 ? music.seqColumn : -1,
+      stepPhase: steps - Math.floor(steps),
+      time: f.time,
+      groundY: 908,
+      wobble: this.wobble.fix_mushroom_sequencer ?? 0,
+      dark: f.sim.weather.dark,
+    });
   }
 
   private drawPuddles(g: Graphics, f: AreaFrame): void {
