@@ -301,6 +301,14 @@ export interface SimOptions {
  * rendering, input devices, audio, or wall-clock time.
  */
 export class Sim {
+  /**
+   * Strict IDs: `findSecret` throws on a secret ID the content does not
+   * have, instead of quietly finding nothing. The unit tests turn it on
+   * (`tests/unit/setup.ts`) so a typo cannot hide; a player's game never
+   * crashes over one.
+   */
+  static strict = false;
+
   readonly events = new EventBus<GameEvents>();
   readonly commands = new CommandQueue<Command>();
   readonly entities = new EntityStore();
@@ -1749,6 +1757,7 @@ export class Sim {
    * not fire (section 12's "Requires"). True if it was found just now.
    */
   findSecret(id: string, x: number, y: number): boolean {
+    if (Sim.strict && !this.content.secrets.has(id)) throw new Error(`Unknown secret: ${id}`);
     if (!this.canFind(id)) return false;
     this.secrets.push(id);
     this.events.emit('secret_found', { id, x, y });
@@ -1759,8 +1768,9 @@ export class Sim {
   canFind(id: string): boolean {
     if (this.secrets.includes(id)) return false;
     const def = this.content.secrets.tryGet(id);
-    if (def?.blocked) return false;
-    return (def?.requires ?? []).every((r) => this.secrets.includes(r));
+    // An ID the content lacks is never found: it would sit in the save as a secret that is not one.
+    if (!def || def.blocked) return false;
+    return (def.requires ?? []).every((r) => this.secrets.includes(r));
   }
 
   /** The journal as pages (M10), from the saved state. Pure read; the renderer draws it. */

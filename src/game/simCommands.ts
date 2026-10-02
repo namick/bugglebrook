@@ -225,7 +225,9 @@ export function apply(sim: Sim, command: Command): void {
     case 'find_secret': {
       const grant = (id: string, depth: number): void => {
         const def = sim.content.secrets.tryGet(id);
-        if (!def || depth > 8) return;
+        // An unknown ID finds nothing (and throws in strict tests, through findSecret).
+        if (!def) return void sim.findSecret(id, 0, 0);
+        if (depth > 8) return;
         for (const r of def.requires ?? []) grant(r, depth + 1);
         sim.findSecret(id, sim.view0().x0 + 5, 5);
       };

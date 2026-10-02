@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { CONTENT } from '../../src/game';
+import { CONTENT, Sim } from '../../src/game';
 
 // M10's audit (game design doc, section 12): every secret in the data has a
 // trigger in the sim, or says why it is blocked.
@@ -52,5 +52,34 @@ describe('secret audit', () => {
   it('a blocked secret has no trigger yet', () => {
     const early = CONTENT.secrets.all.filter((s) => s.blocked && triggerOf(s.id) !== null).map((s) => s.id);
     expect(early).toEqual([]);
+  });
+});
+
+describe('unknown secret IDs (P-27)', () => {
+  it('every secret ID named in the code is a real secret', () => {
+    const all = sources(join(__dirname, '../../src'))
+      .filter((p) => !p.includes(join('src', 'game', 'data')))
+      .map((p) => readFileSync(p, 'utf8'))
+      .join('\n');
+    // `secret_found` is the event, not a secret.
+    const named = new Set([...all.matchAll(/'(secret_[a-z0-9_]+)'/g)].map((m) => m[1]!));
+    named.delete('secret_found');
+    expect([...named].filter((id) => !CONTENT.secrets.has(id))).toEqual([]);
+  });
+
+  it("findSecret throws on an unknown ID in tests, and a player's game finds nothing", () => {
+    const sim = Sim.create({ seed: 'audit' });
+    expect(() => sim.findSecret('secret_no_such_thing', 0, 0)).toThrow(/Unknown secret/);
+    sim.send({ type: 'find_secret', id: 'secret_no_such_thing' });
+    expect(() => sim.step()).toThrow(/Unknown secret/);
+    Sim.strict = false;
+    try {
+      expect(sim.findSecret('secret_no_such_thing', 0, 0)).toBe(false);
+      sim.send({ type: 'find_secret', id: 'secret_no_such_thing' });
+      sim.step();
+      expect(sim.secrets).not.toContain('secret_no_such_thing');
+    } finally {
+      Sim.strict = true;
+    }
   });
 });
