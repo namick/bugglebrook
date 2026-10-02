@@ -271,6 +271,61 @@ describe('settling (R12)', () => {
     expect(sim.view(top.id)!.y).toBeGreaterThan(y + CUBE * 0.8);
   });
 
+  it('keeps a settled heap still through a save and a load (PM-04)', () => {
+    const KINDS = [
+      'item_cork',
+      'item_sugar_cube',
+      'item_jelly_bean',
+      'item_seed_sunflower',
+      'item_soap_sliver',
+    ];
+    // Clear of where the starting bugs and things a load adds to an empty world stand.
+    const X = PLAZA_X + 10;
+    const sim = Sim.empty({ seed: 'reload' });
+    sim.step();
+    const heap: EntityId[] = [];
+    // Piled up a row at a time, the way a player heaps things.
+    for (let i = 0; i < 20; i++) {
+      const x = X + (i % 4) * 0.46 + (Math.floor(i / 4) % 2) * 0.2;
+      heap.push(
+        sim.spawn('item', KINDS[i % KINDS.length]!, x, sim.surfaceY(X) - 0.2 - Math.floor(i / 4) * 0.35).id,
+      );
+      if (i % 4 === 3) sim.run(20);
+    }
+    // Until it has stopped shifting at all, every piece settled.
+    let quiet = false;
+    for (let i = 0; i < 30 && !quiet; i++) {
+      const at = poses(sim, heap);
+      sim.run(120);
+      quiet =
+        heap.every((id) => sim.physics.isSettled(id)) &&
+        Math.max(...poses(sim, heap).map((p, j) => moved(p, at[j]!))) < 0.001;
+    }
+    expect(quiet).toBe(true);
+    // Caught still in mid-air, as at the top of a toss: that one must fall after the load.
+    const tossed = sim.spawn('item', 'item_pebble', X - 5, sim.surfaceY(X - 5) - 2);
+    const loaded = Sim.load(JSON.parse(JSON.stringify(sim.serialize())));
+    // Loading an empty world brings in the starting bugs and things it lacks: keep only what was saved.
+    for (const e of [...loaded.entities.all()]) {
+      if (sim.entities.has(e.id)) continue;
+      expect(Math.abs(loaded.view(e.id)!.x - X)).toBeGreaterThan(2.5);
+      loaded.remove(e.id);
+    }
+    for (const id of heap) expect(loaded.physics.isSettled(id), `${id}`).toBe(true);
+    expect(loaded.physics.isSettled(tossed.id)).toBe(false);
+    const before = poses(loaded, heap);
+    loaded.run(120);
+    const shifts = poses(loaded, heap).map((p, i) => moved(p, before[i]!));
+    // A pile still shifts by a few millimeters now and then, saved or not; before, it slumped by centimeters.
+    expect(Math.max(...shifts)).toBeLessThan(0.02);
+    expect(loaded.view(tossed.id)!.y).toBeGreaterThan(loaded.surfaceY(X - 5) - 0.5);
+    // And it still wakes: a throw into it shifts it.
+    const pebble = loaded.spawn('item', 'item_pebble', X - 0.8, loaded.surfaceY(X - 0.8) - 0.2);
+    loaded.physics.setVelocity(pebble.id, 7, 0);
+    loaded.run(60);
+    expect(Math.max(...poses(loaded, heap).map((p, i) => moved(p, before[i]!)))).toBeGreaterThan(0.05);
+  });
+
   it('settles and wakes the same way in two runs', () => {
     const run = (): string => {
       const sim = Sim.empty({ seed: 'settle' });

@@ -1400,6 +1400,66 @@ export class Physics {
   //   it presses down on a bug that walked in under it (`wakeOverBugs`).
   // Walking bugs slip past small things at rest (`slipsPast`) and never wake them.
 
+  /**
+   * A world just loaded from a save: settle again at once whatever was at
+   * rest when it was saved. Settling is not saved, and a settled pile keeps
+   * the small overlaps it settled with; let the solver at them and the pile
+   * slumps and twitches as the slot opens (PM-04 of the post-merge playtest).
+   * A thing settles here if it is still, could settle in play, and rests on
+   * the ground, a fixed part of the world, or another thing settling with
+   * it. Something caught still at the top of a throw rests on nothing and
+   * falls as before.
+   */
+  settleLoaded(): void {
+    // Find what touches what, without moving anything.
+    const world = this.world as unknown as {
+      findNewContacts(): void;
+      updateContacts(): void;
+      m_newFixture: boolean;
+    };
+    world.findNewContacts();
+    world.updateContacts();
+    world.m_newFixture = false;
+    const batch = new Set<Body>();
+    for (let b = this.world.getBodyList(); b; b = b.getNext()) {
+      if (
+        !b.isDynamic() ||
+        !b.isActive() ||
+        b.getUserData() == null ||
+        this.bugs.has(b) ||
+        b.getJointList() !== null ||
+        b.getFixtureList() === null
+      )
+        continue;
+      const v = b.getLinearVelocity();
+      if (Math.hypot(v.x, v.y) > STILL_SPEED || Math.abs(b.getAngularVelocity()) > STILL_SPIN) continue;
+      if (this.restsFree(b)) batch.add(b);
+    }
+    // Only what something fixed holds up, directly or through others settling with it.
+    for (let changed = true; changed;) {
+      changed = false;
+      for (const b of batch) {
+        let held = false;
+        for (let edge = b.getContactList(); edge && !held; edge = edge.next ?? null) {
+          const c = edge.contact;
+          const o = edge.other!;
+          if (!c.isTouching() || !c.isEnabled() || !(o.isStatic() || batch.has(o))) continue;
+          const m = this.manifold(c);
+          const sign = c.getFixtureA().getBody() === b ? 1 : -1;
+          // Under it, or wedged in beside and below its middle.
+          held = !!m && m.normal.y * sign > 0.1;
+        }
+        if (!held) {
+          batch.delete(b);
+          changed = true;
+        }
+      }
+    }
+    if (batch.size > 0) this.keepOnHinges(batch);
+    if (batch.size > 0) this.settleAll(batch);
+    this.fresh.clear();
+  }
+
   /** Has this body settled (static until something wakes it)? */
   isSettled(id: EntityId): boolean {
     return this.settled.has(this.requireBody(id));

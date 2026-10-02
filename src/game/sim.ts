@@ -637,6 +637,8 @@ export class Sim {
     // Anything a save left outside the world (R01) drops back in.
     sim.bounds.sweep();
     if (!save.journal) sim.journal.seed();
+    // What was at rest settles again before the first step, so piles do not slump.
+    sim.physics.settleLoaded();
     return sim;
   }
 
