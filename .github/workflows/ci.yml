@@ -87,6 +87,18 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm ${{ matrix.script }}
+      - name: Report installer sizes
+        shell: bash
+        run: |
+          {
+            echo "### Installers (${{ runner.os }})"
+            echo
+            echo '| File | Size |'
+            echo '|---|---|'
+            for f in dist/*.exe dist/*.dmg dist/*.zip dist/*.AppImage dist/*.deb; do
+              [ -f "$f" ] && echo "| $(basename "$f") | $(du -h "$f" | cut -f1) |"
+            done
+          } | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         with:
           name: bugglebrook-${{ runner.os }}

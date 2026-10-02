@@ -1,8 +1,9 @@
 name: Release (draft)
 
-# Pushing a tag like v0.2.0 builds installers for every platform and uploads
+# Pushing a tag like v1.0.0 builds installers for every platform and uploads
 # them, with the latest*.yml update metadata, to a DRAFT GitHub release.
 # A person reviews and publishes the draft by hand. Nothing here publishes.
+# See RELEASING.md.
 
 on:
   push:
@@ -74,3 +75,45 @@ jobs:
       - run: pnpm exec electron-builder ${{ matrix.platform }} --publish always
         env:
           GH_TOKEN: ${{ github.token }}
+      - name: Report installer sizes
+        shell: bash
+        run: |
+          {
+            echo "### Installers (${{ runner.os }})"
+            echo
+            echo '| File | Size |'
+            echo '|---|---|'
+            for f in dist/*.exe dist/*.dmg dist/*.zip dist/*.AppImage dist/*.deb; do
+              [ -f "$f" ] && echo "| $(basename "$f") | $(du -h "$f" | cut -f1) |"
+            done
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+  verify:
+    name: Check the draft
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the draft holds every installer and the update metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          json=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft,assets)
+          if [ "$(echo "$json" | jq -r .isDraft)" != "true" ]; then
+            echo "Release $GITHUB_REF_NAME is not a draft." >&2
+            exit 1
+          fi
+          names=$(echo "$json" | jq -r '.assets[].name')
+          echo "$json" | jq -r '.assets[] | "| \(.name) | \(.size / 1048576 | floor) MB |"' |
+            { echo "### Draft $GITHUB_REF_NAME"; echo; echo '| File | Size |'; echo '|---|---|'; cat; } |
+            tee -a "$GITHUB_STEP_SUMMARY"
+          missing=0
+          for pattern in '^latest\.yml$' '^latest-mac\.yml$' '^latest-linux\.yml$' \
+            'Setup-.*\.exe$' 'Setup-.*\.exe\.blockmap$' \
+            'mac-x64\.dmg$' 'mac-arm64\.dmg$' 'mac-x64\.zip$' 'mac-arm64\.zip$' \
+            '\.AppImage$' '_amd64\.deb$'; do
+            if ! echo "$names" | grep -Eq "$pattern"; then
+              echo "Missing from the draft: $pattern" >&2
+              missing=1
+            fi
+          done
+          exit $missing
