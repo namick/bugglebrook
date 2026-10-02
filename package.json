@@ -25,7 +25,7 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.game.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.e2e.json",
-    "lint": "eslint . && prettier --check .",
+    "lint": "eslint . && prettier --check . && node scripts/art/build.ts --check",
     "format": "prettier --write . && eslint . --fix",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -35,7 +35,9 @@
     "dist:appimage": "electron-vite build && electron-builder --linux AppImage --publish never",
     "dist:win": "electron-vite build && electron-builder --win --publish never",
     "dist:mac": "electron-vite build && electron-builder --mac --publish never",
-    "shots": "electron-vite build && node scripts/display.mjs playwright test -c playwright.shots.config.ts"
+    "shots": "electron-vite build && node scripts/display.mjs playwright test -c playwright.shots.config.ts",
+    "art:build": "node scripts/art/build.ts",
+    "art:check": "node scripts/art/build.ts --check"
   },
   "dependencies": {
     "electron-updater": "6.8.9"
@@ -50,6 +52,8 @@
     "electron-vite": "5.0.0",
     "eslint": "^10.11.0",
     "eslint-config-prettier": "^10.1.8",
+    "fast-xml-parser": "^5.11.2",
+    "fflate": "^0.8.3",
     "globals": "^17.12.0",
     "pixi.js": "8.21.0",
     "planck": "1.5.0",

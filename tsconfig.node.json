@@ -8,6 +8,9 @@
     "src/main/**/*.ts",
     "src/preload/**/*.ts",
     "src/shared/**/*.ts",
+    "scripts/art/**/*.ts",
+    "src/renderer/src/art/kit.ts",
+    "src/renderer/src/art/rigFile.ts",
     "electron.vite.config.ts",
     "vitest.config.ts"
   ]
