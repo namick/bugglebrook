@@ -1,5 +1,6 @@
 import { Container, Graphics } from 'pixi.js';
 import type { FederatedPointerEvent } from 'pixi.js';
+import { HoldArm } from './holdArm';
 
 /** Marks a container as UI, so the hand shows its pointing pose over it. */
 export function markUi<T extends Container>(c: T): T {
@@ -46,10 +47,17 @@ export class Bounce {
   }
 }
 
-/** A springy, wordless button. Hover grows it; press squashes it; release bounces. */
+/**
+ * A springy, wordless button. Hover grows it; press squashes it; release
+ * bounces. With `hold` (seconds) it acts only after being held that long:
+ * a ring fills round it while held, and a quick tap just shakes it.
+ */
 export class PictureButton extends Container {
   private readonly bounce = new Bounce();
   private hovered = false;
+  /** Press-and-hold, for buttons that leave where the player is (the home stump). */
+  readonly arm: HoldArm | null;
+  private readonly ring: Graphics | null = null;
   /** Called when the pointer comes over it (a soft tick sound). */
   onHover: (() => void) | null = null;
   enabled = true;
@@ -58,9 +66,11 @@ export class PictureButton extends Container {
     readonly art: Container,
     readonly hitWidth: number,
     readonly hitHeight: number,
-    onPress: () => void,
+    private readonly onPress: () => void,
+    hold = 0,
   ) {
     super();
+    this.arm = hold > 0 ? new HoldArm(hold) : null;
     markUi(this);
     this.addChild(art);
     this.eventMode = 'static';
@@ -69,6 +79,10 @@ export class PictureButton extends Container {
       .rect(-hitWidth / 2, -hitHeight / 2, hitWidth, hitHeight)
       .fill({ color: 0, alpha: 0 });
     this.addChildAt(hit, 0);
+    if (this.arm) {
+      this.ring = new Graphics();
+      this.addChild(this.ring);
+    }
     this.on('pointerover', () => {
       this.hovered = true;
       this.bounce.target = 1.08;
@@ -81,10 +95,22 @@ export class PictureButton extends Container {
     this.on('pointerdown', (e: FederatedPointerEvent) => {
       e.stopPropagation();
       this.bounce.kick(0.86);
+      if (this.arm && this.enabled) {
+        this.arm.press();
+        // It rises a little as it arms.
+        this.bounce.target = 1.14;
+      }
     });
+    const letGo = (): void => {
+      if (!this.arm) return;
+      this.arm.release();
+      this.bounce.target = this.hovered ? 1.08 : 1;
+    };
+    this.on('pointerup', letGo);
+    this.on('pointerupoutside', letGo);
     this.on('pointertap', (e: FederatedPointerEvent) => {
       e.stopPropagation();
-      if (!this.enabled) return;
+      if (!this.enabled || this.arm) return;
       this.bounce.kick(1.2);
       onPress();
     });
@@ -95,6 +121,27 @@ export class PictureButton extends Container {
   }
 
   update(dt: number): void {
+    const arm = this.arm;
+    if (arm && arm.update(dt) && this.enabled) {
+      this.bounce.kick(1.25);
+      this.bounce.target = this.hovered ? 1.08 : 1;
+      this.onPress();
+    }
     this.scale.set(this.bounce.update(dt));
+    if (arm && this.ring) {
+      // The ring fills clockwise from the top while held; a quick tap shakes "not yet".
+      this.art.x = arm.shake > 0 ? Math.sin(arm.shake * 55) * 7 * (arm.shake / 0.35) : 0;
+      const g = this.ring.clear();
+      if (arm.progress > 0.01) {
+        const r = Math.min(this.hitWidth, this.hitHeight) * 0.5 - 2;
+        const a0 = -Math.PI / 2;
+        g.circle(0, 0, r).stroke({ width: 10, color: 0x2b1d2e, alpha: 0.35 });
+        g.arc(0, 0, r, a0, a0 + arm.progress * Math.PI * 2).stroke({
+          width: 8,
+          color: 0xffd23f,
+          cap: 'round',
+        });
+      }
+    }
   }
 }

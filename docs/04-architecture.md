@@ -103,10 +103,12 @@ src/
       main.ts           Boot: Pixi app, letterboxing, Game, test hook
       app/              game.ts (scene switching, loop, autosave, pause, pocket input),
                         saveService.ts (loads with backup recovery), settingsService.ts,
-                        intro.ts (the first two minutes, pure), thumbnail.ts, memorySaves.ts
+                        intro.ts (the first two minutes, pure), thumbnail.ts, memorySaves.ts,
+                        ghost.ts (ghost-hand demo scripts and scheduling, pure),
+                        hintDirector.ts (runs the hints for a world)
       render/           camera.ts, viewport.ts, bugPose.ts, bugFace.ts, juice.ts,
                         reactions.ts, thoughts.ts, tagLooks.ts, waveSurface.ts,
-                        skyLook.ts (all pure), weatherView.ts, fixtureArt.ts, lightTextures.ts,
+                        skyLook.ts, hints.ts (all pure), hintView.ts, weatherView.ts, fixtureArt.ts, lightTextures.ts,
                         background.ts, pondArt.ts, water.ts, worldView.ts (and
                         worldViewEvents.ts, what it does on each sim event), particles.ts,
                         areaArt/ (each M7 area's static art and live view, the barriers,
@@ -120,7 +122,8 @@ src/
       ui/               menu.ts (the main menu), slotSign.ts, compostBin.ts, logo.ts,
                         settingsPanel.ts (pause and settings board), controls.ts (vine
                         slider, toggle, plank board), pocketTray.ts, pocketLayout.ts (pure),
-                        icons.ts, button.ts (PictureButton, Bounce, markUi), cursor.ts
+                        icons.ts, button.ts (PictureButton, Bounce, markUi), cursor.ts,
+                        holdArm.ts and stamps.ts (pure), stampStrip.ts
       debug/testHook.ts window.__bb, only in test mode
 tests/
   unit/                 Vitest. Headless. Covers src/game, the pure renderer modules, and SaveStore.
@@ -419,6 +422,17 @@ Section 17 of the design doc. All of it is wordless and drawn in code.
 - The first two minutes (`app/intro.ts`, pure, driven by `Game.runIntro`). A new world sends `stage_intro` (Dot asleep on the bottle cap, peckish, a berry beside her), fades in while the camera slides from the pond side to settle on Dot (3 s), sends `wake` when the cursor comes within 3 m of her, sends `beckon` at 0:40 if no bug has been grabbed (she walks to the hand with a spring in her bubble), and drifts the camera toward the pond and back at 1:00 if the player has not panned. It is off in test mode unless a test calls `__bb.enableIntro(true)`, so older tests keep their awake Dot and still camera.
 - Settings live in `SettingsService` in the renderer and `SettingsStore` (`settings.json`) in main. Changes apply at once: bus volumes (`AudioBackend.setVolumes`; a bus at 0 plays nothing), reduce motion, and edge scroll. Slider drags apply live and are stored when the drag ends. Main applies fullscreen. Defaults follow the doc (fullscreen on); in test mode main starts windowed. The music slider is stored and sets the music bus. M9's background music plays through it: the owner's Suno tracks, layered from their stems (`docs/05-music-brief.md`).
 
+### Teaching hints
+
+Nothing in the game explains itself with words, so the renderer nudges. All of it is pure show: no hint sends a command.
+
+- **Affordances** (`render/hints.ts`, pure). Things the player can work but has not yet (the sundial, the bench's lever, the cauldron's ladle, the pocket's tab, and every locked barrier) wobble once and glint when the hand rests near them for 1.2 s, at most every 3.2 s. Hovering one always wobbles it, found or not, and hovering within 1.4 m of a locked area's wall wobbles its barrier (section 2). `HintDirector` builds the targets each frame and hands the tracker (`HintLook`) to `WorldView`, which passes it to `FixtureArt` and every `AreaLive` in `AreaFrame.hints`. Each view wobbles its own art: the sundial's rim nudges a notch and its notches glint clockwise, the sunflower sways, the cans rattle, the lattice leans, the bottom bucket swings, the ladle jiggles, and the pocket's flap peeks up. `HintMarks` adds twinkles round each one, and shake marks beside the lever (whose art belongs to the bench). Reduce motion shrinks the wobbles.
+- **The sundial** also twitches its gnomon's shadow forward and back every 6 to 13 s.
+- **The cauldron**: after something goes into an unstirred brew, the ladle swings round a full circle by itself (`ladleInvite`), then rests, with a swirl of bubbles behind it, until the hand stirs. Over a cauldron with something in it, the hand takes the `stir` pose (a fist round a ladle with a swirl), and keeps it while stirring.
+- **Ghost-hand demos** (`app/ghost.ts`, pure). After 25 s with no input (pointer moves, presses, the wheel, keys), a pale, see-through copy of the hand acts out one gesture near something on screen: turning the sundial, putting a small thing in the pocket (the tray slides up for it), dropping a thing in the cauldron and stirring, dragging the lattice, carrying the sponge to the sunflower, or pulling the lever. It carries a ghost of the item; it never touches the sim. Any input stops it at once. One demo per idle stretch, 90 s between demos, each kind at most twice a session, and never one the player has done: `demoDoneBy` maps sim events (`time_skipped`, `pocketed`, `cauldron_stirred`, `bench_pulled`, `sunflower_drank`, grabbing the lattice, `area_unlocked`) and working a fixture by hand marks them done, and `demosDoneIn` reads the same from a loaded world. Demos never run while paused, during the first scene, or while the hand is busy, and they stop if the view moves. Reduce motion plays them 1.5 times slower. The game counts idling in wall-clock time.
+- **Discovery stamps** (`ui/stamps.ts`, pure, and `ui/stampStrip.ts`), until the journal comes in M10 (R22). A little notebook sits top right, where the journal will go, with a row of ink stamps beside it: one per secret, found bug, opened area, potion secret, blueprint, and recipe. They come from saved data (`sim.secrets` with each secret's `unlocks`, and the bench's `hinted` and `made`), so the strip needs no save change. A new stamp slams down half a second after the discovery's chime, with a thump (`stamp`), and the notebook wiggles. The strip fades to 40 percent when the cursor has been away for 5 s (section 17). Distinct potions are not saved yet, so potion stamps come from the potion secrets.
+- **The home stump** acts on press and hold (`ui/holdArm.ts`, 0.45 s): a ring fills while it is held, a quick tap shakes it "not yet", and the press must start on the button, so a fling let go over it does nothing (R35).
+
 ### Camera
 
 `Camera` is pure math and has unit tests. `x` is the world x at the left edge of the view, clamped to the world. Dragging empty space pans the camera, and it coasts after release. The mouse wheel pans too, 1.5 px per vertical wheel pixel. While the player carries something within 80 px of a screen edge, the camera scrolls at up to 9 m/s, which is how things will move between areas.
@@ -474,6 +488,7 @@ Setting `BUGGLEBROOK_USER_DATA=/some/dir` points userData at a throwaway directo
 `window.__bb` (type `TestHook` in `src/renderer/src/debug/testHook.ts`) offers:
 
 - state queries: `affinity(a, b)`, `water()` (surfaces, hose, ice, pads, welds), `fixture(id)`, `areaAsleep(id)`, `areaAt(x)`, `soapBubbles()`, `scene()`, `tick()`, `entities()` (with `tags`, `submerged`, `soggy`, `asleep`), `entity(id)`, `camera()`, `isPaused()`, `sfxLog()`, `voiceLog()`, `events()` (recent sim events with their tick), `lastRelease()` (the fling velocity sent), `frameTimes(n)` (update plus render ms), `renderStats()`, `listSlots()`, `cursor()` (pose, and the frames of the last pose change and pointer move), `bubbles()`, `glowing()`, `mouthOf(id)`, `dropTarget(itemId)`
+- Hints: `hints()` (the ghost demo running, idle time, shown and done kinds, demos cut short, and the ghost's frame in client pixels; each affordance's glint and wobble count; the ladle's stir invitation; the home button's hold ring), `setGhostIdle(seconds, cooldown?)` to shorten the wait, `pinGhost(kind, t)` to hold a demo still and `setHomeHold(seconds)` to slow the home ring for screenshots, `stamps()` (the strip's stamps, total, landed, opacity), and `uiClient('stamps')`.
 - M8 state: `bench()` (trays, busy, recipes made, hints), `cauldron()` (contents, stirring, bubbling), `m8Points()` (where to aim at the lever's knob, the trays, the cauldron, and the scope), and `cameraTo(x)` to put the camera somewhere at once for staging. The debug commands `give_potion` and `despawn` stage scenes.
 - M7 state: `unlocked()` (open areas and the walkable span), `cast()` (joined bugs), `places()` (stage lights, the lamp, quiet speakers, the lift), and `debugEntity(id, {bites, paint})` for shots
 - M6 state: `sky()` (clock, hour, phase, weather, wind, rain, dark, fast-forward, shades, vane, puddles), `secrets()`, `look()` (the current grading), `weatherStats()` (drops, leaves, and lights drawn)

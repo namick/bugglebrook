@@ -5,6 +5,7 @@ import type { ReactionType } from '../../../game/events';
 import type { SlotInfo } from '../../../shared/ipc';
 import type { Settings } from '../../../shared/settings';
 import type { Game, SceneName } from '../app/game';
+import type { DemoKind } from '../app/ghost';
 import type { Point } from '../render/camera';
 import { LEVER_LENGTH, LEVER_PIVOT, LEVER_REST } from '../render/areaArt/benchLive';
 import type { CritterInfo } from '../render/areaArt/critterLive';
@@ -15,7 +16,7 @@ import type { ToggleKey, VolumeKey } from '../ui/settingsPanel';
 
 /** Named UI controls the tests can find: buttons, sliders' tracks, toggles, the bin. */
 export type UiName =
-  'pause' | 'home' | 'resume' | 'to_menu' | 'gear' | 'door' | 'bin' | `toggle_${ToggleKey}`;
+  'pause' | 'home' | 'resume' | 'to_menu' | 'gear' | 'door' | 'bin' | 'stamps' | `toggle_${ToggleKey}`;
 
 /**
  * Test-only API on window.__bb. Installed only when the app is launched with
@@ -211,6 +212,48 @@ export interface TestHook {
    * `overhead` or `rolling` makes it hold an item.
    */
   debugBug(id: number, patch: DebugBugPatch): void;
+  /**
+   * The teaching hints: the ghost-hand demo (what runs, how long the hand
+   * has idled, what was shown, what the player has done, how many were cut
+   * short, and the ghost's frame in client pixels), each affordance's glint
+   * now and its wobble count, the cauldron ladle's stir invitation, and the
+   * home button's hold ring.
+   */
+  hints(): {
+    ghost: {
+      active: string | null;
+      idle: number;
+      shown: Record<string, number>;
+      done: string[];
+      stopped: number;
+      frame: {
+        x: number;
+        y: number;
+        pose: string;
+        alpha: number;
+        tray: boolean;
+        carry: string | null;
+      } | null;
+    };
+    glints: Record<string, number>;
+    wobbles: Record<string, number>;
+    ladleInviting: boolean;
+    home: { progress: number; shake: number };
+  } | null;
+  /** Start ghost demos after `seconds` of idling instead of the usual 25, and optionally wait `cooldown` between them (tests only). */
+  setGhostIdle(seconds: number, cooldown?: number): void;
+  /** Screenshots only: show the ghost's demo of `kind` held still `t` seconds in (null hides it). False if it cannot be staged here. */
+  pinGhost(kind: string | null, t?: number): boolean;
+  /** Screenshots only: how long the home stump must be held. */
+  setHomeHold(seconds: number): void;
+  /** The discovery stamps: those on the strip (newest last), how many in all, how many landed, its opacity. */
+  stamps(): {
+    stamps: { kind: string; ref: string }[];
+    total: number;
+    landed: number;
+    alpha: number;
+    visible: boolean;
+  } | null;
 }
 
 export interface DebugBugPatch {
@@ -260,6 +303,8 @@ export function installTestHook(game: Game): void {
         return game.menu?.door ?? null;
       case 'bin':
         return game.menu?.bin ?? null;
+      case 'stamps':
+        return s?.stamps.book ?? null;
       default: {
         const key = name.slice('toggle_'.length) as ToggleKey;
         return panel?.toggles.get(key) ?? null;
@@ -501,6 +546,40 @@ export function installTestHook(game: Game): void {
         scope: { x: scope.x, y: scope.fixture.y },
       };
     },
+    hints: () => {
+      const s = game.session;
+      if (!s) return null;
+      const info = s.hints.info();
+      const f = s.ghost.frame;
+      const at = f ? logicalToClient({ x: f.x, y: f.y }) : null;
+      return {
+        ghost: {
+          active: info.active,
+          idle: info.idle,
+          shown: info.shown,
+          done: info.done,
+          stopped: info.stopped,
+          frame:
+            f && at ? { x: at.x, y: at.y, pose: f.pose, alpha: f.alpha, tray: f.tray, carry: f.carry } : null,
+        },
+        glints: info.glints,
+        wobbles: info.wobbles,
+        ladleInviting: s.view.ladleInviting,
+        home: { progress: s.home.arm?.progress ?? 0, shake: s.home.arm?.shake ?? 0 },
+      };
+    },
+    setGhostIdle: (seconds, cooldown) => {
+      const s = game.session;
+      if (!s) return;
+      s.hints.ghost.idleStart = seconds;
+      if (cooldown !== undefined) s.hints.ghost.cooldown = cooldown;
+    },
+    stamps: () => game.session?.stamps.info() ?? null,
+    setHomeHold: (seconds) => {
+      const arm = game.session?.home.arm;
+      if (arm) arm.seconds = seconds;
+    },
+    pinGhost: (kind, t) => game.session?.hints.pin(kind as DemoKind | null, t) ?? false,
     debugEntity: (id, fields) => {
       const e = game.session?.sim.entities.get(id);
       if (!e) return;

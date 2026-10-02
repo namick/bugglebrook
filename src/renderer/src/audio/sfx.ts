@@ -81,6 +81,7 @@ export type SfxName =
   | 'vane'
   | 'gust'
   | 'secret'
+  | 'stamp'
   | 'twinkle'
   | 'knock'
   | 'blink'
@@ -1017,6 +1018,12 @@ export class Sfx {
             gain: 0.12,
             delay: k * 0.08,
           }));
+        case 'stamp':
+          // An ink stamp hitting paper: a soft low thump and a papery tap.
+          return [
+            { freq: 160 * j, to: 70 * j, dur: 0.09, wave: 'sine', gain: 0.3 },
+            { freq: 1800 * j, to: 900 * j, dur: 0.04, wave: 'noise', q: 2, gain: 0.12 },
+          ];
         case 'twinkle':
           return [
             { freq: 1760 * j, to: 2640 * j, dur: 0.18, wave: 'sine', gain: 0.1 * intensity },

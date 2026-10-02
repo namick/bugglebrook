@@ -1,5 +1,6 @@
 import { Container } from 'pixi.js';
 import type { EntityView, Sim } from '../../../../game/sim';
+import type { HintLook } from '../hints';
 import type { Particles } from '../particles';
 import type { SkyLook, WeatherMix } from '../skyLook';
 
@@ -48,6 +49,10 @@ export interface AreaFrame {
    * (`amount` 0 to 1), or stirring the cauldron (`angle` of the ladle).
    */
   drag?: { kind: 'lever' | 'stir'; amount: number; angle: number } | null;
+  /** Affordance wobbles and glints (`render/hints.ts`): things the hand rests near or hovers. */
+  hints?: HintLook;
+  /** Reduce motion is on. */
+  reduced?: boolean;
 }
 
 /**
