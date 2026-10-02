@@ -82,6 +82,7 @@ import {
 } from './simPocket';
 import {
   handleImpacts as _handleImpacts,
+  popBalloon as _popBalloon,
   tryCatch as _tryCatch,
   trySpring as _trySpring,
 } from './simImpacts';
@@ -1048,6 +1049,11 @@ export class Sim {
   /** Rule R11: a fragile thing knocked hard breaks into pieces. */
   shatter(e: Entity, into: string, count: number): void {
     _shatter(this, e, into, count);
+  }
+
+  /** A balloon pops with a bang and leaves its scrap behind. */
+  pop(e: Entity, cause: 'sharp' | 'hot' | 'chop'): void {
+    _popBalloon(this, e, cause);
   }
 
   /** Paint a bug from a paint drop let go on it (drop rule 5): the drop is used up. */

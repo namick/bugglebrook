@@ -74,6 +74,7 @@ export function shatterPotion(
 export function shatter(sim: Sim, e: Entity, into: string, count: number): void {
   const s = sim.physics.getState(e.id);
   sim.remove(e.id);
+  sim.trash.owe(e.defId);
   const pieces: EntityId[] = [];
   for (let i = 0; i < count; i++) {
     const a = (i / count) * Math.PI * 2;

@@ -133,6 +133,8 @@ export const WINDOW_CLICKS = 3;
 export const WINDOW_WINDOW = 3 * SIM_HZ;
 /** A jar above this height (world y, m) in the rain has reached the cloud line. */
 export const CLOUD_LINE = 0.6;
+/** No more cloud jars than this at once: each one used a jar that comes back, so they would pile up. */
+export const CLOUD_JARS_MAX = 2;
 /** The cloud jar's rain lasts this long. */
 export const CLOUD_RAIN = 60 * SIM_HZ;
 /** Map scraps touch when their centers are this close (m). */
@@ -712,6 +714,7 @@ export class Clues {
         if (Math.abs(j.x - puddle.x) > puddle.fixture.radius + 0.2 || Math.abs(j.y - puddle.y) > 1) continue;
         // The jar fills to the brim: it is a jar of rainbow paint now.
         sim.remove(jar.id);
+        sim.trash.owe(jar.defId);
         const paint = sim.spawn('item', 'item_paint_rainbow', j.x, j.y - 0.3);
         sim.physics.setVelocity(paint.id, 0, -2);
         sim.events.emit('rainbow_caught', { id: paint.id, jar: jar.id, x: j.x, y: j.y });
@@ -800,12 +803,13 @@ export class Clues {
   /** In the rain, an open glass jar carried up to the cloud line comes back a cloud jar. */
   private cloudLine(): void {
     const sim = this.sim;
-    if (!sim.weather.raining) return;
+    if (!sim.weather.raining || this.items('item_cloud_jar').length >= CLOUD_JARS_MAX) return;
     for (const jar of this.items('item_jar_glass')) {
       if (sim.isSleeping(jar.id) || sim.physics.grabbed === jar.id) continue;
       const j = sim.physics.getState(jar.id);
       if (j.y > CLOUD_LINE || !sim.outdoors(j.x, j.y)) continue;
       sim.remove(jar.id);
+      sim.trash.owe(jar.defId);
       const cloud = sim.spawn('item', 'item_cloud_jar', j.x, j.y);
       sim.physics.setVelocity(cloud.id, j.vx, j.vy);
       sim.events.emit('item_transformed', {

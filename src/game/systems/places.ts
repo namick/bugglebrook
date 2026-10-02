@@ -91,14 +91,14 @@ export const JAR_REFILL = 5 * MINUTE;
 /** Floor gaps drop something every 30 to 90 s, while the porch is open and awake. */
 export const GAP_EVERY: readonly [number, number] = [30 * SIM_HZ, 90 * SIM_HZ];
 const GAP_CAP = 10;
-const GAP_POOL_DAY: readonly string[] = [
+export const GAP_POOL_DAY: readonly string[] = [
   'item_crumb_cookie',
   'item_button',
   'item_cheese_puff',
   'item_popcorn_kernel',
   'item_ant_crumb',
 ];
-const GAP_POOL_NIGHT: readonly string[] = [
+export const GAP_POOL_NIGHT: readonly string[] = [
   'item_crumb_cookie',
   'item_button',
   'item_seed_sunflower',
@@ -117,7 +117,7 @@ const DOMINO_GAP = 1.5 * SIM_HZ;
 /** The claw sweeps its jar, drops at 3 m/s, and grabs what is within this reach of it. */
 export const CLAW_REACH = 0.35;
 const CLAW_SPEED = 3;
-const CLAW_POOL: readonly string[] = [
+export const CLAW_POOL: readonly string[] = [
   'item_jelly_bean',
   'item_button',
   'item_foil_ball',
@@ -159,6 +159,12 @@ export function newPlaceState(seed: string): PlaceState {
 }
 
 type Placed = { area: AreaDef; fixture: FixtureDef; x: number };
+
+/** Petals: the item, the wind that blows them off (m/s), the chance a second, and how many may lie about. */
+const PETAL = 'item_petal';
+export const PETAL_WIND = 1.5;
+const PETAL_CHANCE = 0.3;
+export const PETAL_CAP = 4;
 
 export class Places {
   state: PlaceState;
@@ -330,6 +336,10 @@ export class Places {
           sim.cast.find('bug_stinkbug_whiff', f.x + 0.5, f.y - 0.4);
         return true;
       case 'tulip':
+        sim.events.emit('hideout_stirred', { fixture: f.id, x: f.x, y: f.y });
+        // A flick of the tulip shakes a petal loose.
+        this.shedPetal(f.x, f.y - 0.5, this.rng.range(-1, 1));
+        return true;
       case 'sunflower':
       case 'can_tunnel':
       case 'spider':
@@ -632,8 +642,38 @@ export class Places {
     if (tick % 60 === 0) {
       this.jarRule();
       this.hints();
+      this.petalRule();
     }
     this.gapRule();
+  }
+
+  /**
+   * The wind blows petals off the flowerbed's flowers (the tulip and the
+   * bluebells), now and then while it blows hard, up to `PETAL_CAP` loose.
+   */
+  private petalRule(): void {
+    const sim = this.sim;
+    const wind = sim.environment.state.wind;
+    if (Math.abs(wind) < PETAL_WIND) return;
+    const flowers = [...this.fixtures('tulip'), ...this.fixtures('bluebell')];
+    const first = flowers[0];
+    if (!first || !this.awake(first.area)) return;
+    if (!this.rng.chance(PETAL_CHANCE)) return;
+    const f = this.rng.pick(flowers);
+    if (!sim.outdoors(f.x, f.fixture.y - 0.6)) return;
+    this.shedPetal(f.x, f.fixture.y - 0.6, wind * 0.6);
+  }
+
+  /** A petal comes off a flower at (x, y), drifting at vx, unless enough are about already. */
+  private shedPetal(x: number, y: number, vx: number): void {
+    const sim = this.sim;
+    if (!sim.content.items.has(PETAL)) return;
+    // Counted anywhere: the wind carries them off into the pond.
+    const loose = sim.entities.ofKind('item').filter((e) => e.defId === PETAL).length;
+    if (loose >= PETAL_CAP) return;
+    const petal = sim.spawn('item', 'item_petal', x, y);
+    sim.physics.setVelocity(petal.id, vx, -0.8);
+    sim.events.emit('petal_shed', { id: petal.id, x, y });
   }
 
   /** Things standing in a paint puddle take its color. */

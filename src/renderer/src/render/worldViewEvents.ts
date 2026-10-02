@@ -597,6 +597,14 @@ export function listenPotions(view: WorldView): Array<() => void> {
       view.say(e.id, ['exclaim', 'swirl'], 1.6);
     }),
     ev.on('shattered', (e) => view.particles.shards(px(e.x), px(e.y), 12)),
+    ev.on('petal_shed', (e) => view.particles.puff(px(e.x), px(e.y), 0xffc2d8, 3, 0, -10, 10)),
+    ev.on('balloon_popped', (e) => {
+      // Bang: a ring, a burst in the balloon's color, and a few bits of rubber.
+      const color = e.defId === 'item_balloon_blue' ? 0x4fb6ff : 0xff4f5e;
+      view.particles.ring(px(e.x), px(e.y), 70);
+      view.particles.burst(px(e.x), px(e.y), 10, color);
+      view.particles.burst(px(e.x), px(e.y), 6, 0xffffff);
+    }),
     ev.on('toasted', (e) => view.particles.steam(px(e.x), px(e.y), 5)),
     ev.on('note_played', (e) => {
       view.juiceFor(e.id).squash.poke();

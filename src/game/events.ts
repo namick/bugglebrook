@@ -533,6 +533,17 @@ export interface GameEvents {
   balloon_deflated: { id: EntityId; x: number; y: number };
   /** Something fragile broke into pieces (rule R11). */
   shattered: { id: EntityId; defId: string; into: string; pieces: EntityId[]; x: number; y: number };
+  /** The wind (or a flick of the tulip) blew a petal off a flowerbed flower. */
+  petal_shed: { id: EntityId; x: number; y: number };
+  /** A balloon popped on something sharp or hot, or a karate chop, and left its scrap. */
+  balloon_popped: {
+    id: EntityId;
+    defId: string;
+    scrapId: EntityId;
+    cause: 'sharp' | 'hot' | 'chop';
+    x: number;
+    y: number;
+  };
   /** Food toasted by heat (rule R12). */
   toasted: { id: EntityId; defId: string; x: number; y: number };
   /**

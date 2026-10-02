@@ -268,6 +268,8 @@ export class Cauldron {
     const sim = this.sim;
     const m = this.mouth()!;
     const b = this.preview();
+    // Jars and balloons brewed away come home later (`Trash.owe`).
+    for (const p of this.state.contents) sim.trash.owe(p.defId);
     this.state.contents = [];
     this.state.stir = 0;
     this.halves = 0;

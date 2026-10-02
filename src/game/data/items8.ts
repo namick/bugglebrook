@@ -82,7 +82,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
       accent: 0xffb3ba,
       tags: ['tag_lifty', 'tag_light'],
     },
-    { lift: 1.5, linearDamping: 1.6, angularDamping: 2 },
+    { lift: 1.5, linearDamping: 1.6, angularDamping: 2, pops: 'item_balloon_scrap' },
   ),
   item(
     'item_balloon_blue',
@@ -98,7 +98,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
       accent: 0xc2e6ff,
       tags: ['tag_lifty', 'tag_light'],
     },
-    { lift: 1.5, linearDamping: 1.6, angularDamping: 2 },
+    { lift: 1.5, linearDamping: 1.6, angularDamping: 2, pops: 'item_balloon_scrap' },
   ),
   item('item_balloon_scrap', {
     name: 'Balloon scrap',

@@ -306,9 +306,15 @@ export class Toys {
     const sim = this.sim;
     const physics = sim.physics;
     const lifted = new Set<EntityId>();
+    const hot: Entity[] = [];
     for (const e of sim.entities.ofKind('item')) {
       if (sim.isSleeping(e.id) || !physics.isActive(e.id)) continue;
       const def = sim.content.items.get(e.defId);
+      // A balloon that gets hot (the compost heap, fire breath) pops.
+      if (def.pops && sim.hasTag(e.id, 'tag_hot')) {
+        hot.push(e);
+        continue;
+      }
       if (def.lift !== undefined && !lifted.has(e.id)) this.lift(e, lifted);
       switch (def.toy) {
         case 'basket':
@@ -337,6 +343,7 @@ export class Toys {
           break;
       }
     }
+    for (const e of hot) sim.pop(e, 'hot');
   }
 
   /**

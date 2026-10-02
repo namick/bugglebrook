@@ -471,6 +471,8 @@ export class Sfx {
       bus.on('frost_sneezed', () => this.limited('achoo', 300)),
       bus.on('balloon_deflated', () => this.play('deflate')),
       bus.on('shattered', () => this.limited('shatter', 100)),
+      bus.on('balloon_popped', () => this.limited('balloon_bang', 80)),
+      bus.on('petal_shed', () => this.limited('swish', 400, 0.4)),
       bus.on('toasted', () => this.limited('sizzle', 250)),
       // With the music toys running (M9), they play notes on the beat; this only logs them.
       bus.on('note_played', (e) =>

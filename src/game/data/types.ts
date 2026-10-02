@@ -783,6 +783,10 @@ export interface ItemDef {
   magnetAt?: Point2;
   /** Breaks on a hard knock (rule R11) into `count` of `into`, at `speed` m/s or more. */
   shatters?: { into: string; count: number; speed: number };
+  /** Pops with a bang on anything `sharp` or hot, or a karate chop, leaving this behind (a balloon's scrap). */
+  pops?: string;
+  /** Pokes holes: a balloon touching it pops. */
+  sharp?: boolean;
   /** A musical thing's note, as a scale step (0 is the area's root), for rule R20. */
   note?: number;
   /**

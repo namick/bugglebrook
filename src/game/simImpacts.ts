@@ -3,7 +3,7 @@
 // These are parts of `Sim`, split out of sim.ts to keep it readable: each
 // takes the sim, and `Sim` keeps a one-line method that calls it.
 
-import type { EntityId } from './core/entities';
+import type { Entity, EntityId } from './core/entities';
 import { BONK_SPEED, GRAVITY } from './constants';
 import type { ItemDef } from './data/types';
 import type { Impact } from './physics/physics';
@@ -17,6 +17,7 @@ export function handleImpacts(sim: Sim, impacts: Impact[]): void {
   const bonked = new Map<EntityId, number>();
   const launched = new Set<EntityId>();
   const breaks = new Map<EntityId, { other: EntityId | null; x: number; y: number }>();
+  const pops = new Map<EntityId, 'sharp' | 'hot'>();
   for (const impact of impacts) {
     // A contact the setup rule let a hopping bug drop through is no bump and no landing.
     if (impact.a !== null && impact.b !== null && droppedPast(sim, impact.a, impact.b, impact.ny)) continue;
@@ -43,6 +44,12 @@ export function handleImpacts(sim: Sim, impacts: Impact[]): void {
       if (entity.kind === 'item' && other !== null) sim.tryCatch(self, other);
       if (impact.speed >= BONK_SPEED) bonked.set(self, Math.max(bonked.get(self) ?? 0, impact.speed));
       const def = entity.kind === 'item' ? sim.content.items.get(entity.defId) : null;
+      // A balloon touching something sharp or hot pops (the design doc's balloon).
+      if (def?.pops && other !== null && hit && !pops.has(self)) {
+        const sharp = hit.kind === 'item' && sim.content.items.get(hit.defId).sharp === true;
+        if (sharp) pops.set(self, 'sharp');
+        else if (sim.hasTag(other, 'tag_hot')) pops.set(self, 'hot');
+      }
       if (def?.launchSpeed && def.toy !== 'launcher' && other !== null && !launched.has(other))
         if (sim.trySpring(self, def, other, impact, sign)) launched.add(other);
       // A potion bottle breaks on a hard knock; so does anything fragile (rule R11).
@@ -63,6 +70,10 @@ export function handleImpacts(sim: Sim, impacts: Impact[]): void {
     const s = sim.physics.getState(id);
     sim.events.emit('bonked', { id, kind: entity.kind, defId: entity.defId, speed, x: s.x, y: s.y });
   }
+  for (const [id, cause] of [...pops].sort((p, q) => p[0] - q[0])) {
+    const e = sim.entities.get(id);
+    if (e) sim.pop(e, cause);
+  }
   for (const [id, b] of [...breaks].sort((p, q) => p[0] - q[0])) {
     const e = sim.entities.get(id);
     if (!e) continue;
@@ -73,6 +84,23 @@ export function handleImpacts(sim: Sim, impacts: Impact[]): void {
       if (sh) sim.shatter(e, sh.into, sh.count);
     }
   }
+}
+
+/**
+ * A balloon pops: it is gone with a bang, its scrap flutters down where it
+ * was, and bugs nearby turn to look. A new balloon comes home later
+ * (`Trash.owe`).
+ */
+export function popBalloon(sim: Sim, e: Entity, cause: 'sharp' | 'hot' | 'chop'): void {
+  const into = sim.content.items.get(e.defId).pops;
+  if (!into || !sim.content.items.has(into) || sim.isSleeping(e.id)) return;
+  const s = sim.physics.getState(e.id);
+  sim.remove(e.id);
+  sim.trash.owe(e.defId);
+  const scrap = sim.spawn('item', into, s.x, s.y);
+  sim.physics.setVelocity(scrap.id, s.vx * 0.3, -2.5);
+  sim.noteLoud(s.x, s.y);
+  sim.events.emit('balloon_popped', { id: e.id, defId: e.defId, scrapId: scrap.id, cause, x: s.x, y: s.y });
 }
 
 /** A thrown food that hits a bug near its mouth gets eaten: a great shot. */

@@ -46,6 +46,7 @@ export const CRAFT_SFX = [
   'stomp',
   'achoo',
   'deflate',
+  'balloon_bang',
   'shatter',
   'sizzle',
   'note',
@@ -629,6 +630,13 @@ export function craftTones(name: CraftSfx, j: number, intensity: number, random:
           gain: 0.06,
           delay: 0.22 + k * 0.06,
         })),
+      ];
+    case 'balloon_bang':
+      // A sharp crack of noise with a thump under it, and a rubbery flap after.
+      return [
+        { freq: 4000 * j, to: 900 * j, dur: 0.09, wave: 'noise', q: 0.6, gain: 0.32 },
+        { freq: 160 * j, to: 60 * j, dur: 0.12, wave: 'sine', gain: 0.3 },
+        { freq: 300 * j, to: 140 * j, dur: 0.18, wave: 'square', gain: 0.05, delay: 0.06 },
       ];
     case 'deflate':
       // A long raspberry zip, pitch falling as the air runs out.

@@ -676,6 +676,7 @@ export const WRITTEN_ITEMS: readonly ItemDef[] = [
     accent: 0xc9a86a,
     tags: ['tag_light'],
     adverts: [],
+    sharp: true,
   },
   {
     id: 'item_foil_ball',

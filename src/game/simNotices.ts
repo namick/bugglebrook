@@ -176,6 +176,12 @@ export function emitNotice(sim: Sim, self: Entity, notice: BugNotice, selfState:
       const item = sim.entities.get(notice.itemId);
       if (!item) return;
       const p = sim.physics.getState(item.id);
+      // A balloon does not fly off: it pops (the design doc's Prim).
+      if (sim.content.items.get(item.defId).pops) {
+        sim.events.emit('bug_chopped', { ...base, itemId: item.id, x: p.x, y: p.y });
+        sim.pop(item, 'chop');
+        return;
+      }
       const dir = entity.bug?.facing ?? 1;
       sim.physics.setVelocity(item.id, dir * 3.5, -4.5);
       sim.events.emit('bug_chopped', { ...base, itemId: item.id, x: p.x, y: p.y });

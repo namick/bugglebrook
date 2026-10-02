@@ -341,6 +341,7 @@ export function validateContent(
     const where = `item ${item.id}`;
     if (item.potion !== undefined) ref(content.potions, item.potion, where);
     if (item.blueprint !== undefined) ref(content.recipes, item.blueprint, where);
+    if (item.pops) ref(content.items, item.pops, where);
     if (item.shatters) {
       ref(content.items, item.shatters.into, where);
       if (!(item.shatters.count > 0 && item.shatters.speed > 0))

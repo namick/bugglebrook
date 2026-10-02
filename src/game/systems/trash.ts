@@ -59,6 +59,18 @@ const BURP_RANGE = 5;
 /** A home spot already holding this many of its kind within HOME_CROWD (m) counts as full. */
 const HOME_CROWD = 1.5;
 
+/**
+ * World kinds that rules or secrets use up (a balloon pops, a glass jar
+ * turns into a cloud jar or rainbow paint, or breaks). Each one used up
+ * comes home later through the can, like a thing thrown away, so the
+ * secrets that need them can always be found again.
+ */
+export const REPLACED: ReadonlySet<string> = new Set([
+  'item_jar_glass',
+  'item_balloon_red',
+  'item_balloon_blue',
+]);
+
 export const JUNK_BLOB = 'item_junk_blob';
 export const TIDY_WHISTLE = 'item_tidy_whistle';
 
@@ -446,6 +458,16 @@ export class Trash {
     const e = sim.restorePart(next.part, spot.x, spot.y);
     sim.physics.setVelocity(e.id, 0, 1);
     sim.events.emit('item_came_home', { id: e.id, defId: e.defId, x: spot.x, y: spot.y });
+  }
+
+  /**
+   * A world thing was used up by a rule or a secret: a fresh one comes home
+   * in a while, as if it had been thrown away. Only kinds in `REPLACED`.
+   */
+  owe(defId: string): void {
+    if (!REPLACED.has(defId) || !this.sim.content.items.has(defId)) return;
+    const last = this.state.inside[this.state.inside.length - 1]?.back ?? -Infinity;
+    this.state.inside.push({ part: { defId }, back: Math.max(this.sim.tick + TRASH_BACK, last + BACK_GAP) });
   }
 
   private burp(): void {
