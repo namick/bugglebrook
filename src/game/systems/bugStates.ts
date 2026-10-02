@@ -9,6 +9,7 @@ import type { BugContext, BugDecision } from './bugTypes';
 import {
   EMPTY_WORLD,
   SPOT_BEADS,
+  SPOT_CAPS,
   SPOT_CAMERA,
   SPOT_SLIDE,
   SPOT_STAGE,
@@ -16,6 +17,7 @@ import {
   SPOT_WATER,
 } from './bugTypes';
 import { MACHINE_ACTIONS, arriveAtMachine, carryToMachine, useMachine } from './bugMachines';
+import { arriveAtCaps, startPlaying, useMusic } from './bugMusic';
 import {
   ARRIVE,
   DECIDE_EVERY,
@@ -418,8 +420,9 @@ export function airborne(
 }
 
 /** Sniffing something new (`st_use` with `inspect`). */
-export function use(brain: BugBrain, ctx: BugContext, out: BugDecision): BugDecision {
+export function use(me: EntityId, brain: BugBrain, ctx: BugContext, out: BugDecision): BugDecision {
   if (brain.action !== null && MACHINE_ACTIONS.has(brain.action)) return useMachine(brain, ctx, out);
+  if (brain.action === 'play' || brain.action === 'tap') return useMusic(me, brain, ctx, out);
   const { rng, tick, def } = ctx;
   const target = brain.targetId === null ? null : ctx.target(brain.targetId);
   if (target) face(brain, ctx, target.x, out);
@@ -605,6 +608,7 @@ export function seek(
         out.notices.push({ type: 'posed' }, react(brain, 'show_off', rng, tick));
         return out;
       }
+      if (id === SPOT_CAPS) return arriveAtCaps(brain, ctx, out) ? out : giveUp();
       if (arriveAtMachine(brain, ctx, id, out)) return out;
       return giveUp();
     }
@@ -837,6 +841,10 @@ export function seek(
       out.notices.push({ type: 'used', action: 'roll', targetId: id });
       return out;
     }
+    case 'play':
+      // An instrument: play it where it lies.
+      if (!startPlaying(brain, ctx, id, out)) return giveUp();
+      return out;
     case 'tinker':
     case 'brew':
       // Something for the bench or the cauldron: pick it up and take it there.

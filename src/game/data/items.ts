@@ -1,6 +1,7 @@
 import type { Advert, ItemDef } from './types';
 import { createRegistry } from './registry';
 import { M8_ITEMS } from './items8';
+import { M9_ITEMS } from './items9';
 import { growItem } from './itemSize';
 
 const EAT_FOOD: Advert = { action: 'eat', needs: { need_hunger: 20 } };
@@ -1082,6 +1083,7 @@ export const WRITTEN_ITEMS: readonly ItemDef[] = [
     catchable: true,
   },
   ...M8_ITEMS,
+  ...M9_ITEMS,
 ];
 
 /** Every item, at the size the world uses (`growItem`). */

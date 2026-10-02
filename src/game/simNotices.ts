@@ -187,6 +187,25 @@ export function emitNotice(sim: Sim, self: Entity, notice: BugNotice, selfState:
       sim.weather.releaseDial();
       sim.events.emit('bug_turned_dial', { ...base, minutes: notice.minutes, x: s.x, y: s.y });
       return;
+    case 'played': {
+      const item = sim.entities.get(notice.itemId);
+      if (!item) return;
+      sim.events.emit('instrument_played', {
+        id: entity.id,
+        itemId: notice.itemId,
+        defId: item.defId,
+        beats: notice.beats,
+        x: s.x,
+        y: s.y,
+      });
+      return;
+    }
+    case 'tapped_cap':
+      sim.places.bugTapped(entity.id, notice.row, notice.col);
+      return;
+    case 'left_caps':
+      sim.places.bugLeft(entity.id);
+      return;
     case 'tossed':
       if (notice.into === 'tray') sim.bench.expect(notice.itemId, notice.tray);
       return;

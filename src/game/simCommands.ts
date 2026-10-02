@@ -127,6 +127,9 @@ export function apply(sim: Sim, command: Command): void {
       });
       // A junk blob shaken in the hand splits back into what went in.
       if (entity.defId === 'item_junk_blob') sim.bench.split(entity);
+      // A maraca (or any instrument) shaken in the hand plays, like a poke.
+      if (entity.kind === 'item' && sim.content.items.get(entity.defId).toy === 'instrument')
+        sim.toys.poked(entity);
       // Something fizzy shaken up launches itself like a rocket, once (section 6, `tag_fizzy`).
       else if (entity.kind === 'item' && sim.hasTag(entity.id, 'tag_fizzy')) sim.fizz(entity);
       return;
@@ -216,6 +219,9 @@ export function apply(sim: Sim, command: Command): void {
       return;
     case 'stir':
       sim.cauldron.stir(command.radians);
+      return;
+    case 'seq_touch':
+      sim.places.touchSequencer(command.x, command.y, command.start);
       return;
     case 'despawn':
       if (sim.entities.has(command.id) && sim.physics.grabbed !== command.id) sim.remove(command.id);

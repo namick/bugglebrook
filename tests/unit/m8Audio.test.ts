@@ -178,7 +178,7 @@ describe('M8 sounds', () => {
     expect(noteTones('item_inst_can_bass', 0)[0]!.freq).toBeLessThan(200);
     expect(noteTones('item_inst_thimble_drum', 0).some((t) => t.wave === 'noise')).toBe(true);
     const { sim, backend } = setup();
-    sim.events.emit('note_played', { id: 1, defId: 'item_comb_tooth', note: 4, ...p });
+    sim.events.emit('note_played', { id: 1, defId: 'item_comb_tooth', note: 4, poked: true, ...p });
     expect(backend.played[0]!.freq).toBeCloseTo(noteFreq(4), -1);
   });
 });

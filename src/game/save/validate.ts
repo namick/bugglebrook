@@ -1,4 +1,5 @@
 import { BUG_MODES, SOCIAL_KINDS } from '../core/entities';
+import { sequencerProblems } from '../systems/sequencer';
 import { ADVERT_ACTIONS } from '../data/types';
 import { REACTION_TYPES } from '../events';
 import { POCKET_SLOTS, STACK_MAX } from '../systems/pocket';
@@ -86,6 +87,7 @@ function placeProblems(p: unknown): string[] {
   )
     errors.push('claw is invalid');
   if (!Array.isArray(p.rng) || p.rng.length !== 4 || !p.rng.every(isNum)) errors.push('rng is invalid');
+  if (p.sequencer !== undefined) errors.push(...sequencerProblems(p.sequencer));
   return errors;
 }
 

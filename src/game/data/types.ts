@@ -170,7 +170,9 @@ export type FixtureKind =
   | 'tinker_bench'
   | 'bench_lever'
   | 'cauldron'
-  | 'bug_scope';
+  | 'bug_scope'
+  // M9: the mushroom sequencer.
+  | 'sequencer';
 
 /** A fixed part of an area. Positions are area-local x and world y, in meters. */
 export interface FixtureDef {
@@ -515,7 +517,12 @@ export type ItemArt =
   | 'kazoo'
   | 'band_harp'
   | 'can_bass'
-  | 'thimble_drum';
+  | 'thimble_drum'
+  // M9's instruments.
+  | 'maraca'
+  | 'castanets'
+  | 'bottle_flute'
+  | 'leaf_xylophone';
 
 /**
  * What a bug can do with an advert (game design doc, section 5). Items offer
@@ -539,7 +546,10 @@ export type AdvertAction =
   | 'tinker'
   | 'brew'
   | 'slide'
-  | 'wade';
+  | 'wade'
+  // M9: playing an instrument, and hopping on the mushroom sequencer's caps.
+  | 'play'
+  | 'tap';
 
 export const ADVERT_ACTIONS: readonly AdvertAction[] = [
   'eat',
@@ -558,6 +568,8 @@ export const ADVERT_ACTIONS: readonly AdvertAction[] = [
   'brew',
   'slide',
   'wade',
+  'play',
+  'tap',
 ];
 
 /** What an object offers a bug (game design doc, section 5). */

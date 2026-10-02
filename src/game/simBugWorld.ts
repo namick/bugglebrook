@@ -168,6 +168,24 @@ export function machinesOf(sim: Sim): Machines {
       : null,
     beads: pit ? { x0: pit.x - pitHalf + 0.7, x1: pit.x + pitHalf - 0.7, y: pit.fixture.y } : null,
     walls: jar ? [{ x0: jar.x0, x1: jar.x1 }] : [],
+    sequencer: sequencerView(sim, awake),
+  };
+}
+
+/** The mushroom sequencer's bank for the bug AI (M9). */
+function sequencerView(sim: Sim, awake: (areaId: string) => boolean): Machines['sequencer'] {
+  const f = sim.places.fixtures('sequencer')[0];
+  const layout = sim.places.sequencerLayout();
+  if (!f || !layout || !awake(f.area.id)) return null;
+  const s = sim.places.sequencer;
+  const x0 = layout.x0;
+  const x1 = layout.x0 + 8 * layout.cell;
+  return {
+    x0,
+    x1,
+    y: sim.surfaceY((x0 + x1) / 2),
+    free: s.bug === null && s.patterns[s.current].every((r) => r === 0),
+    tapper: s.bug?.id ?? null,
   };
 }
 

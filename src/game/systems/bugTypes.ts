@@ -20,6 +20,8 @@ export const SPOT_TRAY = -9;
 export const SPOT_CAULDRON = -10;
 export const SPOT_SLIDE = -11;
 export const SPOT_BEADS = -12;
+/** The mushroom sequencer's bank of caps (M9). */
+export const SPOT_CAPS = -13;
 
 /** The machines in the newer areas, as a bug's AI sees them. Each is null when its area is shut or asleep. */
 export interface Machines {
@@ -47,6 +49,12 @@ export interface Machines {
   beads: { x0: number; x1: number; y: number } | null;
   /** Tall things standing on the floor that no bug walks past (the claw machine's jar). */
   walls: readonly { x0: number; x1: number }[];
+  /**
+   * The mushroom sequencer's bank: its span, the ground under it, and
+   * whether a bug may hop on its caps (the player's grid is empty and no
+   * other bug is on it).
+   */
+  sequencer?: { x0: number; x1: number; y: number; free: boolean; tapper: EntityId | null } | null;
 }
 
 /** Something a bug could go and do, offered by an object, another bug, or a spot nearby. */
@@ -262,6 +270,12 @@ export type BugNotice = (
   | { type: 'tossed'; itemId: EntityId; into: 'tray' | 'cauldron'; tray: number }
   /** Went round the cauldron with the ladle by this many radians. */
   | { type: 'stirred'; radians: number }
+  /** Started playing an instrument for this many beats (M9). */
+  | { type: 'played'; itemId: EntityId; beats: number }
+  /** Hopped on a cap of the sequencer's empty grid, switching it on or off (M9). */
+  | { type: 'tapped_cap'; row: number; col: number }
+  /** Stopped hopping on the sequencer: its bug pattern goes. */
+  | { type: 'left_caps' }
 ) & { by?: EntityId };
 
 export interface BugDecision {

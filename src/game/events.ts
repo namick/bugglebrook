@@ -269,7 +269,7 @@ export interface GameEvents {
   gnome_answered: { x: number; y: number };
   /** A hint that something is hiding: the nibbled leaf rustles, the tulip hums, eyes peek from the pot. */
   hideout_stirred: { fixture: string; x: number; y: number };
-  /** Three or more bugs danced on the stage together. */
+  /** Three or more bugs danced or played instruments on the stage together: the band layer joins the music. */
   band_played: { count: number; x: number; y: number };
   /** The porch lamp was clicked on or off. */
   lamp_toggled: { on: boolean; x: number; y: number };
@@ -404,8 +404,29 @@ export interface GameEvents {
   shattered: { id: EntityId; defId: string; into: string; pieces: EntityId[]; x: number; y: number };
   /** Food toasted by heat (rule R12). */
   toasted: { id: EntityId; defId: string; x: number; y: number };
-  /** A musical thing was struck or poked and played its note (rule R20). */
-  note_played: { id: EntityId; defId: string; note: number; x: number; y: number };
+  /**
+   * A musical thing was struck or poked and played its note (rule R20).
+   * `poked`: the player's poke, which plays the next note of a motif (M9);
+   * otherwise a physics hit, which plays the thing's own scale degree `note`.
+   */
+  note_played: { id: EntityId; defId: string; note: number; x: number; y: number; poked: boolean };
+  // --- Music (M9) ------------------------------------------------------------
+  /** A bug started playing an instrument where it lies, for about this many beats. */
+  instrument_played: { id: EntityId; itemId: EntityId; defId: string; beats: number; x: number; y: number };
+  /**
+   * The mushroom sequencer changed: a cap, a row's mute tuft, the clear
+   * stone (`wobbled` on the first click, `cleared` on the second), the speed
+   * knob, or the A/B seed. `by` is the bug hopping on an empty grid's caps.
+   */
+  sequencer_changed: {
+    action: 'cap' | 'mute' | 'wobbled' | 'cleared' | 'speed' | 'pattern';
+    row: number;
+    col: number;
+    on: boolean;
+    x: number;
+    y: number;
+    by: EntityId | null;
+  };
   /** A crafted toy did its thing. */
   toy_used: {
     id: EntityId;

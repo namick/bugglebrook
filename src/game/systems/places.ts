@@ -7,6 +7,18 @@ import { PAINT_IDS } from '../data/types';
 import type { Sim } from '../sim';
 import { DAY, MINUTE, isDaylight } from './sky';
 import { mixPaint } from './paint';
+import type { SeqLayout, SequencerState } from './sequencer';
+import {
+  CLEAR_WINDOW,
+  emptyRows,
+  isEmpty,
+  isOn,
+  isTheme,
+  newSequencerState,
+  seqHit,
+  seqLayout,
+  setCell,
+} from './sequencer';
 
 /**
  * The fixtures of M7's areas (game design doc, section 3): the flowerbed's
@@ -64,6 +76,8 @@ export interface PlaceState {
   band: number;
   /** Clicks on the bug scope's eyepiece, to show the next tag each time (M8). */
   scope?: number;
+  /** The mushroom sequencer (M9). Worlds saved before it get an empty one. */
+  sequencer?: SequencerState;
   rng: RngState;
 }
 
@@ -114,7 +128,7 @@ const CLAW_POOL: readonly string[] = [
 /** How many beads in the bead pit. */
 export const BEADS = 96;
 export const BEAD_RADIUS = 0.12;
-/** Three bugs dancing on the stage make a band, at most every 20 s. */
+/** Three bugs dancing or playing on the stage make a band, at most every 20 s. */
 export const BAND = 3;
 const BAND_GAP = 20 * SIM_HZ;
 
@@ -135,6 +149,7 @@ export function newPlaceState(seed: string): PlaceState {
     dominoes: {},
     falls: [],
     band: -1,
+    sequencer: newSequencerState(),
     rng: new Rng(`places-${seed}`).getState(),
   };
 }
@@ -166,6 +181,7 @@ export class Places {
 
   restore(state: PlaceState): void {
     this.state = state;
+    state.sequencer ??= newSequencerState();
     this.rng = Rng.fromState(state.rng);
   }
 
@@ -362,6 +378,139 @@ export class Places {
     }
   }
 
+  // --- The mushroom sequencer (M9) -------------------------------------------
+
+  /** Its state; worlds from before M9 get an empty one. */
+  get sequencer(): SequencerState {
+    return (this.state.sequencer ??= newSequencerState());
+  }
+
+  /** Where its caps and controls are, in world meters, or null when its area is shut. */
+  sequencerLayout(): SeqLayout | null {
+    const f = this.fixtures('sequencer')[0];
+    if (!f || !this.sim.barriers.isOpen(f.area.id)) return null;
+    return seqLayout(f.x, f.fixture.y);
+  }
+
+  /** The cap state a drag paints, set by the press that started it. Not saved. */
+  private seqPaint: boolean | null = null;
+
+  /**
+   * The player's hand on the sequencer: `start` for a press, otherwise a drag.
+   * A press on a cap toggles it and sets what the drag paints; the tufts mute
+   * rows, the stone clears on a second click, the knob doubles the speed, and
+   * the seed switches between patterns A and B. True if it did something.
+   */
+  touchSequencer(x: number, y: number, start: boolean): boolean {
+    const sim = this.sim;
+    const f = this.fixtures('sequencer')[0];
+    const layout = this.sequencerLayout();
+    if (!f || !layout || sim.isAreaAsleep(f.area.id)) return false;
+    const hit = seqHit(layout, x, y);
+    const s = this.sequencer;
+    const emit = (
+      action: 'cap' | 'mute' | 'wobbled' | 'cleared' | 'speed' | 'pattern',
+      row: number,
+      col: number,
+      on: boolean,
+    ): void => sim.events.emit('sequencer_changed', { action, row, col, on, x, y, by: null });
+    if (!start) {
+      if (this.seqPaint === null || hit?.kind !== 'cap') return false;
+      const rows = s.patterns[s.current];
+      if (isOn(rows, hit.row, hit.col) === this.seqPaint) return false;
+      this.playerSet(hit.row, hit.col, this.seqPaint);
+      emit('cap', hit.row, hit.col, this.seqPaint);
+      return true;
+    }
+    this.seqPaint = null;
+    if (!hit) return false;
+    switch (hit.kind) {
+      case 'cap': {
+        const on = !isOn(s.patterns[s.current], hit.row, hit.col);
+        this.seqPaint = on;
+        this.playerSet(hit.row, hit.col, on);
+        emit('cap', hit.row, hit.col, on);
+        return true;
+      }
+      case 'tuft':
+        s.mutes[hit.row] = !s.mutes[hit.row];
+        emit('mute', hit.row, -1, s.mutes[hit.row]!);
+        return true;
+      case 'stone':
+        if (s.clearArmed >= 0 && sim.tick - s.clearArmed <= CLEAR_WINDOW) {
+          s.patterns[s.current] = emptyRows();
+          s.bug = null;
+          s.clearArmed = -1;
+          emit('cleared', -1, -1, false);
+        } else {
+          s.clearArmed = sim.tick;
+          emit('wobbled', -1, -1, true);
+        }
+        return true;
+      case 'knob':
+        s.fast = !s.fast;
+        emit('speed', -1, -1, s.fast);
+        return true;
+      case 'seed':
+        s.current = s.current === 0 ? 1 : 0;
+        emit('pattern', -1, -1, s.current === 1);
+        return true;
+    }
+  }
+
+  /** The player sets a cap: a bug's pattern on the empty grid gives way, and the theme may be in. */
+  private playerSet(row: number, col: number, on: boolean): void {
+    const s = this.sequencer;
+    setCell(s.patterns[s.current], row, col, on);
+    s.bug = null;
+    if (!isTheme(s.patterns[s.current])) return;
+    const layout = this.sequencerLayout();
+    if (!layout || this.sim.secrets.includes('secret_sequencer_song')) return;
+    this.sim.findSecret('secret_sequencer_song', layout.x0, layout.y0);
+    // Every bug in the world stops and sings it together.
+    for (const b of this.sim.entities.ofKind('bug'))
+      if (b.bug && !b.bug.pending && !this.sim.isSleeping(b.id) && b.bug.mode !== 'st_sleep')
+        this.sim.reactBug(b, 'cheer');
+  }
+
+  /** A bug hopped on a cap of the empty grid: its own pattern, never the player's. */
+  bugTapped(bugId: EntityId, row: number, col: number): void {
+    const s = this.sequencer;
+    const layout = this.sequencerLayout();
+    if (!layout || !isEmpty(s.patterns[s.current])) return;
+    if (s.bug && s.bug.id !== bugId) return;
+    s.bug ??= { id: bugId, rows: emptyRows() };
+    const on = !isOn(s.bug.rows, row, col);
+    setCell(s.bug.rows, row, col, on);
+    const p = { x: layout.x0 + (col + 0.5) * layout.cell, y: layout.y0 + (row + 0.5) * layout.cell };
+    this.sim.events.emit('sequencer_changed', { action: 'cap', row, col, on, ...p, by: bugId });
+  }
+
+  /** The bug hopped off: its pattern goes. */
+  bugLeft(bugId: EntityId): void {
+    const s = this.sequencer;
+    if (s.bug?.id !== bugId) return;
+    s.bug = null;
+    const layout = this.sequencerLayout();
+    this.sim.events.emit('sequencer_changed', {
+      action: 'cleared',
+      row: -1,
+      col: -1,
+      on: false,
+      x: layout?.x0 ?? 0,
+      y: layout?.y0 ?? 0,
+      by: bugId,
+    });
+  }
+
+  /** A bug pattern whose bug is gone, asleep, or doing something else goes too. */
+  private sequencerRule(): void {
+    const bug = this.sequencer.bug;
+    if (!bug) return;
+    const e = this.sim.entities.get(bug.id);
+    if (!e?.bug || this.sim.isSleeping(bug.id) || e.bug.action !== 'tap') this.bugLeft(bug.id);
+  }
+
   // --- Hooks from the sim ----------------------------------------------------
 
   /** The player grabbed something. Caught mid-fall from the porch floor, it turns into an old coin. */
@@ -466,6 +615,7 @@ export class Places {
       this.webRule();
       this.dominoRule();
       this.bandRule();
+      this.sequencerRule();
       this.spiderRule();
       this.fallingRule();
     }
@@ -622,8 +772,10 @@ export class Places {
     const stage = this.stage();
     if (!stage || (this.state.band >= 0 && sim.tick - this.state.band < BAND_GAP)) return;
     const dancers = sim.entities.ofKind('bug').filter((b) => {
-      if (!b.bug || sim.isSleeping(b.id) || b.bug.mode !== 'st_perform' || b.bug.action !== 'dance')
-        return false;
+      if (!b.bug || sim.isSleeping(b.id)) return false;
+      const dancing = b.bug.mode === 'st_perform' && b.bug.action === 'dance';
+      const playing = b.bug.mode === 'st_use' && b.bug.action === 'play';
+      if (!dancing && !playing) return false;
       const x = sim.physics.getState(b.id).x;
       return x > stage.x0 && x < stage.x1;
     });

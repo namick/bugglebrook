@@ -107,6 +107,12 @@ export const SECRETS = createRegistry<SecretDef>('secret', [
     unlocks: [],
   },
   {
+    id: 'secret_sequencer_song',
+    name: 'The Bugglebrook theme',
+    trigger: { type: 'scripted', area: 'area_flowerbed_stage' },
+    unlocks: [],
+  },
+  {
     id: 'secret_paint_all_five',
     name: 'Patchwork bug',
     trigger: { type: 'scripted', area: 'area_flowerbed_stage' },

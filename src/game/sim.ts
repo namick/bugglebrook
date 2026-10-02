@@ -131,6 +131,14 @@ const STINK_SECONDS = 6;
 const STINK_EVERY = 8 * SIM_HZ;
 /** Anything with a body this far straight overhead keeps the rain off (the porch boards are 6.5 m up). */
 const SHELTER_REACH = 8;
+/** M9's instruments, given to worlds saved before the sequencer. */
+const M9_STARTERS: readonly string[] = [
+  'item_inst_seedpod_maraca',
+  'item_inst_acorn_castanets',
+  'item_inst_thimble_drum',
+  'item_inst_bottle_flute',
+  'item_inst_leaf_xylophone',
+];
 /** Things M8 added to the areas' start lists, given to worlds saved before it. */
 const M8_STARTERS: readonly string[] = [
   'item_string',
@@ -547,6 +555,8 @@ export class Sim {
     sim.addMissingBugs();
     // M8's new things join worlds saved before the bench existed.
     if (!save.bench) sim.addMissingItems(M8_STARTERS);
+    // M9's instruments join worlds saved before the sequencer.
+    if (!save.places?.sequencer) sim.addMissingItems(M9_STARTERS);
     sim.toys.restore();
     for (const e of sim.entities.all()) if (e.effects) sim.potions.sync(e);
     sim.refreshFriction();

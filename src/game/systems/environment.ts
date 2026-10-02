@@ -162,6 +162,7 @@ const CLICKABLE: ReadonlySet<FixtureDef['kind']> = new Set<FixtureDef['kind']>([
   'can_tunnel',
   'stage_lights',
   'bluebell',
+  'sequencer',
   'gnome',
   'munch_leaf',
   'tulip',

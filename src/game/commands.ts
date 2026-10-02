@@ -88,6 +88,11 @@ export type Command =
   /** The shutter fired: what the photo was of, for the event log and the journal. */
   | { type: 'photo_taken'; frame: string; filter: string; stickers: number; zoom: number; bugs: string[] }
   /** The photo's file was written (or not), after `photo_taken`. */
-  | { type: 'photo_saved'; ok: boolean };
+  | { type: 'photo_saved'; ok: boolean }
+  /**
+   * The player's hand on the mushroom sequencer (M9): a press (`start`) on a
+   * cap or a control, or a drag across caps that paints them like the first.
+   */
+  | { type: 'seq_touch'; x: number; y: number; start: boolean };
 
 export type CommandType = Command['type'];

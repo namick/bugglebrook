@@ -1,5 +1,6 @@
 import type { Advert, ItemDef, ItemShape, MaterialId, ItemArt, ToyKind } from './types';
 import { POTIONS } from './potions';
+import { PLAY_INSTRUMENT } from './items9';
 
 const EAT_FOOD: Advert = { action: 'eat', needs: { need_hunger: 20 } };
 
@@ -720,6 +721,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
       material: 'mat_plastic',
       density: 0.8,
       art: 'kazoo',
+      adverts: [PLAY_INSTRUMENT],
       color: 0xff7eb6,
       accent: 0xfffdf4,
       tags: ['tag_musical'],
@@ -734,6 +736,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
       material: 'mat_paper',
       density: 0.7,
       art: 'band_harp',
+      adverts: [PLAY_INSTRUMENT],
       color: 0x4d7cff,
       accent: 0xe8813c,
       tags: ['tag_musical'],
@@ -748,6 +751,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
       material: 'mat_metal',
       density: 1.2,
       art: 'can_bass',
+      adverts: [PLAY_INSTRUMENT],
       color: 0xc7d3e3,
       accent: 0xe8813c,
       tags: ['tag_musical'],
@@ -762,6 +766,7 @@ export const M8_ITEMS: readonly ItemDef[] = [
       material: 'mat_metal',
       density: 1.2,
       art: 'thimble_drum',
+      adverts: [PLAY_INSTRUMENT],
       color: 0xc7d3e3,
       accent: 0xff4f5e,
       tags: ['tag_musical'],

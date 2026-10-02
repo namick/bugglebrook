@@ -316,6 +316,13 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
    * photos. A world without any has none to add: the version moves on.
    */
   11: (save) => ({ ...save, version: 12 }),
+  /**
+   * Version 13 (M9) adds the mushroom sequencer as `world.places.sequencer`
+   * and new instruments in the flowerbed, the pond, and the treehouse. The
+   * migration only bumps the version: loading a world without a sequencer
+   * gives it an empty one and the new instruments (`Sim.load`).
+   */
+  12: (save) => ({ ...save, version: 13 }),
 };
 
 export class SaveError extends Error {

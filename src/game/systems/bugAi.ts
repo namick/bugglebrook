@@ -870,7 +870,7 @@ export function updateBug(entity: Entity, ctx: BugContext): BugDecision {
   switch (brain.mode) {
     case 'st_airborne':
     case 'st_use': {
-      if (brain.mode === 'st_use' && brain.action !== 'bounce') return use(brain, ctx, out);
+      if (brain.mode === 'st_use' && brain.action !== 'bounce') return use(me, brain, ctx, out);
       return airborne(me, brain, ctx, speed, out);
     }
 

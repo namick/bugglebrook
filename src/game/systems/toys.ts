@@ -253,7 +253,7 @@ export class Toys {
     if (sim.tick - last < (poked ? 4 : 9)) return;
     this.noted.set(e.id, sim.tick);
     const note = this.def(e)?.note ?? e.id % 7;
-    sim.events.emit('note_played', { id: e.id, defId: e.defId, note, x, y });
+    sim.events.emit('note_played', { id: e.id, defId: e.defId, note, x, y, poked });
   }
 
   /** New contacts: trampoline bounces, notes from musical things. */

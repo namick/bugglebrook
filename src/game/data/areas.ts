@@ -164,6 +164,10 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_balloon_blue', x: 10.9 },
       { kind: 'item', defId: 'item_balloon_red', x: 6.9 },
       { kind: 'item', defId: 'item_blueprint_disco_ball', x: 13.6 },
+      // M9: instruments to play, one on the stage.
+      { kind: 'item', defId: 'item_inst_seedpod_maraca', x: 9.1 },
+      { kind: 'item', defId: 'item_inst_acorn_castanets', x: 14.6 },
+      { kind: 'item', defId: 'item_inst_thimble_drum', x: 17.9 },
     ],
     respawn: [
       { item: 'item_pollen_puff', count: 1 },
@@ -198,6 +202,8 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { id: 'fix_paint_yellow', kind: 'paint_puddle', x: 27.4, y: 9.1, radius: 0.34, paint: 'paint_yellow' },
       { id: 'fix_paint_white', kind: 'paint_puddle', x: 28.4, y: 9.1, radius: 0.34, paint: 'paint_white' },
       { id: 'fix_paint_black', kind: 'paint_puddle', x: 29.4, y: 9.1, radius: 0.34, paint: 'paint_black' },
+      // M9: the mushroom sequencer, a bank of soil with an 8 by 6 grid of caps behind the puddles.
+      { id: 'fix_mushroom_sequencer', kind: 'sequencer', x: 27.4, y: 6.6, radius: 0.5, w: 4.6, h: 3 },
     ],
   },
   {
@@ -234,6 +240,8 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_blueberry', x: 27.4 },
       { kind: 'item', defId: 'item_soap_sliver', x: 28.2 },
       { kind: 'item', defId: 'item_bubble_wand', x: 29.1 },
+      // M9: a bottle flute washed up by the water's edge.
+      { kind: 'item', defId: 'item_inst_bottle_flute', x: 30.3 },
     ],
     respawn: [{ item: 'item_blueberry', count: 2 }],
     skyTop: 0x8fd6f2,
@@ -592,6 +600,8 @@ export const AREAS = createRegistry<AreaDef>('area', [
       { kind: 'item', defId: 'item_marble_track_straight', x: 11.5 },
       { kind: 'item', defId: 'item_marble_track_curve', x: 12.9 },
       { kind: 'item', defId: 'item_marble_funnel', x: 13.95 },
+      // M9: a leaf xylophone by the spinning top.
+      { kind: 'item', defId: 'item_inst_leaf_xylophone', x: 27.6 },
       // Prizes in the jam jar claw machine.
       { kind: 'item', defId: 'item_foil_ball', x: 22.1 },
       { kind: 'item', defId: 'item_jelly_bean', x: 22.7 },

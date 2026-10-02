@@ -218,7 +218,7 @@ describe('save version 12: photos in the save', () => {
     );
     const next = MIGRATIONS[11]!(structuredClone(file));
     expect(next).toEqual({ ...file, version: 12 });
-    expect(SAVE_VERSION).toBe(12);
+    expect(SAVE_VERSION).toBeGreaterThanOrEqual(12);
     expect(loadSaveFile(JSON.stringify(file)).meta).toEqual({ createdAt: 't', thumb: null });
   });
 

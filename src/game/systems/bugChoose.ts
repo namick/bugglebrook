@@ -13,6 +13,7 @@ import { available, endSocial } from './bugSocial';
 import { addNeeds, moodOf, urgency } from './needs';
 import { enterSleep, isSocial, likingOf, scoreAdvert } from './bugAi';
 import { machineAdverts } from './bugMachines';
+import { canPlay, musicAdverts } from './bugMusic';
 import {
   IGNORED_TICKS,
   PERCEPTION,
@@ -253,6 +254,7 @@ function candidates(me: EntityId, brain: BugBrain, ctx: BugContext): AdvertCandi
     if (c.action === 'carry') return !!def.habits.rowsPebbles;
     if (c.action === 'lift') return !!def.habits.strong && brain.carrying === null;
     if (c.action === 'roll') return !!def.habits.rollsBalls && brain.carrying === null;
+    if (c.action === 'play') return canPlay(me, brain, ctx, c.id);
     // Day bugs look for a bed when their energy runs under about half.
     if (c.action === 'sleep') return brain.needs.need_energy < 55;
     // Umbrellas are for rain, picked by `skyCheck`.
@@ -278,6 +280,7 @@ function candidates(me: EntityId, brain: BugBrain, ctx: BugContext): AdvertCandi
     ...socialAdverts(me, brain, ctx),
     ...spotAdverts(brain, ctx),
     ...machineAdverts(me, brain, ctx),
+    ...musicAdverts(me, brain, ctx),
   ];
 }
 
