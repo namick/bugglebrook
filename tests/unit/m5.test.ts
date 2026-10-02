@@ -496,7 +496,9 @@ describe('SaveStore backups and recovery (main process)', () => {
     await store.write(0, '{"v":3}');
     expect(await store.read(0)).toBe('{"v":3}');
     expect(await store.readBackup(0)).toBe('{"v":2}');
-    expect(files()).toEqual(['slot-1.bak.json', 'slot-1.json']);
+    // The older backup is the save as this session found it.
+    expect(await store.readBackup(0, 'old')).toBe('{"v":1}');
+    expect(files()).toEqual(['slot-1.bak.json', 'slot-1.json', 'slot-1.old.json']);
   });
 
   it('leaves the old save loadable when a write dies between the temp file and the rename', async () => {
@@ -526,7 +528,7 @@ describe('SaveStore backups and recovery (main process)', () => {
     writeFileSync(join(dir, 'saves', 'slot-3.json'), '{"v":"new', 'utf8');
     expect(await store.recover(2)).toBe('{"v":"good"}');
     expect(await store.read(2)).toBe('{"v":"good"}');
-    expect(readFileSync(join(dir, 'saves', 'slot-3.corrupt.json'), 'utf8')).toBe('{"v":"new');
+    expect(readFileSync(join(dir, 'saves', 'slot-3.corrupt-1.json'), 'utf8')).toBe('{"v":"new');
   });
 
   it('never lets a corrupt save push out a good backup', async () => {
@@ -537,21 +539,21 @@ describe('SaveStore backups and recovery (main process)', () => {
     expect(await store.readBackup(0)).toBe('{"v":1}');
   });
 
-  it('with no backup, recovery empties the slot', async () => {
+  it('with no backup, recovery changes nothing: the save is never thrown away', async () => {
     mkdirSync(join(dir, 'saves'), { recursive: true });
     writeFileSync(join(dir, 'saves', 'slot-1.json'), '', 'utf8');
     expect(await store.recover(0)).toBeNull();
-    expect(await store.read(0)).toBeNull();
-    expect((await store.list())[0]!.exists).toBe(false);
+    expect(await store.read(0)).toBe('');
+    expect((await store.list())[0]!.exists).toBe(true);
   });
 
-  it('deleting a slot removes its save, backup, and set-aside file, and nothing else', async () => {
+  it('deleting a slot removes its save and backups, and keeps anything set aside', async () => {
     await store.write(0, '{}');
     await store.write(0, '{}');
     await store.write(1, '{}');
     writeFileSync(join(dir, 'saves', 'slot-1.corrupt.json'), 'x');
     await store.remove(0);
-    expect(files()).toEqual(['slot-2.json']);
+    expect(files()).toEqual(['slot-1.corrupt.json', 'slot-2.json']);
   });
 });
 
@@ -570,12 +572,15 @@ describe('SaveService recovery (renderer)', () => {
     expect(await service.load(0)).toEqual(loaded.save);
   });
 
-  it('shows a slot with nothing readable as empty', async () => {
+  it('shows a slot whose save will not open as locked, not empty', async () => {
     const api = memoryApi();
     await api.saves.write(1, '{"version": 999}');
+    await api.saves.write(2, 'garbage');
     const service = new SaveService(api.saves);
     const slots = await quiet(() => service.list());
-    expect(slots.map((s) => s.exists)).toEqual([false, false, false]);
+    expect(slots.map((s) => s.exists)).toEqual([false, true, true]);
+    expect(slots.map((s) => s.locked)).toEqual([null, 'newer', 'broken']);
+    expect(await api.saves.read(1)).toBe('{"version": 999}');
   });
 
   it("keeps the slot's creation time and picture meta", async () => {

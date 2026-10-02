@@ -127,7 +127,7 @@ test('a corrupt save comes back from its backup', async () => {
     expect(await bb.page.evaluate(() => window.__bb!.slotPictures())).toEqual([true, null, null]);
     await clickSlot(bb.page, 0);
     expect((await entities(bb.page)).filter((e) => e.kind === 'bug' && !e.bug?.pending)).toHaveLength(5);
-    expect(existsSync(join(userData, 'saves', 'slot-1.corrupt.json'))).toBe(true);
+    expect(existsSync(join(userData, 'saves', 'slot-1.corrupt-1.json'))).toBe(true);
   } finally {
     await bb.close();
   }

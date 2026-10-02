@@ -496,9 +496,9 @@ export class Game {
         this.sfx.play('ui_pop');
         void this.openSlot(slot);
       },
-      remove: async (slot) => {
+      remove: async (slot, locked) => {
         this.sfx.play('bin_shut');
-        await this.saves.remove(slot);
+        await this.saves.remove(slot, locked);
       },
       settings: () => this.openSettings(),
       credits: () => this.openCredits(),
@@ -516,12 +516,16 @@ export class Game {
 
   async openSlot(slot: number): Promise<void> {
     if (this.scene === 'world' || this.switching) return;
+    // A slot that will not open never becomes a new world: that would write over its save.
+    if (this.menu?.sign(slot)?.locked) return this.menu.sign(slot)?.refuse();
     await this.transition(() => this.buildWorld(slot), false);
   }
 
   private async buildWorld(slot: number): Promise<void> {
     this.closeCredits(true);
     const loaded = await this.saves.loadWithRecovery(slot);
+    // The save went bad since the menu looked: back to the menu, which shows its padlock.
+    if (loaded.locked) return this.buildMenu();
     if (loaded.recovered) this.recoveries.push(slot);
     const save = loaded.save;
     // Test mode seeds new worlds by slot alone, so every test run starts from the same world.

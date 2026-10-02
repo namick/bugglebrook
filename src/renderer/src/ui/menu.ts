@@ -3,7 +3,7 @@ import type { Renderer } from 'pixi.js';
 import { FixedStepper, Sim, VIEW_WIDTH_M } from '../../../game';
 import { CONTENT } from '../../../game/data';
 import { VIEW_HEIGHT_PX, VIEW_WIDTH_PX } from '../../../game/constants';
-import type { SlotSummary } from '../app/saveService';
+import type { SlotLock, SlotSummary } from '../app/saveService';
 import { Camera } from '../render/camera';
 import { WorldView } from '../render/worldView';
 import { stroke } from '../render/palette';
@@ -18,8 +18,8 @@ export type MenuSound = 'ui_pop' | 'hover' | 'pick' | 'crash' | 'sparkle' | 'swi
 
 export interface MenuHooks {
   open(slot: number): void;
-  /** Delete a slot. Resolves when it is gone. */
-  remove(slot: number): Promise<void>;
+  /** Delete a slot (a locked one is moved aside, never deleted). Resolves when it is gone. */
+  remove(slot: number, locked: SlotLock | null): Promise<void>;
   settings(): void;
   /** The heart: who made the game. */
   credits(): void;
@@ -115,7 +115,7 @@ export class MenuScene extends Container {
     this.ui.addChild(this.logo);
 
     slots.forEach((slot, i) => {
-      const sign = new SlotSign(slot.slot, slot.save ? slotPicture(slot.save) : null);
+      const sign = new SlotSign(slot.slot, slot.save ? slotPicture(slot.save) : null, slot.locked);
       sign.home = { x: SIGN_XS[i] ?? 960, y: SIGN_Y };
       // Signs pop up from the ground one after another.
       sign.position.set(sign.home.x, sign.home.y);
@@ -123,6 +123,11 @@ export class MenuScene extends Container {
       sign.label = `slot-${slot.slot}`;
       sign.onClick = () => {
         if (this.deleting) return;
+        if (sign.locked) {
+          sign.refuse();
+          this.hooks.sound('crash', 0.3);
+          return;
+        }
         this.hooks.open(slot.slot);
       };
       sign.onDragStart = () => {
@@ -242,7 +247,7 @@ export class MenuScene extends Container {
     this.deleting = true;
     this.closedFor = 0;
     this.hooks.sound('crash');
-    void this.hooks.remove(sign.slot).then(() => {
+    void this.hooks.remove(sign.slot, sign.locked).then(() => {
       sign.setPicture(null);
       sign.letGo();
       this.inBin = null;

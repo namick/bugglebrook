@@ -9,6 +9,8 @@ import { drawDotJar } from '../journal/entryArt';
 import { secretJar } from '../journal/layout';
 import { drawBoard } from './controls';
 import { CREAM, LEAF, LEAF_DARK, sproutIcon } from './icons';
+import { padlockIcon } from './saveIcons';
+import type { SlotLock } from '../app/saveService';
 
 export const SIGN_W = 380;
 export const SIGN_H = 340;
@@ -73,6 +75,10 @@ export async function textureFromDataUrl(url: string): Promise<Texture | null> {
  *
  * Click to play. A used sign can be dragged: drop it on the compost bin to
  * delete the slot (the bin's lid is the confirm).
+ *
+ * A slot whose save will not open (from a newer game, or broken with no
+ * backup that loads) shows a padlock. Clicking it only shakes the sign. It
+ * can go in the bin, which moves its files aside rather than deleting them.
  */
 export class SlotSign extends Container {
   readonly board = new Container();
@@ -94,7 +100,11 @@ export class SlotSign extends Container {
   rise = 0;
   private readonly post: Graphics;
   private lastX = 0;
+  /** Seconds left of the "can't open" shake. */
+  private shake = 0;
   picture: SlotPicture | null = null;
+  /** Why the slot will not open, or null. */
+  locked: SlotLock | null = null;
   onClick: (() => void) | null = null;
   onDragStart: (() => void) | null = null;
   onDrop: (() => void) | null = null;
@@ -102,6 +112,7 @@ export class SlotSign extends Container {
   constructor(
     readonly slot: number,
     picture: SlotPicture | null,
+    locked: SlotLock | null = null,
   ) {
     super();
     markUi(this);
@@ -121,7 +132,7 @@ export class SlotSign extends Container {
     this.board.addChild(drawBoard(new Graphics(), SIGN_W, SIGN_H, 0xd49a5e), this.face);
     const hit = new Graphics().rect(-SIGN_W / 2, -SIGN_H / 2, SIGN_W, SIGN_H).fill({ color: 0, alpha: 0 });
     this.addChild(hit);
-    this.setPicture(picture);
+    this.setPicture(picture, locked);
 
     this.on('pointerover', () => {
       if (!this.dragging) this.bounce.target = 1.05;
@@ -138,7 +149,7 @@ export class SlotSign extends Container {
       const p = this.parent!.toLocal(e.global);
       const dx = p.x - this.press.x;
       const dy = p.y - this.press.y;
-      if (!this.dragging && Math.hypot(dx, dy) > DRAG_PX && this.picture) {
+      if (!this.dragging && Math.hypot(dx, dy) > DRAG_PX && (this.picture || this.locked)) {
         this.dragging = true;
         this.bounce.target = 0.8;
         this.onDragStart?.();
@@ -174,11 +185,28 @@ export class SlotSign extends Container {
     this.bounce.target = 1;
   }
 
-  /** Show a slot's picture, or the sprout for an empty slot. */
-  setPicture(picture: SlotPicture | null): void {
+  /** Times the sign said no, for the test hook. */
+  refusals = 0;
+
+  /** Can't open: a quick side-to-side shake. */
+  refuse(): void {
+    this.shake = 0.45;
+    this.refusals++;
+  }
+
+  /** Show a slot's picture, a padlock for a locked slot, or the sprout for an empty one. */
+  setPicture(picture: SlotPicture | null, locked: SlotLock | null = null): void {
     this.picture = picture;
+    this.locked = picture ? null : locked;
     this.face.removeChildren().forEach((c) => c.destroy({ children: true }));
     this.sprout = null;
+    if (!picture && this.locked) {
+      const halo = new Graphics().circle(0, -6, 118).fill({ color: 0x5b4a5e, alpha: 0.18 });
+      const lock = padlockIcon(new Graphics(), 190, this.locked === 'newer');
+      lock.position.set(0, -10);
+      this.face.addChild(halo, lock);
+      return;
+    }
     if (!picture) {
       const halo = new Graphics().circle(0, -6, 118).fill({ color: CREAM, alpha: 0.35 });
       const sprout = sproutIcon(new Graphics(), 190);
@@ -264,7 +292,9 @@ export class SlotSign extends Container {
     const vx = dt > 0 ? (this.x - this.lastX) / dt : 0;
     this.lastX = this.x;
     this.tilt += (Math.max(-0.35, Math.min(0.35, vx / 3000)) - this.tilt) * Math.min(1, dt * 8);
-    this.board.rotation = this.tilt + Math.sin(this.time * 1.1 + this.slot * 2) * 0.012;
+    this.shake = Math.max(0, this.shake - dt);
+    const no = this.shake > 0 ? Math.sin(this.shake * 60) * 0.06 * (this.shake / 0.45) : 0;
+    this.board.rotation = this.tilt + no + Math.sin(this.time * 1.1 + this.slot * 2) * 0.012;
     // The post stays behind while dragged.
     this.post.visible =
       !this.dragging && !overBin && Math.hypot(this.x - this.home.x, this.y - this.home.y) < 40;

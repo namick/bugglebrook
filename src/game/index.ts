@@ -19,7 +19,7 @@ export type { PhotoState } from './systems/photo';
 export { PHOTO_MOMENT_TICKS, TOTEM_COUNT, TOTEM_TICKS, findTotem } from './systems/photo';
 export { POCKET_SLOTS, STACK_MAX } from './systems/pocket';
 export type { PocketState } from './systems/pocket';
-export { loadSaveFile, SaveError } from './save/migrations';
+export { loadSaveFile, SaveError, SaveTooNewError } from './save/migrations';
 export type { BugObservations, JournalState, Notice } from './systems/journal';
 export { BUTTERFLY_KEY, NOTICES, OBS_SLOTS, SPARKLE_AFTER, nextSecret } from './systems/journal';
 export type {

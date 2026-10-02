@@ -35,7 +35,11 @@ describe('SaveStore (main process)', () => {
     await store.write(0, '{"v":1}');
     await store.write(0, '{"v":2}');
     expect(await store.read(0)).toBe('{"v":2}');
-    expect(readdirSync(join(dir, 'saves')).sort()).toEqual(['slot-1.bak.json', 'slot-1.json']);
+    expect(readdirSync(join(dir, 'saves')).sort()).toEqual([
+      'slot-1.bak.json',
+      'slot-1.json',
+      'slot-1.old.json',
+    ]);
   });
 
   it('sweeps temp files left by a crash', async () => {

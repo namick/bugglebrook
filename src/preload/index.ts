@@ -27,8 +27,9 @@ const api: BugglebrookApi = {
     read: (slot) => ipcRenderer.invoke(IPC.savesRead, slot),
     write: (slot, data) => ipcRenderer.invoke(IPC.savesWrite, slot, data),
     remove: (slot) => ipcRenderer.invoke(IPC.savesRemove, slot),
-    readBackup: (slot) => ipcRenderer.invoke(IPC.savesReadBackup, slot),
-    recover: (slot) => ipcRenderer.invoke(IPC.savesRecover, slot),
+    readBackup: (slot, kind) => ipcRenderer.invoke(IPC.savesReadBackup, slot, kind),
+    recover: (slot, from) => ipcRenderer.invoke(IPC.savesRecover, slot, from),
+    setAside: (slot) => ipcRenderer.invoke(IPC.savesSetAside, slot),
   },
   settings: {
     get: () => ipcRenderer.invoke(IPC.settingsGet),

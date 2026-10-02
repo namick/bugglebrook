@@ -8,9 +8,10 @@ export const IPC = {
   savesRemove: 'saves:remove',
   savesReadBackup: 'saves:read-backup',
   savesRecover: 'saves:recover',
+  savesSetAside: 'saves:set-aside',
   settingsGet: 'settings:get',
   settingsSet: 'settings:set',
-  /** renderer -> main: write a photo (a PNG data URL) to the Pictures folder. Resolves to its path. */
+  /** renderer -> main: write a photo (the PNG's bytes) to the Pictures folder. Resolves to its path. */
   photosSave: 'photos:save',
   /** renderer -> main: the quit door on the menu. */
   quit: 'app:quit',
@@ -47,10 +48,16 @@ export interface BugglebrookApi {
     read(slot: number): Promise<string | null>;
     write(slot: number, data: string): Promise<void>;
     remove(slot: number): Promise<void>;
-    /** The save as it was before the last write, or null. */
-    readBackup(slot: number): Promise<string | null>;
-    /** Set an unloadable save aside and put its backup back. Returns the backup, or null. */
-    recover(slot: number): Promise<string | null>;
+    /** A backup of the save (`bak` by default), or null. */
+    readBackup(slot: number, kind?: BackupKind): Promise<string | null>;
+    /**
+     * Set an unloadable save aside (it is never deleted) and put backup `from`
+     * back in its place. Returns the backup, or null, changing nothing, if
+     * that backup is missing or does not load either.
+     */
+    recover(slot: number, from?: BackupKind): Promise<string | null>;
+    /** Move a slot that will not open out of the way (kept on disk, never deleted). The slot is then empty. */
+    setAside(slot: number): Promise<void>;
   };
   /** Per-machine settings (volumes, fullscreen, reduce motion, edge scroll). */
   readonly settings: {

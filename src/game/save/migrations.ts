@@ -351,6 +351,21 @@ export class SaveError extends Error {
 }
 
 /**
+ * A save written by a newer build of the game (a rollback, or an older
+ * install on another machine). Nothing is wrong with it: this build just
+ * cannot read it, so it must be left exactly as it is.
+ */
+export class SaveTooNewError extends SaveError {
+  override name = 'SaveTooNewError';
+  constructor(
+    readonly version: number,
+    readonly current: number,
+  ) {
+    super(`Save version ${version} is newer than this game (${current})`);
+  }
+}
+
+/**
  * Parse raw JSON text or an object into a current-version SaveFile, running
  * any migrations needed. Throws SaveError on anything it cannot read.
  */
@@ -375,8 +390,7 @@ export function loadSaveFile(
   if (typeof rawVersion !== 'number' || !Number.isInteger(rawVersion) || rawVersion < 1)
     throw new SaveError(`Save has an invalid version: ${String(rawVersion)}`);
   let version = rawVersion;
-  if (version > currentVersion)
-    throw new SaveError(`Save version ${version} is newer than this game (${currentVersion})`);
+  if (version > currentVersion) throw new SaveTooNewError(version, currentVersion);
 
   while (version < currentVersion) {
     const migrate = migrations[version];

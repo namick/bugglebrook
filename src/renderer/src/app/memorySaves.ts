@@ -1,5 +1,5 @@
 import { SLOT_COUNT } from '../../../shared/ipc';
-import type { BugglebrookApi } from '../../../shared/ipc';
+import type { BackupKind, BugglebrookApi } from '../../../shared/ipc';
 import { DEFAULT_SETTINGS, normalizeSettings } from '../../../shared/settings';
 import type { Settings } from '../../../shared/settings';
 
@@ -10,11 +10,15 @@ import type { Settings } from '../../../shared/settings';
  */
 export function memoryApi(): BugglebrookApi {
   const slots = new Map<number, { data: string; at: number }>();
-  const backups = new Map<number, string>();
+  const backups = new Map<string, string>();
+  const refreshed = new Set<number>();
+  /** Slots set aside (never deleted), for tests to look at. */
+  const aside: string[] = [];
   let settings: Settings = { ...DEFAULT_SETTINGS, fullscreen: false };
   const check = (slot: number): void => {
     if (!Number.isInteger(slot) || slot < 0 || slot >= SLOT_COUNT) throw new Error('bad slot');
   };
+  const key = (slot: number, kind: BackupKind = 'bak'): string => `${slot}:${kind}`;
   return {
     testMode: false,
     platform: 'browser',
@@ -25,23 +29,40 @@ export function memoryApi(): BugglebrookApi {
           return { slot, exists: !!s, modifiedMs: s?.at ?? null };
         }),
       read: async (slot) => (check(slot), slots.get(slot)?.data ?? null),
-      readBackup: async (slot) => (check(slot), backups.get(slot) ?? null),
+      readBackup: async (slot, kind) => (check(slot), backups.get(key(slot, kind)) ?? null),
       write: async (slot, data) => {
         check(slot);
         const old = slots.get(slot);
-        if (old) backups.set(slot, old.data);
+        if (old) {
+          if (!refreshed.has(slot)) backups.set(key(slot, 'old'), old.data);
+          refreshed.add(slot);
+          backups.set(key(slot), old.data);
+        }
         slots.set(slot, { data, at: Date.now() });
       },
       remove: async (slot) => {
         slots.delete(slot);
-        backups.delete(slot);
+        backups.delete(key(slot, 'bak'));
+        backups.delete(key(slot, 'old'));
+        refreshed.delete(slot);
       },
-      recover: async (slot) => {
+      recover: async (slot, from) => {
         check(slot);
-        const backup = backups.get(slot) ?? null;
-        if (backup === null) slots.delete(slot);
-        else slots.set(slot, { data: backup, at: Date.now() });
+        const backup = backups.get(key(slot, from)) ?? null;
+        if (backup === null) return null;
+        const bad = slots.get(slot);
+        if (bad) aside.push(bad.data);
+        slots.set(slot, { data: backup, at: Date.now() });
         return backup;
+      },
+      setAside: async (slot) => {
+        check(slot);
+        const bad = slots.get(slot);
+        if (bad) aside.push(bad.data);
+        slots.delete(slot);
+        backups.delete(key(slot, 'bak'));
+        backups.delete(key(slot, 'old'));
+        refreshed.delete(slot);
       },
     },
     settings: {
