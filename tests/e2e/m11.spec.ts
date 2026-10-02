@@ -72,7 +72,8 @@ test('the camera comes out, bugs in frame react, and the world holds still until
       .poll(async () => (await events(page)).some((e) => e.name === 'photo_mode_closed'))
       .toBe(true);
     await expect.poll(() => page.evaluate(() => window.__bb!.tick())).toBeGreaterThan(tick);
-    expect(await page.evaluate(() => window.__bb!.uiClient('pause'))).not.toBeNull();
+    // The pause button comes back once the viewfinder has finished closing.
+    await expect.poll(() => page.evaluate(() => window.__bb!.uiClient('pause'))).not.toBeNull();
     expect(bb.errors).toEqual([]);
   } finally {
     await bb.close();
