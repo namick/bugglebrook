@@ -54,6 +54,8 @@ These came out of the 2026-10-02 merges. None blocks the others.
 
 ## Known loose ends
 
+- **A stopping bug can nudge the player's things.** Since the PM-02 fix, a bug that stops on a thing that hasn't settled yet gets pushed free and can move that thing a few centimetres. The setup tests pass; watch for it in play.
+
 - **Renderer performance (P-08).** The sim step is about 38% faster, but drawing has had no perf work and has no perf check: views snapshotted twice a frame, `mouthOwners` rescans, sprites for off-screen things, Graphics rebuilt every frame.
 - **Local flakes under load.** On this machine when it's busy, the m2 "disliked food is spat out" E2E fails about half the time, and the m6 puddles and m4 soak unit tests can time out. All pass on CI. `pnpm test:perf` goes over its CI bars here under load; that's expected.
 - **Cross-platform physics.** The 30-minute soak saw one rescue on macOS and none on Linux. The test now allows a few rescues and checks that nothing is lost; `docs/04-architecture.md` explains why bit-identical physics across platforms isn't required.
@@ -72,7 +74,7 @@ These came out of the 2026-10-02 merges. None blocks the others.
 1. Answer or defer the open questions above.
 2. P-03 (music) waits on the owner's tracks. P-07 (credits) and P-09 (Mac signing) are deferred; the Mac workaround is in `CHANGELOG.md` and Mac auto-update is off.
 3. Import the owner's new Suno tracks as they arrive.
-4. A last quick playtest pass (scripted plus screenshots) on the merged main.
+4. A last quick playtest pass on the merged main. One ran on 2026-10-02 (`docs/reviews/post-merge-playtest.md`) and its five findings are fixed. Run `pnpm shots -g "post-merge playtest"` again after the music lands and before tagging.
 5. Cut the draft: follow `RELEASING.md` (tag `v1.0.0`, CI builds a **draft** release). **Never publish a release.** The owner reviews and publishes.
 
 Later, not v1.0: the daughter's hand-drawn art (pipeline ready; she starts with Dot, see `art/START-HERE.md`), background art pipeline (sketched in `docs/06`), recorded sound effects from the owner (`docs/08`), Steam integration (`docs/09`), making the repo private.
