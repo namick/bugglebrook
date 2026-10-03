@@ -11,6 +11,9 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { BufferImageSource, Sprite } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
+import { buildSets } from '../../scripts/art/build.ts';
+import { checkSetId } from '../../scripts/art/sets.ts';
+import { normalizeSettings } from '../../src/shared/settings';
 import { buildAsset } from '../../scripts/art/build.ts';
 import { readOra, walk } from '../../scripts/art/ora.ts';
 import { decodePng } from '../../scripts/art/png.ts';
@@ -38,10 +41,10 @@ const FIX = join(ROOT, 'tests/e2e/fixtures/art');
 const rigAt = (path: string): RigFile => JSON.parse(readFileSync(path, 'utf8')) as RigFile;
 
 /** Build a fixture and turn its pages into textures, the way the game does with images. */
-function loaded(id: string): LoadedArt {
+function loaded(id: string, dir = FIX): LoadedArt {
   const built = buildAsset(
-    new Uint8Array(readFileSync(join(FIX, `${id}.ora`))),
-    rigAt(join(FIX, `${id}.rig.json`)),
+    new Uint8Array(readFileSync(join(dir, `${id}.ora`))),
+    rigAt(join(dir, `${id}.rig.json`)),
   );
   const art: LoadedArt = { entry: built.entry, scales: {} };
   for (const scale of [1, 2] as const)
@@ -72,7 +75,7 @@ describe('committed art files', () => {
     expect(rigAt(join(FIX, 'face_kit.rig.json')).rigHash).toBe(kitHash());
   });
 
-  it('are templates that open clean: every part layer there, named right, and nothing drawn yet', () => {
+  it('open cleanly with every required layer and the original guides', () => {
     for (const sub of ['bugs', 'faces']) {
       const dir = join(ROOT, 'art/src', sub);
       for (const f of readdirSync(dir).filter((x) => x.endsWith('.ora'))) {
@@ -87,6 +90,34 @@ describe('committed art files', () => {
         for (const p of rig.parts) expect(names, `${f} ${p.name}`).toContain(p.name);
         expect(names).toContain('guide_current');
         expect(names).toContain(`guide_rig_${rig.rigHash}`);
+      }
+    }
+  });
+
+  it('ships a complete Krita Dot whose poses and expressions need no shared face kit', () => {
+    const dot = loaded(DOT.id, join(ROOT, 'art/src/bugs'));
+    expect(dot.entry.status).toBe('drawn');
+    expect(dot.entry.report).toEqual([]);
+    expect([...dot.entry.face].sort()).toEqual([...FACE_KIT].sort());
+    for (const scale of [1, 2] as const) {
+      SpriteBugView.forceScale = scale;
+      const view = new SpriteBugView(DOT, dot, null);
+      try {
+        for (const pose of posesFor(DOT)) {
+          for (const time of [0, 0.3, 0.7]) {
+            view.update(poseFrame(pose, time));
+            expect(view.shown.codeFace, `${scale}x ${pose.id}`).toBe(0);
+            expect(view.shown.scale).toBe(scale);
+            if (pose.id === 'fly') expect(view.shown.parts).toContain('wing');
+          }
+        }
+        for (const expression of EXPRESSIONS) {
+          view.update(expressionFrame(expression, 0.5));
+          expect(view.shown.codeFace, `${scale}x ${expression.id}`).toBe(0);
+        }
+      } finally {
+        view.destroy({ children: true });
+        SpriteBugView.forceScale = null;
       }
     }
   });
@@ -125,6 +156,23 @@ describe('templates', () => {
       expect(readFileSync(src)).toEqual(readFileSync(join(FIX, 'bug_ladybug_dot.ora')));
       expect(placeTemplate(guides, { refresh: true, root }).action).toBe('refreshed');
       expect(analyze(new Uint8Array(readFileSync(src)), rig).parts.size).toBe(rig.parts.length);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('creates templates for a new set without touching the reference drawings', () => {
+    const root = mkdtempSync(join(tmpdir(), 'bb-set-template-'));
+    try {
+      placeTemplate(guides, { refresh: false, root });
+      const reference = readFileSync(join(root, 'art/src/bugs/bug_ladybug_dot.ora'));
+      const placed = placeTemplate(guides, { refresh: false, root, setId: 'family' });
+      expect(placed.ora).toBe('art/src/sets/family/bugs/bug_ladybug_dot.ora');
+      expect(placeTemplate(guides, { refresh: false, root, setId: 'family' }).ora).toBe(
+        'art/templates/sets/family/bug_ladybug_dot.ora',
+      );
+      expect(readFileSync(join(root, 'art/src/bugs/bug_ladybug_dot.ora'))).toEqual(reference);
+      expect(() => placeTemplate(guides, { refresh: false, root, setId: '../bad' })).toThrow();
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -248,16 +296,78 @@ describe('art:watch', () => {
   it('waits until a saved file stops changing, then reports it once', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'bb-watch-'));
     const seen: string[][] = [];
+    mkdirSync(join(dir, 'sets/family/bugs'), { recursive: true });
     const stop = watchArt(dir, (ids) => seen.push(ids), 60);
     try {
       writeFileSync(join(dir, 'bug_x.ora'), 'part');
       await new Promise((r) => setTimeout(r, 20));
       writeFileSync(join(dir, 'bug_x.ora'), 'part two');
       writeFileSync(join(dir, 'notes.txt'), 'ignored');
+      writeFileSync(join(dir, 'sets/family/bugs/bug_other.ora'), 'another set, ignored');
       await expect.poll(() => seen, { timeout: 3000 }).toEqual([['bug_x']]);
     } finally {
       stop();
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('named art sets', () => {
+  it('keeps settings IDs bounded and defaults old settings to the original bugs', () => {
+    expect(normalizeSettings({}).artSet).toBe('procedural');
+    expect(normalizeSettings({ artSet: 'family_drawing' }).artSet).toBe('family_drawing');
+    for (const artSet of ['../outside', '', 'A'.repeat(100), 4, null])
+      expect(normalizeSettings({ artSet }).artSet).toBe('procedural');
+    expect(() => checkSetId('../outside')).toThrow();
+    expect(() => checkSetId('procedural')).toThrow();
+  });
+
+  it('switches each complete set without mixing assets or faces, falling back when a set is unavailable', () => {
+    const store = new ArtStore();
+    const dot = loaded(DOT.id);
+    const kit = loaded('face_kit');
+    store.put(dot, 'reference');
+    store.put(kit, 'reference');
+    store.select('reference');
+    expect(store.status(DOT).drawn).toBe(true);
+    expect(store.kit()).not.toBeNull();
+    store.put({ ...dot, entry: { ...dot.entry, sourceHash: 'family' } }, 'family');
+    const version = store.version;
+    store.select('family');
+    expect(store.version).toBeGreaterThan(version);
+    expect(store.get(DOT.id)?.entry.sourceHash).toBe('family');
+    expect(store.kit()).toBeNull();
+    store.select('uninstalled');
+    expect(store.status(DOT)).toEqual({ drawn: false, reason: 'no art file' });
+    store.select('procedural');
+    expect(makeBugView(DOT, store)).toBeInstanceOf(BugSprite);
+    store.select('reference');
+    expect(store.get(DOT.id)).toBe(dot);
+  });
+
+  it('builds independent catalogs and pages for additional artist folders', () => {
+    const src = mkdtempSync(join(tmpdir(), 'bb-art-sets-'));
+    try {
+      const dir = join(src, 'sets/family');
+      mkdirSync(join(dir, 'bugs'), { recursive: true });
+      writeFileSync(join(dir, 'set.json'), JSON.stringify({ name: 'Family drawing', credit: 'Test artist' }));
+      for (const ext of ['ora', 'rig.json'])
+        copyFileSync(join(FIX, `${DOT.id}.${ext}`), join(dir, 'bugs', `${DOT.id}.${ext}`));
+      const built = buildSets(src);
+      expect(built.manifest.assets).toEqual({});
+      const manifest = JSON.parse(new TextDecoder().decode(built.files['sets/family/manifest.json']!));
+      expect(manifest.assets[DOT.id].status).toBe('drawn');
+      expect(built.files[`sets/family/bugs/${DOT.id}@1x.png`]).toBeDefined();
+      const catalog = JSON.parse(new TextDecoder().decode(built.files['sets.json']!));
+      expect(catalog.sets).toContainEqual({
+        id: 'family',
+        name: 'Family drawing',
+        credit: 'Test artist',
+        path: 'sets/family',
+      });
+      expect(buildSets(src).files).toEqual(built.files);
+    } finally {
+      rmSync(src, { recursive: true, force: true });
     }
   });
 });

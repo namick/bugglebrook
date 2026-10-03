@@ -8,12 +8,30 @@
 
 import { spawnSync } from 'node:child_process';
 import { ROOT } from './build.ts';
+import { setArgs } from './sets.ts';
+import { mkdirSync, existsSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
-const args = process.argv.slice(2);
+const { id: setId, rest: args } = setArgs(process.argv.slice(2));
+if (setId !== 'reference') {
+  const dir = join(ROOT, 'art/src/sets', setId);
+  mkdirSync(dir, { recursive: true });
+  const meta = join(dir, 'set.json');
+  if (!existsSync(meta))
+    writeFileSync(
+      meta,
+      JSON.stringify(
+        { name: setId.replaceAll('_', ' ').slice(0, 40), credit: 'Add the artist credit here' },
+        null,
+        2,
+      ) + '\n',
+    );
+}
 const refresh = args.includes('--refresh-guides');
 const only = args.filter((a) => !a.startsWith('--'));
 const env: NodeJS.ProcessEnv = {
   ...process.env,
+  BB_ART_SET: setId,
   BB_ART_ONLY: only.join(','),
   BB_ART_REFRESH: refresh ? '1' : '',
 };

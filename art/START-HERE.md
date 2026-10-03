@@ -18,9 +18,17 @@ Dad sets this part up with you the first time:
 
 After that, each time you sit down to draw, open a terminal in the folder and run `git pull` to get the latest version. If you'd rather skip Git, Dad can send you a zip of the folder instead.
 
-## 3. Open Dot
+## 3. Start your own set and open Dot
 
-In Krita, open `art/src/bugs/bug_ladybug_dot.ora`.
+The game includes an agent-created reference set. Start a separate set for your drawings by running this once:
+
+```sh
+pnpm art:templates --set garden_drawings
+```
+
+In `art/src/sets/garden_drawings/set.json`, give the set a name and put your name in the credit. Dad can help with that part.
+
+In Krita, open `art/src/sets/garden_drawings/bugs/bug_ladybug_dot.ora`.
 
 The Layers panel has three groups:
 
@@ -28,7 +36,7 @@ The Layers panel has three groups:
 - **parts**: one empty layer per piece. This is where you draw.
 - **face**: Dot's own mouths. Her head is dark, so she gets light pink line mouths instead of the shared ones.
 
-The eyes, and every other bug's mouths, come from `art/src/faces/face_kit.ora`. Draw those once and all sixteen bugs use them.
+The eyes, and every other bug's mouths, come from your set's `faces/face_kit.ora`. Draw those once and all sixteen bugs in your set use them.
 
 ## 4. Draw
 
@@ -49,7 +57,8 @@ Press Ctrl+S. Krita asks if you're sure about saving as ORA. Say yes. That's the
 In a terminal in the game's folder, run:
 
 ```
-pnpm art:watch
+pnpm art:build
+pnpm art:watch --set garden_drawings
 ```
 
 The game opens on the Art Lab. It shows Dot doing everything she does: walking, flying, being held, asleep, every face. The code version is on the left and yours is on the right. Click a pose to see it big, and try "look" to check paint, potions, and night time.
@@ -74,11 +83,13 @@ Your Dot shows up once every part has a drawing and there are no `x` lines. Unti
 
 ## 8. When she's done (or at a good checkpoint)
 
-Tell Dad. He'll run `pnpm art:build` and commit your file and the pictures the game makes from it. Commit at checkpoints, not every save: every save rewrites the whole file.
+Tell Dad. He'll run `pnpm art:build` and commit your files, the set's name and credit, and the pictures the game makes from them. Commit at checkpoints, not every save: every save rewrites the whole file.
+
+In the game's settings, use the arrows beside **Art** to choose your set. **Original bugs** shows the code-drawn characters; **Krita reference** shows the agent's examples. Your choice stays selected after restarting. Any bug you haven't finished yet uses its original drawing.
 
 ## 9. The other bugs
 
-Every bug works the same way as Dot. Open its file in `art/src/bugs/`, draw the layers in `parts`, save, and use "bug >" in the Art Lab to get to it. A bug shows up drawn once all its layers have a drawing, so the special shapes below count too.
+Every bug works the same way as Dot. Open its file in `art/src/sets/garden_drawings/bugs/`, draw the layers in `parts`, save, and use "bug >" in the Art Lab to get to it. A bug shows up drawn once all its layers have a drawing, so the special shapes below count too.
 
 Some pieces get used in more than one way. Check these poses in the Art Lab before you call a bug done:
 

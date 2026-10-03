@@ -1,7 +1,8 @@
-import { Container, Graphics } from 'pixi.js';
+import { Container, Graphics, Text } from 'pixi.js';
 import type { FederatedPointerEvent } from 'pixi.js';
 import { VIEW_HEIGHT_PX, VIEW_WIDTH_PX } from '../../../game/constants';
 import type { Settings } from '../../../shared/settings';
+import { artStore } from '../art/artStore';
 import { OUTLINE } from '../render/palette';
 import { Bounce, PictureButton, markUi } from './button';
 import { Toggle, VineSlider, drawBoard } from './controls';
@@ -21,7 +22,7 @@ export type VolumeKey = 'music' | 'sfx' | 'voices';
 export type ToggleKey = 'fullscreen' | 'reduceMotion' | 'edgeScroll' | 'recordedVoices';
 
 const BOARD_W = 980;
-const BOARD_H = 660;
+const BOARD_H = 780;
 const TRACK = 470;
 
 export interface PanelHooks {
@@ -41,12 +42,28 @@ export interface PanelHooks {
  * behind it and drops in a wooden board with three vine sliders (music,
  * sounds, voices) and three toggles (fullscreen, reduce motion, edge
  * scroll). In the world it also has the stump sign (save and go to the
- * menu) and the play triangle (resume). Wordless throughout.
+ * menu) and the play triangle (resume). A named art selector sits below them.
  */
 export class SettingsPanel extends Container {
   readonly sliders = new Map<VolumeKey, VineSlider>();
   readonly toggles = new Map<ToggleKey, Toggle>();
-  readonly buttons = new Map<'resume' | 'menu', PictureButton>();
+  readonly buttons = new Map<'resume' | 'menu' | 'art_prev' | 'art_next', PictureButton>();
+  private readonly artLabel = new Text({
+    text: '',
+    style: { fontFamily: 'sans-serif', fontSize: 24, fill: OUTLINE },
+  });
+  private readonly artCredit = new Text({
+    text: '',
+    style: {
+      fontFamily: 'sans-serif',
+      fontSize: 18,
+      fill: OUTLINE,
+      wordWrap: true,
+      wordWrapWidth: 680,
+      breakWords: true,
+      align: 'center',
+    },
+  });
   private readonly dim = new Graphics();
   private readonly board = new Container();
   private readonly drop = new Bounce(260, 15);
@@ -126,7 +143,7 @@ export class SettingsPanel extends Container {
     if (this.hooks.recordedVoices) toggles.push(['recordedVoices', mouthIcon]);
     toggles.forEach(([key, icon], i) => {
       const t = new Toggle(icon(new Graphics(), 70), s[key]);
-      t.position.set(-BOARD_W / 2 + 150 + i * 170, BOARD_H / 2 - 150);
+      t.position.set(-BOARD_W / 2 + 150 + i * 170, BOARD_H / 2 - 270);
       t.onToggle = (on) => {
         this.hooks.set({ [key]: on }, true);
         this.hooks.sound('toggle', on ? 1 : 0);
@@ -135,6 +152,40 @@ export class SettingsPanel extends Container {
       this.toggles.set(key, t);
       this.board.addChild(t);
     });
+
+    const artCaption = new Text({
+      text: 'Art',
+      style: { fontFamily: 'sans-serif', fontSize: 22, fill: OUTLINE },
+    });
+    artCaption.anchor.set(0.5);
+    artCaption.position.set(-350, 260);
+    this.artLabel.anchor.set(0.5);
+    this.artLabel.position.set(-65, 250);
+    this.artCredit.anchor.set(0.5, 0);
+    this.artCredit.position.set(-65, 289);
+    this.board.addChild(artCaption, this.artLabel, this.artCredit);
+    for (const [key, direction, x] of [
+      ['art_prev', -1, -275],
+      ['art_next', 1, 150],
+    ] as const) {
+      const g = token(new Graphics(), 27, 0xfff1c7);
+      g.moveTo(-direction * 7, -12)
+        .lineTo(direction * 9, 0)
+        .lineTo(-direction * 7, 12)
+        .stroke({ color: OUTLINE, width: 5, cap: 'round', join: 'round' });
+      const button = new PictureButton(g, 62, 62, () => {
+        const options = artStore.options;
+        const current = options.findIndex((o) => o.id === this.hooks.get().artSet);
+        const next = options[(Math.max(0, current) + direction + options.length) % options.length]!;
+        this.hooks.set({ artSet: next.id }, true);
+        this.hooks.sound('toggle');
+      });
+      button.position.set(x, 260);
+      button.label = key;
+      this.buttons.set(key, button);
+      this.board.addChild(button);
+    }
+    this.sync(s);
 
     // Resume (and in the world, back to the menu), at the right.
     const resumeArt = token(new Graphics(), 62, 0xfff1c7);
@@ -169,8 +220,16 @@ export class SettingsPanel extends Container {
 
   /** Show settings changed elsewhere (the other board, a restart). */
   sync(s: Settings): void {
+    const selected = artStore.options.find((o) => o.id === s.artSet);
+    this.artLabel.text = selected?.name ?? 'Unavailable set';
+    this.artCredit.text = selected?.credit ?? '';
+    this.artLabel.scale.set(Math.min(1, 330 / Math.max(1, this.artLabel.width / this.artLabel.scale.x)));
     for (const [k, sl] of this.sliders) if (sl.value !== s[k]) sl.set(s[k]);
     for (const [k, t] of this.toggles) t.set(s[k]);
+  }
+
+  get artChoice(): { name: string; credit: string } {
+    return { name: this.artLabel.text, credit: this.artCredit.text };
   }
 
   update(dt: number): void {

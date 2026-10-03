@@ -6,8 +6,8 @@ import { artStore } from './artStore';
 // here. Bugs swap to the new drawing in place; the sim never notices.
 // Production builds have no `import.meta.hot`, so none of this ships.
 if (import.meta.hot) {
-  import.meta.hot.on('bb:art-changed', (pack: ArtPack) => {
-    void artStore.install(pack).then(() => {
+  import.meta.hot.on('bb:art-changed', ({ pack, setId }: { pack: ArtPack; setId: string }) => {
+    void artStore.install(pack, setId).then(() => {
       console.info(`Art reloaded: ${pack.assets.map((a) => `${a.id} (${a.status})`).join(', ')}`);
     });
   });
