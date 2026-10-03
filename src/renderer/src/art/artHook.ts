@@ -28,6 +28,9 @@ export interface ArtHook {
   artMode(mode: ArtMode): void;
   /** Install built art (what `pnpm art:build` writes), as the hot reload does. */
   loadArtPack(pack: ArtPack): Promise<void>;
+  loadArtSet(pack: ArtPack, id: string, name: string, credit?: string): Promise<void>;
+  artChoice(): { name: string; credit: string } | null;
+  pocketArt(slot: number): 'drawn' | 'code' | null;
   /** How a bug entity is drawn right now, and why. */
   bugArt(id: number): { art: 'drawn' | 'code'; reason: string; shown: SpriteShown | null } | null;
   /** The importer's report for an asset. */
@@ -75,7 +78,22 @@ export function artHook(game: Game): ArtHook {
         ? kitTemplate(game.app.renderer)
         : bugTemplate(game.app.renderer, CONTENT.bugs.get(id), keep),
     artMode: (mode) => artStore.setMode(mode),
-    loadArtPack: (pack) => artStore.install(pack),
+    loadArtSet: async (pack, id, name, credit = 'Test artwork') => {
+      await artStore.install(pack, id);
+      artStore.registerSet({ id, name, credit });
+    },
+    artChoice: () => game.panel?.artChoice ?? null,
+    pocketArt: (slot) => {
+      const sprite = game.session?.pocket.spriteAt(slot);
+      if (!sprite) return null;
+      return sprite instanceof SpriteBugView || (sprite instanceof ItemSprite && sprite.artTexture)
+        ? 'drawn'
+        : 'code';
+    },
+    loadArtPack: async (pack) => {
+      await artStore.install(pack, 'test_pack');
+      artStore.select('test_pack');
+    },
     bugArt: (id) => {
       const s = game.session;
       const view = s?.sim.view(id);

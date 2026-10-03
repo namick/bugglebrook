@@ -1,7 +1,36 @@
 {
  "assets": {
   "bug_bee_buzzby": {
-   "face": [],
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
    "faceAnchors": {
     "eye": {
      "r": 6.636,
@@ -17,22 +46,110 @@
    "id": "bug_bee_buzzby",
    "kind": "bug",
    "pages": {
-    "1": [],
-    "2": []
+    "1": [
+     "bugs/bug_bee_buzzby@1x"
+    ],
+    "2": [
+     "bugs/bug_bee_buzzby@2x"
+    ]
    },
-   "parts": {},
-   "report": [
-    {
-     "level": "info",
-     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+   "parts": {
+    "antenna": {
+     "kind": "rope",
+     "length": 26.502,
+     "pivot": {
+      "x": 38.22,
+      "y": -18.312
+     }
+    },
+    "antenna_tip": {
+     "kind": "tip",
+     "pivot": {
+      "x": 38.22,
+      "y": -44.814
+     }
+    },
+    "body": {
+     "kind": "static",
+     "pivot": {
+      "x": -7.56,
+      "y": 7.56
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 33.6,
+      "y": -1.68
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 12.884,
+     "pivot": {
+      "x": 8.4,
+      "y": 36.972
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 7.572,
+     "pivot": {
+      "x": 8.4,
+      "y": 29.4
+     }
+    },
+    "stinger": {
+     "kind": "static",
+     "pivot": {
+      "x": -44.1,
+      "y": 10.5
+     }
+    },
+    "wing": {
+     "kind": "wing",
+     "pivot": {
+      "x": -5.04,
+      "y": -17.64
+     }
     }
-   ],
+   },
+   "report": [],
    "rigHash": "d886c1c8d00f64e7",
-   "sourceHash": "17e2c79420a7879f2d986349e25a5ee7ae22944b298d492c607cf7d4fe732db5",
-   "status": "empty"
+   "sourceHash": "21d5608f4d727291a774d25c34b35fc3bacedbd2717c38a6dc71a69a68608611",
+   "status": "drawn"
   },
   "bug_caterpillar_munch": {
-   "face": [],
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
    "faceAnchors": {
     "eye": {
      "r": 8.74,
@@ -48,22 +165,167 @@
    "id": "bug_caterpillar_munch",
    "kind": "bug",
    "pages": {
-    "1": [],
-    "2": []
+    "1": [
+     "bugs/bug_caterpillar_munch@1x"
+    ],
+    "2": [
+     "bugs/bug_caterpillar_munch@2x"
+    ]
    },
-   "parts": {},
-   "report": [
-    {
-     "level": "info",
-     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+   "parts": {
+    "antenna": {
+     "kind": "rope",
+     "length": 16.586,
+     "pivot": {
+      "x": 46.92,
+      "y": -16.56
+     }
+    },
+    "antenna_tip": {
+     "kind": "tip",
+     "pivot": {
+      "x": 46.92,
+      "y": -33.145
+     }
+    },
+    "bf_antenna": {
+     "form": "butterfly",
+     "kind": "rope",
+     "length": 37.551,
+     "pivot": {
+      "x": 42.55,
+      "y": -15.548
+     }
+    },
+    "bf_antenna_tip": {
+     "form": "butterfly",
+     "kind": "tip",
+     "pivot": {
+      "x": 42.55,
+      "y": -53.099
+     }
+    },
+    "bf_body": {
+     "form": "butterfly",
+     "kind": "static",
+     "pivot": {
+      "x": -9.2,
+      "y": 11.5
+     }
+    },
+    "bf_leg": {
+     "form": "butterfly",
+     "kind": "limb_upper",
+     "length": 35.18,
+     "pivot": {
+      "x": 22.08,
+      "y": 14.72
+     }
+    },
+    "bf_wing_fore": {
+     "form": "butterfly",
+     "kind": "wing",
+     "pivot": {
+      "x": 12.88,
+      "y": 2.3
+     }
+    },
+    "bf_wing_hind": {
+     "form": "butterfly",
+     "kind": "wing",
+     "pivot": {
+      "x": 12.88,
+      "y": 2.3
+     }
+    },
+    "cocoon": {
+     "form": "cocoon",
+     "kind": "form",
+     "pivot": {
+      "x": 0,
+      "y": -13.8
+     }
+    },
+    "foot": {
+     "kind": "static",
+     "pivot": {
+      "x": -20.24,
+      "y": 40.664
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 42.32,
+      "y": 4.6
+     }
+    },
+    "segment_a": {
+     "kind": "static",
+     "pivot": {
+      "x": 16.56,
+      "y": 23.92
+     }
+    },
+    "segment_b": {
+     "kind": "static",
+     "pivot": {
+      "x": -1.38,
+      "y": 23.92
+     }
+    },
+    "tail_horn": {
+     "kind": "static",
+     "pivot": {
+      "x": -75.716,
+      "y": 17.572
+     }
+    },
+    "true_leg": {
+     "kind": "limb_upper",
+     "length": 10.162,
+     "pivot": {
+      "x": 15.64,
+      "y": 35.604
+     }
     }
-   ],
+   },
+   "report": [],
    "rigHash": "32e747c0d1c2daf6",
-   "sourceHash": "9cd5c392fa91fc898412a38ad35aae54a2fba9f46edd93ee507b7b1d14c2db6a",
-   "status": "empty"
+   "sourceHash": "986651e45a4710add1ee7ad17bc7bb09214f9440e937e0b5872b02e2437b3e04",
+   "status": "drawn"
   },
   "bug_cricket_fiddle": {
-   "face": [],
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
    "faceAnchors": {
     "eye": {
      "r": 6.716,
@@ -79,22 +341,119 @@
    "id": "bug_cricket_fiddle",
    "kind": "bug",
    "pages": {
-    "1": [],
-    "2": []
+    "1": [
+     "bugs/bug_cricket_fiddle@1x"
+    ],
+    "2": [
+     "bugs/bug_cricket_fiddle@2x"
+    ]
    },
-   "parts": {},
-   "report": [
-    {
-     "level": "info",
-     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+   "parts": {
+    "abdomen": {
+     "kind": "static",
+     "pivot": {
+      "x": -20.7,
+      "y": 17.48
+     }
+    },
+    "antenna": {
+     "kind": "rope",
+     "length": 84.594,
+     "pivot": {
+      "x": 48.944,
+      "y": -25.53
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 40.02,
+      "y": -10.12
+     }
+    },
+    "hindleg_shin": {
+     "kind": "limb_lower",
+     "length": 68.117,
+     "pivot": {
+      "x": -14.72,
+      "y": 64.077
+     }
+    },
+    "hindleg_thigh": {
+     "kind": "limb_upper",
+     "length": 45.677,
+     "pivot": {
+      "x": -14.72,
+      "y": 18.4
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 23.028,
+     "pivot": {
+      "x": 23,
+      "y": 27.856
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 8.536,
+     "pivot": {
+      "x": 23,
+      "y": 19.32
+     }
+    },
+    "thorax": {
+     "kind": "static",
+     "pivot": {
+      "x": 17.48,
+      "y": 9.2
+     }
+    },
+    "wing_folded": {
+     "kind": "static",
+     "pivot": {
+      "x": -23,
+      "y": 8.28
+     }
     }
-   ],
+   },
+   "report": [],
    "rigHash": "8858610f23bdcd34",
-   "sourceHash": "ccdd11f28510f7ed7f9f8d64e3af55b942ef68dc861533de3364ede36887757f",
-   "status": "empty"
+   "sourceHash": "951b0d9010a1d403d87028ff662fa409625b4770666aa4fd5056b2f56ed0543d",
+   "status": "drawn"
   },
   "bug_dungbeetle_barty": {
-   "face": [],
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
    "faceAnchors": {
     "eye": {
      "r": 8.84,
@@ -110,22 +469,137 @@
    "id": "bug_dungbeetle_barty",
    "kind": "bug",
    "pages": {
-    "1": [],
-    "2": []
+    "1": [
+     "bugs/bug_dungbeetle_barty@1x"
+    ],
+    "2": [
+     "bugs/bug_dungbeetle_barty@2x"
+    ]
    },
-   "parts": {},
-   "report": [
-    {
-     "level": "info",
-     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+   "parts": {
+    "antenna": {
+     "kind": "rope",
+     "length": 24.368,
+     "pivot": {
+      "x": 46.8,
+      "y": -10.4
+     }
+    },
+    "antenna_tip": {
+     "kind": "tip",
+     "pivot": {
+      "x": 46.8,
+      "y": -34.768
+     }
+    },
+    "ball_tint": {
+     "form": "curled",
+     "kind": "form",
+     "pivot": {
+      "x": 0,
+      "y": 0
+     },
+     "tintable": true
+    },
+    "belly": {
+     "kind": "static",
+     "pivot": {
+      "x": -13,
+      "y": 27.04
+     }
+    },
+    "head_tint": {
+     "kind": "static",
+     "pivot": {
+      "x": 50.96,
+      "y": 8.32
+     },
+     "tintable": true
+    },
+    "hindleg_thigh": {
+     "kind": "limb_upper",
+     "length": 27.22,
+     "pivot": {
+      "x": -32.24,
+      "y": 24.96
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 22.957,
+     "pivot": {
+      "x": 14.56,
+      "y": 36.043
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 10.043,
+     "pivot": {
+      "x": 14.56,
+      "y": 26
+     }
+    },
+    "shell_tint": {
+     "kind": "static",
+     "pivot": {
+      "x": -13,
+      "y": -5.2
+     },
+     "tintable": true
+    },
+    "shine": {
+     "kind": "static",
+     "pivot": {
+      "x": -31.2,
+      "y": -20.8
+     }
+    },
+    "thorax_tint": {
+     "kind": "static",
+     "pivot": {
+      "x": 21.84,
+      "y": 6.24
+     },
+     "tintable": true
     }
-   ],
+   },
+   "report": [],
    "rigHash": "1e0bb470693de6c9",
-   "sourceHash": "a1280581b7751b6b92ccc899eb5194be29ace3498334b6fd08b73b49a54e1bf4",
-   "status": "empty"
+   "sourceHash": "e0ec512246b9a4ed70e7e4aa6508ec8b2bb1f8035bf38f79bcf6ba298bc8f25e",
+   "status": "drawn"
   },
   "bug_firefly_flick": {
-   "face": [],
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
    "faceAnchors": {
     "eye": {
      "r": 12,
@@ -141,22 +615,124 @@
    "id": "bug_firefly_flick",
    "kind": "bug",
    "pages": {
-    "1": [],
-    "2": []
+    "1": [
+     "bugs/bug_firefly_flick@1x"
+    ],
+    "2": [
+     "bugs/bug_firefly_flick@2x"
+    ]
    },
-   "parts": {},
-   "report": [
-    {
-     "level": "info",
-     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+   "parts": {
+    "antenna": {
+     "kind": "rope",
+     "length": 29.135,
+     "pivot": {
+      "x": 38,
+      "y": -11.2
+     }
+    },
+    "antenna_tip": {
+     "kind": "tip",
+     "pivot": {
+      "x": 38,
+      "y": -40.335
+     }
+    },
+    "belly": {
+     "kind": "static",
+     "pivot": {
+      "x": -4,
+      "y": 16.8
+     }
+    },
+    "cap": {
+     "kind": "static",
+     "pivot": {
+      "x": 30,
+      "y": -8
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 32,
+      "y": 4.8
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 18.089,
+     "pivot": {
+      "x": 15.2,
+      "y": 26.261
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 6.261,
+     "pivot": {
+      "x": 15.2,
+      "y": 20
+     }
+    },
+    "shell": {
+     "kind": "hinged",
+     "pivot": {
+      "x": 16,
+      "y": -4
+     }
+    },
+    "tail": {
+     "kind": "static",
+     "pivot": {
+      "x": -38,
+      "y": 11.2
+     }
+    },
+    "wing": {
+     "kind": "wing",
+     "pivot": {
+      "x": -8,
+      "y": -6
+     }
     }
-   ],
+   },
+   "report": [],
    "rigHash": "b4d884d628ce9ab8",
-   "sourceHash": "ab52439a7e7ede75da0e4552279876dc1f32fd231ec83f7efc7261dc8f794eca",
-   "status": "empty"
+   "sourceHash": "f45b073da8055a6c8c39e4006c9aa815daeafc71da9b23fce966ceec03753092",
+   "status": "drawn"
   },
   "bug_grasshopper_boing": {
-   "face": [],
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
    "faceAnchors": {
     "eye": {
      "r": 11.5,
@@ -172,22 +748,105 @@
    "id": "bug_grasshopper_boing",
    "kind": "bug",
    "pages": {
-    "1": [],
-    "2": []
+    "1": [
+     "bugs/bug_grasshopper_boing@1x"
+    ],
+    "2": [
+     "bugs/bug_grasshopper_boing@2x"
+    ]
    },
-   "parts": {},
-   "report": [
-    {
-     "level": "info",
-     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+   "parts": {
+    "antenna": {
+     "kind": "rope",
+     "length": 67.518,
+     "pivot": {
+      "x": 46,
+      "y": -29
+     }
+    },
+    "body": {
+     "kind": "static",
+     "pivot": {
+      "x": -15,
+      "y": 9
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 39,
+      "y": -9
+     }
+    },
+    "hindleg_shin": {
+     "kind": "limb_lower",
+     "length": 81.394,
+     "pivot": {
+      "x": -22.5,
+      "y": 61.757
+     }
+    },
+    "hindleg_thigh": {
+     "kind": "limb_upper",
+     "length": 50.757,
+     "pivot": {
+      "x": -22.5,
+      "y": 11
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 18.2,
+     "pivot": {
+      "x": -2.5,
+      "y": 33.463
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 13.463,
+     "pivot": {
+      "x": -2.5,
+      "y": 20
+     }
     }
-   ],
+   },
+   "report": [],
    "rigHash": "a5b9a792ff33d7e4",
-   "sourceHash": "c41bebe878624f47a4e96c14f5f87beedd1e89406517b2084ae8984c0dd9f0a0",
-   "status": "empty"
+   "sourceHash": "8a76370785f47bb87448f2997ed2a3dfb56cb268667a5305ea3f169148e4bedf",
+   "status": "drawn"
   },
   "bug_ladybug_dot": {
-   "face": [],
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
    "faceAnchors": {
     "eye": {
      "r": 15,
@@ -203,22 +862,110 @@
    "id": "bug_ladybug_dot",
    "kind": "bug",
    "pages": {
-    "1": [],
-    "2": []
+    "1": [
+     "bugs/bug_ladybug_dot@1x"
+    ],
+    "2": [
+     "bugs/bug_ladybug_dot@2x"
+    ]
    },
-   "parts": {},
-   "report": [
-    {
-     "level": "info",
-     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+   "parts": {
+    "antenna": {
+     "kind": "rope",
+     "length": 35.243,
+     "pivot": {
+      "x": 47.5,
+      "y": -14
+     }
+    },
+    "antenna_tip": {
+     "kind": "tip",
+     "pivot": {
+      "x": 47.5,
+      "y": -49.243
+     }
+    },
+    "belly": {
+     "kind": "static",
+     "pivot": {
+      "x": -5,
+      "y": 21
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 40,
+      "y": 6
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 22.611,
+     "pivot": {
+      "x": 19,
+      "y": 32.826
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 7.826,
+     "pivot": {
+      "x": 19,
+      "y": 25
+     }
+    },
+    "shell": {
+     "kind": "hinged",
+     "pivot": {
+      "x": 22.5,
+      "y": -5
+     }
+    },
+    "wing": {
+     "kind": "wing",
+     "pivot": {
+      "x": -10,
+      "y": -7.5
+     }
     }
-   ],
+   },
+   "report": [],
    "rigHash": "309ee1610201cf74",
-   "sourceHash": "69608cc4707884e673cedbd5eb85f0542ee633057d634b34c4d7e42644cebf23",
-   "status": "empty"
+   "sourceHash": "b79c6e4b9a43aba2e5d89c66e40ba47abb12b0d77b9ad6394ddf4e4f3408876f",
+   "status": "drawn"
   },
   "bug_mantis_prim": {
-   "face": [],
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
    "faceAnchors": {
     "eye": {
      "r": 15.6,
@@ -234,22 +981,127 @@
    "id": "bug_mantis_prim",
    "kind": "bug",
    "pages": {
-    "1": [],
-    "2": []
+    "1": [
+     "bugs/bug_mantis_prim@1x"
+    ],
+    "2": [
+     "bugs/bug_mantis_prim@2x"
+    ]
    },
-   "parts": {},
-   "report": [
-    {
-     "level": "info",
-     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+   "parts": {
+    "abdomen": {
+     "kind": "static",
+     "pivot": {
+      "x": -40.8,
+      "y": 15.6
+     }
+    },
+    "antenna": {
+     "kind": "rope",
+     "length": 50.289,
+     "pivot": {
+      "x": 66,
+      "y": -70.8
+     }
+    },
+    "arm_blade": {
+     "kind": "limb_lower",
+     "length": 28.625,
+     "pivot": {
+      "x": 30,
+      "y": 19.374
+     }
+    },
+    "arm_thigh": {
+     "kind": "limb_upper",
+     "length": 37.374,
+     "pivot": {
+      "x": 30,
+      "y": -18
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 52.8,
+      "y": -42
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 74.381,
+     "pivot": {
+      "x": -1.2,
+      "y": 55.489
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 37.489,
+     "pivot": {
+      "x": -1.2,
+      "y": 18
+     }
+    },
+    "neck": {
+     "kind": "static",
+     "pivot": {
+      "x": 0,
+      "y": 13.2
+     }
+    },
+    "wing_folded": {
+     "kind": "static",
+     "pivot": {
+      "x": 1.2,
+      "y": 10.2
+     }
+    },
+    "wing_open": {
+     "form": "thrown",
+     "kind": "form",
+     "pivot": {
+      "x": -27.6,
+      "y": -36
+     }
     }
-   ],
+   },
+   "report": [],
    "rigHash": "c14cf7ba530014bb",
-   "sourceHash": "feeecad1e30471c238ec86dfe530094cedf182672c8aa33d2bce43f9769854eb",
-   "status": "empty"
+   "sourceHash": "9144247ecb235da78a7507d23501b4b8ede8d885a53bc1fe08a439d1dc41827f",
+   "status": "drawn"
   },
   "bug_moth_luma": {
-   "face": [],
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
    "faceAnchors": {
     "eye": {
      "r": 7.268,
@@ -265,22 +1117,110 @@
    "id": "bug_moth_luma",
    "kind": "bug",
    "pages": {
-    "1": [],
-    "2": []
+    "1": [
+     "bugs/bug_moth_luma@1x"
+    ],
+    "2": [
+     "bugs/bug_moth_luma@2x"
+    ]
    },
-   "parts": {},
-   "report": [
-    {
-     "level": "info",
-     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+   "parts": {
+    "abdomen": {
+     "kind": "static",
+     "pivot": {
+      "x": -25.3,
+      "y": 15.64
+     }
+    },
+    "antenna": {
+     "kind": "rope",
+     "length": 43.516,
+     "pivot": {
+      "x": 41.952,
+      "y": -27.002
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 35.88,
+      "y": -9.2
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 20.308,
+     "pivot": {
+      "x": 18.4,
+      "y": 31.884
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 8.884,
+     "pivot": {
+      "x": 18.4,
+      "y": 23
+     }
+    },
+    "thorax": {
+     "kind": "static",
+     "pivot": {
+      "x": 8.28,
+      "y": 9.2
+     }
+    },
+    "wing_fore": {
+     "kind": "wing",
+     "pivot": {
+      "x": 3.68,
+      "y": -4.6
+     }
+    },
+    "wing_hind": {
+     "kind": "wing",
+     "pivot": {
+      "x": 3.68,
+      "y": -4.6
+     }
     }
-   ],
+   },
+   "report": [],
    "rigHash": "34f9f0cbb75cbfe0",
-   "sourceHash": "d4d937cee321c02ada5492cecc7d4e054356c8a88b30e43065e2920319b4ab24",
-   "status": "empty"
+   "sourceHash": "7adb0400c228234681e3a7f1ae06e056159630f296e6aab625c0e8738e253834",
+   "status": "drawn"
   },
   "bug_pillbug_rollo": {
-   "face": [],
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
    "faceAnchors": {
     "eye": {
      "r": 10.12,
@@ -296,22 +1236,119 @@
    "id": "bug_pillbug_rollo",
    "kind": "bug",
    "pages": {
-    "1": [],
-    "2": []
+    "1": [
+     "bugs/bug_pillbug_rollo@1x"
+    ],
+    "2": [
+     "bugs/bug_pillbug_rollo@2x"
+    ]
    },
-   "parts": {},
-   "report": [
-    {
-     "level": "info",
-     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+   "parts": {
+    "antenna_base": {
+     "kind": "rope",
+     "length": 17.863,
+     "pivot": {
+      "x": 59.8,
+      "y": 2.76
+     }
+    },
+    "antenna_end": {
+     "kind": "rope",
+     "length": 17.237,
+     "pivot": {
+      "x": 59.8,
+      "y": -15.103
+     }
+    },
+    "ball": {
+     "form": "curled",
+     "kind": "form",
+     "pivot": {
+      "x": 0,
+      "y": 0
+     }
+    },
+    "belly": {
+     "kind": "static",
+     "pivot": {
+      "x": -2.3,
+      "y": 27.6
+     }
+    },
+    "body": {
+     "kind": "static",
+     "pivot": {
+      "x": -2.3,
+      "y": 0
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 52.44,
+      "y": 16.56
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 12.185,
+     "pivot": {
+      "x": 39.1,
+      "y": 35.034
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 4.674,
+     "pivot": {
+      "x": 39.1,
+      "y": 30.36
+     }
+    },
+    "tail": {
+     "kind": "static",
+     "pivot": {
+      "x": -55.2,
+      "y": 25.3
+     }
     }
-   ],
+   },
+   "report": [],
    "rigHash": "263ecbf10476b9f4",
-   "sourceHash": "4281160ed3a63f992162de7b1ba13a8a8d21b7d3727abb76f0e423f9cb1f61d9",
-   "status": "empty"
+   "sourceHash": "b7e4db4a02d1c4c490b7ceb48c49e0c43c4cd513c7a126c450a99d5eb0dbcb73",
+   "status": "drawn"
   },
   "bug_snail_glorp": {
-   "face": [],
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
    "faceAnchors": {
     "eye": {
      "r": 14,
@@ -327,22 +1364,81 @@
    "id": "bug_snail_glorp",
    "kind": "bug",
    "pages": {
-    "1": [],
-    "2": []
+    "1": [
+     "bugs/bug_snail_glorp@1x"
+    ],
+    "2": [
+     "bugs/bug_snail_glorp@2x"
+    ]
    },
-   "parts": {},
-   "report": [
-    {
-     "level": "info",
-     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+   "parts": {
+    "body": {
+     "kind": "static",
+     "pivot": {
+      "x": 0,
+      "y": 22.4
+     }
+    },
+    "shell": {
+     "kind": "static",
+     "pivot": {
+      "x": -19.6,
+      "y": -4.48
+     }
+    },
+    "shell_closed": {
+     "form": "in_shell",
+     "kind": "form",
+     "pivot": {
+      "x": 0,
+      "y": 0
+     }
+    },
+    "stalk": {
+     "kind": "rope",
+     "length": 53.653,
+     "pivot": {
+      "x": 62.72,
+      "y": -22.4
+     }
     }
-   ],
+   },
+   "report": [],
    "rigHash": "d3d96208442ca942",
-   "sourceHash": "59881e8fa9e69d48462e061cc33077e631051d55d3ab2feb77a24513812159b3",
-   "status": "empty"
+   "sourceHash": "be4b1352c5be52a12222f2013a1936ba95bf961bb39a479719cb706e7e6e200c",
+   "status": "drawn"
   },
   "bug_stagbeetle_moose": {
-   "face": [],
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
    "faceAnchors": {
     "eye": {
      "r": 8,
@@ -358,22 +1454,118 @@
    "id": "bug_stagbeetle_moose",
    "kind": "bug",
    "pages": {
-    "1": [],
-    "2": []
+    "1": [
+     "bugs/bug_stagbeetle_moose@1x"
+    ],
+    "2": [
+     "bugs/bug_stagbeetle_moose@2x"
+    ]
    },
-   "parts": {},
-   "report": [
-    {
-     "level": "info",
-     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+   "parts": {
+    "antenna_base": {
+     "kind": "rope",
+     "length": 25.911,
+     "pivot": {
+      "x": 79.36,
+      "y": -10.64
+     }
+    },
+    "antenna_end": {
+     "kind": "rope",
+     "length": 24.852,
+     "pivot": {
+      "x": 79.36,
+      "y": -36.55
+     }
+    },
+    "antler": {
+     "kind": "static",
+     "pivot": {
+      "x": 92.8,
+      "y": 12.8
+     }
+    },
+    "belly": {
+     "kind": "static",
+     "pivot": {
+      "x": -24,
+      "y": 40
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 73.6,
+      "y": 11.2
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 36.41,
+     "pivot": {
+      "x": 25.6,
+      "y": 54.031
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 15.631,
+     "pivot": {
+      "x": 25.6,
+      "y": 38.4
+     }
+    },
+    "shell": {
+     "kind": "static",
+     "pivot": {
+      "x": -28,
+      "y": 0
+     }
+    },
+    "thorax": {
+     "kind": "static",
+     "pivot": {
+      "x": 36.8,
+      "y": 8
+     }
     }
-   ],
+   },
+   "report": [],
    "rigHash": "515753ab116ad1d5",
-   "sourceHash": "06c05bfd63f655ac952209f301393111dd4ef282bd6a1256d7d477feac9cf325",
-   "status": "empty"
+   "sourceHash": "5580b2a98e653f9181e6dec952ad50541b10a823dc36d32efe4ca62b3df65ea9",
+   "status": "drawn"
   },
   "bug_stickinsect_twig": {
-   "face": [],
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
    "faceAnchors": {
     "eye": {
      "r": 5.19,
@@ -389,22 +1581,82 @@
    "id": "bug_stickinsect_twig",
    "kind": "bug",
    "pages": {
-    "1": [],
-    "2": []
+    "1": [
+     "bugs/bug_stickinsect_twig@1x"
+    ],
+    "2": [
+     "bugs/bug_stickinsect_twig@2x"
+    ]
    },
-   "parts": {},
-   "report": [
-    {
-     "level": "info",
-     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+   "parts": {
+    "antenna": {
+     "kind": "rope",
+     "length": 42.076,
+     "pivot": {
+      "x": 60.99,
+      "y": -19.5
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 54.146,
+     "pivot": {
+      "x": 35.76,
+      "y": 19.6
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 32.8,
+     "pivot": {
+      "x": 35.76,
+      "y": -13.2
+     }
+    },
+    "stick": {
+     "kind": "static",
+     "pivot": {
+      "x": 0,
+      "y": -16.5
+     }
     }
-   ],
+   },
+   "report": [],
    "rigHash": "20e3a5f62c599b01",
-   "sourceHash": "4216e4d8871c5ada4d08739a4d215213a8fc15efa448b3e57be9ac819eb34d03",
-   "status": "empty"
+   "sourceHash": "621538973e79f1209543020fccd932267bf058e8bccf50dfb8695e376eebe027",
+   "status": "drawn"
   },
   "bug_stinkbug_whiff": {
-   "face": [],
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
    "faceAnchors": {
     "eye": {
      "r": 7.304,
@@ -420,22 +1672,111 @@
    "id": "bug_stinkbug_whiff",
    "kind": "bug",
    "pages": {
-    "1": [],
-    "2": []
+    "1": [
+     "bugs/bug_stinkbug_whiff@1x"
+    ],
+    "2": [
+     "bugs/bug_stinkbug_whiff@2x"
+    ]
    },
-   "parts": {},
-   "report": [
-    {
-     "level": "info",
-     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+   "parts": {
+    "antenna_base": {
+     "kind": "rope",
+     "length": 21.284,
+     "pivot": {
+      "x": 47.916,
+      "y": -12.936
+     }
+    },
+    "antenna_end": {
+     "kind": "rope",
+     "length": 14.752,
+     "pivot": {
+      "x": 47.916,
+      "y": -34.22
+     }
+    },
+    "antenna_tip": {
+     "kind": "tip",
+     "pivot": {
+      "x": 47.916,
+      "y": -48.972
+     }
+    },
+    "belly": {
+     "kind": "static",
+     "pivot": {
+      "x": -16.72,
+      "y": 22.88
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 44.88,
+      "y": 5.28
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 19.425,
+     "pivot": {
+      "x": 13.2,
+      "y": 30.498
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 8.498,
+     "pivot": {
+      "x": 13.2,
+      "y": 22
+     }
+    },
+    "shield": {
+     "kind": "static",
+     "pivot": {
+      "x": -11.88,
+      "y": -6.6
+     }
     }
-   ],
+   },
+   "report": [],
    "rigHash": "43bf9045589fe098",
-   "sourceHash": "aa3ad22eb9df10660825cd63178244863f7311d3b833422e7a7ea4947a473e7d",
-   "status": "empty"
+   "sourceHash": "40870ee42cc59f7439a408cec39be1a744605a742a1ac9421492670c5a135497",
+   "status": "drawn"
   },
   "bug_tardigrade_wubbo": {
-   "face": [],
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
    "faceAnchors": {
     "eye": {
      "r": 4.646,
@@ -451,22 +1792,81 @@
    "id": "bug_tardigrade_wubbo",
    "kind": "bug",
    "pages": {
-    "1": [],
-    "2": []
+    "1": [
+     "bugs/bug_tardigrade_wubbo@1x"
+    ],
+    "2": [
+     "bugs/bug_tardigrade_wubbo@2x"
+    ]
    },
-   "parts": {},
-   "report": [
-    {
-     "level": "info",
-     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+   "parts": {
+    "body": {
+     "kind": "static",
+     "pivot": {
+      "x": -5.98,
+      "y": -5.06
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 9.671,
+     "pivot": {
+      "x": 2.3,
+      "y": 35.431
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 9.671,
+     "pivot": {
+      "x": 2.3,
+      "y": 25.76
+     }
+    },
+    "snout": {
+     "kind": "static",
+     "pivot": {
+      "x": 46,
+      "y": 7.36
+     }
     }
-   ],
+   },
+   "report": [],
    "rigHash": "34d70d2823baa708",
-   "sourceHash": "5b0611258a8057c0b2189880b3913ec8a022f89ee7901b2b163322384db486a9",
-   "status": "empty"
+   "sourceHash": "afaf699467e9ebdb160361923235e60f424fbd2240ea06b05d2df2593d0ec0b0",
+   "status": "drawn"
   },
   "bug_waterstrider_skeet": {
-   "face": [],
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
    "faceAnchors": {
     "eye": {
      "r": 9.5,
@@ -482,38 +1882,120 @@
    "id": "bug_waterstrider_skeet",
    "kind": "bug",
    "pages": {
-    "1": [],
-    "2": []
+    "1": [
+     "bugs/bug_waterstrider_skeet@1x"
+    ],
+    "2": [
+     "bugs/bug_waterstrider_skeet@2x"
+    ]
    },
-   "parts": {},
-   "report": [
-    {
-     "level": "info",
-     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
+   "parts": {
+    "antenna": {
+     "kind": "rope",
+     "length": 52.884,
+     "pivot": {
+      "x": 54,
+      "y": -24
+     }
+    },
+    "body": {
+     "kind": "static",
+     "pivot": {
+      "x": -12.5,
+      "y": -10
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 44,
+      "y": -15
+     }
+    },
+    "leg_long_lower": {
+     "kind": "limb_lower",
+     "length": 110.209,
+     "pivot": {
+      "x": 0,
+      "y": 38.729
+     }
+    },
+    "leg_long_upper": {
+     "kind": "limb_upper",
+     "length": 43.729,
+     "pivot": {
+      "x": 0,
+      "y": -5
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 15.305,
+     "pivot": {
+      "x": 31,
+      "y": 16.114
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 23.114,
+     "pivot": {
+      "x": 31,
+      "y": -7
+     }
     }
-   ],
+   },
+   "report": [],
    "rigHash": "f1fc47344f27f3e4",
-   "sourceHash": "55fafb56d33778c76449b6513f42641b8ee6b0ad0b2f7e76ca73ec8337024154",
-   "status": "empty"
+   "sourceHash": "132ca3bfb7ba7101f02e618c31b3639b86fe71e8308ac4fcfe3a43277a237e7f",
+   "status": "drawn"
   },
   "face_kit": {
-   "face": [],
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
    "id": "face_kit",
    "kind": "face_kit",
    "pages": {
-    "1": [],
-    "2": []
+    "1": [
+     "faces/face_kit@1x"
+    ],
+    "2": [
+     "faces/face_kit@2x"
+    ]
    },
    "parts": {},
-   "report": [
-    {
-     "level": "info",
-     "text": "Nothing is drawn yet. The game keeps drawing this one in code."
-    }
-   ],
+   "report": [],
    "rigHash": "b1f5b96fd54564b4",
-   "sourceHash": "d803f545799a7716dec2a528050331d603d57e6d7fa0edc1fac0d5a220a0ba68",
-   "status": "empty"
+   "sourceHash": "7805b7ccfa2536585aa3d845b9061d532fd5ce56dbdf5e883750bee805256a12",
+   "status": "drawn"
   }
  },
  "schema": 1

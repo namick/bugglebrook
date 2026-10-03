@@ -25,6 +25,7 @@ import type { Rgba } from './png.ts';
 import { encodePng } from './png.ts';
 import type { PartPixels } from './validate.ts';
 import { analyze } from './validate.ts';
+import { sourceSets, setSource } from './sets.ts';
 
 export const ROOT = resolve(import.meta.dirname, '../..');
 export const SRC_DIR = join(ROOT, 'art/src');
@@ -292,6 +293,21 @@ export function buildAll(srcDir = SRC_DIR): BuildAll {
   return { manifest, files, messages };
 }
 
+/** Build each artist's set separately so incomplete sets never borrow another artist's drawings. */
+export function buildSets(srcDir = SRC_DIR): BuildAll {
+  const sets = sourceSets(srcDir);
+  const result: BuildAll = { manifest: { schema: 1, assets: {} }, files: {}, messages: new Map() };
+  for (const set of sets) {
+    const built = buildAll(setSource(srcDir, set.id));
+    if (set.id === 'reference') result.manifest = built.manifest;
+    for (const [path, bytes] of Object.entries(built.files))
+      result.files[set.path ? `${set.path}/${path}` : path] = bytes;
+    for (const [id, messages] of built.messages) result.messages.set(`${set.id}/${id}`, messages);
+  }
+  result.files['sets.json'] = new TextEncoder().encode(stableJson({ sets }));
+  return result;
+}
+
 /** Every file under a folder, by path relative to it. */
 function listFiles(dir: string, base = dir): string[] {
   if (!existsSync(dir)) return [];
@@ -347,7 +363,7 @@ function main(argv: string[]): number {
   const check = argv.includes('--check');
   const srcDir = SRC_DIR;
   const t0 = performance.now();
-  const build = buildAll(srcDir);
+  const build = buildSets(srcDir);
   let errors = 0;
   for (const [id, msgs] of build.messages) {
     errors += msgs.filter((m) => m.level === 'error').length;

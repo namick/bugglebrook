@@ -1,3 +1,4 @@
+import { checkSetId } from './sets.ts';
 // Art templates: turns the guide pictures the game draws (src/renderer/src/art/
 // template.ts) into a layered .ora for the artist, plus its rig.json. Run with
 // `pnpm art:templates` (scripts/art/templates.ts), which drives the real app.
@@ -138,26 +139,27 @@ export interface Placed {
  * its guides are swapped in place, otherwise the fresh template goes to
  * art/templates/ for comparing.
  */
-export function placeTemplate(g: Guides, opts: { refresh: boolean; root?: string }): Placed {
+export function placeTemplate(g: Guides, opts: { refresh: boolean; root?: string; setId?: string }): Placed {
   const root = opts.root ?? ROOT;
   const sub = g.rig.kind === 'face_kit' ? 'faces' : 'bugs';
-  const srcDir = join(root, 'art/src', sub);
+  const prefix = opts.setId && opts.setId !== 'reference' ? `sets/${checkSetId(opts.setId)}/` : '';
+  const srcDir = join(root, 'art/src', prefix, sub);
   const src = join(srcDir, `${g.rig.id}.ora`);
   const rigJson = new TextEncoder().encode(stableJson(g.rig));
   if (!existsSync(src)) {
     mkdirSync(srcDir, { recursive: true });
     writeFileSync(src, buildTemplate(g));
     writeFileSync(join(srcDir, `${g.rig.id}.rig.json`), rigJson);
-    return { id: g.rig.id, ora: `art/src/${sub}/${g.rig.id}.ora`, action: 'created' };
+    return { id: g.rig.id, ora: `art/src/${prefix}${sub}/${g.rig.id}.ora`, action: 'created' };
   }
   if (opts.refresh) {
     writeFileSync(src, refreshGuides(new Uint8Array(readFileSync(src)), g));
     writeFileSync(join(srcDir, `${g.rig.id}.rig.json`), rigJson);
-    return { id: g.rig.id, ora: `art/src/${sub}/${g.rig.id}.ora`, action: 'refreshed' };
+    return { id: g.rig.id, ora: `art/src/${prefix}${sub}/${g.rig.id}.ora`, action: 'refreshed' };
   }
-  const out = join(root, 'art/templates');
+  const out = join(root, 'art/templates', prefix);
   mkdirSync(out, { recursive: true });
   writeFileSync(join(out, `${g.rig.id}.ora`), buildTemplate(g));
   writeFileSync(join(out, `${g.rig.id}.rig.json`), rigJson);
-  return { id: g.rig.id, ora: `art/templates/${g.rig.id}.ora`, action: 'fresh copy' };
+  return { id: g.rig.id, ora: `art/templates/${prefix}${g.rig.id}.ora`, action: 'fresh copy' };
 }

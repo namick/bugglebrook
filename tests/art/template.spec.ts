@@ -2,6 +2,7 @@ import { test } from '@playwright/test';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT } from '../../scripts/art/build.ts';
+import { setSource } from '../../scripts/art/sets.ts';
 import type { Guides } from '../../scripts/art/template.ts';
 import { fromDataUrl, placeTemplate } from '../../scripts/art/template.ts';
 import type { RigFile } from '../../src/renderer/src/art/rigFile';
@@ -17,11 +18,12 @@ test('art templates', async () => {
     const ids = await page.evaluate(() => window.__bb!.artIds());
     const only = (process.env.BB_ART_ONLY ?? '').split(',').filter(Boolean);
     const refresh = process.env.BB_ART_REFRESH === '1';
+    const setId = process.env.BB_ART_SET ?? 'reference';
     for (const id of only.length ? only : ids) {
       if (!ids.includes(id)) throw new Error(`No bug or kit named ${id}. Try one of: ${ids.join(', ')}`);
       // Refreshing keeps the canvas and origin the artist has been drawing on.
       const sub = id === 'face_kit' ? 'faces' : 'bugs';
-      const rigPath = join(ROOT, 'art/src', sub, `${id}.rig.json`);
+      const rigPath = join(setSource(join(ROOT, 'art/src'), setId), sub, `${id}.rig.json`);
       const old =
         refresh && existsSync(rigPath) ? (JSON.parse(readFileSync(rigPath, 'utf8')) as RigFile) : null;
       const keep = old ? { canvas: old.canvas, origin: old.origin } : null;
@@ -36,7 +38,7 @@ test('art templates', async () => {
         safe: fromDataUrl(g.safe),
         notes: fromDataUrl(g.notes),
       };
-      const placed = placeTemplate(guides, { refresh });
+      const placed = placeTemplate(guides, { refresh, setId });
       console.log(`${placed.action}: ${placed.ora} (${g.rig.canvas.w} x ${g.rig.canvas.h})`);
     }
   } finally {

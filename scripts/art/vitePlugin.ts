@@ -11,13 +11,14 @@ import {
   OUT_DIR,
   ROOT,
   SRC_DIR,
-  buildAll,
+  buildSets,
   buildAsset,
   findSources,
   formatReport,
   toArtPack,
   writeBuild,
 } from './build.ts';
+import { setSource } from './sets.ts';
 import { watchArt } from './watch.ts';
 
 /** Rebuild some assets from a source folder: the pack for the game and the report for the terminal. */
@@ -33,7 +34,8 @@ export function rebuild(srcDir: string, ids: readonly string[]): { pack: ArtPack
 export function artWatchPlugin(): Plugin {
   const on = process.env.BB_ART_LAB === '1';
   const external = process.env.BB_ART_SRC ? resolve(process.env.BB_ART_SRC) : null;
-  const srcDir = external ?? SRC_DIR;
+  const setId = process.env.BB_ART_SET ?? 'reference';
+  const srcDir = external ?? setSource(SRC_DIR, setId);
   return {
     name: 'bugglebrook-art-watch',
     apply: 'serve',
@@ -50,8 +52,8 @@ export function artWatchPlugin(): Plugin {
           const { pack, report } = rebuild(srcDir, ids);
           console.log(`\n${report}`);
           // Files in art/src are the record: keep the committed atlases in step with them.
-          if (!external) writeBuild(buildAll(srcDir));
-          server.ws.send({ type: 'custom', event: 'bb:art-changed', data: pack });
+          if (!external) writeBuild(buildSets());
+          server.ws.send({ type: 'custom', event: 'bb:art-changed', data: { pack, setId } });
           console.log(`Sent to the game: ${ids.join(', ')}`);
         } catch (err) {
           console.error('Art rebuild failed:', err);

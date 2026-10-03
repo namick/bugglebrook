@@ -35,3 +35,4 @@ assets/voices/**/*.zip
 art/templates/
 *.kra
 *.kra~
+*.ora~

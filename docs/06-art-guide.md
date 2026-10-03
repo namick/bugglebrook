@@ -2,7 +2,7 @@
 
 This is two documents in one. Part A is for the artist who will hand-draw the bugs, and later the backgrounds, in Krita. Part B is the spec engineers build the art pipeline milestone against.
 
-The game draws everything in code today. That is a locked decision (the Art row in `00-decisions.md`: "All art is generated in code. No external art assets."). Hand-drawn art needs the owner to amend that row first, the way the Audio row was amended for the Suno music. Until then, this guide is a plan. Agents must not edit `00-decisions.md` themselves.
+The game draws bugs in code by default. The owner approved hand-drawn replacements in `00-decisions.md`. Players can choose a named art set in Settings, and each incomplete set falls back to the original bugs for anything not yet drawn.
 
 Krita facts below were checked on 2026-10-01 against the Krita site, the Krita manual, and Krita's own source code. Where a detail could not be confirmed, the guide says so and gives an instruction that works either way.
 
@@ -99,6 +99,41 @@ Bugglebrook looks like flat cut-paper toys: chunky dark outlines, round friendly
 - **Use each bug's colors.** The per-bug table in A4 gives the colors the game uses now. You can change them, but tell us, because other parts of the game (thought bubbles, the bug scope) use the same colors.
 
 ## A3. The template workflow
+
+### Choosing and adding an art set
+
+Open the pause board or the main menu's gear. Use the arrows beside **Art** to choose **Original bugs**, **Krita reference**, or another installed set. The selected artist credit appears below the set name. The choice applies at once, including bugs and twigs in the pocket, and stays selected after restarting. It is a machine setting, shared by all save slots. Changing it does not change the bugs or their saved game state.
+
+The Krita reference set is agent-created reference artwork, separate from the daughter's drawings. Its sources stay in `art/src/bugs/` and `art/src/faces/`.
+
+To start a separate set, choose a lowercase ID with underscores, for example `garden_drawings`:
+
+```sh
+pnpm art:templates --set garden_drawings
+```
+
+This creates empty templates under `art/src/sets/garden_drawings/bugs/` and `faces/`, plus `set.json`. Edit that small file to name the set and credit its artist:
+
+```json
+{
+  "name": "Garden drawings",
+  "credit": "Drawn by the artist's name"
+}
+```
+
+Draw in those templates using the same layer names, canvas and pivots described below. Save each ORA next to its `.rig.json`. You can finish one bug at a time. The set uses its own face kit and per-bug faces; it never borrows another artist's drawings. Missing, empty or broken bug art uses the original code-drawn bug. Missing face pieces use the code-drawn face.
+
+```sh
+pnpm art:build
+pnpm art:check
+pnpm art:watch --set garden_drawings bug_ladybug_dot
+```
+
+Build and check process every set. Watch opens the Art Lab for the chosen set and updates it when you save in Krita. Commit the sources, `set.json`, and the generated `src/renderer/art/` files together. The built game offers all sets in its catalog; copying an ORA into an already installed game does not add a set until the game is rebuilt.
+
+`pnpm art:templates --set garden_drawings --refresh-guides` refreshes that set's guides while keeping its drawings. Without `--refresh-guides`, existing drawings are kept and fresh comparison templates go to `art/templates/sets/garden_drawings/`.
+
+If a selected set is removed in a later build, the game uses the original bugs and Settings displays "Unavailable set". Use either arrow to choose an installed set. The saved ID is retained so the selection works again if the set returns.
 
 ### What you get
 

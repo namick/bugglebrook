@@ -5,9 +5,17 @@
 
 import { spawnSync } from 'node:child_process';
 import { ROOT } from './build.ts';
+import { setArgs } from './sets.ts';
 
-const bug = process.argv.slice(2).find((a) => !a.startsWith('-')) ?? '1';
-const env: NodeJS.ProcessEnv = { ...process.env, BB_ART_LAB: '1', VITE_BB_ART_LAB: bug };
+const { id: setId, rest } = setArgs(process.argv.slice(2));
+const bug = rest.find((a) => !a.startsWith('-')) ?? '1';
+const env: NodeJS.ProcessEnv = {
+  ...process.env,
+  BB_ART_LAB: '1',
+  VITE_BB_ART_LAB: bug,
+  BB_ART_SET: setId,
+  VITE_BB_ART_SET: setId,
+};
 delete env.ELECTRON_RUN_AS_NODE;
 console.log('Starting the game with the Art Lab. Save in Krita (Ctrl+S) and watch it update.');
 console.log('Close the game window, or press Ctrl+C here, to stop.\n');

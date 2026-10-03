@@ -12,15 +12,23 @@ import type { EyeShape, MouthShape } from '../../src/renderer/src/render/bugFace
 import {
   bugNamed,
   content,
+  clickUi,
   entity,
   frames,
   freeze,
   glideFrames,
-  launchApp,
+  launchApp as launch,
   lookAt,
   openFrozen,
   pressFrozen,
+  waitForScene,
 } from './app';
+
+async function launchApp(...args: Parameters<typeof launch>): ReturnType<typeof launch> {
+  const app = await launch(...args);
+  await waitForScene(app.page, 'menu');
+  return app;
+}
 
 // The art pipeline end to end: the crude test art pack (tests/e2e/fixtures/art,
 // made by make.ts) goes through the real importer, into the running game, and
@@ -42,6 +50,37 @@ const install = (page: Page, p: ArtPack): Promise<void> =>
   page.evaluate((x) => window.__bb!.loadArtPack(x as ArtPack), p as never);
 
 const art = (page: Page, id: number) => page.evaluate((i) => window.__bb!.bugArt(i), id);
+
+test('the shipped Krita Dot uses her own faces while held and flung', async () => {
+  const { page, close, errors } = await launchApp();
+  try {
+    await page.evaluate(() => window.__bb!.artMode('drawn'));
+    await openFrozen(page, 0);
+    const dot = await bugNamed(page, 'bug_ladybug_dot');
+    await content(page, dot.id);
+    await frames(page, 2);
+    await expect.poll(async () => (await art(page, dot.id))?.art).toBe('drawn');
+    expect(await page.evaluate(() => window.__bb!.artReport('bug_ladybug_dot'))).toEqual([]);
+    for (const scale of [1, 2] as const) {
+      await page.evaluate((s) => window.__bb!.artScale(s), scale);
+      await frames(page, 2);
+      await expect.poll(async () => (await art(page, dot.id))?.shown?.scale).toBe(scale);
+      expect((await art(page, dot.id))!.shown!.codeFace).toBe(0);
+    }
+    const at = await pressFrozen(page, dot.id);
+    expect((await entity(page, dot.id))?.bug?.mode).toBe('st_held');
+    expect((await art(page, dot.id))!.shown!.codeFace).toBe(0);
+    const raised = await glideFrames(page, at, 0, -120, 6, 2);
+    await glideFrames(page, raised, 220, -60, 3, 1);
+    await page.mouse.up();
+    await frames(page, 3);
+    expect((await entity(page, dot.id))?.bug?.mode).toBe('st_airborne');
+    expect((await art(page, dot.id))!.shown!.codeFace).toBe(0);
+    expect(errors).toEqual([]);
+  } finally {
+    await close();
+  }
+});
 
 test('Dot is drawn from the test art pack, the others stay code-drawn, and she still plays', async () => {
   const { page, close, errors } = await launchApp();
@@ -65,7 +104,7 @@ test('Dot is drawn from the test art pack, the others stay code-drawn, and she s
     expect(shown.face.length).toBeGreaterThan(1);
     const other = (await art(page, rollo.id))!;
     expect(other.art).toBe('code');
-    expect(other.reason).toBe('nothing drawn yet');
+    expect(other.reason).toBe('no art file');
 
     // Pick her up with the real mouse and fling her.
     const at = await pressFrozen(page, dot.id);
@@ -214,4 +253,94 @@ test('the production build carries no hot reload code', () => {
   const dir = join(ROOT, 'out/renderer/assets');
   const js = readdirSync(dir).filter((f) => f.endsWith('.js'));
   for (const f of js) expect(readFileSync(join(dir, f), 'utf8'), f).not.toContain('bb:art-changed');
+});
+
+test('players switch named art sets with the mouse and keep their choice after restarting', async () => {
+  let bb = await launchApp();
+  const userData = bb.userData;
+  try {
+    const { page } = bb;
+    await page.evaluate(() => window.__bb!.sfxFixture('all', true));
+    await page.evaluate((p) => window.__bb!.loadArtSet(p, 'family_drawing', 'Family drawing'), pack().pack);
+    await openFrozen(page, 0);
+    const dot = await bugNamed(page, 'bug_ladybug_dot');
+    const rollo = await bugNamed(page, 'bug_pillbug_rollo');
+    await frames(page, 2);
+    expect((await art(page, dot.id))?.art).toBe('code');
+    await clickUi(page, 'pause');
+    await clickUi(page, 'art_next');
+    expect(await page.evaluate(() => window.__bb!.settings().artSet)).toBe('reference');
+    expect(await page.evaluate(() => window.__bb!.artChoice())).toEqual({
+      name: 'Krita reference',
+      credit: 'Agent-created reference artwork in Krita',
+    });
+    await clickUi(page, 'toggle_recordedVoices');
+    expect(await page.evaluate(() => window.__bb!.settings().recordedVoices)).toBe(true);
+    expect(await page.evaluate(() => window.__bb!.settings().artSet)).toBe('reference');
+    await frames(page, 2);
+    expect((await art(page, dot.id))?.art).toBe('drawn');
+    await clickUi(page, 'art_next');
+    expect(await page.evaluate(() => window.__bb!.settings().artSet)).toBe('family_drawing');
+    await frames(page, 2);
+    expect((await art(page, dot.id))?.art).toBe('drawn');
+    expect((await art(page, rollo.id))?.reason).toBe('no art file');
+    await clickUi(page, 'art_next');
+    await frames(page, 2);
+    expect((await art(page, dot.id))?.art).toBe('code');
+    await clickUi(page, 'art_next');
+    await page.evaluate(() => window.__bb!.saveNow());
+    await bb.close({ keepUserData: true });
+    expect(JSON.parse(readFileSync(join(userData, 'settings.json'), 'utf8')).artSet).toBe('reference');
+    bb = await launchApp(userData);
+    expect(await bb.page.evaluate(() => window.__bb!.settings().artSet)).toBe('reference');
+    expect(await bb.page.evaluate(() => window.__bb!.settings().recordedVoices)).toBe(true);
+    await openFrozen(bb.page, 0);
+    const restored = await bugNamed(bb.page, 'bug_ladybug_dot');
+    await frames(bb.page, 2);
+    expect((await art(bb.page, restored.id))?.art).toBe('drawn');
+    expect(bb.errors).toEqual([]);
+  } finally {
+    await bb.close();
+  }
+});
+
+test('switching sets refreshes pocketed bugs and twigs and shows the selected artist credit', async () => {
+  const { page, close, errors } = await launchApp();
+  try {
+    const built = [...pack().built, buildAsset(oraOf('bug_stickinsect_twig'), rigOf('bug_stickinsect_twig'))];
+    await page.evaluate(
+      (p) => window.__bb!.loadArtSet(p, 'family', 'Family drawing', 'Drawn by Juniper'),
+      toArtPack(built),
+    );
+    await openFrozen(page, 0);
+    const dot = await bugNamed(page, 'bug_ladybug_dot');
+    const twig = (await page.evaluate(() => window.__bb!.entities())).find((e) => e.defId === 'item_twig')!;
+    for (const [slot, e] of [dot, twig].entries()) {
+      await page.evaluate(({ x, y }) => window.__bb!.send({ type: 'grab', x, y }), e);
+      await frames(page, 2);
+      expect((await entity(page, e.id))?.held).toBe(true);
+      await page.evaluate((slot) => window.__bb!.send({ type: 'pocket_put', slot }), slot);
+      await frames(page, 2);
+    }
+    const contents = await page.evaluate(() => window.__bb!.pocket());
+    expect(contents.slice(0, 2)).toEqual([[dot.id], [twig.id]]);
+    const pocketArt = () => page.evaluate(() => [window.__bb!.pocketArt(0), window.__bb!.pocketArt(1)]);
+    expect(await pocketArt()).toEqual(['code', 'code']);
+    await clickUi(page, 'pause');
+    await clickUi(page, 'art_next');
+    await clickUi(page, 'art_next');
+    expect(await page.evaluate(() => window.__bb!.artChoice())).toEqual({
+      name: 'Family drawing',
+      credit: 'Drawn by Juniper',
+    });
+    await frames(page, 2);
+    expect(await pocketArt()).toEqual(['drawn', 'drawn']);
+    await clickUi(page, 'art_next');
+    await frames(page, 2);
+    expect(await pocketArt()).toEqual(['code', 'code']);
+    expect(await page.evaluate(() => window.__bb!.pocket())).toEqual(contents);
+    expect(errors).toEqual([]);
+  } finally {
+    await close();
+  }
 });
