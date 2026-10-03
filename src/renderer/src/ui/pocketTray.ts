@@ -1,6 +1,7 @@
 import { Container, Graphics } from 'pixi.js';
 import type { Sim } from '../../../game';
 import { POCKET_SLOTS } from '../../../game/systems/pocket';
+import { artStore } from '../art/artStore';
 import { itemArt, makeBugView } from '../art/bugViews';
 import { BugSprite, standaloneFrame } from '../render/draw/bug';
 import { bugSpan } from '../render/draw/species';
@@ -158,6 +159,10 @@ export class PocketTray extends Container {
     return { x: r.x + r.w / 2, y: r.y + r.h / 2 };
   }
 
+  spriteAt(slot: number): BugSprite | ItemSprite | null {
+    return this.slots[slot]?.sprite ?? null;
+  }
+
   /** Pop a slot's art (something went in or came out). */
   bump(slot: number): void {
     const s = this.slots[slot];
@@ -169,7 +174,7 @@ export class PocketTray extends Container {
     this.hasContents = all.some((s) => s.ids.length > 0);
     all.forEach((slot, i) => {
       const view = this.slots[i]!;
-      const key = `${slot.defId ?? ''}:${slot.ids.length}`;
+      const key = `${slot.defId ?? ''}:${slot.ids.length}:${artStore.version}`;
       if (key === view.key) return;
       view.key = key;
       view.content.removeChildren().forEach((c) => c.destroy({ children: true }));

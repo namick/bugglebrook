@@ -383,8 +383,6 @@ export class Game {
 
   async start(): Promise<void> {
     await this.settings.load();
-    // Hand-drawn art: tests start code-drawn and switch it on when they are about it.
-    if (this.api.testMode) artStore.setMode('code');
     await artStore.loadBundled().catch((err: unknown) => console.error('Art failed to load', err));
     void this.music.load();
     void this.samples.load();
@@ -393,7 +391,10 @@ export class Game {
       .catch(() => undefined);
     await this.showMenu();
     const lab = import.meta.env.DEV ? import.meta.env.VITE_BB_ART_LAB : undefined;
-    if (lab) this.openArtLab(lab === '1' ? 'bug_ladybug_dot' : lab);
+    if (lab) {
+      artStore.select(import.meta.env.VITE_BB_ART_SET ?? 'reference');
+      this.openArtLab(lab === '1' ? 'bug_ladybug_dot' : lab);
+    }
   }
 
   /** The Art Lab, open over everything (dev builds and tests), or null. */
@@ -414,7 +415,13 @@ export class Game {
   }
 
   /** Settings take effect at once: volumes, reduce motion, edge scroll. */
+  private appliedArtSet: string | null = null;
+
   private applySettings(s: Settings): void {
+    if (s.artSet !== this.appliedArtSet) {
+      artStore.select(s.artSet);
+      this.appliedArtSet = s.artSet;
+    }
     this.audio.setVolumes(volumesFrom(s));
     this.samples.sfxVolume = s.sfx / 100;
     this.voices.recorded = s.recordedVoices;

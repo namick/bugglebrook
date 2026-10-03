@@ -50,6 +50,8 @@ export type UiName =
   | 'guide_skip'
   | 'resume'
   | 'to_menu'
+  | 'art_prev'
+  | 'art_next'
   | 'gear'
   | 'door'
   | 'update_restart'
@@ -631,6 +633,9 @@ export function installTestHook(game: Game, boundary?: ErrorBoundary): void {
         return panel?.buttons.get('resume') ?? null;
       case 'to_menu':
         return panel?.buttons.get('menu') ?? null;
+      case 'art_prev':
+      case 'art_next':
+        return panel?.buttons.get(name) ?? null;
       case 'gear':
         return game.menu?.gear ?? null;
       case 'door':

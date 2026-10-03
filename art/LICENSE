@@ -1,9 +1,16 @@
 Bugglebrook artwork
 
+Provenance note: the current files directly in art/src/bugs/ and art/src/faces/
+are an agent-created Krita reference set, described in REFERENCE-SET.md. They
+are not attributed to the human artist. The ownership and permission statements
+below concern her original drawings, including future named sets. No additional
+permissions for the reference set are granted by this file. The exclusion from
+the code license applies to every art set.
+
 Copyright (c) 2026 the artist. All rights reserved.
 
-This license covers every file in art/ and the atlases generated from them in
-src/renderer/art/. The artist owns all of it outright.
+These terms cover the artist's drawings in art/ and the atlases generated from
+them in src/renderer/art/. The artist owns her drawings outright.
 
 The artwork is not part of the Bugglebrook code. Whatever license covers the
 code, now or later, does not cover these files. If the code is ever released

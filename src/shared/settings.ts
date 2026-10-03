@@ -10,6 +10,8 @@ export interface Settings {
   sfx: number;
   /** Bug voices volume, 0 to 100. */
   voices: number;
+  /** Named art set, or procedural for the original code-drawn bugs. */
+  artSet: string;
   fullscreen: boolean;
   /** Less squash, no screen shake or flashes, half the particles, gentler camera coasting. */
   reduceMotion: boolean;
@@ -26,6 +28,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   music: 70,
   sfx: 80,
   voices: 80,
+  artSet: 'procedural',
   fullscreen: true,
   reduceMotion: false,
   edgeScroll: true,
@@ -52,5 +55,6 @@ export function normalizeSettings(raw: unknown, defaults: Readonly<Settings> = D
     const v = src[k];
     if (typeof v === 'boolean') out[k] = v;
   }
+  if (typeof src.artSet === 'string' && /^[a-z][a-z0-9_]{0,47}$/.test(src.artSet)) out.artSet = src.artSet;
   return out;
 }

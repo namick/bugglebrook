@@ -728,3 +728,12 @@ E2E tests move the real mouse with `page.mouse`, then assert on game state throu
 - Randomness in the sim comes from `sim.rng`. Cosmetic randomness in the renderer may use `Math.random`.
 - Game text is nearly wordless. UI uses pictures. Labels in data (`name`) are for the journal and debugging.
 - Prettier formats the code with single quotes, a width of 110, and trailing commas. It does not format `docs/`, because several people edit those files.
+
+
+### Named art sets
+
+`Settings.artSet` chooses `procedural`, `reference`, or an installed artist set ID. It defaults to `procedural` and lives in `settings.json`, outside save slots. The pause board and menu settings share the selector. Changing it bumps `ArtStore.version`, so world views rebuild their sprites using the existing rig without touching sim state.
+
+`pnpm art:build` and `pnpm art:check` build the reference sources in `art/src/` and every `art/src/sets/<id>/` directory. Each additional directory has `set.json` with a display name and artist credit. Generated `src/renderer/art/sets.json` lists the set IDs, names, credits and manifest paths. Reference atlases retain their existing paths; other sets have their own `sets/<id>/` manifests and atlases. `ArtStore` keeps their textures separate. A missing set, missing asset or failed atlas load falls back to procedural art. Face-kit lookup stays within the selected set.
+
+Template and watch commands accept `--set <id>`. The Art Lab selects that set for the session; saving a source updates only that set's textures. Test fixture packs install into a separate test set so reference artwork cannot change partial-pack tests.

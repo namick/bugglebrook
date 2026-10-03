@@ -36,6 +36,7 @@ export function watchArt(dir: string, onChange: (ids: string[]) => void, debounc
   const watcher: FSWatcher = watch(dir, { recursive: true }, (_event, name) => {
     if (!name || !String(name).endsWith('.ora')) return;
     const file = String(name);
+    if (file.split(/[\\/]/)[0] === 'sets') return;
     const path = `${dir}/${file}`;
     pending.set(basename(file, '.ora'), path);
     sizes.delete(path);
