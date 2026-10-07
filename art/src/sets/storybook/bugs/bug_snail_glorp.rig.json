@@ -1,0 +1,109 @@
+{
+ "canvas": {
+  "h": 1024,
+  "w": 1280
+ },
+ "face": [
+  "eye_white",
+  "eye_pupil",
+  "eye_closed",
+  "eye_happy",
+  "eye_squint",
+  "eye_squeezed",
+  "eye_spiral",
+  "eye_heart",
+  "eye_sleepy_lid",
+  "brow_angry",
+  "brow_worried",
+  "brow_polite",
+  "cheek",
+  "mouth_smile",
+  "mouth_grin",
+  "mouth_o",
+  "mouth_whee",
+  "mouth_aah",
+  "mouth_chew_1",
+  "mouth_chew_2",
+  "mouth_wobble_1",
+  "mouth_wobble_2",
+  "mouth_flat",
+  "mouth_frown",
+  "mouth_lick",
+  "mouth_tongue",
+  "mouth_teeth",
+  "mouth_puff"
+ ],
+ "faceAnchors": {
+  "eye": {
+   "r": 56,
+   "x": 953.866,
+   "y": 347.135
+  },
+  "mouth": {
+   "s": 76.16,
+   "x": 908.8,
+   "y": 720.64
+  }
+ },
+ "ground": 864,
+ "id": "bug_snail_glorp",
+ "kind": "bug",
+ "origin": {
+  "x": 640,
+  "y": 640
+ },
+ "parts": [
+  {
+   "kind": "static",
+   "name": "body",
+   "note": "The whole soft body, foot and head in one piece.",
+   "pivot": {
+    "x": 640,
+    "y": 729.6
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "shell",
+   "note": "The round shell on his back.",
+   "pivot": {
+    "x": 561.6,
+    "y": 622.08
+   },
+   "required": true
+  },
+  {
+   "kind": "rope",
+   "length": 214.611,
+   "name": "stalk",
+   "note": "One eye stalk, drawn straight up. The eyes go on the tip.",
+   "pivot": {
+    "x": 890.88,
+    "y": 550.4
+   },
+   "required": true
+  },
+  {
+   "form": "in_shell",
+   "kind": "form",
+   "name": "shell_closed",
+   "note": "Form: just the shell, with a dark opening at the front.",
+   "pivot": {
+    "x": 640,
+    "y": 640
+   },
+   "required": true
+  }
+ ],
+ "rigHash": "d3d96208442ca942",
+ "safe": {
+  "x0": 32,
+  "x1": 1248,
+  "y0": 32,
+  "y1": 992
+ },
+ "scale": 4,
+ "schema": 1,
+ "title": "Glorp the snail (bug_snail_glorp)"
+}

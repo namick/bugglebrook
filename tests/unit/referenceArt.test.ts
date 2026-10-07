@@ -11,10 +11,16 @@ import { EXPRESSIONS, expressionFrame, poseFrame, posesFor } from '../../src/ren
 import type { AtlasJson, Manifest } from '../../src/renderer/src/art/rigFile';
 import { SpriteBugView } from '../../src/renderer/src/art/spriteBug';
 
-const DIR = resolve(import.meta.dirname, '../../src/renderer/art');
-const manifest = JSON.parse(readFileSync(join(DIR, 'manifest.json'), 'utf8')) as Manifest;
+const ART = resolve(import.meta.dirname, '../../src/renderer/art');
 
-function load(id: string): LoadedArt {
+/** The shipped sets whose every bug must be fully drawn: the reference cast and the Storybook showcase. */
+const SETS = [
+  { name: 'Krita reference cast', dir: ART },
+  { name: 'Storybook set', dir: join(ART, 'sets/storybook') },
+];
+
+function load(DIR: string, id: string): LoadedArt {
+  const manifest = JSON.parse(readFileSync(join(DIR, 'manifest.json'), 'utf8')) as Manifest;
   const entry = manifest.assets[id]!;
   const art: LoadedArt = { entry, scales: {} };
   for (const scale of [1, 2] as const)
@@ -27,11 +33,11 @@ function load(id: string): LoadedArt {
   return art;
 }
 
-describe('Krita reference cast', () => {
+describe.each(SETS)('$name', ({ dir }) => {
   it.each(BUGS.all)(
     '$name has complete shipped parts and faces through every pose at both resolutions',
     (def) => {
-      const art = load(def.id);
+      const art = load(dir, def.id);
       expect(art.entry.status).toBe('drawn');
       expect(art.entry.report).toEqual([]);
       expect([...art.entry.face].sort()).toEqual([...FACE_KIT].sort());

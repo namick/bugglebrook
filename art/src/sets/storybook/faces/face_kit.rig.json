@@ -1,0 +1,54 @@
+{
+ "canvas": {
+  "h": 1152,
+  "w": 2048
+ },
+ "face": [
+  "eye_white",
+  "eye_pupil",
+  "eye_closed",
+  "eye_happy",
+  "eye_squint",
+  "eye_squeezed",
+  "eye_spiral",
+  "eye_heart",
+  "eye_sleepy_lid",
+  "brow_angry",
+  "brow_worried",
+  "brow_polite",
+  "cheek",
+  "mouth_smile",
+  "mouth_grin",
+  "mouth_o",
+  "mouth_whee",
+  "mouth_aah",
+  "mouth_chew_1",
+  "mouth_chew_2",
+  "mouth_wobble_1",
+  "mouth_wobble_2",
+  "mouth_flat",
+  "mouth_frown",
+  "mouth_lick",
+  "mouth_tongue",
+  "mouth_teeth",
+  "mouth_puff"
+ ],
+ "ground": 1152,
+ "id": "face_kit",
+ "kind": "face_kit",
+ "origin": {
+  "x": 0,
+  "y": 0
+ },
+ "parts": [],
+ "rigHash": "b1f5b96fd54564b4",
+ "safe": {
+  "x0": 0,
+  "x1": 2048,
+  "y0": 0,
+  "y1": 1152
+ },
+ "scale": 4,
+ "schema": 1,
+ "title": "The face kit"
+}

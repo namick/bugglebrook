@@ -1,0 +1,170 @@
+{
+ "canvas": {
+  "h": 896,
+  "w": 768
+ },
+ "face": [
+  "eye_white",
+  "eye_pupil",
+  "eye_closed",
+  "eye_happy",
+  "eye_squint",
+  "eye_squeezed",
+  "eye_spiral",
+  "eye_heart",
+  "eye_sleepy_lid",
+  "brow_angry",
+  "brow_worried",
+  "brow_polite",
+  "cheek",
+  "mouth_smile",
+  "mouth_grin",
+  "mouth_o",
+  "mouth_whee",
+  "mouth_aah",
+  "mouth_chew_1",
+  "mouth_chew_2",
+  "mouth_wobble_1",
+  "mouth_wobble_2",
+  "mouth_flat",
+  "mouth_frown",
+  "mouth_lick",
+  "mouth_tongue",
+  "mouth_teeth",
+  "mouth_puff"
+ ],
+ "faceAnchors": {
+  "eye": {
+   "r": 48,
+   "x": 540.8,
+   "y": 512
+  },
+  "mouth": {
+   "s": 54.4,
+   "x": 539.2,
+   "y": 572.8
+  }
+ },
+ "ground": 672,
+ "id": "bug_firefly_flick",
+ "kind": "bug",
+ "origin": {
+  "x": 384,
+  "y": 512
+ },
+ "parts": [
+  {
+   "kind": "static",
+   "name": "tail",
+   "note": "The tail lantern, in daylight colors.",
+   "pivot": {
+    "x": 232,
+    "y": 556.8
+   },
+   "required": true
+  },
+  {
+   "kind": "wing",
+   "name": "wing",
+   "note": "One see-through flying wing, root at the dot, pointing up.",
+   "pivot": {
+    "x": 352,
+    "y": 488
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_upper",
+   "length": 25.044,
+   "name": "leg_upper",
+   "note": "Hip to knee, drawn straight down from the hip dot. Round nub at the top.",
+   "pivot": {
+    "x": 444.8,
+    "y": 592
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_lower",
+   "length": 72.355,
+   "name": "leg_lower",
+   "note": "Knee to foot, straight down from the knee dot, with the foot.",
+   "pivot": {
+    "x": 444.8,
+    "y": 617.044
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "belly",
+   "note": "The dark underside.",
+   "pivot": {
+    "x": 368,
+    "y": 579.2
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "head",
+   "note": "The head, with no face. The game draws the face on top.",
+   "pivot": {
+    "x": 512,
+    "y": 531.2
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "cap",
+   "note": "The red-orange cap over the head.",
+   "pivot": {
+    "x": 504,
+    "y": 480
+   },
+   "required": true
+  },
+  {
+   "kind": "hinged",
+   "name": "shell",
+   "note": "The wing covers. They swing up on the hinge dot to fly.",
+   "pivot": {
+    "x": 448,
+    "y": 496
+   },
+   "required": true
+  },
+  {
+   "kind": "rope",
+   "length": 116.54,
+   "name": "antenna",
+   "note": "One feeler, drawn straight up from its base dot. The game bends it.",
+   "pivot": {
+    "x": 536,
+    "y": 467.2
+   },
+   "required": true
+  },
+  {
+   "kind": "tip",
+   "name": "antenna_tip",
+   "note": "The knob on the end of the feeler, centered on its dot.",
+   "pivot": {
+    "x": 536,
+    "y": 350.66
+   },
+   "required": true
+  }
+ ],
+ "rigHash": "b4d884d628ce9ab8",
+ "safe": {
+  "x0": 32,
+  "x1": 736,
+  "y0": 32,
+  "y1": 864
+ },
+ "scale": 4,
+ "schema": 1,
+ "title": "Flick the firefly (bug_firefly_flick)"
+}

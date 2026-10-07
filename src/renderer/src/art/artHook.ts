@@ -26,6 +26,8 @@ export interface ArtHook {
   ): TemplateGuides;
   /** Draw bugs from their art where it's complete ('drawn'), or always by code. Tests start in 'code'. */
   artMode(mode: ArtMode): void;
+  /** Draw bugs from a named set ('reference', 'storybook', ...) without the settings board. */
+  artSelect(id: string): void;
   /** Install built art (what `pnpm art:build` writes), as the hot reload does. */
   loadArtPack(pack: ArtPack): Promise<void>;
   loadArtSet(pack: ArtPack, id: string, name: string, credit?: string): Promise<void>;
@@ -78,6 +80,7 @@ export function artHook(game: Game): ArtHook {
         ? kitTemplate(game.app.renderer)
         : bugTemplate(game.app.renderer, CONTENT.bugs.get(id), keep),
     artMode: (mode) => artStore.setMode(mode),
+    artSelect: (id) => artStore.select(id),
     loadArtSet: async (pack, id, name, credit = 'Test artwork') => {
       await artStore.install(pack, id);
       artStore.registerSet({ id, name, credit });

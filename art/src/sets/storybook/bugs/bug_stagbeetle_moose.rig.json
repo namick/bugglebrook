@@ -1,0 +1,161 @@
+{
+ "canvas": {
+  "h": 1280,
+  "w": 1664
+ },
+ "face": [
+  "eye_white",
+  "eye_pupil",
+  "eye_closed",
+  "eye_happy",
+  "eye_squint",
+  "eye_squeezed",
+  "eye_spiral",
+  "eye_heart",
+  "eye_sleepy_lid",
+  "brow_angry",
+  "brow_worried",
+  "brow_polite",
+  "cheek",
+  "mouth_smile",
+  "mouth_grin",
+  "mouth_o",
+  "mouth_whee",
+  "mouth_aah",
+  "mouth_chew_1",
+  "mouth_chew_2",
+  "mouth_wobble_1",
+  "mouth_wobble_2",
+  "mouth_flat",
+  "mouth_frown",
+  "mouth_lick",
+  "mouth_tongue",
+  "mouth_teeth",
+  "mouth_puff"
+ ],
+ "faceAnchors": {
+  "eye": {
+   "r": 32,
+   "x": 968.96,
+   "y": 798.08
+  },
+  "mouth": {
+   "s": 76.8,
+   "x": 955.2,
+   "y": 854.4
+  }
+ },
+ "ground": 1088,
+ "id": "bug_stagbeetle_moose",
+ "kind": "bug",
+ "origin": {
+  "x": 640,
+  "y": 768
+ },
+ "parts": [
+  {
+   "kind": "static",
+   "name": "antler",
+   "note": "One antler mandible, base on the dot.",
+   "pivot": {
+    "x": 1011.2,
+    "y": 819.2
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "belly",
+   "note": "The underside.",
+   "pivot": {
+    "x": 544,
+    "y": 928
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "shell",
+   "note": "Big glossy shell with the white shine.",
+   "pivot": {
+    "x": 528,
+    "y": 768
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "thorax",
+   "note": "The plate between shell and head.",
+   "pivot": {
+    "x": 787.2,
+    "y": 800
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "head",
+   "note": "The head, with no face. The game draws the face on top.",
+   "pivot": {
+    "x": 934.4,
+    "y": 812.8
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_upper",
+   "length": 62.524,
+   "name": "leg_upper",
+   "note": "Hip to knee, drawn straight down from the hip dot. Round nub at the top.",
+   "pivot": {
+    "x": 742.4,
+    "y": 921.6
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_lower",
+   "length": 145.639,
+   "name": "leg_lower",
+   "note": "Knee to foot, straight down from the knee dot, with the foot.",
+   "pivot": {
+    "x": 742.4,
+    "y": 984.124
+   },
+   "required": true
+  },
+  {
+   "kind": "rope",
+   "length": 103.642,
+   "name": "antenna_base",
+   "note": "Feeler up to the elbow. Put the comb on antenna_end.",
+   "pivot": {
+    "x": 957.44,
+    "y": 725.44
+   },
+   "required": true
+  },
+  {
+   "kind": "rope",
+   "length": 99.406,
+   "name": "antenna_end",
+   "note": "The feeler from the elbow to the tip, straight up from the elbow dot.",
+   "pivot": {
+    "x": 957.44,
+    "y": 621.798
+   },
+   "required": true
+  }
+ ],
+ "rigHash": "515753ab116ad1d5",
+ "safe": {
+  "x0": 32,
+  "x1": 1632,
+  "y0": 32,
+  "y1": 1248
+ },
+ "scale": 4,
+ "schema": 1,
+ "title": "Moose the stag beetle (bug_stagbeetle_moose)"
+}

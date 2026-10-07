@@ -1,0 +1,150 @@
+{
+ "canvas": {
+  "h": 896,
+  "w": 1024
+ },
+ "face": [
+  "eye_white",
+  "eye_pupil",
+  "eye_closed",
+  "eye_happy",
+  "eye_squint",
+  "eye_squeezed",
+  "eye_spiral",
+  "eye_heart",
+  "eye_sleepy_lid",
+  "brow_angry",
+  "brow_worried",
+  "brow_polite",
+  "cheek",
+  "mouth_smile",
+  "mouth_grin",
+  "mouth_o",
+  "mouth_whee",
+  "mouth_aah",
+  "mouth_chew_1",
+  "mouth_chew_2",
+  "mouth_wobble_1",
+  "mouth_wobble_2",
+  "mouth_flat",
+  "mouth_frown",
+  "mouth_lick",
+  "mouth_tongue",
+  "mouth_teeth",
+  "mouth_puff"
+ ],
+ "faceAnchors": {
+  "eye": {
+   "r": 60,
+   "x": 708,
+   "y": 512
+  },
+  "mouth": {
+   "s": 68,
+   "x": 706,
+   "y": 588
+  }
+ },
+ "ground": 712,
+ "id": "bug_ladybug_dot",
+ "kind": "bug",
+ "origin": {
+  "x": 512,
+  "y": 512
+ },
+ "parts": [
+  {
+   "kind": "wing",
+   "name": "wing",
+   "note": "One see-through flying wing, root at the dot, pointing up.",
+   "pivot": {
+    "x": 472,
+    "y": 482
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_upper",
+   "length": 31.305,
+   "name": "leg_upper",
+   "note": "Hip to knee, drawn straight down from the hip dot. Round nub at the top.",
+   "pivot": {
+    "x": 588,
+    "y": 612
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_lower",
+   "length": 90.443,
+   "name": "leg_lower",
+   "note": "Knee to foot, straight down from the knee dot, with the foot.",
+   "pivot": {
+    "x": 588,
+    "y": 643.305
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "belly",
+   "note": "The dark underside.",
+   "pivot": {
+    "x": 492,
+    "y": 596
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "head",
+   "note": "The head, with no face. The game draws the face on top.",
+   "pivot": {
+    "x": 672,
+    "y": 536
+   },
+   "required": true
+  },
+  {
+   "kind": "hinged",
+   "name": "shell",
+   "note": "The wing covers. They swing up on the hinge dot to fly.",
+   "pivot": {
+    "x": 602,
+    "y": 492
+   },
+   "required": true
+  },
+  {
+   "kind": "rope",
+   "length": 140.971,
+   "name": "antenna",
+   "note": "One feeler, drawn straight up from its base dot. The game bends it.",
+   "pivot": {
+    "x": 702,
+    "y": 456
+   },
+   "required": true
+  },
+  {
+   "kind": "tip",
+   "name": "antenna_tip",
+   "note": "The knob on the end of the feeler, centered on its dot.",
+   "pivot": {
+    "x": 702,
+    "y": 315.029
+   },
+   "required": true
+  }
+ ],
+ "rigHash": "309ee1610201cf74",
+ "safe": {
+  "x0": 32,
+  "x1": 992,
+  "y0": 32,
+  "y1": 864
+ },
+ "scale": 4,
+ "schema": 1,
+ "title": "Dot the ladybug (bug_ladybug_dot)"
+}

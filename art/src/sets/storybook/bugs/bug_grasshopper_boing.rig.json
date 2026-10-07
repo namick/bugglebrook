@@ -1,0 +1,142 @@
+{
+ "canvas": {
+  "h": 1408,
+  "w": 1152
+ },
+ "face": [
+  "eye_white",
+  "eye_pupil",
+  "eye_closed",
+  "eye_happy",
+  "eye_squint",
+  "eye_squeezed",
+  "eye_spiral",
+  "eye_heart",
+  "eye_sleepy_lid",
+  "brow_angry",
+  "brow_worried",
+  "brow_polite",
+  "cheek",
+  "mouth_smile",
+  "mouth_grin",
+  "mouth_o",
+  "mouth_whee",
+  "mouth_aah",
+  "mouth_chew_1",
+  "mouth_chew_2",
+  "mouth_wobble_1",
+  "mouth_wobble_2",
+  "mouth_flat",
+  "mouth_frown",
+  "mouth_lick",
+  "mouth_tongue",
+  "mouth_teeth",
+  "mouth_puff"
+ ],
+ "faceAnchors": {
+  "eye": {
+   "r": 46,
+   "x": 830,
+   "y": 580
+  },
+  "mouth": {
+   "s": 84,
+   "x": 820,
+   "y": 652
+  }
+ },
+ "ground": 840,
+ "id": "bug_grasshopper_boing",
+ "kind": "bug",
+ "origin": {
+  "x": 640,
+  "y": 640
+ },
+ "parts": [
+  {
+   "kind": "limb_upper",
+   "length": 203.027,
+   "name": "hindleg_thigh",
+   "note": "Hip to knee, drawn straight down from the hip dot. Round nub at the top.",
+   "pivot": {
+    "x": 550,
+    "y": 684
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_lower",
+   "length": 325.576,
+   "name": "hindleg_shin",
+   "note": "Knee to foot, straight down from the knee dot, with the foot.",
+   "pivot": {
+    "x": 550,
+    "y": 887.027
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_upper",
+   "length": 53.852,
+   "name": "leg_upper",
+   "note": "Hip to knee, drawn straight down from the hip dot. Round nub at the top.",
+   "pivot": {
+    "x": 630,
+    "y": 720
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_lower",
+   "length": 72.801,
+   "name": "leg_lower",
+   "note": "Knee to foot, straight down from the knee dot, with the foot.",
+   "pivot": {
+    "x": 630,
+    "y": 773.852
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "body",
+   "note": "Long body with the belly stripe and folded wing.",
+   "pivot": {
+    "x": 580,
+    "y": 676
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "head",
+   "note": "The head, with no face. The game draws the face on top.",
+   "pivot": {
+    "x": 796,
+    "y": 604
+   },
+   "required": true
+  },
+  {
+   "kind": "rope",
+   "length": 270.071,
+   "name": "antenna",
+   "note": "One feeler, drawn straight up from its base dot. The game bends it.",
+   "pivot": {
+    "x": 824,
+    "y": 524
+   },
+   "required": true
+  }
+ ],
+ "rigHash": "a5b9a792ff33d7e4",
+ "safe": {
+  "x0": 32,
+  "x1": 1120,
+  "y0": 32,
+  "y1": 1376
+ },
+ "scale": 4,
+ "schema": 1,
+ "title": "Boing the grasshopper (bug_grasshopper_boing)"
+}
