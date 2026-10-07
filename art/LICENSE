@@ -1,11 +1,12 @@
 Bugglebrook artwork
 
 Provenance note: the current files directly in art/src/bugs/ and art/src/faces/
-are an agent-created Krita reference set, described in REFERENCE-SET.md. They
-are not attributed to the human artist. The ownership and permission statements
-below concern her original drawings, including future named sets. No additional
-permissions for the reference set are granted by this file. The exclusion from
-the code license applies to every art set.
+are an agent-created Krita reference set, described in REFERENCE-SET.md, and
+art/src/sets/storybook/ is a second agent-created set, described in
+STORYBOOK-SET.md. Neither is attributed to the human artist. The ownership and
+permission statements below concern her original drawings, including future
+named sets. This file grants no additional permissions for either agent-created
+set. The exclusion from the code license applies to every art set.
 
 Copyright (c) 2026 the artist. All rights reserved.
 

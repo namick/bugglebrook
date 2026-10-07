@@ -1,0 +1,151 @@
+{
+ "canvas": {
+  "h": 896,
+  "w": 1024
+ },
+ "face": [
+  "eye_white",
+  "eye_pupil",
+  "eye_closed",
+  "eye_happy",
+  "eye_squint",
+  "eye_squeezed",
+  "eye_spiral",
+  "eye_heart",
+  "eye_sleepy_lid",
+  "brow_angry",
+  "brow_worried",
+  "brow_polite",
+  "cheek",
+  "mouth_smile",
+  "mouth_grin",
+  "mouth_o",
+  "mouth_whee",
+  "mouth_aah",
+  "mouth_chew_1",
+  "mouth_chew_2",
+  "mouth_wobble_1",
+  "mouth_wobble_2",
+  "mouth_flat",
+  "mouth_frown",
+  "mouth_lick",
+  "mouth_tongue",
+  "mouth_teeth",
+  "mouth_puff"
+ ],
+ "faceAnchors": {
+  "eye": {
+   "r": 29.216,
+   "x": 715.808,
+   "y": 528.192
+  },
+  "mouth": {
+   "s": 50.16,
+   "x": 709.296,
+   "y": 573.6
+  }
+ },
+ "ground": 688,
+ "id": "bug_stinkbug_whiff",
+ "kind": "bug",
+ "origin": {
+  "x": 512,
+  "y": 512
+ },
+ "parts": [
+  {
+   "kind": "static",
+   "name": "belly",
+   "note": "Pale underside.",
+   "pivot": {
+    "x": 445.12,
+    "y": 603.52
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "head",
+   "note": "Small head, tucked under the shield. No face.",
+   "pivot": {
+    "x": 691.52,
+    "y": 533.12
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "shield",
+   "note": "The shield back with the orange dots.",
+   "pivot": {
+    "x": 464.48,
+    "y": 485.6
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_upper",
+   "length": 33.991,
+   "name": "leg_upper",
+   "note": "Hip to knee, drawn straight down from the hip dot. Round nub at the top.",
+   "pivot": {
+    "x": 564.8,
+    "y": 600
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_lower",
+   "length": 77.7,
+   "name": "leg_lower",
+   "note": "Knee to foot, straight down from the knee dot, with the foot.",
+   "pivot": {
+    "x": 564.8,
+    "y": 633.991
+   },
+   "required": true
+  },
+  {
+   "kind": "rope",
+   "length": 85.137,
+   "name": "antenna_base",
+   "note": "Feeler up to the elbow, drawn straight up from its base dot.",
+   "pivot": {
+    "x": 703.664,
+    "y": 460.256
+   },
+   "required": true
+  },
+  {
+   "kind": "rope",
+   "length": 59.006,
+   "name": "antenna_end",
+   "note": "The feeler from the elbow to the tip, straight up from the elbow dot.",
+   "pivot": {
+    "x": 703.664,
+    "y": 375.119
+   },
+   "required": true
+  },
+  {
+   "kind": "tip",
+   "name": "antenna_tip",
+   "note": "The knob on the end of the feeler, centered on its dot.",
+   "pivot": {
+    "x": 703.664,
+    "y": 316.113
+   },
+   "required": true
+  }
+ ],
+ "rigHash": "43bf9045589fe098",
+ "safe": {
+  "x0": 32,
+  "x1": 992,
+  "y0": 32,
+  "y1": 864
+ },
+ "scale": 4,
+ "schema": 1,
+ "title": "Whiff the stink bug (bug_stinkbug_whiff)"
+}

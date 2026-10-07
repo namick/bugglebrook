@@ -1,0 +1,186 @@
+{
+ "canvas": {
+  "h": 1024,
+  "w": 1024
+ },
+ "face": [
+  "eye_white",
+  "eye_pupil",
+  "eye_closed",
+  "eye_happy",
+  "eye_squint",
+  "eye_squeezed",
+  "eye_spiral",
+  "eye_heart",
+  "eye_sleepy_lid",
+  "brow_angry",
+  "brow_worried",
+  "brow_polite",
+  "cheek",
+  "mouth_smile",
+  "mouth_grin",
+  "mouth_o",
+  "mouth_whee",
+  "mouth_aah",
+  "mouth_chew_1",
+  "mouth_chew_2",
+  "mouth_wobble_1",
+  "mouth_wobble_2",
+  "mouth_flat",
+  "mouth_frown",
+  "mouth_lick",
+  "mouth_tongue",
+  "mouth_teeth",
+  "mouth_puff"
+ ],
+ "faceAnchors": {
+  "eye": {
+   "r": 35.36,
+   "x": 715.84,
+   "y": 520.32
+  },
+  "mouth": {
+   "s": 58.24,
+   "x": 715.84,
+   "y": 578.56
+  }
+ },
+ "ground": 720,
+ "id": "bug_dungbeetle_barty",
+ "kind": "bug",
+ "origin": {
+  "x": 512,
+  "y": 512
+ },
+ "parts": [
+  {
+   "kind": "static",
+   "name": "belly",
+   "note": "Violet underside, full color.",
+   "pivot": {
+    "x": 460,
+    "y": 620.16
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_upper",
+   "length": 108.878,
+   "name": "hindleg_thigh",
+   "note": "Thick back thigh, hip at the dot, drawn straight down to the knee.",
+   "pivot": {
+    "x": 383.04,
+    "y": 611.84
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_upper",
+   "length": 40.171,
+   "name": "leg_upper",
+   "note": "Hip to knee, drawn straight down from the hip dot. Round nub at the top.",
+   "pivot": {
+    "x": 570.24,
+    "y": 616
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_lower",
+   "length": 91.827,
+   "name": "leg_lower",
+   "note": "Knee to foot, straight down from the knee dot, with the foot.",
+   "pivot": {
+    "x": 570.24,
+    "y": 656.171
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "shell_tint",
+   "note": "Tintable: the round shell in light greys.",
+   "pivot": {
+    "x": 460,
+    "y": 491.2
+   },
+   "required": true,
+   "tintable": true
+  },
+  {
+   "kind": "static",
+   "name": "thorax_tint",
+   "note": "Tintable: the plate.",
+   "pivot": {
+    "x": 599.36,
+    "y": 536.96
+   },
+   "required": true,
+   "tintable": true
+  },
+  {
+   "kind": "static",
+   "name": "head_tint",
+   "note": "Tintable: the shovel head.",
+   "pivot": {
+    "x": 715.84,
+    "y": 545.28
+   },
+   "required": true,
+   "tintable": true
+  },
+  {
+   "kind": "static",
+   "name": "shine",
+   "note": "Optional: white highlights.",
+   "pivot": {
+    "x": 387.2,
+    "y": 428.8
+   },
+   "required": false
+  },
+  {
+   "kind": "rope",
+   "length": 97.472,
+   "name": "antenna",
+   "note": "One feeler, drawn straight up from its base dot. The game bends it.",
+   "pivot": {
+    "x": 699.2,
+    "y": 470.4
+   },
+   "required": true
+  },
+  {
+   "kind": "tip",
+   "name": "antenna_tip",
+   "note": "The knob on the end of the feeler, centered on its dot.",
+   "pivot": {
+    "x": 699.2,
+    "y": 372.928
+   },
+   "required": true
+  },
+  {
+   "form": "curled",
+   "kind": "form",
+   "name": "ball_tint",
+   "note": "Form, tintable: Barty tucked into a ball, eyes shut.",
+   "pivot": {
+    "x": 512,
+    "y": 512
+   },
+   "required": true,
+   "tintable": true
+  }
+ ],
+ "rigHash": "1e0bb470693de6c9",
+ "safe": {
+  "x0": 32,
+  "x1": 992,
+  "y0": 32,
+  "y1": 992
+ },
+ "scale": 4,
+ "schema": 1,
+ "title": "Barty the dung beetle (bug_dungbeetle_barty)"
+}

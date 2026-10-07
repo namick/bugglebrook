@@ -28,7 +28,7 @@ test('Krita reference settings selector', async () => {
   }
 });
 
-test('Krita reference cast poses and expressions', async () => {
+async function castTour(set: string): Promise<void> {
   test.setTimeout(1_800_000);
   mkdirSync(DIR, { recursive: true });
   const { page, close, errors } = await launchApp();
@@ -37,6 +37,7 @@ test('Krita reference cast poses and expressions', async () => {
     await waitForScene(page, 'menu');
     await page.mouse.move(5, 5);
     await page.evaluate(() => window.__bb!.artMode('drawn'));
+    await page.evaluate((id) => window.__bb!.artSelect(id), set);
     for (const def of ONLY.length ? ONLY.map((id) => BUGS.get(id)) : BUGS.all) {
       const name = def.id.split('_').at(-1)!;
       await page.evaluate((id) => window.__bb!.artLab(id), def.id);
@@ -49,19 +50,19 @@ test('Krita reference cast poses and expressions', async () => {
         await page.evaluate(() => window.__bb!.artLabFrames(24));
         const state = await page.evaluate(() => window.__bb!.artLabState());
         expect(state?.drawnCells, def.id).toBe(state?.cells);
-        await page.screenshot({ path: join(DIR, `reference-${name}-${scale}x-grid.png`) });
+        await page.screenshot({ path: join(DIR, `${set}-${name}-${scale}x-grid.png`) });
       }
       const poses = await page.evaluate(() => window.__bb!.artLabPoses());
       for (const [focus, pose] of poses.entries()) {
         if (COMMON.has(pose)) continue;
         await page.evaluate((f) => window.__bb!.artLabSet({ zoom: 4, focus: f }), focus);
         await page.evaluate(() => window.__bb!.artLabFrames(17));
-        await page.screenshot({ path: join(DIR, `reference-${name}-${pose}.png`) });
+        await page.screenshot({ path: join(DIR, `${set}-${name}-${pose}.png`) });
       }
       for (const look of ['paint', 'night'] as const) {
         await page.evaluate((l) => window.__bb!.artLabSet({ zoom: 4, focus: 0, look: l }), look);
         await page.evaluate(() => window.__bb!.artLabFrames(10));
-        await page.screenshot({ path: join(DIR, `reference-${name}-${look}.png`) });
+        await page.screenshot({ path: join(DIR, `${set}-${name}-${look}.png`) });
       }
       console.log(`Reviewed ${def.name}: both atlases, expressions, poses, paint, and night.`);
     }
@@ -69,4 +70,8 @@ test('Krita reference cast poses and expressions', async () => {
   } finally {
     await close();
   }
-});
+}
+
+test('Krita reference cast poses and expressions', () => castTour('reference'));
+
+test('Storybook cast poses and expressions', () => castTour('storybook'));

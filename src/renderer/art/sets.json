@@ -5,6 +5,12 @@
    "id": "reference",
    "name": "Krita reference",
    "path": ""
+  },
+  {
+   "credit": "Agent-painted showcase set, brush-scripted in Krita by Claude",
+   "id": "storybook",
+   "name": "Storybook",
+   "path": "sets/storybook"
   }
  ]
 }

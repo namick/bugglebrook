@@ -280,6 +280,12 @@ test('players switch named art sets with the mouse and keep their choice after r
     await frames(page, 2);
     expect((await art(page, dot.id))?.art).toBe('drawn');
     await clickUi(page, 'art_next');
+    expect(await page.evaluate(() => window.__bb!.settings().artSet)).toBe('storybook');
+    expect((await page.evaluate(() => window.__bb!.artChoice()))?.name).toBe('Storybook');
+    await frames(page, 2);
+    expect((await art(page, dot.id))?.art).toBe('drawn');
+    expect((await art(page, rollo.id))?.art).toBe('drawn');
+    await clickUi(page, 'art_next');
     expect(await page.evaluate(() => window.__bb!.settings().artSet)).toBe('family_drawing');
     await frames(page, 2);
     expect((await art(page, dot.id))?.art).toBe('drawn');
@@ -327,6 +333,7 @@ test('switching sets refreshes pocketed bugs and twigs and shows the selected ar
     const pocketArt = () => page.evaluate(() => [window.__bb!.pocketArt(0), window.__bb!.pocketArt(1)]);
     expect(await pocketArt()).toEqual(['code', 'code']);
     await clickUi(page, 'pause');
+    await clickUi(page, 'art_next');
     await clickUi(page, 'art_next');
     await clickUi(page, 'art_next');
     expect(await page.evaluate(() => window.__bb!.artChoice())).toEqual({
