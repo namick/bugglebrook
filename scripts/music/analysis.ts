@@ -31,7 +31,11 @@ export function normalizeStemName(file: string, title?: string): string {
       .replace(/[_\-.]+/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
+    // Suno Studio numbers the full mix too: `0 puddle_pond_night`.
+    const u = s.replace(/^\d+\s+/, '');
+    if (t && u === t) return '';
     if (t && s.startsWith(t + ' ')) s = s.slice(t.length + 1).trim();
+    else if (t && u.startsWith(t + ' ')) s = u.slice(t.length + 1).trim();
   }
   // Leading track numbers: `10 drums`, `01 bass`.
   s = s.replace(/^\d+\s+/, '');
