@@ -37,7 +37,8 @@ import { bugPose } from './bugPose';
 import type { Camera, Point } from './camera';
 import { BugSprite } from './draw/bug';
 import { artStore } from '../art/artStore';
-import { itemArt, makeBugView } from '../art/bugViews';
+import { makeBugView } from '../art/bugViews';
+import { makeItemView, syncItemViews } from '../art/itemViews';
 import type { BugFrame } from './draw/bug';
 import type { Look } from './draw/face';
 import { ItemSprite } from './draw/item';
@@ -683,16 +684,17 @@ export class WorldView extends Container {
     this.drawGlows(offer);
     const rimPulse = pulseAt(this.time);
     const seen = new Set<EntityId>();
-    // New art (hot reload, or the art switched on or off): rebuild every bug's view.
+    // New art (hot reload, another set, or the art switched on or off): rebuild every bug's
+    // view. Items swap their drawing in place, here and everywhere else one is shown.
     if (this.artVersion !== artStore.version) {
       this.artVersion = artStore.version;
       for (const [id, sprite] of this.sprites) {
-        const drawnItem = sprite instanceof ItemSprite && sprite.def.art === 'twig';
-        if (!(sprite instanceof BugSprite) && !drawnItem) continue;
+        if (!(sprite instanceof BugSprite)) continue;
         sprite.destroy({ children: true });
         this.sprites.delete(id);
       }
     }
+    syncItemViews();
     for (const view of views) {
       // Worn things are drawn on their bugs (M11), not in the world.
       if (view.worn) continue;
@@ -1040,12 +1042,7 @@ export class WorldView extends Container {
     // What it wears (M11): each thing drawn with the item's own art, on the bug.
     sprite.setWorn(
       (bug.wearing ?? []).map((w) => ({ id: w.id, def: this.sim.content.items.get(w.defId) })),
-      (def) => {
-        const item = new ItemSprite(def, 0);
-        const art = itemArt(def);
-        if (art) item.useArt(art);
-        return item;
-      },
+      (def) => makeItemView(def, 0),
     );
     sprite.update({
       pose,
@@ -1168,7 +1165,7 @@ export class WorldView extends Container {
         const id =
           typeof input === 'string' ? input : 'anyOf' in input ? input.anyOf[0]! : 'item_moon_pebble';
         if (!this.sim.content.items.has(id)) return;
-        const s = new ItemSprite(this.sim.content.items.get(id), 5);
+        const s = makeItemView(this.sim.content.items.get(id), 5);
         s.alpha = 0.45;
         s.scale.set(0.6);
         this.wishHint.addChild(s);
@@ -1608,11 +1605,7 @@ export class WorldView extends Container {
     let sprite: BugSprite | ItemSprite;
     if (view.kind === 'bug') sprite = makeBugView(this.sim.content.bugs.get(view.defId));
     else {
-      const def = this.sim.content.items.get(view.defId);
-      const item = new ItemSprite(def, view.id);
-      const art = itemArt(def);
-      if (art) item.useArt(art);
-      sprite = item;
+      sprite = makeItemView(this.sim.content.items.get(view.defId), view.id);
     }
     // Keep draw order equal to ID order so hit testing (highest ID) matches.
     sprite.zIndex = view.id;
