@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { KIT_EYE_R, KIT_MOUTH_W, kitCell } from '../../src/renderer/src/art/kit.ts';
+import { parseBugLights } from '../../src/renderer/src/art/setLights.ts';
 import type {
   ArtMessage,
   ArtPack,
@@ -20,6 +21,7 @@ import type {
   RigFile,
 } from '../../src/renderer/src/art/rigFile.ts';
 import { readSetColors } from './colors.ts';
+import { readBugLights } from './lights.ts';
 import type { Rect } from './image.ts';
 import { bleed, crop, halve, rimOf, rotateCw } from './image.ts';
 import { pack } from './pack.ts';
@@ -107,8 +109,16 @@ export interface BuiltAsset {
   messages: ArtMessage[];
 }
 
-/** Import one .ora against its rig. Pure: bytes in, files out. `colors` are the set's own for this bug. */
-export function buildAsset(bytes: Uint8Array, rig: RigFile, colors?: BugColors): BuiltAsset {
+/** What a set supplies for a bug besides its drawing. */
+export interface BugOwn {
+  /** Its own colors for the bug, from the set's colors.json. */
+  colors?: BugColors;
+  /** The text of the bug's .lights.json: its night lights. */
+  lights?: string;
+}
+
+/** Import one .ora against its rig. Pure: bytes in, files out. */
+export function buildAsset(bytes: Uint8Array, rig: RigFile, own: BugOwn = {}): BuiltAsset {
   const a = analyze(bytes, rig);
   const dir = rig.kind === 'face_kit' ? 'faces' : 'bugs';
   const entry: ManifestAsset = {
@@ -121,7 +131,7 @@ export function buildAsset(bytes: Uint8Array, rig: RigFile, colors?: BugColors):
     parts: {},
     face: [],
     ...(rig.faceAnchors ? { faceAnchors: scaledAnchors(rig) } : {}),
-    ...(colors ? { colors } : {}),
+    ...(own.colors ? { colors: own.colors } : {}),
     report: a.messages,
   };
   const files: Record<string, Uint8Array> = {};
@@ -146,6 +156,12 @@ export function buildAsset(bytes: Uint8Array, rig: RigFile, colors?: BugColors):
     if (part.tintable) mp.tintable = true;
     if (part.form) mp.form = part.form;
     entry.parts[part.name] = mp;
+  }
+  if (own.lights !== undefined) {
+    // A light that is wrong is left out with a warning; the bug still draws.
+    const { lights, problems } = parseBugLights(own.lights, rig, a.pivots);
+    if (lights.length) entry.lights = lights;
+    for (const text of problems) a.messages.push({ level: 'warning', text });
   }
   for (const name of [...a.face.keys()].sort()) {
     const px = a.face.get(name)!;
@@ -288,7 +304,8 @@ export function buildAll(srcDir = SRC_DIR): BuildAll {
       continue;
     }
     const rig = JSON.parse(readFileSync(s.rig, 'utf8')) as RigFile;
-    const built = buildAsset(new Uint8Array(readFileSync(s.ora)), rig, colors[s.id]);
+    const own = { colors: colors[s.id], lights: readBugLights(s.ora) };
+    const built = buildAsset(new Uint8Array(readFileSync(s.ora)), rig, own);
     manifest.assets[s.id] = built.entry;
     Object.assign(files, built.files);
     messages.set(s.id, built.messages);

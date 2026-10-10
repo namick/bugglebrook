@@ -87,6 +87,24 @@ export interface BugColors {
   glow?: number;
 }
 
+/**
+ * One night light an art set puts on a bug (art/setLights.ts): a soft glow
+ * that rides a part after dark. Built from the bug's `.lights.json`.
+ */
+export interface BugLight {
+  /** The part it sits on. It shows while that part does, on each near-side copy of it. */
+  part: string;
+  /** Where it sits: game pixels from the part's pivot, as the part is drawn in the template. */
+  x: number;
+  y: number;
+  /** How far the glow reaches, in game pixels. */
+  r: number;
+  /** 0xRRGGBB. */
+  color: number;
+  /** Only in these body forms, when given. */
+  forms?: string[];
+}
+
 export interface ManifestAsset {
   id: string;
   kind: 'bug' | 'face_kit';
@@ -103,6 +121,8 @@ export interface ManifestAsset {
   faceAnchors?: { eye: XY & { r: number }; mouth: XY & { s: number } };
   /** The set's own colors for this bug, from its colors.json. */
   colors?: BugColors;
+  /** The set's night lights on this bug, from its lights.json. */
+  lights?: BugLight[];
   /** The importer's messages, for the Art Lab. */
   report: ArtMessage[];
 }

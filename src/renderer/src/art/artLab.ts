@@ -3,8 +3,9 @@ import { Container, Graphics, Text } from 'pixi.js';
 import { VIEW_HEIGHT_PX, VIEW_WIDTH_PX } from '../../../game/constants';
 import { CONTENT } from '../../../game/data';
 import type { BugDef } from '../../../game/data/types';
-import type { BugFrame } from '../render/draw/bug';
+import type { BugFrame, LightSpot } from '../render/draw/bug';
 import { BugSprite } from '../render/draw/bug';
+import { LightPool } from '../render/lightPool';
 import { bugSpan } from '../render/draw/species';
 import { OUTLINE } from '../render/palette';
 import { markUi } from '../ui/button';
@@ -13,6 +14,7 @@ import { artStore } from './artStore';
 import { makeBugView } from './bugViews';
 import type { PoseState } from './poses';
 import { EXPRESSIONS, expressionFrame, poseFrame, posesFor } from './poses';
+import { nightLightAlpha } from './setLights';
 import { SpriteBugView } from './spriteBug';
 
 /** Looks laid over the drawn bug to check tinting: potions, tags, and night. */
@@ -53,6 +55,10 @@ export class ArtLab extends Container {
   private time = 0;
   private cells: Cell[] = [];
   private readonly grid = new Container();
+  /** The set's night lights, shown in the night look as the world shows them after dark. */
+  private readonly lightLayer = new Container();
+  private readonly lightPool = new LightPool(this.lightLayer);
+  private readonly lightSpots: LightSpot[] = [];
   private readonly header = new Container();
   private readonly report = new Text({
     text: '',
@@ -76,7 +82,7 @@ export class ArtLab extends Container {
     this.eventMode = 'static';
     this.on('pointerdown', (e: FederatedPointerEvent) => e.stopPropagation());
     const bg = new Graphics().rect(0, 0, VIEW_WIDTH_PX, VIEW_HEIGHT_PX).fill(PAPER);
-    this.addChild(bg, this.grid, this.header);
+    this.addChild(bg, this.grid, this.lightLayer, this.header);
     this.title.position.set(30, 18);
     this.status.position.set(30, 58);
     this.report.position.set(1060, 18);
@@ -287,6 +293,19 @@ export class ArtLab extends Container {
         v.alpha = look.alpha;
       }
     }
+    const spots = this.lightSpots;
+    spots.length = 0;
+    if (this.look === 'night') {
+      const alpha = nightLightAlpha(1, { asleep: false, submerged: 0, alpha: 1 });
+      for (const c of this.cells) c.drawn.nightLights(this.lightLayer, spots);
+      for (const spot of spots) spot.alpha = alpha;
+    }
+    this.lightPool.show(spots);
+  }
+
+  /** How many night lights the night look is showing (test hook). */
+  lights(): number {
+    return this.lightSpots.length;
   }
 
   /** How many cells show the drawn bug from sprites (test hook). */

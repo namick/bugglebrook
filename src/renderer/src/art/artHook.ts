@@ -46,6 +46,8 @@ export interface ArtHook {
     reason: string;
     cells: number;
     drawnCells: number;
+    /** Night lights showing: the set's lights on the drawn bugs, in the night look. */
+    lights: number;
     zoom: number;
     look: LabLook;
   } | null;
@@ -114,7 +116,7 @@ export function artHook(game: Game): ArtHook {
     artLab: (bugId) => (bugId ? game.openArtLab(bugId) : game.closeArtLab()),
     artLabState: () => {
       const lab = game.artLab;
-      return lab ? { ...lab.state(), drawnCells: lab.drawnCells() } : null;
+      return lab ? { ...lab.state(), drawnCells: lab.drawnCells(), lights: lab.lights() } : null;
     },
     artLabButton: (name) => {
       const b = game.artLab?.buttons.get(name);

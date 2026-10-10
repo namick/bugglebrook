@@ -1,7 +1,7 @@
 import type { Texture } from 'pixi.js';
 import { Container, Graphics, MeshRope, Point, Sprite } from 'pixi.js';
 import type { BugDef } from '../../../game/data/types';
-import type { BugFrame } from '../render/draw/bug';
+import type { BugFrame, LightSpot } from '../render/draw/bug';
 import { BugSprite, footRipple } from '../render/draw/bug';
 import { drawEye, drawMouth } from '../render/draw/face';
 import { drawPaintPatches, paintColors } from '../render/draw/paint';
@@ -15,7 +15,8 @@ import type { AtlasSet, LoadedArt } from './artStore';
 import type { FacePiece } from './faceKit';
 import { cheekPiece, eyePieces, isMouth, mouthPiece, politePiece } from './faceKit';
 import { KIT_EYE_R, KIT_MOUTH_W } from './kit';
-import type { BugColors, ManifestPart } from './rigFile';
+import type { BugColors, BugLight, ManifestPart } from './rigFile';
+import { alongRope, lightInForm } from './setLights';
 
 /** Leg pieces stretch at most this much before the foot falls short instead. */
 const STRETCH = [0.8, 1.25] as const;
@@ -24,6 +25,9 @@ const FAR_TINT = darken(0xffffff, 0.25);
 const FAR_ALPHA = 0.75;
 /** Points along a bendy feeler. */
 const ROPE_POINTS = 9;
+/** Scratch points for placing night lights. */
+const AT = new Point();
+const IN = new Point();
 
 interface Tex {
   texture: Texture;
@@ -97,6 +101,10 @@ export class SpriteBugView extends BugSprite {
   private readonly parts: Record<string, ManifestPart>;
   /** The set's own colors for this bug (art/setColors.ts); the game's own where it names none. */
   private readonly colors: BugColors;
+  /** The set's night lights on this bug (art/setLights.ts), by the part each sits on. */
+  private readonly lights = new Map<string, BugLight[]>();
+  /** Sprites and feelers showing a far-side copy of a part: those carry no lights. */
+  private readonly far = new WeakSet<object>();
   private pageScale: 1 | 2 = 1;
   private readonly sRim = new Container();
   private readonly slots: Record<Slot, Container>;
@@ -120,6 +128,11 @@ export class SpriteBugView extends BugSprite {
     this.parts = art.entry.parts;
     this.colors = art.entry.colors ?? {};
     if (this.colors.sheen && this.painter?.sheenEnds) this.painter.sheenEnds = this.colors.sheen;
+    for (const light of art.entry.lights ?? []) {
+      const on = this.lights.get(light.part);
+      if (on) on.push(light);
+      else this.lights.set(light.part, [light]);
+    }
     for (const g of [
       this.legsBack,
       this.wings,
@@ -175,6 +188,69 @@ export class SpriteBugView extends BugSprite {
 
   override get bodyColor(): number {
     return this.colors.body ?? this.def.body;
+  }
+
+  /**
+   * The set's night lights as they sit this frame. Each rides the sprite of
+   * the part it was painted on, so it turns, stretches, and flips with it. A
+   * light is left out while its part is hidden, on far-side copies of a part,
+   * outside its forms, and under a worn thing.
+   */
+  override nightLights(space: Container, out: LightSpot[]): void {
+    if (this.lights.size === 0 || !this.visible) return;
+    const form = this.form ?? 'normal';
+    const from = out.length;
+    // Art pixels per game pixel, and how big the whole bug is drawn (potions).
+    const k = this.pageScale;
+    const size = Math.sqrt(Math.abs(this.scale.x * this.scale.y));
+    const put = (light: BugLight, node: Container, x: number, y: number): void => {
+      if (!lightInForm(light, form)) return;
+      const p = space.toLocal(AT.set(x, y), node, IN);
+      out.push({ x: p.x, y: p.y, r: light.r * size, color: light.color, alpha: 1 });
+    };
+    if (this.shown.ball) {
+      for (const light of this.lights.get(this.shown.ball) ?? [])
+        put(light, this.ballSprite, light.x * k, light.y * k);
+    } else {
+      for (const slot of SLOTS)
+        for (const n of this.nodes[slot]) {
+          if (this.far.has(n)) continue;
+          if (isRope(n)) {
+            const lights = n.mesh.visible ? this.lights.get(n.part) : undefined;
+            if (!lights) continue;
+            // A feeler bends: the light sits as far along it as it was painted above the base.
+            const length = this.parts[n.part]?.length || 1;
+            for (const light of lights) {
+              const at = alongRope(n.pts, -light.y / length, AT);
+              put(light, n.mesh, at.x, at.y);
+            }
+            continue;
+          }
+          const lights = n.visible ? this.lights.get(n.label) : undefined;
+          if (!lights) continue;
+          // Feeler pieces used as rigid sprites are stored lying along +x.
+          const lying = this.parts[n.label]?.kind === 'rope';
+          for (const light of lights)
+            if (lying) put(light, n, -light.y * k, light.x * k);
+            else put(light, n, light.x * k, light.y * k);
+        }
+    }
+    this.hideCovered(space, out, from);
+  }
+
+  /** Take out the lights a worn thing covers: a hat hides the glow under it. */
+  private hideCovered(space: Container, out: LightSpot[], from: number): void {
+    if (!this.wearFront.visible) return;
+    const worn = this.wearFront.children.filter((w) => w.visible);
+    if (worn.length === 0) return;
+    for (let i = out.length - 1; i >= from; i--)
+      for (const w of worn) {
+        const p = w.toLocal(out[i]!, space, IN);
+        const b = w.getLocalBounds();
+        if (p.x < b.minX || p.x > b.maxX || p.y < b.minY || p.y > b.maxY) continue;
+        out.splice(i, 1);
+        break;
+      }
   }
 
   /** The rig container (BugSprite's `rig`, named apart from the skeleton). */
@@ -280,6 +356,8 @@ export class SpriteBugView extends BugSprite {
   private color(s: Sprite, item: SkeletonItem): void {
     const tint = item.tint ?? (this.parts[s.label]?.tintable ? this.bodyColor : null);
     if (tint !== null && s.visible) this.shown.tints[s.label] = tint;
+    if (item.far) this.far.add(s);
+    else this.far.delete(s);
     s.tint = tint ?? (item.far ? FAR_TINT : 0xffffff);
     s.alpha = item.alpha ?? (item.far ? FAR_ALPHA : 1);
   }
@@ -420,6 +498,8 @@ export class SpriteBugView extends BugSprite {
         });
         rope.mesh.tint = item.tint ?? (item.far ? FAR_TINT : 0xffffff);
         rope.mesh.alpha = item.alpha ?? (item.far ? FAR_ALPHA : 1);
+        if (item.far) this.far.add(rope);
+        else this.far.delete(rope);
         parts.add(item.part);
         continue;
       }

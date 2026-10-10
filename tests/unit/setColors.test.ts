@@ -37,7 +37,7 @@ const VIOLET = 0x6a4fa3;
 /** A fixture bug built with a set's colors and turned into textures, as the game loads it. */
 function loaded(id: string, colors?: BugColors): LoadedArt {
   const rig = JSON.parse(readFileSync(join(FIX, `${id}.rig.json`), 'utf8')) as RigFile;
-  const built = buildAsset(new Uint8Array(readFileSync(join(FIX, `${id}.ora`))), rig, colors);
+  const built = buildAsset(new Uint8Array(readFileSync(join(FIX, `${id}.ora`))), rig, { colors });
   const art: LoadedArt = { entry: built.entry, scales: {} };
   for (const scale of [1, 2] as const)
     for (const page of built.entry.pages[String(scale) as '1' | '2']) {

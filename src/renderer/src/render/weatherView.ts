@@ -7,7 +7,9 @@ import { HOUR, timeOfDay } from '../../../game/systems/sky';
 import { artStore } from '../art/artStore';
 import { glowColors } from '../art/setColors';
 import { MUSHROOMS } from './background';
+import type { LightSpot } from './draw/bug';
 import type { Camera } from './camera';
+import { LightPool } from './lightPool';
 import { coneTexture, glowTexture } from './lightTextures';
 import { OUTLINE, mix } from './palette';
 import type { SkyLook, WeatherMix } from './skyLook';
@@ -21,6 +23,8 @@ export const RAIN_FAR = 130;
 export const SPLASH_MAX = 70;
 export const LEAF_MAX = 26;
 export const FIREFLIES = 16;
+/** The most night lights an art set's bugs show at once (art/setLights.ts). */
+export const BUG_LIGHTS = 150;
 
 interface Drop {
   x: number;
@@ -105,6 +109,8 @@ export class WeatherView {
   private readonly mistFront: Sprite[] = [];
   private readonly fireflyDots = new Graphics();
   private readonly lightSprites: Sprite[] = [];
+  private readonly bugLightPool = new LightPool(this.lights);
+  private bugLit = 0;
   private readonly cones: Sprite[] = [];
   private used = 0;
   private cone = 0;
@@ -182,8 +188,18 @@ export class WeatherView {
     return {
       drops: this.near.length + this.far.length,
       leaves: this.leaves.length,
-      lights: this.used + this.cone,
+      lights: this.used + this.cone + this.bugLit,
     };
+  }
+
+  /**
+   * The night lights an art set put on its bugs (art/setLights.ts), in this
+   * layer's coordinates. The world calls it once a frame after it has posed
+   * the bugs, so the lights do not trail a frame behind them. Draws at most
+   * BUG_LIGHTS.
+   */
+  bugLights(spots: readonly LightSpot[]): void {
+    this.bugLit = this.bugLightPool.show(spots, BUG_LIGHTS);
   }
 
   /** The color of each glow drawn this frame (test hook). */

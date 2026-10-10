@@ -35,9 +35,11 @@ import type { FaceOverride } from './bugFace';
 import { bugFace } from './bugFace';
 import { bugPose } from './bugPose';
 import type { Camera, Point } from './camera';
+import type { LightSpot } from './draw/bug';
 import { BugSprite } from './draw/bug';
 import { artStore } from '../art/artStore';
 import { itemArt, makeBugView } from '../art/bugViews';
+import { LIGHT_NIGHT, nightLightAlpha } from '../art/setLights';
 import type { BugFrame } from './draw/bug';
 import type { Look } from './draw/face';
 import { ItemSprite } from './draw/item';
@@ -209,6 +211,8 @@ export class WorldView extends Container {
   private lastHover: Point | null = null;
   /** Bugs whose mouth glows right now, and in what color (test hook). */
   readonly glowing = new Map<EntityId, Liking>();
+  /** The night lights on bugs this frame, in world pixels (art/setLights.ts; the test hook reads them). */
+  readonly bugLightSpots: LightSpot[] = [];
 
   constructor(
     readonly sim: Sim,
@@ -683,6 +687,9 @@ export class WorldView extends Container {
     this.drawGlows(offer);
     const rimPulse = pulseAt(this.time);
     const seen = new Set<EntityId>();
+    // An art set's night lights on its bugs, gathered as each bug is posed.
+    this.bugLightSpots.length = 0;
+    const night = this.look.glow > LIGHT_NIGHT;
     // New art (hot reload, or the art switched on or off): rebuild every bug's view.
     if (this.artVersion !== artStore.version) {
       this.artVersion = artStore.version;
@@ -720,6 +727,7 @@ export class WorldView extends Container {
       }
       if (sprite instanceof BugSprite && view.bug) {
         this.updateBug(sprite, view, j, dt, hover, rim, offer, cursorSpeed);
+        if (night) this.lightBug(sprite, view);
       } else if (sprite instanceof ItemSprite) {
         const moving = view.held || j.flying > 0;
         const stretch = moving ? stretchFor(speed, 1.2, 0.5) : 1;
@@ -777,6 +785,7 @@ export class WorldView extends Container {
       }
     }
     for (const id of [...this.sprites.keys()]) if (!seen.has(id)) this.drop(id);
+    this.weather.bugLights(this.bugLightSpots);
     this.drawPeeks(over, dt);
     this.drawSlime(behind, left, right);
     this.drawWelds(over);
@@ -890,6 +899,28 @@ export class WorldView extends Container {
       const paint = this.sim.content.items.get(e.defId).paint;
       if (b && paint) ring(b.x * PPM, b.y * PPM, this.sizeOf(b.id) + 10, PAINT_HEX[paint] ?? 0xffffff, true);
     }
+  }
+
+  /** Add the night lights an art set put on this bug (art/setLights.ts), where it is drawn this frame. */
+  private lightBug(sprite: BugSprite, view: EntityView): void {
+    const bug = view.bug!;
+    // A slow breath, out of step from bug to bug.
+    const pulse = 0.88 + 0.12 * Math.sin(this.time * 1.6 + view.id);
+    const alpha = nightLightAlpha(
+      this.look.glow,
+      {
+        asleep: bug.mode === 'st_sleep',
+        submerged: view.submerged,
+        alpha: sprite.alpha,
+        disguised: bug.pending === 'disguised',
+      },
+      pulse,
+    );
+    if (alpha <= 0.01) return;
+    const spots = this.bugLightSpots;
+    const from = spots.length;
+    sprite.nightLights(this.weather.lights, spots);
+    for (let i = from; i < spots.length; i++) spots[i]!.alpha = alpha;
   }
 
   private colorOf(sprite: BugSprite | ItemSprite): number {

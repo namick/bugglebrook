@@ -41,7 +41,7 @@ const built = (id: string, colors?: BugColors): BuiltAsset =>
   buildAsset(
     new Uint8Array(readFileSync(join(FIXTURES, `${id}.ora`))),
     JSON.parse(readFileSync(join(FIXTURES, `${id}.rig.json`), 'utf8')) as RigFile,
-    colors,
+    { colors },
   );
 
 type Command = Parameters<TestHook['send']>[0];

@@ -19,6 +19,7 @@ import {
   writeBuild,
 } from './build.ts';
 import { readSetColors } from './colors.ts';
+import { readBugLights } from './lights.ts';
 import { setSource } from './sets.ts';
 import { watchArt } from './watch.ts';
 
@@ -27,11 +28,10 @@ export function rebuild(srcDir: string, ids: readonly string[]): { pack: ArtPack
   const sources = findSources(srcDir).filter((s) => ids.includes(s.id) && existsSync(s.rig));
   const colors = readSetColors(srcDir);
   const built = sources.map((s) =>
-    buildAsset(
-      new Uint8Array(readFileSync(s.ora)),
-      JSON.parse(readFileSync(s.rig, 'utf8')) as RigFile,
-      colors[s.id],
-    ),
+    buildAsset(new Uint8Array(readFileSync(s.ora)), JSON.parse(readFileSync(s.rig, 'utf8')) as RigFile, {
+      colors: colors[s.id],
+      lights: readBugLights(s.ora),
+    }),
   );
   const report = built.map((b) => formatReport(b.entry.id, b.messages)).join('\n');
   return { pack: toArtPack(built), report };

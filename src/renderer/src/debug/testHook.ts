@@ -15,6 +15,7 @@ import type { ArtHook } from '../art/artHook';
 import { artHook } from '../art/artHook';
 import type { DemoKind } from '../app/ghost';
 import type { PhotoRecord } from '../../../game';
+import { BUG_LIGHTS } from '../render/weatherView';
 import type { Point } from '../render/camera';
 import type { StickerPlacement } from '../photo/photoMath';
 import type { TrayKind } from '../photo/photoMode';
@@ -439,6 +440,11 @@ export interface TestHook extends ArtHook {
   weatherStats(): { drops: number; leaves: number; lights: number };
   /** The color of each glow light drawn now: night glows, lamps, Flick's lantern (its halo, then its core). */
   weatherLights(): number[];
+  /**
+   * The night lights an art set put on its bugs, as drawn now (art/setLights.ts):
+   * where in the world (meters), how far each reaches (meters), its color, and how bright.
+   */
+  bugLights(): { x: number; y: number; r: number; color: number; alpha: number }[];
   /** M11: photo mode's state. `open` false means the camera is away. */
   photo(): PhotoInfo;
   /** Where a placed sticker's middle is, in client pixels, or null. */
@@ -1095,6 +1101,10 @@ export function installTestHook(game: Game, boundary?: ErrorBoundary): void {
     },
     weatherStats: () => game.session?.view.weather.stats() ?? { drops: 0, leaves: 0, lights: 0 },
     weatherLights: () => game.session?.view.weather.lightColors() ?? [],
+    bugLights: () =>
+      (game.session?.view.bugLightSpots ?? [])
+        .slice(0, BUG_LIGHTS)
+        .map((s) => ({ x: s.x / PPM, y: s.y / PPM, r: s.r / PPM, color: s.color, alpha: s.alpha })),
     bench: () => {
       const b = game.session?.sim.bench;
       if (!b) return { trays: [null, null, null], busy: false, made: [], hinted: [], nudged: [] };
