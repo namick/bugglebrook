@@ -68,14 +68,14 @@ export function measureBug(def: BugDef): {
   return { canvas: { w: left + side(x1), h: top + side(y1) }, origin: { x: left, y: top } };
 }
 
-function canvas2d(w: number, h: number): { c: HTMLCanvasElement; g: CanvasRenderingContext2D } {
+export function canvas2d(w: number, h: number): { c: HTMLCanvasElement; g: CanvasRenderingContext2D } {
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
   return { c, g: c.getContext('2d')! };
 }
 
-function label(g: CanvasRenderingContext2D, text: string, x: number, y: number, size = 22): void {
+export function label(g: CanvasRenderingContext2D, text: string, x: number, y: number, size = 22): void {
   g.font = `bold ${size}px sans-serif`;
   g.lineJoin = 'round';
   g.lineWidth = 6;
@@ -85,7 +85,7 @@ function label(g: CanvasRenderingContext2D, text: string, x: number, y: number, 
   g.fillText(text, x, y);
 }
 
-function dot(g: CanvasRenderingContext2D, x: number, y: number, r = 9): void {
+export function dot(g: CanvasRenderingContext2D, x: number, y: number, r = 9): void {
   g.beginPath();
   g.arc(x, y, r, 0, Math.PI * 2);
   g.fillStyle = DOT;
@@ -197,7 +197,7 @@ function notesGuide(rig: RigFile, lines: string[]): string {
 }
 
 /** Render a container to a PNG data URL, `w` x `h` template pixels, its local (`ox`, `oy`) at the top left. */
-function snapshot(
+export function snapshot(
   renderer: Renderer,
   target: Container,
   ox: number,
