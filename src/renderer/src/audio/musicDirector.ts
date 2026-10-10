@@ -93,6 +93,15 @@ export class MusicDirector {
     this.lastInput = this.wallClock();
   }
 
+  /**
+   * A note as if the player poked this instrument, without a world (the
+   * Music Lab's demo): it sounds on the next 16th and dips the melody.
+   */
+  playerNote(defId: string): void {
+    this.toys.note({ id: -1, defId, note: 0, x: 0, y: 0, poked: true });
+    this.engine.playerNote();
+  }
+
   attach(sim: Sim): void {
     this.detach();
     this.sim = sim;

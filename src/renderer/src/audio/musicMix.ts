@@ -103,3 +103,23 @@ export function mixTargets(s: MixState): MixTargets {
 export function fullGain(g: LayerGains): number {
   return (g.drums + g.bass + g.harmony + g.lead) / 4;
 }
+
+/** Layers switched off or picked out by ear in the Music Lab (dev only). */
+export interface LayerOverride {
+  mute: readonly MusicLayer[];
+  solo: readonly MusicLayer[];
+}
+
+export const NO_OVERRIDE: LayerOverride = { mute: [], solo: [] };
+
+/**
+ * The Music Lab's mute and solo buttons, on top of the rules. With any layer
+ * soloed, only the soloed layers play. A muted layer is silent even when it
+ * is soloed, as on a mixing desk. What still plays keeps its rule gain.
+ */
+export function overrideLayers(g: LayerGains, o: LayerOverride): LayerGains {
+  const out = { ...g };
+  for (const l of MUSIC_LAYERS)
+    if (o.mute.includes(l) || (o.solo.length > 0 && !o.solo.includes(l))) out[l] = 0;
+  return out;
+}

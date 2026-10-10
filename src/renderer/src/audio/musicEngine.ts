@@ -9,8 +9,8 @@ import type { AudioBackend } from './synth';
 import { MusicClock, degreeMidi, midiFreq } from './musicClock';
 import type { MusicChoice } from './musicManifest';
 import { MusicLibrary, padChords } from './musicManifest';
-import type { LayerGains, MixState, MixTargets } from './musicMix';
-import { QUIET_MIX, fullGain, mixTargets } from './musicMix';
+import type { LayerGains, LayerOverride, MixState, MixTargets } from './musicMix';
+import { NO_OVERRIDE, QUIET_MIX, fullGain, mixTargets, overrideLayers } from './musicMix';
 import type { AreaSpan, FadeKind } from './musicPick';
 import { MusicPicker, fadeSeconds } from './musicPick';
 import type { LayerName, MusicSink } from './musicPlayer';
@@ -31,11 +31,31 @@ export interface MusicInput {
 }
 
 /** The porch, the ant hill, and the gnome keep the rain off the music. */
-const SHELTERED = new Set(['area_under_porch', 'area_ant_hill_depths', 'area_gnome_hollow']);
+export const SHELTERED: ReadonlySet<string> = new Set([
+  'area_under_porch',
+  'area_ant_hill_depths',
+  'area_gnome_hollow',
+]);
 /** The pad sits well under the tracks (about -24 LUFS against their -18). */
 const PAD_GAIN = 0.05;
 /** Bars of quiet after a player note before the melody comes back. */
-const PLAYER_QUIET_BARS = 4;
+export const PLAYER_QUIET_BARS = 4;
+/** The Music Lab's quick changes: a cut to a staged track, a mute, a jump along the loop. */
+const LAB_CUT_SECONDS = 0.3;
+const LAB_LAYER_SECONDS = 0.08;
+
+/** A layer gain on its way somewhere: `from` until `at`, then a straight line to `to`. */
+interface Ramp {
+  from: number;
+  to: number;
+  at: number;
+  seconds: number;
+}
+
+function rampValue(r: Ramp, t: number): number {
+  const u = Math.max(0, Math.min(1, (t - r.at) / Math.max(0.001, r.seconds)));
+  return r.from + (r.to - r.from) * u;
+}
 
 interface Playing {
   choice: MusicChoice;
@@ -45,6 +65,8 @@ interface Playing {
   anchor: number;
   /** The gains last sent, to send only changes. */
   sent: Partial<Record<LayerName, number>>;
+  /** Each layer's last ramp, to report what is heard right now. */
+  ramps: Partial<Record<LayerName, Ramp>>;
   /** When it fades out and stops, if it is on its way out. */
   endsAt: number | null;
   /** Fading in: weight 0 to 1 over [from, to] (for the pad's level). */
@@ -64,11 +86,23 @@ export interface MusicReport {
   /** A crossfade under way. */
   fading: boolean;
   layers: LayerGains;
+  /**
+   * Where each layer's gain has got to right now on the playing track (the
+   * gains move to `layers` over a beat to two bars). The pad has no layers:
+   * it reports `layers`.
+   */
+  heard: LayerGains;
+  /** Seconds into the playing track's loop and the loop's length, or null for the pad. */
+  position: number | null;
+  loopSeconds: number | null;
+  /** The Music Lab's mutes and solos (empty outside the lab). */
+  override: { mute: string[]; solo: string[] };
   track: number;
   lowpass: number | null;
   bpm: number;
   key: string;
   scale: number[];
+  beatsPerBar: number;
   /** Beats on the music clock, and where in the bar. */
   beat: number;
   beatInBar: number;
@@ -109,6 +143,12 @@ export class MusicEngine {
   private sentLowpass: number | null = null;
   /** Bars of the pad already scheduled, by bar number. */
   private padBar = -Infinity;
+  /** Music Lab (dev only): mutes and solos on top of the rules. */
+  private override: LayerOverride = NO_OVERRIDE;
+  /** Music Lab: the next layer changes happen at once, not on the bar line. */
+  private layersNow = false;
+  /** Music Lab: changes of track are quick cuts while a scene is being staged. */
+  private cutting = false;
 
   constructor(
     private readonly sink: MusicSink,
@@ -154,6 +194,34 @@ export class MusicEngine {
     return true;
   }
 
+  /**
+   * Music Lab: mute or solo layers on top of the mix rules. It changes only
+   * what this engine sends to its sink, and takes effect at once.
+   */
+  setOverride(o: LayerOverride): void {
+    this.override = { mute: [...o.mute], solo: [...o.solo] };
+    this.layersNow = true;
+  }
+
+  /** Music Lab: while on, a change of track is a quick cut instead of a crossfade (staging a scene). */
+  setCutting(on: boolean): void {
+    this.cutting = on;
+  }
+
+  /**
+   * Music Lab: jump the playing track to `bars` bars before its loop point.
+   * Returns false when no track is playing (the pad has no loop).
+   */
+  seekBeforeLoop(bars: number): boolean {
+    const p = this.incoming ?? this.current;
+    const t = p?.choice.track;
+    if (!p || !t) return false;
+    const barSec = (p.choice.beatsPerBar * 60) / p.choice.bpm;
+    const loopSec = t.loop.samples / MUSIC_SAMPLE_RATE;
+    this.begin(p.choice, 'menu', this.sink.now(), Math.max(0, loopSec - bars * barSec));
+    return true;
+  }
+
   update(input: MusicInput, dt: number): void {
     const now = this.sink.now();
     const pick = this.picker.update(input, dt);
@@ -186,8 +254,11 @@ export class MusicEngine {
     return { ...c, id: `pad:${c.id}`, track: null };
   }
 
-  /** Start the crossfade to `choice`, once it is decoded. */
-  private begin(choice: MusicChoice, kind: FadeKind, now: number): void {
+  /**
+   * Start the crossfade to `choice`, once it is decoded. `seek` (Music Lab)
+   * restarts it that many seconds into its loop with a quick cut.
+   */
+  private begin(choice: MusicChoice, kind: FadeKind, now: number, seek: number | null = null): void {
     const t = choice.track;
     if (t && !this.sink.isLoaded(choice.id)) {
       if (!this.loading.has(choice.id)) {
@@ -204,14 +275,15 @@ export class MusicEngine {
       return;
     }
     const playing = this.incoming ?? this.current;
-    const fade = playing ? fadeSeconds(kind, choice.bpm, choice.beatsPerBar) : 0.05;
+    const cut = this.cutting || seek !== null;
+    const fade = !playing ? 0.05 : cut ? LAB_CUT_SECONDS : fadeSeconds(kind, choice.bpm, choice.beatsPerBar);
     // Area changes between tracks of one tempo start on the next bar line, in step with the old track.
-    const locked = playing && kind === 'area' && playing.choice.bpm === choice.bpm;
+    const locked = playing && !cut && kind === 'area' && playing.choice.bpm === choice.bpm;
     const when = locked ? Math.max(this.clock.nextBar(now + 0.05), now + 0.05) : now + 0.08;
     const loopSec = t ? t.loop.samples / MUSIC_SAMPLE_RATE : Infinity;
     const barSec = (choice.beatsPerBar * 60) / choice.bpm;
     // Back to a track heard before: carry on from the nearest bar to where it was.
-    const remembered = this.positions.get(choice.id) ?? 0;
+    const remembered = seek ?? this.positions.get(choice.id) ?? 0;
     const offset = t ? (Math.round(remembered / barSec) * barSec) % loopSec : 0;
     const gains = this.layerGains(choice, this.targets);
     const voice = t
@@ -230,6 +302,7 @@ export class MusicEngine {
       voice,
       anchor: when - offset,
       sent: { ...gains },
+      ramps: {},
       endsAt: null,
       fade: playing ? { from: when, to: when + fade, out: false } : null,
     };
@@ -310,10 +383,14 @@ export class MusicEngine {
       stinger: now < this.stingerUntil,
     };
     const was = this.targets;
-    this.targets = mixTargets(this.mix);
+    const ruled = mixTargets(this.mix);
+    this.targets = { ...ruled, gains: overrideLayers(ruled.gains, this.override) };
+    const atOnce = this.layersNow;
+    this.layersNow = false;
     const beat = this.clock.period;
     // Layers move on bar lines; a dip for the player's notes comes in on the next beat.
-    for (const p of [this.current, this.incoming]) {
+    // A lab mute lands on a track that is fading out too, so a long crossfade can be picked apart.
+    for (const p of [this.current, this.incoming, ...(atOnce ? this.old : [])]) {
       if (!p || p.voice === null) continue;
       const gains = this.layerGains(p.choice, this.targets);
       for (const [layer, g] of Object.entries(gains) as [LayerName, number][]) {
@@ -321,9 +398,10 @@ export class MusicEngine {
         if (Math.abs(sent - g) < 0.01) continue;
         const dip = g < sent;
         const fast = dip && layer === 'lead' && playerMusic;
-        const at = fast ? this.clock.next(now, 1).time : this.clock.nextBar(now);
-        const seconds = fast ? beat * 0.5 : dip ? bar : 2 * bar;
+        const at = atOnce ? now : fast ? this.clock.next(now, 1).time : this.clock.nextBar(now);
+        const seconds = atOnce ? LAB_LAYER_SECONDS : fast ? beat * 0.5 : dip ? bar : 2 * bar;
         this.sink.setLayer(p.voice, layer, g, at, seconds);
+        p.ramps[layer] = { from: this.heardGain(p, layer, at), to: g, at, seconds };
         p.sent[layer] = g;
       }
     }
@@ -399,9 +477,24 @@ export class MusicEngine {
     return padChords(this.clock.key.mode)[((bar % 4) + 4) % 4]![0]!;
   }
 
+  /** A layer's gain on a playing track at time `t`, part way along its last ramp. */
+  private heardGain(p: Playing, layer: LayerName, t: number): number {
+    const r = p.ramps[layer];
+    return r ? rampValue(r, t) : (p.sent[layer] ?? 0);
+  }
+
   report(): MusicReport {
     const now = this.sink.now();
     const playing = this.incoming ?? this.current;
+    const heard = { ...this.targets.gains };
+    const layers = playing?.choice.track?.layers;
+    if (playing && playing.voice !== null && layers)
+      for (const l of MUSIC_LAYERS) if (layers[l]) heard[l] = this.heardGain(playing, l, now);
+    const loopSeconds = playing?.choice.track ? playing.choice.track.loop.samples / MUSIC_SAMPLE_RATE : null;
+    const position =
+      playing && loopSeconds !== null
+        ? (((now - playing.anchor) % loopSeconds) + loopSeconds) % loopSeconds
+        : null;
     return {
       manifest: this.library.ok,
       errors: [...this.library.errors],
@@ -411,9 +504,14 @@ export class MusicEngine {
       phase: this.phase,
       fading: this.incoming !== null && this.incoming.fade !== null,
       layers: { ...this.targets.gains },
+      heard,
+      position,
+      loopSeconds,
+      override: { mute: [...this.override.mute], solo: [...this.override.solo] },
       track: this.targets.track,
       lowpass: this.targets.lowpass,
       bpm: this.clock.bpm,
+      beatsPerBar: this.clock.beatsPerBar,
       key: keyName(this.clock.key),
       scale: [...this.clock.scale],
       beat: this.clock.beatAt(now),

@@ -31,6 +31,8 @@ import { PointerController } from '../input/pointerController';
 import { Camera } from '../render/camera';
 import { GhostHand, HintMarks } from '../render/hintView';
 import { ArtLab } from '../art/artLab';
+import { labHost } from '../musicLab/labHost';
+import { MusicLab } from '../musicLab/musicLab';
 import { artStore } from '../art/artStore';
 import { backdropStore } from '../art/backdropStore';
 import { itemArtBook } from '../art/itemArt';
@@ -348,6 +350,7 @@ export class Game {
 
   /** Keep the update toast, the curtain, and the hand above everything else. */
   private raiseOverlays(): void {
+    if (this.musicLab) this.app.stage.addChild(this.musicLab);
     if (this.updateToast) this.app.stage.addChild(this.updateToast);
     this.app.stage.addChild(this.curtain);
     this.app.stage.addChild(this.cursor);
@@ -399,6 +402,30 @@ export class Game {
       artStore.select(import.meta.env.VITE_BB_ART_SET ?? 'reference');
       this.openArtLab(lab === '1' ? 'bug_ladybug_dot' : lab);
     }
+    if (import.meta.env.DEV && import.meta.env.VITE_BB_MUSIC_LAB) {
+      // The lab is for listening: no first scene, no guided start.
+      this.introEnabled = false;
+      this.openMusicLab();
+    }
+  }
+
+  /** The Music Lab panel (dev builds and tests), or null. */
+  musicLab: MusicLab | null = null;
+
+  openMusicLab(): void {
+    this.closeMusicLab();
+    this.musicLab = new MusicLab(labHost(this));
+    this.raiseOverlays();
+  }
+
+  closeMusicLab(): void {
+    this.musicLab?.destroy();
+    this.musicLab = null;
+  }
+
+  /** Between the menu and a world (the curtain is down). */
+  get switchingScene(): boolean {
+    return this.switching;
   }
 
   /** The Art Lab, open over everything (dev builds and tests), or null. */
@@ -1195,6 +1222,7 @@ export class Game {
     // The selected art set's backdrop loads as soon as it is chosen, menu or world.
     backdropStore.sync();
     this.artLab?.update(dt);
+    this.musicLab?.update(dt);
     if (this.menu && !this.menuFrozen) this.menu.update(dt);
     if (this.panel) this.panel.update(dt);
     this.credits?.update(dt);

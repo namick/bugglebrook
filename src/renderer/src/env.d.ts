@@ -5,6 +5,8 @@ declare global {
   interface ImportMetaEnv {
     /** Set by `pnpm art:watch`: open the Art Lab at start (dev only). */
     readonly VITE_BB_ART_LAB?: string;
+    /** Set by `pnpm music:lab`: open the Music Lab at start (dev only). */
+    readonly VITE_BB_MUSIC_LAB?: string;
   }
 
   interface Window {
