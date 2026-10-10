@@ -11,6 +11,8 @@ import { BUGS, CONTENT } from '../../src/game/data';
 import type { BugDef } from '../../src/game/data/types';
 import type { LoadedArt } from '../../src/renderer/src/art/artStore';
 import { atlasSet } from '../../src/renderer/src/art/artStore';
+import { DEFAULT_SKY, SKY_RULES, luma } from '../../src/renderer/src/art/backdropData';
+import type { SkyPalette } from '../../src/renderer/src/art/backdropData';
 import { poseFrame, posesFor } from '../../src/renderer/src/art/poses';
 import type { AtlasJson, BugLight, Manifest, RigFile } from '../../src/renderer/src/art/rigFile';
 import {
@@ -27,6 +29,7 @@ import { SpriteBugView } from '../../src/renderer/src/art/spriteBug';
 import type { BugFrame, LightSpot } from '../../src/renderer/src/render/draw/bug';
 import { BugSprite } from '../../src/renderer/src/render/draw/bug';
 import { ItemSprite } from '../../src/renderer/src/render/draw/item';
+import { NO_WEATHER, skyLook } from '../../src/renderer/src/render/skyLook';
 import { BUG_LIGHTS } from '../../src/renderer/src/render/weatherView';
 
 // An art set's night lights (a bug's .lights.json): the file's checks, the
@@ -214,12 +217,28 @@ describe('when the lights show', () => {
   it('follows the sky’s night glow: off by day, rising at dusk, never past full', () => {
     expect(nightLightAlpha(0, awake)).toBe(0);
     expect(nightLightAlpha(LIGHT_NIGHT, awake)).toBe(0);
-    const steps = [0.1, 0.3, 0.6, 1].map((glow) => nightLightAlpha(glow, awake));
+    const steps = [0.15, 0.3, 0.6, 1].map((glow) => nightLightAlpha(glow, awake));
     expect(steps[0]).toBeGreaterThan(0);
     for (let i = 1; i < steps.length; i++) expect(steps[i]).toBeGreaterThan(steps[i - 1]!);
     // In step with the glow: half the glow, half the light.
     expect(nightLightAlpha(0.5, awake)).toBeCloseTo(nightLightAlpha(1, awake) / 2);
     expect(nightLightAlpha(1, awake, 5)).toBe(1);
+  });
+
+  it('stays off at noon under the dimmest day a set’s sky may have, and comes on in its brightest night', () => {
+    // Greys right on the sky rules' edges: the darkest `near` a day may have, the brightest a night may.
+    const grey = (l: number): number => (l << 16) | (l << 8) | l;
+    const edge: SkyPalette = structuredClone(DEFAULT_SKY);
+    edge.moments.day.near = grey(SKY_RULES.dayNear);
+    edge.moments.night.near = edge.moments.late_night.near = grey(SKY_RULES.nightNear[1]);
+    expect(luma(edge.moments.day.near)).toBeCloseTo(SKY_RULES.dayNear);
+    const noon = skyLook(12, NO_WEATHER, edge).glow;
+    expect(noon).toBeGreaterThan(0);
+    expect(noon).toBeLessThan(LIGHT_NIGHT);
+    expect(nightLightAlpha(noon, awake)).toBe(0);
+    const midnight = skyLook(0, NO_WEATHER, edge).glow;
+    expect(nightLightAlpha(midnight, awake)).toBeGreaterThan(0.4);
+    expect(nightLightAlpha(midnight, { ...awake, asleep: true })).toBeGreaterThan(0.2);
   });
 
   it('is dimmer on a sleeping bug, out under water and on a disguised bug, and fades with a ghost', () => {

@@ -117,8 +117,12 @@ export function parseBugLights(
 export const lightInForm = (light: BugLight, form: string): boolean =>
   !light.forms || light.forms.includes(form);
 
-/** Below this much of the sky's night glow the lights are off: by day they cost nothing. */
-export const LIGHT_NIGHT = 0.05;
+/**
+ * At or below this much of the sky's night glow the lights are off: by day
+ * they cost nothing. A set's own sky may leave up to 0.09 of glow at noon
+ * (`SKY_RULES.dayNear` in backdropData.ts), so the bar sits just above that.
+ */
+export const LIGHT_NIGHT = 0.1;
 /** How bright a light is at full night on a bug that is awake. */
 const STRENGTH = 0.8;
 /** A sleeping bug's lights are dimmer, about as Flick's lantern is. */
