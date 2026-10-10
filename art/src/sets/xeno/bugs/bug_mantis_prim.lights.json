@@ -1,0 +1,13 @@
+{
+  "lights": [
+    { "part": "wing_folded", "x": 209, "y": 642, "r": 60, "color": "#ff6fb7" },
+    { "part": "wing_folded", "x": 185, "y": 700, "r": 60, "color": "#ff6fb7" },
+    { "part": "wing_folded", "x": 170, "y": 761, "r": 60, "color": "#ff6fb7" },
+    { "part": "wing_open", "x": 654, "y": 532, "r": 66, "color": "#ff6fb7" },
+    { "part": "wing_open", "x": 533, "y": 490, "r": 66, "color": "#ff6fb7" },
+    { "part": "wing_open", "x": 404, "y": 493, "r": 66, "color": "#ff6fb7" },
+    { "part": "wing_open", "x": 285, "y": 542, "r": 66, "color": "#ff6fb7" },
+    { "part": "wing_open", "x": 191, "y": 630, "r": 66, "color": "#ff6fb7" },
+    { "part": "antenna", "x": 776, "y": 314, "r": 59, "color": "#ff6fb7" }
+  ]
+}

@@ -26,7 +26,7 @@ export interface ArtHook {
   ): TemplateGuides;
   /** Draw bugs from their art where it's complete ('drawn'), or always by code. Tests start in 'code'. */
   artMode(mode: ArtMode): void;
-  /** Draw bugs from a named set ('reference', 'storybook', ...) without the settings board. */
+  /** Draw bugs from a named set ('reference', 'storybook', 'xeno', ...) without the settings board. */
   artSelect(id: string): void;
   /** Install built art (what `pnpm art:build` writes), as the hot reload does. */
   loadArtPack(pack: ArtPack): Promise<void>;

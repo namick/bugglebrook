@@ -1,0 +1,2912 @@
+{
+ "assets": {
+  "bug_bee_buzzby": {
+   "colors": {
+    "body": 16763194,
+    "lid": 16769697
+   },
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
+   "faceAnchors": {
+    "eye": {
+     "r": 6.636,
+     "x": 39.144,
+     "y": -3.15
+    },
+    "mouth": {
+     "s": 10.164,
+     "x": 37.674,
+     "y": 7.56
+    }
+   },
+   "id": "bug_bee_buzzby",
+   "kind": "bug",
+   "lights": [
+    {
+     "color": 5111777,
+     "part": "stinger",
+     "r": 18.75,
+     "x": -10.9,
+     "y": -8.5
+    },
+    {
+     "color": 5111777,
+     "part": "body",
+     "r": 11.5,
+     "x": -14.44,
+     "y": -12.06
+    },
+    {
+     "color": 5111777,
+     "part": "body",
+     "r": 11.5,
+     "x": -14.44,
+     "y": 12.94
+    },
+    {
+     "color": 5111777,
+     "part": "body",
+     "r": 11.5,
+     "x": 5.56,
+     "y": -12.06
+    },
+    {
+     "color": 5111777,
+     "part": "body",
+     "r": 11.5,
+     "x": 5.56,
+     "y": 12.94
+    },
+    {
+     "color": 5111777,
+     "part": "antenna_tip",
+     "r": 15.5,
+     "x": 0.03,
+     "y": 0.064
+    }
+   ],
+   "pages": {
+    "1": [
+     "bugs/bug_bee_buzzby@1x"
+    ],
+    "2": [
+     "bugs/bug_bee_buzzby@2x"
+    ]
+   },
+   "parts": {
+    "antenna": {
+     "kind": "rope",
+     "length": 26.502,
+     "pivot": {
+      "x": 38.22,
+      "y": -18.312
+     }
+    },
+    "antenna_tip": {
+     "kind": "tip",
+     "pivot": {
+      "x": 38.22,
+      "y": -44.814
+     }
+    },
+    "body": {
+     "kind": "static",
+     "pivot": {
+      "x": -7.56,
+      "y": 7.56
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 33.6,
+      "y": -1.68
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 12.884,
+     "pivot": {
+      "x": 8.4,
+      "y": 36.972
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 7.572,
+     "pivot": {
+      "x": 8.4,
+      "y": 29.4
+     }
+    },
+    "stinger": {
+     "kind": "static",
+     "pivot": {
+      "x": -44.1,
+      "y": 10.5
+     }
+    },
+    "wing": {
+     "kind": "wing",
+     "pivot": {
+      "x": -5.04,
+      "y": -17.64
+     }
+    }
+   },
+   "report": [],
+   "rigHash": "d886c1c8d00f64e7",
+   "sourceHash": "f2f3615e9bece614a9040c22a62c26d5809a096842be4fb577b7ccade65b9ac9",
+   "status": "drawn"
+  },
+  "bug_caterpillar_munch": {
+   "colors": {
+    "body": 6280810,
+    "lid": 8447878
+   },
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
+   "faceAnchors": {
+    "eye": {
+     "r": 8.74,
+     "x": 48.76,
+     "y": 0.92
+    },
+    "mouth": {
+     "s": 18.4,
+     "x": 44.16,
+     "y": 13.34
+    }
+   },
+   "id": "bug_caterpillar_munch",
+   "kind": "bug",
+   "lights": [
+    {
+     "color": 16767050,
+     "part": "segment_a",
+     "r": 12.5,
+     "x": -6.56,
+     "y": -26.42
+    },
+    {
+     "color": 16767050,
+     "part": "segment_b",
+     "r": 11.25,
+     "x": -7.62,
+     "y": -7.42
+    },
+    {
+     "color": 16767050,
+     "part": "antenna_tip",
+     "r": 18.5,
+     "x": 0.08,
+     "y": -0.105
+    },
+    {
+     "color": 16767050,
+     "part": "tail_horn",
+     "r": 12.5,
+     "x": -11.784,
+     "y": -17.072
+    },
+    {
+     "color": 16767050,
+     "part": "cocoon",
+     "r": 26.5,
+     "x": 9,
+     "y": 20.8
+    },
+    {
+     "color": 16767050,
+     "part": "cocoon",
+     "r": 10.5,
+     "x": -0.25,
+     "y": 55.3
+    },
+    {
+     "color": 16767050,
+     "part": "bf_body",
+     "r": 11.25,
+     "x": -34.05,
+     "y": 11.5
+    },
+    {
+     "color": 16767050,
+     "part": "bf_wing_fore",
+     "r": 18.75,
+     "x": -12.63,
+     "y": -50.55
+    },
+    {
+     "color": 16767050,
+     "part": "bf_wing_hind",
+     "r": 11.25,
+     "x": -23.88,
+     "y": -15.55
+    },
+    {
+     "color": 16767050,
+     "part": "bf_antenna_tip",
+     "r": 16.25,
+     "x": -0.05,
+     "y": 0.099
+    }
+   ],
+   "pages": {
+    "1": [
+     "bugs/bug_caterpillar_munch@1x"
+    ],
+    "2": [
+     "bugs/bug_caterpillar_munch@2x"
+    ]
+   },
+   "parts": {
+    "antenna": {
+     "kind": "rope",
+     "length": 16.586,
+     "pivot": {
+      "x": 46.92,
+      "y": -16.56
+     }
+    },
+    "antenna_tip": {
+     "kind": "tip",
+     "pivot": {
+      "x": 46.92,
+      "y": -33.145
+     }
+    },
+    "bf_antenna": {
+     "form": "butterfly",
+     "kind": "rope",
+     "length": 37.551,
+     "pivot": {
+      "x": 42.55,
+      "y": -15.548
+     }
+    },
+    "bf_antenna_tip": {
+     "form": "butterfly",
+     "kind": "tip",
+     "pivot": {
+      "x": 42.55,
+      "y": -53.099
+     }
+    },
+    "bf_body": {
+     "form": "butterfly",
+     "kind": "static",
+     "pivot": {
+      "x": -9.2,
+      "y": 11.5
+     }
+    },
+    "bf_leg": {
+     "form": "butterfly",
+     "kind": "limb_upper",
+     "length": 35.18,
+     "pivot": {
+      "x": 22.08,
+      "y": 14.72
+     }
+    },
+    "bf_wing_fore": {
+     "form": "butterfly",
+     "kind": "wing",
+     "pivot": {
+      "x": 12.88,
+      "y": 2.3
+     }
+    },
+    "bf_wing_hind": {
+     "form": "butterfly",
+     "kind": "wing",
+     "pivot": {
+      "x": 12.88,
+      "y": 2.3
+     }
+    },
+    "cocoon": {
+     "form": "cocoon",
+     "kind": "form",
+     "pivot": {
+      "x": 0,
+      "y": -13.8
+     }
+    },
+    "foot": {
+     "kind": "static",
+     "pivot": {
+      "x": -20.24,
+      "y": 40.664
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 42.32,
+      "y": 4.6
+     }
+    },
+    "segment_a": {
+     "kind": "static",
+     "pivot": {
+      "x": 16.56,
+      "y": 23.92
+     }
+    },
+    "segment_b": {
+     "kind": "static",
+     "pivot": {
+      "x": -1.38,
+      "y": 23.92
+     }
+    },
+    "tail_horn": {
+     "kind": "static",
+     "pivot": {
+      "x": -75.716,
+      "y": 17.572
+     }
+    },
+    "true_leg": {
+     "kind": "limb_upper",
+     "length": 10.162,
+     "pivot": {
+      "x": 15.64,
+      "y": 35.604
+     }
+    }
+   },
+   "report": [],
+   "rigHash": "32e747c0d1c2daf6",
+   "sourceHash": "7efda9609b25d480f5f9330d41c789ac4feab865a4d20e8297214d901c697422",
+   "status": "drawn"
+  },
+  "bug_cricket_fiddle": {
+   "colors": {
+    "body": 13660218,
+    "lid": 15902048
+   },
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
+   "faceAnchors": {
+    "eye": {
+     "r": 6.716,
+     "x": 47.15,
+     "y": -10.534
+    },
+    "mouth": {
+     "s": 10.304,
+     "x": 45.954,
+     "y": 0.184
+    }
+   },
+   "id": "bug_cricket_fiddle",
+   "kind": "bug",
+   "lights": [
+    {
+     "color": 9306032,
+     "part": "abdomen",
+     "r": 14,
+     "x": -50.55,
+     "y": -13.23
+    },
+    {
+     "color": 9306032,
+     "part": "wing_folded",
+     "r": 11.25,
+     "x": 31,
+     "y": -39.03
+    },
+    {
+     "color": 9306032,
+     "part": "wing_folded",
+     "r": 11.25,
+     "x": -21,
+     "y": -38.53
+    },
+    {
+     "color": 9306032,
+     "part": "wing_folded",
+     "r": 13.5,
+     "x": -8.5,
+     "y": -12.28
+    },
+    {
+     "color": 9306032,
+     "part": "wing_folded",
+     "r": 13.5,
+     "x": 5,
+     "y": -10.28
+    },
+    {
+     "color": 9306032,
+     "part": "wing_folded",
+     "r": 13.5,
+     "x": 18.5,
+     "y": -11.78
+    },
+    {
+     "color": 9306032,
+     "part": "hindleg_shin",
+     "r": 11.5,
+     "x": -3.53,
+     "y": 34.173
+    },
+    {
+     "color": 9306032,
+     "part": "antenna",
+     "r": 11,
+     "x": 0.056,
+     "y": -77.97
+    }
+   ],
+   "pages": {
+    "1": [
+     "bugs/bug_cricket_fiddle@1x"
+    ],
+    "2": [
+     "bugs/bug_cricket_fiddle@2x"
+    ]
+   },
+   "parts": {
+    "abdomen": {
+     "kind": "static",
+     "pivot": {
+      "x": -20.7,
+      "y": 17.48
+     }
+    },
+    "antenna": {
+     "kind": "rope",
+     "length": 84.594,
+     "pivot": {
+      "x": 48.944,
+      "y": -25.53
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 40.02,
+      "y": -10.12
+     }
+    },
+    "hindleg_shin": {
+     "kind": "limb_lower",
+     "length": 68.117,
+     "pivot": {
+      "x": -14.72,
+      "y": 64.077
+     }
+    },
+    "hindleg_thigh": {
+     "kind": "limb_upper",
+     "length": 45.677,
+     "pivot": {
+      "x": -14.72,
+      "y": 18.4
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 23.028,
+     "pivot": {
+      "x": 23,
+      "y": 27.856
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 8.536,
+     "pivot": {
+      "x": 23,
+      "y": 19.32
+     }
+    },
+    "thorax": {
+     "kind": "static",
+     "pivot": {
+      "x": 17.48,
+      "y": 9.2
+     }
+    },
+    "wing_folded": {
+     "kind": "static",
+     "pivot": {
+      "x": -23,
+      "y": 8.28
+     }
+    }
+   },
+   "report": [],
+   "rigHash": "8858610f23bdcd34",
+   "sourceHash": "06e3fcfd4f6aac06e91c673d377038488dda3a527a0f34c66a80527b4d1b0b1e",
+   "status": "drawn"
+  },
+  "bug_dungbeetle_barty": {
+   "colors": {
+    "body": 3050394,
+    "lid": 5006502,
+    "sheen": [
+     3050394,
+     6967248
+    ]
+   },
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
+   "faceAnchors": {
+    "eye": {
+     "r": 8.84,
+     "x": 50.96,
+     "y": 2.08
+    },
+    "mouth": {
+     "s": 14.56,
+     "x": 50.96,
+     "y": 16.64
+    }
+   },
+   "id": "bug_dungbeetle_barty",
+   "kind": "bug",
+   "lights": [
+    {
+     "color": 9306032,
+     "part": "shine",
+     "r": 15,
+     "x": -16.3,
+     "y": 37.3
+    },
+    {
+     "color": 9306032,
+     "part": "shine",
+     "r": 15,
+     "x": -10.3,
+     "y": 18.55
+    },
+    {
+     "color": 9306032,
+     "part": "shine",
+     "r": 15,
+     "x": 2.95,
+     "y": 3.55
+    },
+    {
+     "color": 9306032,
+     "part": "shine",
+     "r": 15,
+     "x": 21.95,
+     "y": -2.2
+    },
+    {
+     "color": 9306032,
+     "part": "shine",
+     "r": 14.25,
+     "x": 40.7,
+     "y": 4.55
+    },
+    {
+     "color": 9306032,
+     "part": "leg_lower",
+     "r": 9,
+     "x": 0.94,
+     "y": 18.457
+    },
+    {
+     "color": 9306032,
+     "part": "antenna_tip",
+     "r": 18.75,
+     "x": -0.05,
+     "y": 0.018
+    },
+    {
+     "color": 9306032,
+     "part": "ball_tint",
+     "r": 15,
+     "x": 4.5,
+     "y": -42.25
+    },
+    {
+     "color": 9306032,
+     "part": "ball_tint",
+     "r": 15,
+     "x": -40.5,
+     "y": -5
+    },
+    {
+     "color": 9306032,
+     "part": "ball_tint",
+     "r": 15,
+     "x": -1.25,
+     "y": 42
+    }
+   ],
+   "pages": {
+    "1": [
+     "bugs/bug_dungbeetle_barty@1x"
+    ],
+    "2": [
+     "bugs/bug_dungbeetle_barty@2x"
+    ]
+   },
+   "parts": {
+    "antenna": {
+     "kind": "rope",
+     "length": 24.368,
+     "pivot": {
+      "x": 46.8,
+      "y": -10.4
+     }
+    },
+    "antenna_tip": {
+     "kind": "tip",
+     "pivot": {
+      "x": 46.8,
+      "y": -34.768
+     }
+    },
+    "ball_tint": {
+     "form": "curled",
+     "kind": "form",
+     "pivot": {
+      "x": 0,
+      "y": 0
+     },
+     "tintable": true
+    },
+    "belly": {
+     "kind": "static",
+     "pivot": {
+      "x": -13,
+      "y": 27.04
+     }
+    },
+    "head_tint": {
+     "kind": "static",
+     "pivot": {
+      "x": 50.96,
+      "y": 8.32
+     },
+     "tintable": true
+    },
+    "hindleg_thigh": {
+     "kind": "limb_upper",
+     "length": 27.22,
+     "pivot": {
+      "x": -32.24,
+      "y": 24.96
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 22.957,
+     "pivot": {
+      "x": 14.56,
+      "y": 36.043
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 10.043,
+     "pivot": {
+      "x": 14.56,
+      "y": 26
+     }
+    },
+    "shell_tint": {
+     "kind": "static",
+     "pivot": {
+      "x": -13,
+      "y": -5.2
+     },
+     "tintable": true
+    },
+    "shine": {
+     "kind": "static",
+     "pivot": {
+      "x": -31.2,
+      "y": -20.8
+     }
+    },
+    "thorax_tint": {
+     "kind": "static",
+     "pivot": {
+      "x": 21.84,
+      "y": 6.24
+     },
+     "tintable": true
+    }
+   },
+   "report": [],
+   "rigHash": "1e0bb470693de6c9",
+   "sourceHash": "fc1e8c0be65e5df57d68a1fdee92fe8fda6c83d5c15ccf40240fba8dc0e36c4b",
+   "status": "drawn"
+  },
+  "bug_firefly_flick": {
+   "colors": {
+    "body": 3811960,
+    "glow": 13172554,
+    "lantern": {
+     "x": -38,
+     "y": 7
+    },
+    "lid": 4009850
+   },
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
+   "faceAnchors": {
+    "eye": {
+     "r": 12,
+     "x": 39.2,
+     "y": 0
+    },
+    "mouth": {
+     "s": 13.6,
+     "x": 38.8,
+     "y": 15.2
+    }
+   },
+   "id": "bug_firefly_flick",
+   "kind": "bug",
+   "lights": [
+    {
+     "color": 13172554,
+     "part": "tail",
+     "r": 20,
+     "x": 0,
+     "y": -4.2
+    },
+    {
+     "color": 13172554,
+     "part": "shell",
+     "r": 11,
+     "x": -29,
+     "y": 13.75
+    },
+    {
+     "color": 13172554,
+     "part": "shell",
+     "r": 11,
+     "x": -18.5,
+     "y": 15.75
+    },
+    {
+     "color": 13172554,
+     "part": "shell",
+     "r": 11,
+     "x": -8,
+     "y": 16
+    },
+    {
+     "color": 13172554,
+     "part": "shell",
+     "r": 11,
+     "x": 2.5,
+     "y": 14
+    },
+    {
+     "color": 13172554,
+     "part": "antenna_tip",
+     "r": 17.75,
+     "x": 0,
+     "y": 0.085
+    }
+   ],
+   "pages": {
+    "1": [
+     "bugs/bug_firefly_flick@1x"
+    ],
+    "2": [
+     "bugs/bug_firefly_flick@2x"
+    ]
+   },
+   "parts": {
+    "antenna": {
+     "kind": "rope",
+     "length": 29.135,
+     "pivot": {
+      "x": 38,
+      "y": -11.2
+     }
+    },
+    "antenna_tip": {
+     "kind": "tip",
+     "pivot": {
+      "x": 38,
+      "y": -40.335
+     }
+    },
+    "belly": {
+     "kind": "static",
+     "pivot": {
+      "x": -4,
+      "y": 16.8
+     }
+    },
+    "cap": {
+     "kind": "static",
+     "pivot": {
+      "x": 30,
+      "y": -8
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 32,
+      "y": 4.8
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 18.089,
+     "pivot": {
+      "x": 15.2,
+      "y": 26.261
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 6.261,
+     "pivot": {
+      "x": 15.2,
+      "y": 20
+     }
+    },
+    "shell": {
+     "kind": "hinged",
+     "pivot": {
+      "x": 16,
+      "y": -4
+     }
+    },
+    "tail": {
+     "kind": "static",
+     "pivot": {
+      "x": -38,
+      "y": 11.2
+     }
+    },
+    "wing": {
+     "kind": "wing",
+     "pivot": {
+      "x": -8,
+      "y": -6
+     }
+    }
+   },
+   "report": [],
+   "rigHash": "b4d884d628ce9ab8",
+   "sourceHash": "e8cd2a57316da53cac82d5f429965d8ac81ab1f98404884766f0f27dc2c350c4",
+   "status": "drawn"
+  },
+  "bug_grasshopper_boing": {
+   "colors": {
+    "body": 8380474,
+    "lid": 10154598
+   },
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
+   "faceAnchors": {
+    "eye": {
+     "r": 11.5,
+     "x": 47.5,
+     "y": -15
+    },
+    "mouth": {
+     "s": 21,
+     "x": 45,
+     "y": 3
+    }
+   },
+   "id": "bug_grasshopper_boing",
+   "kind": "bug",
+   "lights": [
+    {
+     "color": 16747082,
+     "part": "body",
+     "r": 9,
+     "x": -53,
+     "y": 25.25
+    },
+    {
+     "color": 16747082,
+     "part": "body",
+     "r": 9,
+     "x": -56.75,
+     "y": 4
+    },
+    {
+     "color": 16747082,
+     "part": "body",
+     "r": 9,
+     "x": -62.5,
+     "y": 16
+    },
+    {
+     "color": 16747082,
+     "part": "hindleg_shin",
+     "r": 17.25,
+     "x": 0,
+     "y": -0.007
+    },
+    {
+     "color": 16747082,
+     "part": "antenna",
+     "r": 15,
+     "x": 0,
+     "y": -60
+    }
+   ],
+   "pages": {
+    "1": [
+     "bugs/bug_grasshopper_boing@1x"
+    ],
+    "2": [
+     "bugs/bug_grasshopper_boing@2x"
+    ]
+   },
+   "parts": {
+    "antenna": {
+     "kind": "rope",
+     "length": 67.518,
+     "pivot": {
+      "x": 46,
+      "y": -29
+     }
+    },
+    "body": {
+     "kind": "static",
+     "pivot": {
+      "x": -15,
+      "y": 9
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 39,
+      "y": -9
+     }
+    },
+    "hindleg_shin": {
+     "kind": "limb_lower",
+     "length": 81.394,
+     "pivot": {
+      "x": -22.5,
+      "y": 61.757
+     }
+    },
+    "hindleg_thigh": {
+     "kind": "limb_upper",
+     "length": 50.757,
+     "pivot": {
+      "x": -22.5,
+      "y": 11
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 18.2,
+     "pivot": {
+      "x": -2.5,
+      "y": 33.463
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 13.463,
+     "pivot": {
+      "x": -2.5,
+      "y": 20
+     }
+    }
+   },
+   "report": [],
+   "rigHash": "a5b9a792ff33d7e4",
+   "sourceHash": "87ee354948888d9a988f28a86b4f04420fece9192e29201a9859f6033d7b1d03",
+   "status": "drawn"
+  },
+  "bug_ladybug_dot": {
+   "colors": {
+    "body": 15741530,
+    "lid": 4009850
+   },
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
+   "faceAnchors": {
+    "eye": {
+     "r": 15,
+     "x": 49,
+     "y": 0
+    },
+    "mouth": {
+     "s": 17,
+     "x": 48.5,
+     "y": 19
+    }
+   },
+   "id": "bug_ladybug_dot",
+   "kind": "bug",
+   "lights": [
+    {
+     "color": 5111777,
+     "part": "shell",
+     "r": 12,
+     "x": -86.75,
+     "y": 46.75
+    },
+    {
+     "color": 5111777,
+     "part": "shell",
+     "r": 10.5,
+     "x": -70.25,
+     "y": 44.25
+    },
+    {
+     "color": 5111777,
+     "part": "shell",
+     "r": 20.25,
+     "x": -66,
+     "y": -4.5
+    },
+    {
+     "color": 5111777,
+     "part": "shell",
+     "r": 18,
+     "x": -58.5,
+     "y": -28.5
+    },
+    {
+     "color": 5111777,
+     "part": "shell",
+     "r": 15.75,
+     "x": -36.5,
+     "y": -40
+    },
+    {
+     "color": 5111777,
+     "part": "shell",
+     "r": 22.5,
+     "x": -35,
+     "y": -9
+    },
+    {
+     "color": 5111777,
+     "part": "shell",
+     "r": 17.25,
+     "x": -10.5,
+     "y": -15.5
+    },
+    {
+     "color": 5111777,
+     "part": "antenna_tip",
+     "r": 21,
+     "x": 0,
+     "y": -0.007
+    }
+   ],
+   "pages": {
+    "1": [
+     "bugs/bug_ladybug_dot@1x"
+    ],
+    "2": [
+     "bugs/bug_ladybug_dot@2x"
+    ]
+   },
+   "parts": {
+    "antenna": {
+     "kind": "rope",
+     "length": 35.243,
+     "pivot": {
+      "x": 47.5,
+      "y": -14
+     }
+    },
+    "antenna_tip": {
+     "kind": "tip",
+     "pivot": {
+      "x": 47.5,
+      "y": -49.243
+     }
+    },
+    "belly": {
+     "kind": "static",
+     "pivot": {
+      "x": -5,
+      "y": 21
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 40,
+      "y": 6
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 22.611,
+     "pivot": {
+      "x": 19,
+      "y": 32.826
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 7.826,
+     "pivot": {
+      "x": 19,
+      "y": 25
+     }
+    },
+    "shell": {
+     "kind": "hinged",
+     "pivot": {
+      "x": 22.5,
+      "y": -5
+     }
+    },
+    "wing": {
+     "kind": "wing",
+     "pivot": {
+      "x": -10,
+      "y": -7.5
+     }
+    }
+   },
+   "report": [],
+   "rigHash": "309ee1610201cf74",
+   "sourceHash": "fdbea67af0d40701043f3fc4769a6adfc77222efc92240d231d967fb73d09062",
+   "status": "drawn"
+  },
+  "bug_mantis_prim": {
+   "colors": {
+    "body": 7336112,
+    "lid": 10420171
+   },
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
+   "faceAnchors": {
+    "eye": {
+     "r": 15.6,
+     "x": 81.6,
+     "y": -58.8
+    },
+    "mouth": {
+     "s": 14.4,
+     "x": 66,
+     "y": -33.6
+    }
+   },
+   "id": "bug_mantis_prim",
+   "kind": "bug",
+   "lights": [
+    {
+     "color": 16740279,
+     "part": "wing_folded",
+     "r": 15,
+     "x": -76.95,
+     "y": -41.7
+    },
+    {
+     "color": 16740279,
+     "part": "wing_folded",
+     "r": 15,
+     "x": -82.95,
+     "y": -27.2
+    },
+    {
+     "color": 16740279,
+     "part": "wing_folded",
+     "r": 15,
+     "x": -86.7,
+     "y": -11.95
+    },
+    {
+     "color": 16740279,
+     "part": "wing_open",
+     "r": 16.5,
+     "x": 63.1,
+     "y": -23
+    },
+    {
+     "color": 16740279,
+     "part": "wing_open",
+     "r": 16.5,
+     "x": 32.85,
+     "y": -33.5
+    },
+    {
+     "color": 16740279,
+     "part": "wing_open",
+     "r": 16.5,
+     "x": 0.6,
+     "y": -32.75
+    },
+    {
+     "color": 16740279,
+     "part": "wing_open",
+     "r": 16.5,
+     "x": -29.15,
+     "y": -20.5
+    },
+    {
+     "color": 16740279,
+     "part": "wing_open",
+     "r": 16.5,
+     "x": -52.65,
+     "y": 1.5
+    },
+    {
+     "color": 16740279,
+     "part": "antenna",
+     "r": 14.75,
+     "x": 0,
+     "y": -42.7
+    }
+   ],
+   "pages": {
+    "1": [
+     "bugs/bug_mantis_prim@1x"
+    ],
+    "2": [
+     "bugs/bug_mantis_prim@2x"
+    ]
+   },
+   "parts": {
+    "abdomen": {
+     "kind": "static",
+     "pivot": {
+      "x": -40.8,
+      "y": 15.6
+     }
+    },
+    "antenna": {
+     "kind": "rope",
+     "length": 50.289,
+     "pivot": {
+      "x": 66,
+      "y": -70.8
+     }
+    },
+    "arm_blade": {
+     "kind": "limb_lower",
+     "length": 28.625,
+     "pivot": {
+      "x": 30,
+      "y": 19.374
+     }
+    },
+    "arm_thigh": {
+     "kind": "limb_upper",
+     "length": 37.374,
+     "pivot": {
+      "x": 30,
+      "y": -18
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 52.8,
+      "y": -42
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 74.381,
+     "pivot": {
+      "x": -1.2,
+      "y": 55.489
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 37.489,
+     "pivot": {
+      "x": -1.2,
+      "y": 18
+     }
+    },
+    "neck": {
+     "kind": "static",
+     "pivot": {
+      "x": 0,
+      "y": 13.2
+     }
+    },
+    "wing_folded": {
+     "kind": "static",
+     "pivot": {
+      "x": 1.2,
+      "y": 10.2
+     }
+    },
+    "wing_open": {
+     "form": "thrown",
+     "kind": "form",
+     "pivot": {
+      "x": -27.6,
+      "y": -36
+     }
+    }
+   },
+   "report": [],
+   "rigHash": "c14cf7ba530014bb",
+   "sourceHash": "d3dbdad470f6acfd192c6b2011728424391324b48b908386690824cf9e63e1bf",
+   "status": "drawn"
+  },
+  "bug_moth_luma": {
+   "colors": {
+    "body": 13681919,
+    "lid": 15722239
+   },
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
+   "faceAnchors": {
+    "eye": {
+     "r": 7.268,
+     "x": 42.78,
+     "y": -9.614
+    },
+    "mouth": {
+     "s": 10.12,
+     "x": 41.124,
+     "y": 1.334
+    }
+   },
+   "id": "bug_moth_luma",
+   "kind": "bug",
+   "lights": [
+    {
+     "color": 13208575,
+     "part": "wing_fore",
+     "r": 19.5,
+     "x": 2.82,
+     "y": -14.15
+    },
+    {
+     "color": 13208575,
+     "part": "wing_fore",
+     "r": 14.25,
+     "x": 7.32,
+     "y": -30.15
+    },
+    {
+     "color": 13208575,
+     "part": "wing_fore",
+     "r": 9.75,
+     "x": 4.57,
+     "y": -45.15
+    },
+    {
+     "color": 13208575,
+     "part": "wing_fore",
+     "r": 11.75,
+     "x": -3.18,
+     "y": -57.9
+    },
+    {
+     "color": 13208575,
+     "part": "wing_fore",
+     "r": 15.75,
+     "x": -16.43,
+     "y": 0.35
+    },
+    {
+     "color": 13208575,
+     "part": "wing_hind",
+     "r": 10.5,
+     "x": -36.93,
+     "y": -0.65
+    },
+    {
+     "color": 13208575,
+     "part": "wing_hind",
+     "r": 11.75,
+     "x": -51.43,
+     "y": -8.9
+    },
+    {
+     "color": 13208575,
+     "part": "antenna",
+     "r": 11.25,
+     "x": 0.048,
+     "y": -38.248
+    }
+   ],
+   "pages": {
+    "1": [
+     "bugs/bug_moth_luma@1x"
+    ],
+    "2": [
+     "bugs/bug_moth_luma@2x"
+    ]
+   },
+   "parts": {
+    "abdomen": {
+     "kind": "static",
+     "pivot": {
+      "x": -25.3,
+      "y": 15.64
+     }
+    },
+    "antenna": {
+     "kind": "rope",
+     "length": 43.516,
+     "pivot": {
+      "x": 41.952,
+      "y": -27.002
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 35.88,
+      "y": -9.2
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 20.308,
+     "pivot": {
+      "x": 18.4,
+      "y": 31.884
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 8.884,
+     "pivot": {
+      "x": 18.4,
+      "y": 23
+     }
+    },
+    "thorax": {
+     "kind": "static",
+     "pivot": {
+      "x": 8.28,
+      "y": 9.2
+     }
+    },
+    "wing_fore": {
+     "kind": "wing",
+     "pivot": {
+      "x": 3.68,
+      "y": -4.6
+     }
+    },
+    "wing_hind": {
+     "kind": "wing",
+     "pivot": {
+      "x": 3.68,
+      "y": -4.6
+     }
+    }
+   },
+   "report": [],
+   "rigHash": "34f9f0cbb75cbfe0",
+   "sourceHash": "0a9117fef027e352abfd1cab3b2c3fdbc07b3c2dd58371fb71090e1ee8f4e880",
+   "status": "drawn"
+  },
+  "bug_pillbug_rollo": {
+   "colors": {
+    "body": 6258646,
+    "lid": 13492221
+   },
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
+   "faceAnchors": {
+    "eye": {
+     "r": 10.12,
+     "x": 59.8,
+     "y": 11.04
+    },
+    "mouth": {
+     "s": 15.64,
+     "x": 55.2,
+     "y": 27.6
+    }
+   },
+   "id": "bug_pillbug_rollo",
+   "kind": "bug",
+   "lights": [
+    {
+     "color": 16767050,
+     "part": "tail",
+     "r": 15,
+     "x": -19.8,
+     "y": -19.8
+    },
+    {
+     "color": 16767050,
+     "part": "tail",
+     "r": 15,
+     "x": -23.8,
+     "y": -5.8
+    },
+    {
+     "color": 16767050,
+     "part": "body",
+     "r": 11.25,
+     "x": 25.8,
+     "y": 20.25
+    },
+    {
+     "color": 16767050,
+     "part": "body",
+     "r": 11.25,
+     "x": 9.3,
+     "y": 20.25
+    },
+    {
+     "color": 16767050,
+     "part": "body",
+     "r": 11.25,
+     "x": -7.2,
+     "y": 20.25
+    },
+    {
+     "color": 16767050,
+     "part": "body",
+     "r": 11.25,
+     "x": -24.45,
+     "y": 20.5
+    },
+    {
+     "color": 16767050,
+     "part": "body",
+     "r": 11.25,
+     "x": -40.7,
+     "y": 20.25
+    },
+    {
+     "color": 16767050,
+     "part": "antenna_end",
+     "r": 11.75,
+     "x": -0.05,
+     "y": -12.397
+    },
+    {
+     "color": 16767050,
+     "part": "ball",
+     "r": 17.5,
+     "x": 24,
+     "y": 0.5
+    },
+    {
+     "color": 16767050,
+     "part": "ball",
+     "r": 17.5,
+     "x": 2.75,
+     "y": 0.75
+    },
+    {
+     "color": 16767050,
+     "part": "ball",
+     "r": 17.5,
+     "x": -19.25,
+     "y": -0.25
+    }
+   ],
+   "pages": {
+    "1": [
+     "bugs/bug_pillbug_rollo@1x"
+    ],
+    "2": [
+     "bugs/bug_pillbug_rollo@2x"
+    ]
+   },
+   "parts": {
+    "antenna_base": {
+     "kind": "rope",
+     "length": 17.863,
+     "pivot": {
+      "x": 59.8,
+      "y": 2.76
+     }
+    },
+    "antenna_end": {
+     "kind": "rope",
+     "length": 17.237,
+     "pivot": {
+      "x": 59.8,
+      "y": -15.103
+     }
+    },
+    "ball": {
+     "form": "curled",
+     "kind": "form",
+     "pivot": {
+      "x": 0,
+      "y": 0
+     }
+    },
+    "belly": {
+     "kind": "static",
+     "pivot": {
+      "x": -2.3,
+      "y": 27.6
+     }
+    },
+    "body": {
+     "kind": "static",
+     "pivot": {
+      "x": -2.3,
+      "y": 0
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 52.44,
+      "y": 16.56
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 12.185,
+     "pivot": {
+      "x": 39.1,
+      "y": 35.034
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 4.674,
+     "pivot": {
+      "x": 39.1,
+      "y": 30.36
+     }
+    },
+    "tail": {
+     "kind": "static",
+     "pivot": {
+      "x": -55.2,
+      "y": 25.3
+     }
+    }
+   },
+   "report": [],
+   "rigHash": "263ecbf10476b9f4",
+   "sourceHash": "3aebb6e70aec60b65d54558a252b88d92192a03e027dc7aa4928cada72144368",
+   "status": "drawn"
+  },
+  "bug_snail_glorp": {
+   "colors": {
+    "body": 12186202,
+    "lid": 12907882
+   },
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
+   "faceAnchors": {
+    "eye": {
+     "r": 14,
+     "x": 78.467,
+     "y": -73.216
+    },
+    "mouth": {
+     "s": 19.04,
+     "x": 67.2,
+     "y": 20.16
+    }
+   },
+   "id": "bug_snail_glorp",
+   "kind": "bug",
+   "lights": [
+    {
+     "color": 16740279,
+     "part": "body",
+     "r": 9,
+     "x": 46.5,
+     "y": 7.6
+    },
+    {
+     "color": 16740279,
+     "part": "body",
+     "r": 9.75,
+     "x": 56.5,
+     "y": 14.1
+    },
+    {
+     "color": 16740279,
+     "part": "body",
+     "r": 9,
+     "x": 67,
+     "y": 17.6
+    },
+    {
+     "color": 16740279,
+     "part": "body",
+     "r": 22.5,
+     "x": -97.5,
+     "y": -5.4
+    },
+    {
+     "color": 16740279,
+     "part": "shell",
+     "r": 18.75,
+     "x": -42.65,
+     "y": -47.27
+    },
+    {
+     "color": 16740279,
+     "part": "shell",
+     "r": 40.75,
+     "x": 0.1,
+     "y": -0.02
+    },
+    {
+     "color": 16740279,
+     "part": "shell_closed",
+     "r": 21,
+     "x": -47.75,
+     "y": -53
+    },
+    {
+     "color": 16740279,
+     "part": "shell_closed",
+     "r": 45.5,
+     "x": 0,
+     "y": 0
+    }
+   ],
+   "pages": {
+    "1": [
+     "bugs/bug_snail_glorp@1x"
+    ],
+    "2": [
+     "bugs/bug_snail_glorp@2x"
+    ]
+   },
+   "parts": {
+    "body": {
+     "kind": "static",
+     "pivot": {
+      "x": 0,
+      "y": 22.4
+     }
+    },
+    "shell": {
+     "kind": "static",
+     "pivot": {
+      "x": -19.6,
+      "y": -4.48
+     }
+    },
+    "shell_closed": {
+     "form": "in_shell",
+     "kind": "form",
+     "pivot": {
+      "x": 0,
+      "y": 0
+     }
+    },
+    "stalk": {
+     "kind": "rope",
+     "length": 53.653,
+     "pivot": {
+      "x": 62.72,
+      "y": -22.4
+     }
+    }
+   },
+   "report": [],
+   "rigHash": "d3d96208442ca942",
+   "sourceHash": "4c1e2ac735974943cf6a592e92c4b0a408f7775399f1c715804d729a034b0f82",
+   "status": "drawn"
+  },
+  "bug_stagbeetle_moose": {
+   "colors": {
+    "body": 9053266,
+    "lid": 10897774
+   },
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
+   "faceAnchors": {
+    "eye": {
+     "r": 8,
+     "x": 82.24,
+     "y": 7.52
+    },
+    "mouth": {
+     "s": 19.2,
+     "x": 78.8,
+     "y": 21.6
+    }
+   },
+   "id": "bug_stagbeetle_moose",
+   "kind": "bug",
+   "lights": [
+    {
+     "color": 16747082,
+     "part": "antler",
+     "r": 20,
+     "x": 69.95,
+     "y": -58.3
+    },
+    {
+     "color": 16747082,
+     "part": "antler",
+     "r": 17,
+     "x": 72.7,
+     "y": -12.55
+    },
+    {
+     "color": 16747082,
+     "part": "antler",
+     "r": 16.25,
+     "x": 16.45,
+     "y": -34.05
+    },
+    {
+     "color": 16747082,
+     "part": "shell",
+     "r": 13.25,
+     "x": -80.25,
+     "y": -26.25
+    },
+    {
+     "color": 16747082,
+     "part": "shell",
+     "r": 13.25,
+     "x": -64.75,
+     "y": -38.75
+    }
+   ],
+   "pages": {
+    "1": [
+     "bugs/bug_stagbeetle_moose@1x"
+    ],
+    "2": [
+     "bugs/bug_stagbeetle_moose@2x"
+    ]
+   },
+   "parts": {
+    "antenna_base": {
+     "kind": "rope",
+     "length": 25.911,
+     "pivot": {
+      "x": 79.36,
+      "y": -10.64
+     }
+    },
+    "antenna_end": {
+     "kind": "rope",
+     "length": 24.852,
+     "pivot": {
+      "x": 79.36,
+      "y": -36.55
+     }
+    },
+    "antler": {
+     "kind": "static",
+     "pivot": {
+      "x": 92.8,
+      "y": 12.8
+     }
+    },
+    "belly": {
+     "kind": "static",
+     "pivot": {
+      "x": -24,
+      "y": 40
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 73.6,
+      "y": 11.2
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 36.41,
+     "pivot": {
+      "x": 25.6,
+      "y": 54.031
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 15.631,
+     "pivot": {
+      "x": 25.6,
+      "y": 38.4
+     }
+    },
+    "shell": {
+     "kind": "static",
+     "pivot": {
+      "x": -28,
+      "y": 0
+     }
+    },
+    "thorax": {
+     "kind": "static",
+     "pivot": {
+      "x": 36.8,
+      "y": 8
+     }
+    }
+   },
+   "report": [],
+   "rigHash": "515753ab116ad1d5",
+   "sourceHash": "0dee3dbde7be0ea4af0ee18f12222c2ff16a6434971fd72df20f9268d09d2370",
+   "status": "drawn"
+  },
+  "bug_stickinsect_twig": {
+   "colors": {
+    "body": 10514632,
+    "lid": 12886254
+   },
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
+   "faceAnchors": {
+    "eye": {
+     "r": 5.19,
+     "x": 48,
+     "y": -18
+    },
+    "mouth": {
+     "s": 9.99,
+     "x": 51,
+     "y": -14.01
+    }
+   },
+   "id": "bug_stickinsect_twig",
+   "kind": "bug",
+   "lights": [
+    {
+     "color": 13172554,
+     "part": "stick",
+     "r": 9,
+     "x": -48,
+     "y": 0
+    },
+    {
+     "color": 13172554,
+     "part": "stick",
+     "r": 9,
+     "x": -18,
+     "y": 0
+    },
+    {
+     "color": 13172554,
+     "part": "stick",
+     "r": 9,
+     "x": 12,
+     "y": 0
+    },
+    {
+     "color": 13172554,
+     "part": "stick",
+     "r": 10.5,
+     "x": -31.75,
+     "y": -13.75
+    },
+    {
+     "color": 13172554,
+     "part": "antenna",
+     "r": 11,
+     "x": 0.01,
+     "y": -36.25
+    }
+   ],
+   "pages": {
+    "1": [
+     "bugs/bug_stickinsect_twig@1x"
+    ],
+    "2": [
+     "bugs/bug_stickinsect_twig@2x"
+    ]
+   },
+   "parts": {
+    "antenna": {
+     "kind": "rope",
+     "length": 42.076,
+     "pivot": {
+      "x": 60.99,
+      "y": -19.5
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 54.146,
+     "pivot": {
+      "x": 35.76,
+      "y": 19.6
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 32.8,
+     "pivot": {
+      "x": 35.76,
+      "y": -13.2
+     }
+    },
+    "stick": {
+     "kind": "static",
+     "pivot": {
+      "x": 0,
+      "y": -16.5
+     }
+    }
+   },
+   "report": [],
+   "rigHash": "20e3a5f62c599b01",
+   "sourceHash": "92290414679933b0e10e1bd120c1d5424240039b03111cfdcbccddbae90cd4f8",
+   "status": "drawn"
+  },
+  "bug_stinkbug_whiff": {
+   "colors": {
+    "body": 12040506,
+    "lid": 15922586
+   },
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
+   "faceAnchors": {
+    "eye": {
+     "r": 7.304,
+     "x": 50.952,
+     "y": 4.048
+    },
+    "mouth": {
+     "s": 12.54,
+     "x": 49.324,
+     "y": 15.4
+    }
+   },
+   "id": "bug_stinkbug_whiff",
+   "kind": "bug",
+   "lights": [
+    {
+     "color": 13208575,
+     "part": "shield",
+     "r": 9,
+     "x": -29.87,
+     "y": 22.35
+    },
+    {
+     "color": 13208575,
+     "part": "shield",
+     "r": 9,
+     "x": -7.87,
+     "y": 22.6
+    },
+    {
+     "color": 13208575,
+     "part": "shield",
+     "r": 9,
+     "x": 14.13,
+     "y": 22.35
+    },
+    {
+     "color": 13208575,
+     "part": "shield",
+     "r": 9.5,
+     "x": -20.87,
+     "y": -41.4
+    },
+    {
+     "color": 13208575,
+     "part": "shield",
+     "r": 9,
+     "x": 3.63,
+     "y": -27.9
+    },
+    {
+     "color": 13208575,
+     "part": "shield",
+     "r": 9,
+     "x": 28.13,
+     "y": -21.4
+    },
+    {
+     "color": 13208575,
+     "part": "antenna_tip",
+     "r": 18.5,
+     "x": 0.084,
+     "y": -0.028
+    }
+   ],
+   "pages": {
+    "1": [
+     "bugs/bug_stinkbug_whiff@1x"
+    ],
+    "2": [
+     "bugs/bug_stinkbug_whiff@2x"
+    ]
+   },
+   "parts": {
+    "antenna_base": {
+     "kind": "rope",
+     "length": 21.284,
+     "pivot": {
+      "x": 47.916,
+      "y": -12.936
+     }
+    },
+    "antenna_end": {
+     "kind": "rope",
+     "length": 14.752,
+     "pivot": {
+      "x": 47.916,
+      "y": -34.22
+     }
+    },
+    "antenna_tip": {
+     "kind": "tip",
+     "pivot": {
+      "x": 47.916,
+      "y": -48.972
+     }
+    },
+    "belly": {
+     "kind": "static",
+     "pivot": {
+      "x": -16.72,
+      "y": 22.88
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 44.88,
+      "y": 5.28
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 19.425,
+     "pivot": {
+      "x": 13.2,
+      "y": 30.498
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 8.498,
+     "pivot": {
+      "x": 13.2,
+      "y": 22
+     }
+    },
+    "shield": {
+     "kind": "static",
+     "pivot": {
+      "x": -11.88,
+      "y": -6.6
+     }
+    }
+   },
+   "report": [],
+   "rigHash": "43bf9045589fe098",
+   "sourceHash": "77450e4c2e165551e152ddd464143c0c12364af4774491e19a18775400954606",
+   "status": "drawn"
+  },
+  "bug_tardigrade_wubbo": {
+   "colors": {
+    "body": 16757696,
+    "lid": 16767220
+   },
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
+   "faceAnchors": {
+    "eye": {
+     "r": 4.646,
+     "x": 35.282,
+     "y": -9.476
+    },
+    "mouth": {
+     "s": 9.66,
+     "x": 39.146,
+     "y": 3.68
+    }
+   },
+   "id": "bug_tardigrade_wubbo",
+   "kind": "bug",
+   "lights": [
+    {
+     "color": 9428223,
+     "part": "body",
+     "r": 13.5,
+     "x": 26.48,
+     "y": -35.44
+    },
+    {
+     "color": 9428223,
+     "part": "body",
+     "r": 15,
+     "x": 39.48,
+     "y": -34.19
+    },
+    {
+     "color": 9428223,
+     "part": "body",
+     "r": 22.5,
+     "x": -4.02,
+     "y": -4.94
+    }
+   ],
+   "pages": {
+    "1": [
+     "bugs/bug_tardigrade_wubbo@1x"
+    ],
+    "2": [
+     "bugs/bug_tardigrade_wubbo@2x"
+    ]
+   },
+   "parts": {
+    "body": {
+     "kind": "static",
+     "pivot": {
+      "x": -5.98,
+      "y": -5.06
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 9.671,
+     "pivot": {
+      "x": 2.3,
+      "y": 35.431
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 9.671,
+     "pivot": {
+      "x": 2.3,
+      "y": 25.76
+     }
+    },
+    "snout": {
+     "kind": "static",
+     "pivot": {
+      "x": 46,
+      "y": 7.36
+     }
+    }
+   },
+   "report": [],
+   "rigHash": "34d70d2823baa708",
+   "sourceHash": "4d545b501cceaa31e2f8cfc0d86c9f7709e6c3ec998d20b549c9628d479452c1",
+   "status": "drawn"
+  },
+  "bug_waterstrider_skeet": {
+   "colors": {
+    "body": 2899866,
+    "lid": 4743091
+   },
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
+   "faceAnchors": {
+    "eye": {
+     "r": 9.5,
+     "x": 52,
+     "y": -19
+    },
+    "mouth": {
+     "s": 13,
+     "x": 50,
+     "y": -7.5
+    }
+   },
+   "id": "bug_waterstrider_skeet",
+   "kind": "bug",
+   "lights": [
+    {
+     "color": 9428223,
+     "part": "leg_long_lower",
+     "r": 19.25,
+     "x": 0,
+     "y": 104.271
+    },
+    {
+     "color": 9428223,
+     "part": "leg_lower",
+     "r": 12.5,
+     "x": 0,
+     "y": 11.636
+    },
+    {
+     "color": 9428223,
+     "part": "antenna",
+     "r": 14.75,
+     "x": 0,
+     "y": -45.5
+    },
+    {
+     "color": 9428223,
+     "part": "body",
+     "r": 11.5,
+     "x": -27.5,
+     "y": 0.5
+    },
+    {
+     "color": 9428223,
+     "part": "body",
+     "r": 11.5,
+     "x": 0,
+     "y": 4.75
+    },
+    {
+     "color": 9428223,
+     "part": "body",
+     "r": 11.5,
+     "x": 27.5,
+     "y": 4.5
+    }
+   ],
+   "pages": {
+    "1": [
+     "bugs/bug_waterstrider_skeet@1x"
+    ],
+    "2": [
+     "bugs/bug_waterstrider_skeet@2x"
+    ]
+   },
+   "parts": {
+    "antenna": {
+     "kind": "rope",
+     "length": 52.884,
+     "pivot": {
+      "x": 54,
+      "y": -24
+     }
+    },
+    "body": {
+     "kind": "static",
+     "pivot": {
+      "x": -12.5,
+      "y": -10
+     }
+    },
+    "head": {
+     "kind": "static",
+     "pivot": {
+      "x": 44,
+      "y": -15
+     }
+    },
+    "leg_long_lower": {
+     "kind": "limb_lower",
+     "length": 110.209,
+     "pivot": {
+      "x": 0,
+      "y": 38.729
+     }
+    },
+    "leg_long_upper": {
+     "kind": "limb_upper",
+     "length": 43.729,
+     "pivot": {
+      "x": 0,
+      "y": -5
+     }
+    },
+    "leg_lower": {
+     "kind": "limb_lower",
+     "length": 15.305,
+     "pivot": {
+      "x": 31,
+      "y": 16.114
+     }
+    },
+    "leg_upper": {
+     "kind": "limb_upper",
+     "length": 23.114,
+     "pivot": {
+      "x": 31,
+      "y": -7
+     }
+    }
+   },
+   "report": [],
+   "rigHash": "f1fc47344f27f3e4",
+   "sourceHash": "4970d663be187a57de7c24108463af4cbde5b8eb8d9cb125a70bd866e2ea4d34",
+   "status": "drawn"
+  },
+  "face_kit": {
+   "face": [
+    "brow_angry",
+    "brow_polite",
+    "brow_worried",
+    "cheek",
+    "eye_closed",
+    "eye_happy",
+    "eye_heart",
+    "eye_pupil",
+    "eye_sleepy_lid",
+    "eye_spiral",
+    "eye_squeezed",
+    "eye_squint",
+    "eye_white",
+    "mouth_aah",
+    "mouth_chew_1",
+    "mouth_chew_2",
+    "mouth_flat",
+    "mouth_frown",
+    "mouth_grin",
+    "mouth_lick",
+    "mouth_o",
+    "mouth_puff",
+    "mouth_smile",
+    "mouth_teeth",
+    "mouth_tongue",
+    "mouth_whee",
+    "mouth_wobble_1",
+    "mouth_wobble_2"
+   ],
+   "id": "face_kit",
+   "kind": "face_kit",
+   "pages": {
+    "1": [
+     "faces/face_kit@1x"
+    ],
+    "2": [
+     "faces/face_kit@2x"
+    ]
+   },
+   "parts": {},
+   "report": [],
+   "rigHash": "b1f5b96fd54564b4",
+   "sourceHash": "dde1258e443287fc7389ccfd05ceec475df6806c2f887692f68be8550adf0491",
+   "status": "drawn"
+  }
+ },
+ "schema": 1
+}

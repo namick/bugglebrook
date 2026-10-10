@@ -1,0 +1,9 @@
+{
+  "lights": [
+    { "part": "stick", "x": 320, "y": 446, "r": 36, "color": "#c8ff4a" },
+    { "part": "stick", "x": 440, "y": 446, "r": 36, "color": "#c8ff4a" },
+    { "part": "stick", "x": 560, "y": 446, "r": 36, "color": "#c8ff4a" },
+    { "part": "stick", "x": 385, "y": 391, "r": 42, "color": "#c8ff4a" },
+    { "part": "antenna", "x": 756, "y": 289, "r": 44, "color": "#c8ff4a" }
+  ]
+}

@@ -286,6 +286,12 @@ test('players switch named art sets with the mouse and keep their choice after r
     await frames(page, 2);
     expect((await art(page, dot.id))?.art).toBe('drawn');
     expect((await art(page, rollo.id))?.art).toBe('drawn');
+    await clickUi(page, 'art_next');
+    expect(await page.evaluate(() => window.__bb!.settings().artSet)).toBe('xeno');
+    expect((await page.evaluate(() => window.__bb!.artChoice()))?.name).toBe('Alien planet');
+    await frames(page, 2);
+    expect((await art(page, dot.id))?.art).toBe('drawn');
+    expect((await art(page, rollo.id))?.art).toBe('drawn');
     // The set this test installed comes after every set the build carries.
     await chooseArtSet(page, 'family_drawing');
     await frames(page, 2);

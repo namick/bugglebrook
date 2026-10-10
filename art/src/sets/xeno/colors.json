@@ -1,0 +1,25 @@
+{
+  "bugs": {
+    "bug_ladybug_dot": { "lid": "#3d2f7a", "body": "#f0325a" },
+    "bug_pillbug_rollo": { "lid": "#cddffd", "body": "#5f7fd6" },
+    "bug_snail_glorp": { "lid": "#c4f56a", "body": "#b9f25a" },
+    "bug_waterstrider_skeet": { "lid": "#485fb3", "body": "#2c3f9a" },
+    "bug_grasshopper_boing": { "lid": "#9af266", "body": "#7fe03a" },
+    "bug_firefly_flick": {
+      "lid": "#3d2f7a",
+      "body": "#3a2a78",
+      "glow": "#c8ff4a",
+      "lantern": { "x": 232, "y": 540 }
+    },
+    "bug_stinkbug_whiff": { "lid": "#f2f59a", "body": "#b7b93a" },
+    "bug_stagbeetle_moose": { "lid": "#a6496e", "body": "#8a2452" },
+    "bug_dungbeetle_barty": { "sheen": ["#2e8b9a", "#6a4fd0"], "lid": "#4c64a6", "body": "#2e8b9a" },
+    "bug_caterpillar_munch": { "lid": "#80e786", "body": "#5fd66a" },
+    "bug_mantis_prim": { "lid": "#9effcb", "body": "#6ff0b0" },
+    "bug_stickinsect_twig": { "lid": "#c4a0ee", "body": "#a070c8" },
+    "bug_tardigrade_wubbo": { "lid": "#ffd8f4", "body": "#ffb3c0" },
+    "bug_bee_buzzby": { "lid": "#ffe2a1", "body": "#ffc93a" },
+    "bug_cricket_fiddle": { "lid": "#f2a560", "body": "#d0703a" },
+    "bug_moth_luma": { "lid": "#efe6ff", "body": "#d0c4ff" }
+  }
+}

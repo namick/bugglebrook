@@ -1,0 +1,162 @@
+{
+ "canvas": {
+  "h": 896,
+  "w": 1024
+ },
+ "face": [
+  "eye_white",
+  "eye_pupil",
+  "eye_closed",
+  "eye_happy",
+  "eye_squint",
+  "eye_squeezed",
+  "eye_spiral",
+  "eye_heart",
+  "eye_sleepy_lid",
+  "brow_angry",
+  "brow_worried",
+  "brow_polite",
+  "cheek",
+  "mouth_smile",
+  "mouth_grin",
+  "mouth_o",
+  "mouth_whee",
+  "mouth_aah",
+  "mouth_chew_1",
+  "mouth_chew_2",
+  "mouth_wobble_1",
+  "mouth_wobble_2",
+  "mouth_flat",
+  "mouth_frown",
+  "mouth_lick",
+  "mouth_tongue",
+  "mouth_teeth",
+  "mouth_puff"
+ ],
+ "faceAnchors": {
+  "eye": {
+   "r": 40.48,
+   "x": 751.2,
+   "y": 556.16
+  },
+  "mouth": {
+   "s": 62.56,
+   "x": 732.8,
+   "y": 622.4
+  }
+ },
+ "ground": 696,
+ "id": "bug_pillbug_rollo",
+ "kind": "bug",
+ "origin": {
+  "x": 512,
+  "y": 512
+ },
+ "parts": [
+  {
+   "kind": "static",
+   "name": "tail",
+   "note": "The little tail prongs.",
+   "pivot": {
+    "x": 291.2,
+    "y": 613.2
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "belly",
+   "note": "Pale underside.",
+   "pivot": {
+    "x": 502.8,
+    "y": 622.4
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "body",
+   "note": "The domed back with seven plates.",
+   "pivot": {
+    "x": 502.8,
+    "y": 512
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "head",
+   "note": "Round, pale face. No eyes or mouth.",
+   "pivot": {
+    "x": 721.76,
+    "y": 578.24
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_upper",
+   "length": 18.696,
+   "name": "leg_upper",
+   "note": "Hip to knee, drawn straight down from the hip dot. Round nub at the top.",
+   "pivot": {
+    "x": 668.4,
+    "y": 633.44
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_lower",
+   "length": 48.739,
+   "name": "leg_lower",
+   "note": "Knee to foot, straight down from the knee dot, with the foot.",
+   "pivot": {
+    "x": 668.4,
+    "y": 652.136
+   },
+   "required": true
+  },
+  {
+   "kind": "rope",
+   "length": 71.453,
+   "name": "antenna_base",
+   "note": "One feeler, drawn straight up from its base dot. The game bends it.",
+   "pivot": {
+    "x": 751.2,
+    "y": 523.04
+   },
+   "required": true
+  },
+  {
+   "kind": "rope",
+   "length": 68.947,
+   "name": "antenna_end",
+   "note": "The feeler from the elbow to the tip, straight up from the elbow dot.",
+   "pivot": {
+    "x": 751.2,
+    "y": 451.587
+   },
+   "required": true
+  },
+  {
+   "form": "curled",
+   "kind": "form",
+   "name": "ball",
+   "note": "Form: Rollo curled into a ball. No face.",
+   "pivot": {
+    "x": 512,
+    "y": 512
+   },
+   "required": true
+  }
+ ],
+ "rigHash": "263ecbf10476b9f4",
+ "safe": {
+  "x0": 32,
+  "x1": 992,
+  "y0": 32,
+  "y1": 864
+ },
+ "scale": 4,
+ "schema": 1,
+ "title": "Rollo the pill bug (bug_pillbug_rollo)"
+}
