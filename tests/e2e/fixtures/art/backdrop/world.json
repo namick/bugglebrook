@@ -11,6 +11,13 @@
       "spread": 30
     }
   ],
+  "shade": [
+    {
+      "area": "area_under_porch",
+      "from": "#4a3540",
+      "to": "#206080"
+    }
+  ],
   "water": {
     "surface": "#7af0c8",
     "deep": "#1f8a7a"

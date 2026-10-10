@@ -129,12 +129,14 @@ sky.sun.disc = '#ff7ad0';
 sky.moon.disc = '#b8ffb0';
 sky.stars = ['#ffb0f0', '#b0fff0'];
 
-// Greens go magenta and browns go blue; the pond turns mint.
+// Greens go magenta and browns go blue; the pond turns mint. The porch's
+// soil is too grey for a tone rule, so a shade rule turns it teal.
 const world = {
   tone: [
     { from: '#5aa845', to: '#d040c0', spread: 70 },
     { from: '#a8744f', to: '#3050b0', spread: 30 },
   ],
+  shade: [{ area: 'area_under_porch', from: '#4a3540', to: '#206080' }],
   water: { surface: '#7af0c8', deep: '#1f8a7a' },
 };
 

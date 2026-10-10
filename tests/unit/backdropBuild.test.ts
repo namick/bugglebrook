@@ -421,6 +421,9 @@ describe('the crude test backdrop', () => {
     expect(m.strips.area_puddle_pond_mid!.glow).toBeNull();
     expect(parseSky(m.sky).sky!.moments.day.skyTop).toBe(0x3fd07a);
     expect(parseWorld(m.world).world!.tone).toHaveLength(2);
+    expect(parseWorld(m.world).world!.shade).toEqual([
+      { area: 'area_under_porch', from: 0x4a3540, to: 0x206080, reach: 48 },
+    ]);
     expect(Object.keys(built.files).sort()).toEqual([
       'backdrop.json',
       'backdrop/area_flowerbed_stage_far.glow.png',

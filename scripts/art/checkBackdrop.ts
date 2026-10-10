@@ -24,6 +24,7 @@ import {
   luma,
   parseSky,
   parseWorld,
+  shadesIn,
   toneColor,
 } from '../../src/renderer/src/art/backdropData.ts';
 import type { BuiltStrip } from './backdrop.ts';
@@ -158,11 +159,12 @@ function checkWorld(path: string): Checked {
   const { world, messages } = parseWorld(read.value);
   const notes: string[] = [];
   if (world) {
-    if (!world.tone.length) notes.push('no tone rules: the code-drawn world keeps its colors');
+    if (!world.tone.length && !world.shade.length)
+      notes.push('no tone or shade rules: the code-drawn world keeps its colors');
     else {
-      notes.push('what the tone map does to the code-drawn world:');
-      for (const [name, color] of WORLD_SWATCHES) {
-        const to = toneColor(color, world.tone);
+      notes.push('what the tone map and the shade rules do to the code-drawn world:');
+      for (const [name, color, area] of WORLD_SWATCHES) {
+        const to = toneColor(color, world.tone, area ? shadesIn(world, area) : []);
         notes.push(
           `  ${name.padEnd(26)} ${hexColor(color)} ${to === color ? 'stays' : `-> ${hexColor(to)}`}`,
         );

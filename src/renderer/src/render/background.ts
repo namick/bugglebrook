@@ -20,7 +20,7 @@ import type { SkyLook } from './skyLook';
 import { gradientTexture } from './lightTextures';
 import { parallaxX } from './areaArt/common';
 import { chunkPlan } from './stripLayout';
-import { makeTone, toneGraphics } from './worldTone';
+import { makeTones, toneGraphics } from './worldTone';
 
 const PPM = PIXELS_PER_METER;
 const BOTTOM = VIEW_HEIGHT_PX + 40;
@@ -63,6 +63,11 @@ class LazyLayer {
 
   get alive(): number {
     return this.chunks.size;
+  }
+
+  /** The layer's source shapes, kept off stage. */
+  get shapes(): Container {
+    return this.holder;
   }
 
   /** The painted strips drawn into the chunks on screen now. */
@@ -210,6 +215,15 @@ const soft = (
 });
 
 /** Draw overlapping circles as one outlined blob: outlines first, fills on top. */
+/**
+ * Mark a piece of one area's own scenery, so the art set's shade rules for
+ * that area reach it (`toneGraphics`). Everything under it counts.
+ */
+function scenery<T extends Container>(area: AreaDef, node: T): T {
+  node.label = area.id;
+  return node;
+}
+
 function blob(g: Graphics, circles: [number, number, number][], fill: number, line: number, alpha = 1): void {
   for (const [x, y, r] of circles) g.circle(x, y, r + line / 2).fill({ color: OUTLINE, alpha });
   for (const [x, y, r] of circles) g.circle(x, y, r - line / 2).fill(fill);
@@ -327,8 +341,12 @@ export class Background {
     this.drawNear(rng);
     this.drawFront(rng);
     // The set's tone map recolors the code-drawn layers, before any of them is drawn or baked.
-    const tone = makeTone(worldOf(backdrop).tone);
-    this.toned = [this.hills, this.mid, this.near, this.front].reduce((n, l) => n + toneGraphics(l, tone), 0);
+    // Each area's own scenery is labelled with the area's ID (`scenery`), for its shade rules.
+    const tones = makeTones(worldOf(backdrop));
+    this.toned = [this.hills, this.mid, this.near, this.front].reduce(
+      (n, l) => n + toneGraphics(l, tones),
+      0,
+    );
     this.drawGlow();
     if (renderer) this.bakeAll(renderer);
   }
@@ -357,6 +375,32 @@ export class Background {
       drawn: this.lazy[i]?.paintedNow ?? [],
     });
     return { far: of('far', 0), mid: of('mid', 1) };
+  }
+
+  /**
+   * Every color one area's own scenery is drawn with, gradient stops
+   * included, after the art set's tone map and shade rules (test hook).
+   */
+  sceneryColors(area: string): number[] {
+    const out = new Set<number>();
+    const visit = (node: Container, inside: boolean): void => {
+      const here = inside || node.label === area;
+      if (here && node instanceof Graphics)
+        for (const ins of node.context.instructions) {
+          if (ins.action === 'texture') continue;
+          const style = ins.data.style;
+          if (style.fill instanceof FillGradient)
+            for (const stop of style.fill.colorStops) out.add(parseInt(stop.color.slice(1, 7), 16));
+          else if (!style.fill) out.add(style.color);
+        }
+      for (const child of node.children) visit(child as Container, here);
+    };
+    // Baked layers keep their shapes off stage, in the bake's own holder.
+    const layers = this.lazy.length
+      ? this.lazy.map((l) => l.shapes)
+      : [this.hills, this.mid, this.near, this.front];
+    for (const layer of layers) visit(layer, false);
+    return [...out].sort((a, b) => a - b);
   }
 
   /** Free everything: the baked chunks, the cloud textures, and the shapes. Its containers leave the stage. */
@@ -743,11 +787,11 @@ export class Background {
     }
     this.mid.addChild(g);
     const pond = this.areas.find((a) => a.water);
-    if (pond) this.mid.addChild(drawPondMid(pond, PARALLAX.mid, rng));
+    if (pond) this.mid.addChild(scenery(pond, drawPondMid(pond, PARALLAX.mid, rng)));
     const flowerbed = this.areas.find((a) => a.id === 'area_flowerbed_stage');
-    if (flowerbed) this.mid.addChild(drawFlowerbedMid(flowerbed, PARALLAX.mid, rng));
+    if (flowerbed) this.mid.addChild(scenery(flowerbed, drawFlowerbedMid(flowerbed, PARALLAX.mid, rng)));
     const compost = this.areas.find((a) => a.id === 'area_compost_lab');
-    if (compost) this.mid.addChild(drawCompostMid(compost, PARALLAX.mid, rng));
+    if (compost) this.mid.addChild(scenery(compost, drawCompostMid(compost, PARALLAX.mid, rng)));
   }
 
   /** The terrain surface as flat pixel pairs, with the stump flattened out. */
@@ -787,33 +831,34 @@ export class Background {
     const compost = byId('area_compost_lab');
     const house = byId('area_treehouse_arcade');
     // Rooms that hide the sky: the crawlspace under the porch and the treehouse.
-    if (porch?.roof) this.near.addChild(drawPorchBackdrop(porch, rng));
-    if (house?.roof) this.near.addChild(drawTreehouseBackdrop(house, this.terrain, rng));
+    if (porch?.roof) this.near.addChild(scenery(porch, drawPorchBackdrop(porch, rng)));
+    if (house?.roof) this.near.addChild(scenery(house, drawTreehouseBackdrop(house, this.terrain, rng)));
     // M10's hidden areas: the ant colony's cross-section and the inside of the gnome.
     const depths = byId('area_ant_hill_depths');
     const hollow = byId('area_gnome_hollow');
-    if (depths) this.near.addChild(drawDepthsBackdrop(depths, new Rng('depths-art')));
-    if (hollow) this.near.addChild(drawHollowBackdrop(hollow, new Rng('hollow-art')));
+    if (depths) this.near.addChild(scenery(depths, drawDepthsBackdrop(depths, new Rng('depths-art'))));
+    if (hollow) this.near.addChild(scenery(hollow, drawHollowBackdrop(hollow, new Rng('hollow-art'))));
     const back = new Container();
-    const plazaBack = new Graphics();
+    const plazaBack = scenery(this.plaza, new Graphics());
     plazaBack.x = this.plazaX;
     this.drawBackProps(plazaBack, rng);
     back.addChild(plazaBack);
     for (const pond of this.areas.filter((a) => a.water))
-      back.addChild(drawPondBackProps(pond, this.terrain, rng));
-    if (flowerbed) back.addChild(drawFlowerbedBack(flowerbed, this.terrain, rng));
-    if (compost) back.addChild(drawCompostBack(compost, this.terrain, rng));
+      back.addChild(scenery(pond, drawPondBackProps(pond, this.terrain, rng)));
+    if (flowerbed) back.addChild(scenery(flowerbed, drawFlowerbedBack(flowerbed, this.terrain, rng)));
+    if (compost) back.addChild(scenery(compost, drawCompostBack(compost, this.terrain, rng)));
     // Push the props back a little: softer and hazier than anything grabbable.
     back.tint = 0xe2ecdf;
     back.alpha = 0.92;
     this.near.addChild(back);
     // The porch's own props sit in its gloom, without the haze.
-    if (porch) this.near.addChild(drawPorchBack(porch, rng));
+    if (porch) this.near.addChild(scenery(porch, drawPorchBack(porch, rng)));
 
     // Soil, area by area, in each area's colors. The treehouse has a floor instead.
-    const soil = new Graphics();
     for (const area of this.areas) {
       if (area.id === house?.id || area.hidden) continue;
+      const soil = scenery(area, new Graphics());
+      this.near.addChild(soil);
       const a = area.xStart * PPM;
       const b = area.xEnd * PPM;
       const dirt = new FillGradient({
@@ -856,16 +901,16 @@ export class Background {
           .stroke({ width: 5, color: darken(area.dirt, 0.3), alpha: 0.5, cap: 'round' });
       }
     }
-    this.near.addChild(soil);
-    if (house) this.near.addChild(drawTreehouseUnder(house, this.terrain, rng));
+    if (house) this.near.addChild(scenery(house, drawTreehouseUnder(house, this.terrain, rng)));
 
-    this.near.addChild(this.drawStump(this.plaza));
+    this.near.addChild(scenery(this.plaza, this.drawStump(this.plaza)));
 
     // The top of the ground: moss in the garden, mulch in the flowerbed, sludge on the compost,
     // packed dust under the porch. Scalloped lower edge, bold outline.
-    const moss = new Graphics();
     for (const area of this.areas) {
       if (area.id === house?.id || area.hidden) continue;
+      const moss = scenery(area, new Graphics());
+      this.near.addChild(moss);
       const a = area.xStart * PPM;
       const b = area.xEnd * PPM;
       const top = this.groundBetween(a, b, true);
@@ -899,18 +944,20 @@ export class Background {
             alpha: 0.6,
           });
     }
+    // The ground's dark line, in one stroke from end to end.
     const surface = this.groundBetween(0, this.worldPx, false);
     const houseX = house ? house.xStart * PPM : Infinity;
-    moss.moveTo(surface[0]!, surface[1]!);
+    const line = new Graphics();
+    line.moveTo(surface[0]!, surface[1]!);
     for (let i = 2; i < surface.length && surface[i]! <= houseX; i += 2)
-      moss.lineTo(surface[i]!, surface[i + 1]!);
-    moss.stroke(stroke(6));
-    this.near.addChild(moss);
+      line.lineTo(surface[i]!, surface[i + 1]!);
+    line.stroke(stroke(6));
+    this.near.addChild(line);
     for (const pond of this.areas.filter((a) => a.water))
-      this.near.addChild(drawPondBank(pond, this.terrain, rng));
+      this.near.addChild(scenery(pond, drawPondBank(pond, this.terrain, rng)));
     // Things shaped by the ground: the gnome's belly and the flowerpot stage, the compost heap.
-    if (flowerbed) this.near.addChild(drawFlowerbedOver(flowerbed, this.terrain));
-    if (compost) this.near.addChild(drawCompostOver(compost, this.terrain, rng));
+    if (flowerbed) this.near.addChild(scenery(flowerbed, drawFlowerbedOver(flowerbed, this.terrain)));
+    if (compost) this.near.addChild(scenery(compost, drawCompostOver(compost, this.terrain, rng)));
 
     // Grass tufts and tiny flowers along the ground, behind the bugs. Not indoors.
     const tufts = new Graphics();

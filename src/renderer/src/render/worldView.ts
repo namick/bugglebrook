@@ -351,6 +351,7 @@ export class WorldView extends Container {
     set: string | null;
     sky: boolean;
     tone: number;
+    shade: number;
     toned: number;
     strips: ReturnType<Background['stripStats']>;
   } {
@@ -358,9 +359,15 @@ export class WorldView extends Container {
       set: this.backdrop?.id ?? null,
       sky: !!this.backdrop?.sky,
       tone: worldOf(this.backdrop).tone.length,
+      shade: worldOf(this.backdrop).shade.length,
       toned: this.background.toned,
       strips: this.background.stripStats(),
     };
+  }
+
+  /** The colors one area's own scenery is drawn with right now (test hook). */
+  sceneryColors(area: string): number[] {
+    return this.background.sceneryColors(area);
   }
 
   /** The areas' live views: flowers, the porch, the compost lab, the arcade, the barriers, locked previews. */

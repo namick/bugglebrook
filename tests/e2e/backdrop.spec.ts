@@ -34,6 +34,14 @@ async function launchApp(): ReturnType<typeof launch> {
 }
 
 const backdrop = (page: Page) => page.evaluate(() => window.__bb!.backdrop());
+/** The colors one area's own code-drawn scenery uses right now. */
+const scenery = (page: Page, area: string) => page.evaluate((a) => window.__bb!.sceneryColors(a), area);
+const PORCH = 'area_under_porch';
+/** The porch's soil: a plum too grey for a tone rule, and the teal the set's shade rule sends it to. */
+const PORCH_SOIL = 0x4a3540;
+const PORCH_SOIL_SET = 0x206080;
+/** The dark line round everything, which no rule changes. */
+const OUTLINE = 0x2b1d2e;
 const look = (page: Page) => page.evaluate(() => window.__bb!.look());
 const send = (page: Page, command: Record<string, unknown>): Promise<void> =>
   page.evaluate((c) => window.__bb!.send(c as never), command);
@@ -59,11 +67,13 @@ test("an art set's sky, strips, and tone map are drawn, and an area it has no st
       set: null,
       sky: false,
       tone: 0,
+      shade: 0,
       toned: 0,
       strips: { far: { has: [], drawn: [] }, mid: { has: [], drawn: [] } },
     });
     expect((await look(page)).skyTop).toBe(0x8fd3f0);
     expect((await look(page)).near).toBe(0xffffff);
+    expect(await scenery(page, PORCH)).toEqual(expect.arrayContaining([PORCH_SOIL, OUTLINE]));
 
     await page.evaluate((id) => window.__bb!.artSelect(id), SET);
     await backdropShows(page, SET);
@@ -72,6 +82,13 @@ test("an art set's sky, strips, and tone map are drawn, and an area it has no st
     expect(on.tone).toBe(2);
     // The tone map reached the code-drawn world: thousands of greens and browns changed.
     expect(on.toned).toBeGreaterThan(1000);
+    // Its one shade rule turned the porch's grey soil teal, there and nowhere else, and left the outline.
+    expect(on.shade).toBe(1);
+    const porch = await scenery(page, PORCH);
+    expect(porch).toEqual(expect.arrayContaining([PORCH_SOIL_SET, OUTLINE]));
+    expect(porch).not.toContain(PORCH_SOIL);
+    for (const area of ['area_stump_plaza', 'area_puddle_pond', 'area_compost_lab'])
+      expect(await scenery(page, area), area).not.toContain(PORCH_SOIL_SET);
     expect(on.strips.far.has).toEqual(['area_flowerbed_stage_far', 'area_puddle_pond_far']);
     expect(on.strips.mid.has).toEqual(['area_puddle_pond_mid']);
 
@@ -121,8 +138,10 @@ test("an art set's sky, strips, and tone map are drawn, and an area it has no st
     await page.evaluate(() => window.__bb!.artSelect('procedural'));
     await backdropShows(page, null);
     const off = (await backdrop(page))!;
-    expect(off).toMatchObject({ ready: true, sky: false, tone: 0, toned: 0 });
+    expect(off).toMatchObject({ ready: true, sky: false, tone: 0, shade: 0, toned: 0 });
     expect(off.strips.far.has).toEqual([]);
+    expect(await scenery(page, PORCH)).toContain(PORCH_SOIL);
+    expect(await scenery(page, PORCH)).not.toContain(PORCH_SOIL_SET);
     await at(page, 12);
     expect((await look(page)).skyTop).toBe(0x8fd3f0);
     expect(errors).toEqual([]);

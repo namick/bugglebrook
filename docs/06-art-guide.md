@@ -646,7 +646,7 @@ A set can change the world behind the bugs too. There are three pieces, and each
 |---|---|---|
 | The sky | `sky.json` | The sky's colors through the day, the color of the light on everything, the sun, the moon, the stars, and the rainbow |
 | Painted strips | `<area_id>_far.ora` and `<area_id>_mid.ora` | The hills far away and the big plants in the middle distance, behind one area |
-| The world's colors | `world.json` | A tone map that recolors the ground, the soil, the plants, the stump, and the rooms the game draws, and the pond's water |
+| The world's colors | `world.json` | A tone map that recolors the ground, the soil, the plants, the stump, and the rooms the game draws, shade rules for one area's greys, and the pond's water |
 
 The ground the bugs walk on, the fixtures, and the grass in front of the screen stay drawn by the game. The tone map is how a set recolors them.
 
@@ -720,6 +720,7 @@ Anything that should glow at night (a lamp, a window, a glowing plant) goes on t
 - In `sky.json` each moment of the day (`night`, `late_night`, `dawn`, `morning`, `day`, `afternoon`, `dusk`, `sunset`, `twilight`) has a sky color for the top and the bottom, a glow along the horizon, and the color of the light on each layer. `near` is the light on the bugs and everything they touch.
 - The game checks that night still reads as night and day as day. It refuses a sky whose day light is too dark or whose night is too bright, and tells you which number to change.
 - In `world.json`, `tone` is a list of rules like `{ "from": "#5aa845", "to": "#8a5fe0" }`. That one turns every grass green in the code-drawn world violet, keeping the light and dark shades. `water` sets the pond's colors.
+- A tone rule works by hue, so it cannot move a grey. The soil under the porch and the porch's shadows are plum greys, and under a violet world they still look like Earth dirt. `shade` is for those: `{ "area": "area_under_porch", "from": "#4a3540", "to": "#3d2f7a" }` turns the porch's soil, and the colors close to it, into shades of the new color. A shade rule works in the one area it names and nowhere else.
 
 B14 has every key and every rule.
 
@@ -1025,13 +1026,13 @@ Every message names the file and the layer, says what's wrong in plain words, an
 | A leg or arm doesn't go straight down from its pivot, or a feeler straight up (drawn sideways or backward) | warning |
 | A leg, arm, or feeler is under 0.6 or over 1.6 times its guide length | warning |
 | A `_tint` layer is too colorful | warning |
-| `rig.json` hash differs from the current rig | error: "This template is out of date. Run `pnpm art:templates --refresh-guides`." |
 | Twig's `stick` goes more than 16 px outside the twig item's outline, or leaves any of that outline more than 16 px from paint | warning, with the distance |
+| `rig.json` hash differs from the current rig | error: "This template is out of date. Run `pnpm art:templates --refresh-guides`." |
 | File over 8 MB | warning |
 
-## B11. Tests
 The `stick` check exists because the layer is also every loose twig (B7), and a twig's paint, bite marks, and physics body follow the code-drawn twig. It works as the item sheets' outline check does (B21). The painting and the twig's outline both become shapes at game size, with the outline's middle on the part's pivot or on the `pivot_stick` dot. Then no pixel of either may lie more than 16 template pixels from the other, counting a diagonal step as one. It is stricter than the item check, which lets 3% of a painting stray, because a thin curl 53 pixels long is under 3% of a twig. The outline is written out in `art/twigShape.ts`, since the importer has no Pixi to draw the item with, and `tests/unit/twigShape.test.ts` reads the item's real drawing and fails if the two differ. `pnpm art:check-one` on Twig's file prints how far the stick is off each way.
 
+## B11. Tests
 
 Every rule here gets a test. The pipeline is engineering like everything else.
 
@@ -1111,13 +1112,37 @@ A sky that breaks a rule is an error and the set falls back to the game's own sk
 
 ### The world's tone
 
-`world.json` has `tone`, a list of up to 12 rules `{from, to, spread}`, and `water`.
+`world.json` has `tone`, a list of up to 12 rules `{from, to, spread}`, `shade`, a list of up to 12 rules `{area, from, to, reach}`, and `water`.
 
 - `toneColor` (pure) maps one color. A rule pulls colors near `from`'s hue: full strength within half of `spread` degrees (default 40), easing off to nothing at `spread`. The hue turns by the angle from `from` to `to`, saturation scales by their ratio, and lightness bends by a power that sends `from`'s lightness to `to`'s. So `from` lands on `to` exactly and the rest of its hue family follows with its shading intact. Colors with less than 0.1 chroma (greys, the outline) fade out of the map. The parser warns when overlapping rules stop a `from` from landing on its `to`.
 - The tone map is applied to shapes, not pixels. `toneGraphics` (`render/worldTone.ts`) walks the code-drawn hills, mid, near, and front layers once, before they are baked, and maps each fill and stroke color and each gradient's stops. Mapping pixels after antialiasing would leave fringes of in-between hues where two colors meet.
 - Live plants take it at draw time through a cached function (`makeTone`): the pond's lily pads, blooms, and weed, the stems and leaves of the flowerbed's flowers and the sunflower, and the leaves the wind blows. The mushrooms' night glow takes the color their caps became.
 - It leaves alone: painted strips, the water itself (which `water.surface` and `water.deep` set on purpose, and the parser checks the surface is the lighter one), petals, every fixture, bugs, items, particles, rain, and the UI. Fixtures share colors with things that mean something (potions, paint, the sequencer's caps), so a blanket recolor would break those matches.
-- `WORLD_SWATCHES` lists the code-drawn world's main colors. The validator prints what a map does to each.
+- `WORLD_SWATCHES` lists the code-drawn world's main colors, each with its area when it belongs to one. The validator prints what the tone map and that area's shade rules do to each.
+
+Shade rules are for the near-greys the tone map cannot see. The porch's soil (`#4a3540`) and shadow (`#2a2438`) have under 0.1 chroma, and the outline (`#2b1d2e`) sits ten steps from that shadow, so no rule that works on color alone can take one and leave the other. A shade rule names its place:
+
+```json
+"shade": [
+  { "area": "area_under_porch", "from": "#4a3540", "to": "#3d2f7a" },
+  { "area": "area_under_porch", "from": "#2a2438", "to": "#241a52", "reach": 40 }
+]
+```
+
+| Key | Meaning |
+|---|---|
+| `area` | The area whose own scenery the rule changes: its soil and ground, its room, its props in the back. One of the eight area IDs (`WORLD_AREAS`). |
+| `from` | A color in that area today. Any color but the outline. |
+| `to` | What `from` becomes, exactly. |
+| `reach` | How far from `from` a color may be and still be caught, as the biggest difference in red, green, or blue, 8 to 96 of 255. Default 48. Full strength out to half of it, easing off to nothing at `reach`. |
+
+- A color the rule reaches becomes a shade of `to`: `to`'s hue and saturation, with its lightness bent by the power that sends `from`'s lightness to `to`'s. The soil's gradient, its darker strata, and the roots drawn a little darker all follow, darker ones still darker. Hue is not used to match or to turn, because a grey's hue is noise.
+- A shade rule looks at the color as the game draws it, and where it reaches all the way it replaces what the tone map made of that color. At the edge of its reach the two are mixed.
+- When two rules in one area reach the same color, they share it by nearness squared, so a color on one rule's `from` is all that rule's and each `from` still lands on its own `to`. The parser warns only when two rules in one area start from the same color.
+- The outline never changes, whatever a rule starts from.
+- A shade rule reaches static scenery only. `Background` labels each piece of an area's own scenery with the area's ID (`scenery` in `background.ts`), `makeTones` builds one map for each area that has rules, and `toneGraphics` uses that map for a labelled container and everything under it. The soil and the ground's top are one `Graphics` for each area for this reason. Grass tufts, the front grass, and the far and mid layers' shared shapes belong to no area, and neither do live plants or fixtures.
+- It costs what the tone map costs: each color is mapped once when a `Background` is built, and nothing runs per frame.
+- New scenery for one area gets its shade rules by being added through `scenery(area, ...)`.
 
 ### Tools
 

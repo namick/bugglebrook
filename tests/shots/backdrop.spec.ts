@@ -81,7 +81,8 @@ test('backdrop tour', async () => {
     const look = await page.evaluate(() => window.__bb!.backdrop());
     expect(look?.set, `the set "${setId}" has no backdrop in this build`).toBe(setId);
     console.log(
-      `backdrop: sky ${look!.sky ? 'yes' : 'no'}, tone rules ${look!.tone} (${look!.toned} colors changed), ` +
+      `backdrop: sky ${look!.sky ? 'yes' : 'no'}, tone rules ${look!.tone}, shade rules ${look!.shade} ` +
+        `(${look!.toned} colors changed), ` +
         `far strips ${look!.strips.far.has.length}, mid strips ${look!.strips.mid.has.length}`,
     );
     for (const [id] of ALL_AREAS) await send(page, { type: 'unlock', area: id });

@@ -14,8 +14,9 @@ export interface BackdropLook {
   set: string | null;
   /** The set has its own sky. */
   sky: boolean;
-  /** How many rules its tone map has, and how many of the code-drawn world's colors they changed. */
+  /** How many tone rules and shade rules it has, and how many of the code-drawn world's colors they changed. */
   tone: number;
+  shade: number;
   toned: number;
   /** Per layer: the strips the set has, and the ones drawn into the backdrop on screen now. */
   strips: Record<StripLayer, { has: string[]; drawn: string[] }>;
@@ -29,6 +30,11 @@ export interface BackdropHook {
   backdropTemplate(id: string, scale: 1 | 2): StripGuides;
   /** What the open world's backdrop is drawn from, or null with no world open. */
   backdrop(): BackdropLook | null;
+  /**
+   * Every color one area's own code-drawn scenery uses right now (its soil,
+   * its ground, its room), after the set's tone map and shade rules.
+   */
+  sceneryColors(area: string): number[];
   /**
    * Install a built backdrop (what `pnpm art:build` writes) for an art set and
    * wait until it is ready to show. A set the game does not know is added to
@@ -56,6 +62,7 @@ export function backdropHook(game: Game): BackdropHook {
       const ready = backdropStore.ready && look.set === (backdropStore.current?.id ?? null);
       return { ready, ...look };
     },
+    sceneryColors: (area) => game.session?.view.sceneryColors(area) ?? [],
     loadBackdrop: async (pack, id, name = id) => {
       backdropStore.install(id, pack);
       artStore.registerSet({ id, name, credit: 'Test artwork' });

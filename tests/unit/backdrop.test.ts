@@ -6,9 +6,12 @@ import { CONTENT } from '../../src/game/data';
 import {
   DEFAULT_SKY,
   DEFAULT_WORLD,
+  SHADE_MAX,
   SKY_MOMENTS,
   SKY_RULES,
   TONE_MAX,
+  WORLD_AREAS,
+  WORLD_OUTLINE,
   WORLD_SWATCHES,
   colorDistance,
   fromHsl,
@@ -17,18 +20,20 @@ import {
   parseColor,
   parseSky,
   parseWorld,
+  shadesIn,
   skyJson,
   toHsl,
   toneColor,
   worldJson,
 } from '../../src/renderer/src/art/backdropData';
-import type { StripEntry, ToneAnchor } from '../../src/renderer/src/art/backdropData';
+import type { ShadeRule, StripEntry, ToneAnchor } from '../../src/renderer/src/art/backdropData';
 import { setOfPath, skyOf, stripsOf, worldOf } from '../../src/renderer/src/art/backdropStore';
 import type { LoadedBackdrop } from '../../src/renderer/src/art/backdropStore';
 import { SunflowerLive } from '../../src/renderer/src/render/areaArt/barrierLive';
 import { FLOWERBED } from '../../src/renderer/src/render/areaArt/flowerbed';
 import { FlowerbedLive } from '../../src/renderer/src/render/areaArt/flowerbedLive';
 import type { AreaLive } from '../../src/renderer/src/render/areaArt/live';
+import { PORCH } from '../../src/renderer/src/render/areaArt/porch';
 import { ARCADE } from '../../src/renderer/src/render/areaArt/treehouse';
 import { PARALLAX } from '../../src/renderer/src/render/background';
 import { OUTLINE } from '../../src/renderer/src/render/palette';
@@ -47,7 +52,7 @@ import {
   stripSpans,
   surfaceAreas,
 } from '../../src/renderer/src/render/stripLayout';
-import { NO_TONE, makeTone, toneGraphics } from '../../src/renderer/src/render/worldTone';
+import { NO_TONE, makeTone, makeTones, toneGraphics } from '../../src/renderer/src/render/worldTone';
 
 // An art set's backdrop, the pure parts: reading its sky and world style,
 // the tone map's color math, where its strips sit, and which art a stretch
@@ -392,8 +397,154 @@ describe('the tone map', () => {
     expect(swatch('reeds')).toBe(POND_COLORS.reed);
     expect(swatch('lily pads')).toBe(POND_COLORS.lily);
     expect(swatch('outline')).toBe(OUTLINE);
+    expect(swatch('porch soil')).toBe(area('area_under_porch').dirt);
+    expect(swatch('porch shadow')).toBe(PORCH.shadow);
     expect(DEFAULT_WORLD.water.surface).toBe(POND_COLORS.surface);
     expect(DEFAULT_WORLD.water.deep).toBe(POND_COLORS.deep);
+  });
+});
+
+describe('shade rules', () => {
+  const PORCH_ID = 'area_under_porch';
+  const porch = CONTENT.areas.get(PORCH_ID);
+  const SOIL: ShadeRule = { area: PORCH_ID, from: porch.dirt, to: 0x3d2f7a, reach: 48 };
+  const SHADOW: ShadeRule = { area: PORCH_ID, from: PORCH.shadow, to: 0x241a52, reach: 48 };
+  const HUES: ToneAnchor[] = [{ from: 0xa8744f, to: 0x6a58b0, spread: 26 }];
+
+  it('name the game’s areas, and so does every swatch that belongs to one', () => {
+    expect([...WORLD_AREAS].sort()).toEqual(AREAS.map((a) => a.id).sort());
+    for (const [name, , area] of WORLD_SWATCHES)
+      if (area !== undefined) expect(WORLD_AREAS, name).toContain(area);
+    expect(WORLD_OUTLINE).toBe(OUTLINE);
+  });
+
+  it('move the greys a tone rule cannot: the porch’s soil and shadow stay put under any hue rule', () => {
+    // Both are near-grey plums. No tone rule may even start from one.
+    for (const grey of [porch.dirt, PORCH.shadow]) {
+      expect(toneColor(grey, HUES)).toBe(grey);
+      expect(errors(parseWorld({ tone: [{ from: hexColor(grey), to: '#3d2f7a' }] }).messages)).toBe(1);
+    }
+    expect(colorDistance(toneColor(porch.dirt, HUES, [SOIL]), SOIL.to)).toBeLessThanOrEqual(1);
+    expect(colorDistance(toneColor(PORCH.shadow, HUES, [SHADOW]), SHADOW.to)).toBeLessThanOrEqual(1);
+    // With both rules on, each still lands where it was sent.
+    expect(colorDistance(toneColor(porch.dirt, HUES, [SOIL, SHADOW]), SOIL.to)).toBeLessThanOrEqual(1);
+    expect(colorDistance(toneColor(PORCH.shadow, HUES, [SOIL, SHADOW]), SHADOW.to)).toBeLessThanOrEqual(1);
+  });
+
+  it('turn nearby colors into shades of the new one, darker ones still darker', () => {
+    const to = toHsl(SOIL.to);
+    // The soil's own deep end, and the strokes drawn a little darker than the soil.
+    const family = [porch.dirt, 0x422f3c, 0x3e2b39, porch.dirtDark];
+    const out = family.map((c) => toneColor(c, [], [{ ...SOIL, reach: 96 }]));
+    for (const c of out) {
+      const hsl = toHsl(c);
+      expect(Math.abs(hsl.h - to.h)).toBeLessThan(4);
+      expect(Math.abs(hsl.s - to.s)).toBeLessThan(0.06);
+    }
+    const light = out.map((c) => toHsl(c).l);
+    for (let i = 1; i < light.length; i++) expect(light[i]!).toBeLessThan(light[i - 1]!);
+  });
+
+  it('reach only so far, easing off', () => {
+    const rule: ShadeRule = { area: PORCH_ID, from: 0x404040, to: 0x203080, reach: 40 };
+    const moved = (c: number): number => colorDistance(toneColor(c, [], [rule]), c);
+    // Full strength out to half the reach.
+    expect(toneColor(0x404040, [], [rule])).toBe(0x203080);
+    expect(toHsl(toneColor(0x545454, [], [rule])).s).toBeCloseTo(toHsl(0x203080).s, 1);
+    // Part of the way in between, and nothing at the reach or past it.
+    expect(moved(0x5e5e5e)).toBeGreaterThan(0);
+    expect(toHsl(toneColor(0x5e5e5e, [], [rule])).s).toBeLessThan(toHsl(0x203080).s - 0.1);
+    for (const far of [0x686868, 0x808080, 0xffffff, 0x000000]) expect(moved(far)).toBe(0);
+    // One channel far off is far off.
+    expect(moved(0x404080)).toBe(0);
+  });
+
+  it('never touch the outline, however close a rule starts', () => {
+    const near: ShadeRule = { area: PORCH_ID, from: 0x2a1c2d, to: 0xff0000, reach: 96 };
+    expect(toneColor(OUTLINE, [], [near])).toBe(OUTLINE);
+    expect(toneColor(OUTLINE, HUES, [SOIL, SHADOW])).toBe(OUTLINE);
+    // The shadow is ten steps from the outline, and it moves.
+    expect(colorDistance(PORCH.shadow, OUTLINE)).toBeLessThanOrEqual(10);
+    expect(toneColor(PORCH.shadow, [], [SHADOW])).not.toBe(PORCH.shadow);
+  });
+
+  it('win over the hue rules where they reach, and give way at the edge', () => {
+    // A brown the hue rule turns violet, sitting right on a shade rule's `from`.
+    const rule: ShadeRule = { area: PORCH_ID, from: 0xa8744f, to: 0x20a040, reach: 40 };
+    expect(colorDistance(toneColor(0xa8744f, HUES), 0x6a58b0)).toBeLessThanOrEqual(1);
+    expect(colorDistance(toneColor(0xa8744f, HUES, [rule]), 0x20a040)).toBeLessThanOrEqual(1);
+    // Past the rule's reach the hue rule's answer stands.
+    expect(toneColor(0x7a4e32, HUES, [rule])).toBe(toneColor(0x7a4e32, HUES));
+  });
+
+  it('read from world.json, each for one area', () => {
+    const { world, messages } = parseWorld({
+      shade: [
+        { area: PORCH_ID, from: '#4a3540', to: '#3d2f7a' },
+        { area: PORCH_ID, from: '#2a2438', to: '#241a52', reach: 30 },
+        { area: 'area_gnome_hollow', from: '#f4efe6', to: '#e6e0ff' },
+      ],
+    });
+    expect(messages).toEqual([]);
+    expect(world!.shade).toEqual([
+      SOIL,
+      { ...SHADOW, reach: 30 },
+      { area: 'area_gnome_hollow', from: 0xf4efe6, to: 0xe6e0ff, reach: 48 },
+    ]);
+    expect(shadesIn(world!, PORCH_ID)).toHaveLength(2);
+    expect(shadesIn(world!, 'area_stump_plaza')).toEqual([]);
+    expect(parseWorld(JSON.parse(JSON.stringify(worldJson(world!)))).world).toEqual(world);
+    expect(worldJson(DEFAULT_WORLD).shade).toEqual([]);
+  });
+
+  it('refuse what they cannot use', () => {
+    const rule = { area: PORCH_ID, from: '#4a3540', to: '#3d2f7a' };
+    for (const [bad, word] of [
+      [{ shades: [] }, 'shades'],
+      [{ shade: {} }, 'list'],
+      [{ shade: ['#4a3540'] }, 'object'],
+      [{ shade: [{ from: '#4a3540', to: '#3d2f7a' }] }, 'area_under_porch'],
+      [{ shade: [{ ...rule, area: 'porch' }] }, 'must name the area'],
+      [{ shade: [{ ...rule, to: 'violet' }] }, 'colors'],
+      [{ shade: [{ ...rule, from: '#2b1d2e' }] }, 'outline'],
+      [{ shade: [{ ...rule, reach: 4 }] }, 'reach'],
+      [{ shade: [{ ...rule, reach: '48' }] }, 'reach'],
+      [{ shade: [{ ...rule, spread: 20 }] }, 'spread'],
+      [{ shade: Array.from({ length: SHADE_MAX + 1 }, () => rule) }, 'at most'],
+    ] as const) {
+      const { world, messages } = parseWorld(bad);
+      expect(world, JSON.stringify(bad)).toBeNull();
+      expect(messages.map((m) => m.text).join(' '), JSON.stringify(bad)).toContain(word);
+    }
+  });
+
+  it('share a color between two rules by nearness, so each rule still lands on its own color', () => {
+    // The soil and the shadow are 32 steps apart, inside each other's reach.
+    expect(colorDistance(porch.dirt, PORCH.shadow)).toBe(32);
+    expect(toneColor(porch.dirt, [], [SOIL, SHADOW])).toBe(toneColor(porch.dirt, [], [SOIL]));
+    expect(toneColor(PORCH.shadow, [], [SOIL, SHADOW])).toBe(toneColor(PORCH.shadow, [], [SHADOW]));
+    // A color between them is some of each: a violet between the two.
+    const between = toHsl(toneColor(0x3a2c3c, [], [SOIL, SHADOW]));
+    expect(between.l).toBeGreaterThan(toHsl(SHADOW.to).l);
+    expect(between.l).toBeLessThan(toHsl(SOIL.to).l);
+    // The soil's deep end is nearer the shadow, so it goes the shadow's way.
+    const deep = toneColor(porch.dirtDark, [], [SOIL, SHADOW]);
+    expect(colorDistance(deep, toneColor(porch.dirtDark, [], [SHADOW]))).toBeLessThan(8);
+  });
+
+  it('warn when two rules in one area start from the same color, and not across areas', () => {
+    const twice = (second: string) =>
+      parseWorld({
+        shade: [
+          { area: PORCH_ID, from: '#4a3540', to: '#3d2f7a' },
+          { area: second, from: '#4a3540', to: '#c0c020' },
+        ],
+      });
+    const clash = twice(PORCH_ID);
+    expect(clash.world).not.toBeNull();
+    expect(clash.messages.map((m) => m.level)).toEqual(['warning']);
+    expect(clash.messages[0]!.text).toMatch(/#4a3540 in area_under_porch to #3d2f7a, not #c0c020/);
+    expect(twice('area_gnome_hollow').messages).toEqual([]);
   });
 });
 
@@ -441,6 +592,60 @@ describe('toning the code-drawn shapes', () => {
   it('remembers what it mapped', () => {
     expect(tone(0x5aa845)).toBe(tone(0x5aa845));
     expect(tone(0x808080)).toBe(0x808080);
+  });
+
+  it('gives an area’s scenery its shade rules, and nothing else', () => {
+    const soil = 0x4a3540;
+    const tones = makeTones({
+      tone: [{ from: 0x5aa845, to: 0x8a5fe0, spread: 40 }],
+      shade: [{ area: 'area_under_porch', from: soil, to: 0x3d2f7a, reach: 48 }],
+    });
+    expect([...tones.areas.keys()]).toEqual(['area_under_porch']);
+    const shape = (parent: Container): Graphics => {
+      const g = new Graphics();
+      g.rect(0, 0, 4, 4).fill(soil).stroke({ width: 2, color: OUTLINE });
+      g.rect(8, 0, 4, 4).fill(0x5aa845);
+      parent.addChild(g);
+      return g;
+    };
+    const root = new Container();
+    const loose = shape(root);
+    const porch = new Container();
+    porch.label = 'area_under_porch';
+    const inPorch = shape(porch);
+    // Deeper down still counts as the porch's.
+    const deeper = shape(porch.addChild(new Container()));
+    const plaza = new Container();
+    plaza.label = 'area_stump_plaza';
+    const inPlaza = shape(plaza);
+    root.addChild(porch, plaza);
+    toneGraphics(root, tones);
+    const green = tone(0x5aa845);
+    for (const g of [inPorch, deeper]) {
+      expect(colorDistance(colors(g)[0]!, 0x3d2f7a)).toBeLessThanOrEqual(1);
+      // The outline stays, and the hue rules still work there.
+      expect(colors(g).slice(1)).toEqual([OUTLINE, green]);
+    }
+    for (const g of [loose, inPlaza]) expect(colors(g)).toEqual([soil, OUTLINE, green]);
+  });
+
+  it('works with shade rules alone', () => {
+    const tones = makeTones({
+      tone: [],
+      shade: [{ area: 'area_under_porch', from: 0x4a3540, to: 0x3d2f7a, reach: 48 }],
+    });
+    expect(tones.all).toBe(NO_TONE);
+    const porch = new Container();
+    porch.label = 'area_under_porch';
+    const g = new Graphics().rect(0, 0, 4, 4).fill(0x4a3540);
+    const other = new Graphics().rect(0, 0, 4, 4).fill(0x4a3540);
+    porch.addChild(g);
+    const root = new Container();
+    root.addChild(porch, other);
+    expect(toneGraphics(root, tones)).toBe(1);
+    expect(colorDistance(colors(g)[0]!, 0x3d2f7a)).toBeLessThanOrEqual(1);
+    expect(colors(other)).toEqual([0x4a3540]);
+    expect(toneGraphics(new Container(), makeTones({ tone: [], shade: [] }))).toBe(0);
   });
 });
 

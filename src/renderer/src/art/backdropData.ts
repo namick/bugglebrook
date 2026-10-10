@@ -523,9 +523,21 @@ const hueDelta = (a: number, b: number): number => ((((b - a) % 360) + 540) % 36
  * Map one color through a tone map. Each anchor pulls colors near its `from`
  * hue: the hue turns by the same angle, saturation scales by the same ratio,
  * and lightness bends so `from` lands exactly on `to`. Dark and light shades
- * of a hue follow together, so shading survives. Greys have no hue and stay.
+ * of a hue follow together, so shading survives. Greys have no hue and stay,
+ * unless one of `shades` reaches them: pass an area's shade rules to map a
+ * color of that area's scenery.
  */
-export function toneColor(c: number, anchors: readonly ToneAnchor[]): number {
+export function toneColor(
+  c: number,
+  anchors: readonly ToneAnchor[],
+  shades: readonly ShadeRule[] = [],
+): number {
+  const toned = hueTone(c, anchors);
+  return shades.length ? shadeTone(c, toned, shades) : toned;
+}
+
+/** The hue rules alone. */
+function hueTone(c: number, anchors: readonly ToneAnchor[]): number {
   if (!anchors.length) return c & 0xffffff;
   const hsl = toHsl(c);
   // Greys and near-greys (the outline, pebbles, white) keep their color.
@@ -561,6 +573,89 @@ export function toneColor(c: number, anchors: readonly ToneAnchor[]): number {
   return fromHsl(hsl.h + turn, Math.min(1, Math.max(0, hsl.s * sat)), Math.min(1, Math.max(0, l)));
 }
 
+// Shade rules
+
+/** The areas a shade rule may name: every area, since each has scenery of its own. */
+export const WORLD_AREAS = [
+  'area_flowerbed_stage',
+  'area_puddle_pond',
+  'area_stump_plaza',
+  'area_under_porch',
+  'area_compost_lab',
+  'area_treehouse_arcade',
+  'area_ant_hill_depths',
+  'area_gnome_hollow',
+] as const;
+
+/** The dark line round everything. No rule changes it: it is the game's ink in every set. */
+export const WORLD_OUTLINE = 0x2b1d2e;
+
+/**
+ * One shade rule: in one area's code-drawn scenery, colors close to `from`
+ * become shades of `to`. It is for the near-greys a tone rule cannot move,
+ * having no hue to match: the porch's soil and its shadows. `reach` is how
+ * far from `from` a color may be, as the biggest difference in any one
+ * channel (0 to 255): full strength out to half of it, then easing off.
+ */
+export interface ShadeRule {
+  area: string;
+  from: number;
+  to: number;
+  reach: number;
+}
+
+export const SHADE_REACH = { default: 48, min: 8, max: 96 } as const;
+export const SHADE_MAX = 12;
+
+/** `c` as a shade of `to`: `to`'s hue and saturation, as light or dark against `to` as `c` was against `from`. */
+function shadeOf(c: number, from: number, to: number): number {
+  const t = toHsl(to);
+  const lf = Math.min(0.98, Math.max(0.02, toHsl(from).l));
+  const lt = Math.min(0.98, Math.max(0.02, t.l));
+  return fromHsl(t.h, t.s, Math.pow(toHsl(c).l, Math.log(lt) / Math.log(lf)));
+}
+
+/**
+ * Lay an area's shade rules over a color. `c` is the color as the game draws
+ * it, which is what the rules match, and `toned` is what the hue rules made
+ * of it. Where a rule reaches all the way the color becomes a shade of its
+ * `to`, and the hue rules' work on it is dropped. Where several rules reach,
+ * the nearest counts most, so each rule's `from` still lands on its own `to`.
+ */
+function shadeTone(c: number, toned: number, shades: readonly ShadeRule[]): number {
+  if ((c & 0xffffff) === WORLD_OUTLINE) return toned;
+  // How strongly the rules hold the color at all: the firmest grip of any of them.
+  let strength = 0;
+  let total = 0;
+  let exact = -1;
+  const shares = shades.map((s, i) => {
+    const d = colorDistance(c, s.from);
+    const w = 1 - smoothstep(s.reach / 2, s.reach, d);
+    strength = Math.max(strength, w);
+    if (d === 0 && exact < 0) exact = i;
+    // Split between the rules by nearness, squared, so a color on one rule's `from` is all that rule's.
+    const share = d === 0 ? 0 : w / (d * d);
+    total += share;
+    return share;
+  });
+  if (strength <= 0) return toned;
+  const mixed = [16, 8, 0].map((shift) => {
+    let shaded = 0;
+    if (exact >= 0) shaded = (shadeOf(c, shades[exact]!.from, shades[exact]!.to) >> shift) & 255;
+    else
+      shades.forEach((s, i) => {
+        if (shares[i]! > 0) shaded += (((shadeOf(c, s.from, s.to) >> shift) & 255) * shares[i]!) / total;
+      });
+    const v = ((toned >> shift) & 255) * (1 - strength) + shaded * strength;
+    return Math.min(255, Math.max(0, Math.round(v)));
+  });
+  return (mixed[0]! << 16) | (mixed[1]! << 8) | mixed[2]!;
+}
+
+/** The shade rules for one area's scenery. */
+export const shadesIn = (world: Pick<WorldStyle, 'shade'>, area: string): ShadeRule[] =>
+  world.shade.filter((s) => s.area === area);
+
 // The world's style
 
 /** The pond's water. `surface` and `deep` are the water itself; `dusk` and `night` tint it by the hour. */
@@ -581,16 +676,17 @@ export const DEFAULT_WATER: WaterStyle = {
 /** How a set restyles the code-drawn world (`world.json`). */
 export interface WorldStyle {
   tone: ToneAnchor[];
+  shade: ShadeRule[];
   water: WaterStyle;
 }
 
-export const DEFAULT_WORLD: WorldStyle = { tone: [], water: DEFAULT_WATER };
+export const DEFAULT_WORLD: WorldStyle = { tone: [], shade: [], water: DEFAULT_WATER };
 
 /** Read a set's `world.json`. Returns null when the file has an error. */
 export function parseWorld(raw: unknown): { world: WorldStyle | null; messages: BackdropMessage[] } {
   const out: BackdropMessage[] = [];
   if (!isObject(raw)) return { world: null, messages: [err('world.json must hold one JSON object.')] };
-  const known = ['tone', 'water'];
+  const known = ['tone', 'shade', 'water'];
   for (const key of Object.keys(raw))
     if (!known.includes(key)) out.push(err(`world.json has no "${key}". It has: ${oneOf(known)}.`));
   const tone: ToneAnchor[] = [];
@@ -613,7 +709,7 @@ export function parseWorld(raw: unknown): { world: WorldStyle | null; messages: 
         if (toHsl(from).chroma < TONE_MIN_CHROMA)
           return void out.push(
             err(
-              `${at}.from (${hexColor(from)}) is too grey to have a hue. Pick the colorful shade to change.`,
+              `${at}.from (${hexColor(from)}) is too grey to have a hue. Pick the colorful shade to change, or move a grey with a "shade" rule.`,
             ),
           );
         let spread: number = TONE_SPREAD.default;
@@ -641,10 +737,62 @@ export function parseWorld(raw: unknown): { world: WorldStyle | null; messages: 
         ),
       );
   }
+  const shade: ShadeRule[] = [];
+  if (raw.shade !== undefined) {
+    if (!Array.isArray(raw.shade) || raw.shade.length > SHADE_MAX)
+      out.push(
+        err(
+          `shade must be a list of at most ${SHADE_MAX} rules like {"area": "area_under_porch", "from": "#4a3540", "to": "#3d2f7a"}.`,
+        ),
+      );
+    else
+      raw.shade.forEach((rule: unknown, i) => {
+        const at = `shade[${i}]`;
+        if (!isObject(rule))
+          return void out.push(err(`${at} must be an object with "area", "from", and "to".`));
+        for (const key of Object.keys(rule))
+          if (!['area', 'from', 'to', 'reach'].includes(key))
+            out.push(err(`${at} has no "${key}". It has: area, from, to, reach.`));
+        const area = rule.area;
+        if (typeof area !== 'string' || !(WORLD_AREAS as readonly string[]).includes(area))
+          return void out.push(err(`${at}.area must name the area it changes: ${oneOf(WORLD_AREAS)}.`));
+        const from = parseColor(rule.from);
+        const to = parseColor(rule.to);
+        if (from === null || to === null)
+          return void out.push(err(`${at} needs "from" and "to" colors like "#4a3540".`));
+        if (from === WORLD_OUTLINE)
+          return void out.push(
+            err(`${at}.from (${hexColor(from)}) is the outline's color, which no rule changes.`),
+          );
+        let reach: number = SHADE_REACH.default;
+        if (rule.reach !== undefined) {
+          if (typeof rule.reach !== 'number' || rule.reach < SHADE_REACH.min || rule.reach > SHADE_REACH.max)
+            return void out.push(
+              err(`${at}.reach must be a number from ${SHADE_REACH.min} to ${SHADE_REACH.max}.`),
+            );
+          reach = rule.reach;
+        }
+        shade.push({ area, from, to, reach });
+      });
+  }
+  // Two rules in one area that start from the same color cannot both have it.
+  for (const s of shade) {
+    const got = toneColor(
+      s.from,
+      tone,
+      shade.filter((o) => o.area === s.area),
+    );
+    if (colorDistance(got, s.to) > 24)
+      out.push(
+        warn(
+          `shade sends ${hexColor(s.from)} in ${s.area} to ${hexColor(got)}, not ${hexColor(s.to)}: another rule there starts from the same color. Drop one.`,
+        ),
+      );
+  }
   const water = readColors(raw.water, DEFAULT_WATER, 'water', out);
   if (luma(water.surface) <= luma(water.deep))
     out.push(err('water.surface must be lighter than water.deep, or the pond stops reading as water.'));
-  const world: WorldStyle = { tone, water };
+  const world: WorldStyle = { tone, shade, water };
   return { world: out.some((m) => m.level === 'error') ? null : world, messages: out };
 }
 
@@ -652,6 +800,12 @@ export function parseWorld(raw: unknown): { world: WorldStyle | null; messages: 
 export function worldJson(world: WorldStyle): Record<string, unknown> {
   return {
     tone: world.tone.map((a) => ({ from: hexColor(a.from), to: hexColor(a.to), spread: a.spread })),
+    shade: world.shade.map((s) => ({
+      area: s.area,
+      from: hexColor(s.from),
+      to: hexColor(s.to),
+      reach: s.reach,
+    })),
     water: Object.fromEntries(Object.entries(world.water).map(([k, v]) => [k, hexColor(v as number)])),
   };
 }
@@ -668,8 +822,9 @@ export function colorDistance(a: number, b: number): number {
 /**
  * The main colors of the code-drawn world, by what they paint: what a tone
  * map is chosen against, and what `checkBackdrop.ts` prints a map's result for.
+ * A color of one area's own scenery names that area, whose shade rules reach it.
  */
-export const WORLD_SWATCHES: readonly (readonly [string, number])[] = [
+export const WORLD_SWATCHES: readonly (readonly [string, number, (typeof WORLD_AREAS)[number]?])[] = [
   ['far hills', 0xb6e3c4],
   ['near hills', 0x98d59a],
   ['mid grass', 0x78c160],
@@ -680,39 +835,39 @@ export const WORLD_SWATCHES: readonly (readonly [string, number])[] = [
   ['front grass', 0x3f8a35],
   ['front grass, dark', 0x2e6b28],
   ['front rocks', 0x8f8aa0],
-  ['plaza moss', 0x6fbf4a],
-  ['moss shade', 0x4e9a3a],
-  ['plaza soil and stump bark', 0xa8744f],
-  ['plaza soil, deep', 0x7a4e32],
-  ['stump top', 0xe8c08e],
-  ['ant hill', 0xc49464],
-  ['mushroom caps', 0xe8453c],
-  ['signpost', 0xff9f1c],
-  ['pond bank', 0x7cc452],
-  ['pond soil and mud', 0x8a6a4a],
-  ['pond sand', 0xcdb487],
-  ['reeds', 0x8cbf3f],
+  ['plaza moss', 0x6fbf4a, 'area_stump_plaza'],
+  ['moss shade', 0x4e9a3a, 'area_stump_plaza'],
+  ['plaza soil and stump bark', 0xa8744f, 'area_stump_plaza'],
+  ['plaza soil, deep', 0x7a4e32, 'area_stump_plaza'],
+  ['stump top', 0xe8c08e, 'area_stump_plaza'],
+  ['ant hill', 0xc49464, 'area_stump_plaza'],
+  ['mushroom caps', 0xe8453c, 'area_stump_plaza'],
+  ['signpost', 0xff9f1c, 'area_stump_plaza'],
+  ['pond bank', 0x7cc452, 'area_puddle_pond'],
+  ['pond soil and mud', 0x8a6a4a, 'area_puddle_pond'],
+  ['pond sand', 0xcdb487, 'area_puddle_pond'],
+  ['reeds', 0x8cbf3f, 'area_puddle_pond'],
   ['lily pads', 0x3fa34d],
   ['lily bloom', 0xf28ab2],
-  ['cattails', 0x7a4e32],
-  ['flowerbed mulch', 0x7a5238],
-  ['flowerbed soil', 0x5a3b2b],
-  ['flowerpot', 0xd46b3e],
-  ['porch dust', 0x94796a],
-  ['porch soil', 0x4a3540],
-  ['porch boards', 0x9c8068],
-  ['porch shadow', 0x2a2438],
-  ['house siding', 0x9fb4c8],
-  ['bricks', 0xc0674a],
-  ['compost sludge', 0x7fa33a],
-  ['compost soil', 0x6b4a2b],
-  ['treehouse planks', 0xd98e4a],
-  ['treehouse canopy', 0x5faf3f],
-  ['depths earth', 0x8b5a3c],
-  ['depths tunnels', 0x4a2e1f],
-  ['hollow walls', 0xf4efe6],
-  ['hollow wood', 0xb5773e],
-  ['hollow dome', 0x1b2350],
+  ['cattails', 0x7a4e32, 'area_puddle_pond'],
+  ['flowerbed mulch', 0x7a5238, 'area_flowerbed_stage'],
+  ['flowerbed soil', 0x5a3b2b, 'area_flowerbed_stage'],
+  ['flowerpot', 0xd46b3e, 'area_flowerbed_stage'],
+  ['porch dust', 0x94796a, 'area_under_porch'],
+  ['porch soil', 0x4a3540, 'area_under_porch'],
+  ['porch boards', 0x9c8068, 'area_under_porch'],
+  ['porch shadow', 0x2a2438, 'area_under_porch'],
+  ['house siding', 0x9fb4c8, 'area_under_porch'],
+  ['bricks', 0xc0674a, 'area_under_porch'],
+  ['compost sludge', 0x7fa33a, 'area_compost_lab'],
+  ['compost soil', 0x6b4a2b, 'area_compost_lab'],
+  ['treehouse planks', 0xd98e4a, 'area_treehouse_arcade'],
+  ['treehouse canopy', 0x5faf3f, 'area_treehouse_arcade'],
+  ['depths earth', 0x8b5a3c, 'area_ant_hill_depths'],
+  ['depths tunnels', 0x4a2e1f, 'area_ant_hill_depths'],
+  ['hollow walls', 0xf4efe6, 'area_gnome_hollow'],
+  ['hollow wood', 0xb5773e, 'area_gnome_hollow'],
+  ['hollow dome', 0x1b2350, 'area_gnome_hollow'],
   ['outline', 0x2b1d2e],
 ];
 
