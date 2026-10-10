@@ -1,10 +1,11 @@
-import { _electron as electron, expect } from '@playwright/test';
+import { _electron as electron, expect, test } from '@playwright/test';
 import type { ElectronApplication, Page } from '@playwright/test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { EntityView } from '../../src/game/sim';
 import type { TestHook } from '../../src/renderer/src/debug/testHook';
+import type { SetPack } from '../../scripts/art/setPack.ts';
 
 export type { TestHook, EntityView };
 
@@ -59,6 +60,9 @@ export async function launchApp(
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1280, 720));
     await expect.poll(() => page.evaluate(() => `${innerWidth}x${innerHeight}`)).toBe('1280x720');
   }
+  // A tour can run in an art set: `BB_SHOTS_SET=storybook pnpm shots -g "areas.spec"`.
+  if (process.env.BB_SHOTS_SET)
+    await showArtSet(page, process.env.BB_SHOTS_SET, process.env.BB_ART_SOURCE === '1');
   return {
     app,
     page,
@@ -69,6 +73,76 @@ export async function launchApp(
       if (!options.keepUserData) rmSync(dir, { recursive: true, force: true });
     },
   };
+}
+
+/** Sets built from their sources in this process, so a tour with many tests builds one once. */
+const sourcePacks = new Map<string, SetPack>();
+
+/** Put a set built from its sources (`scripts/art/setPack.ts`) into the running game: bugs, items, backdrop. */
+export async function installSetPack(page: Page, pack: SetPack): Promise<void> {
+  await page.evaluate(async (p) => {
+    const bb = window.__bb!;
+    await bb.loadArtSet(p.art, p.set.id, p.set.name, p.set.credit);
+    if (p.items) await bb.loadItemArt(p.items, p.set.id);
+    if (p.backdrop) await bb.loadBackdrop(p.backdrop, p.set.id, p.set.name);
+  }, pack);
+}
+
+/**
+ * Draw the game in an art set: its bugs, its items, and its backdrop. The set
+ * must be one the app was built with, unless `fromSource` is on: then the set
+ * is built here from its files in `art/src` as they are now and installed
+ * over whatever the app has, so no `pnpm art:build` and no rebuilt app is
+ * needed. Returns once the set's pictures are decoded.
+ */
+export async function showArtSet(page: Page, id: string, fromSource = false): Promise<void> {
+  if (fromSource) {
+    // Building a set takes a minute on a busy machine. That time is not the tour's: give it back,
+    // and do it before the next await, since the build holds up the timer that would end the test.
+    const info = test.info();
+    let since = Date.now();
+    const giveBack = (): void => {
+      if (info.timeout) info.setTimeout(info.timeout + (Date.now() - since));
+      since = Date.now();
+    };
+    let pack = sourcePacks.get(id);
+    if (!pack) {
+      const { buildSetPack } = await import('../../scripts/art/setPack.ts');
+      since = Date.now();
+      pack = buildSetPack(id);
+      sourcePacks.set(id, pack);
+      console.log(pack.report);
+      giveBack();
+    }
+    await installSetPack(page, pack);
+    giveBack();
+  }
+  const known = await page.evaluate((s) => {
+    window.__bb!.artSelect(s);
+    return window.__bb!.artSets().includes(s);
+  }, id);
+  if (!known)
+    throw new Error(
+      `This build has no art set "${id}". Run "pnpm art:build" and build the app, or set BB_ART_SOURCE=1.`,
+    );
+  await page.evaluate(() => window.__bb!.backdropReady());
+}
+
+/**
+ * Wait until the open world is drawn in an art set's backdrop, or with `null` in the game's own
+ * look again. A switch rebuilds and bakes the whole background, which a busy software renderer
+ * can take more than ten seconds over.
+ */
+export async function backdropShows(page: Page, set: string | null): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const b = await page.evaluate(() => window.__bb!.backdrop());
+        return b?.ready ? b.set : 'not ready';
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(set);
 }
 
 export async function waitForScene(page: Page, scene: 'menu' | 'world'): Promise<void> {

@@ -25,7 +25,7 @@ export interface BackdropLook {
 export interface BackdropHook {
   /** Every strip a template can be made for: `<area>_far` and `<area>_mid` for each area under the sky. */
   backdropIds(): string[];
-  /** Draw a strip template's guides (the generator, `scripts/art/backdropTemplates.ts`). */
+  /** Draw a strip template's guides (the generator, `pnpm art:backdrop-templates`). */
   backdropTemplate(id: string, scale: 1 | 2): StripGuides;
   /** What the open world's backdrop is drawn from, or null with no world open. */
   backdrop(): BackdropLook | null;
@@ -35,6 +35,8 @@ export interface BackdropHook {
    * the settings board's list. Select it with `artSelect`.
    */
   loadBackdrop(pack: BackdropPack, id: string, name?: string): Promise<void>;
+  /** Wait until the selected set's backdrop is decoded and ready to draw, with or without a world open. */
+  backdropReady(): Promise<void>;
 }
 
 export function backdropHook(game: Game): BackdropHook {
@@ -59,5 +61,6 @@ export function backdropHook(game: Game): BackdropHook {
       artStore.registerSet({ id, name, credit: 'Test artwork' });
       await backdropStore.whenReady();
     },
+    backdropReady: () => backdropStore.whenReady(),
   };
 }

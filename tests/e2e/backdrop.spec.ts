@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import { join } from 'node:path';
 import { buildBackdrop, toBackdropPack } from '../../scripts/art/backdrop.ts';
 import type { BackdropPack } from '../../src/renderer/src/art/backdropData';
-import { clickUi, frames, jumpTo, launchApp as launch, openFrozen, waitForScene } from './app';
+import { backdropShows, clickUi, frames, jumpTo, launchApp as launch, openFrozen, waitForScene } from './app';
 
 // An art set's backdrop end to end: the crude test backdrop
 // (tests/e2e/fixtures/art/backdrop, made by make.ts) goes through the real
@@ -66,7 +66,7 @@ test("an art set's sky, strips, and tone map are drawn, and an area it has no st
     expect((await look(page)).near).toBe(0xffffff);
 
     await page.evaluate((id) => window.__bb!.artSelect(id), SET);
-    await expect.poll(async () => (await backdrop(page))?.ready && (await backdrop(page))?.set).toBe(SET);
+    await backdropShows(page, SET);
     const on = (await backdrop(page))!;
     expect(on.sky).toBe(true);
     expect(on.tone).toBe(2);
@@ -119,7 +119,7 @@ test("an art set's sky, strips, and tone map are drawn, and an area it has no st
 
     // Back to the original art: the game's own backdrop again.
     await page.evaluate(() => window.__bb!.artSelect('procedural'));
-    await expect.poll(async () => (await backdrop(page))?.set).toBeNull();
+    await backdropShows(page, null);
     const off = (await backdrop(page))!;
     expect(off).toMatchObject({ ready: true, sky: false, tone: 0, toned: 0 });
     expect(off.strips.far.has).toEqual([]);
@@ -146,13 +146,13 @@ test('choosing a set with a backdrop on the settings board redraws the world in 
     expect(await page.evaluate(() => window.__bb!.settings().artSet)).toBe(SET);
     expect((await page.evaluate(() => window.__bb!.artChoice()))?.name).toBe('Test backdrop');
     // The world behind the board is redrawn at once, strips and all.
-    await expect.poll(async () => (await backdrop(page))?.ready && (await backdrop(page))?.set).toBe(SET);
+    await backdropShows(page, SET);
     await expect.poll(async () => (await backdrop(page))!.strips.far.drawn).toContain('area_puddle_pond_far');
     expect((await backdrop(page))!.toned).toBeGreaterThan(1000);
     // One more click wraps round to the original art, and the game's own backdrop comes back.
     await clickUi(page, 'art_next');
     expect(await page.evaluate(() => window.__bb!.settings().artSet)).toBe('procedural');
-    await expect.poll(async () => (await backdrop(page))?.set).toBeNull();
+    await backdropShows(page, null);
     expect((await backdrop(page))!.strips.far.has).toEqual([]);
     expect(errors).toEqual([]);
   } finally {

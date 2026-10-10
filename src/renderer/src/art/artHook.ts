@@ -32,6 +32,8 @@ export interface ArtHook {
   loadArtPack(pack: ArtPack): Promise<void>;
   loadArtSet(pack: ArtPack, id: string, name: string, credit?: string): Promise<void>;
   artChoice(): { name: string; credit: string } | null;
+  /** The IDs of the art sets the settings board offers, in its order. */
+  artSets(): string[];
   pocketArt(slot: number): 'drawn' | 'code' | null;
   /** How a bug entity is drawn right now, and why. */
   bugArt(id: number): { art: 'drawn' | 'code'; reason: string; shown: SpriteShown | null } | null;
@@ -88,6 +90,7 @@ export function artHook(game: Game): ArtHook {
       artStore.registerSet({ id, name, credit });
     },
     artChoice: () => game.panel?.artChoice ?? null,
+    artSets: () => artStore.options.map((o) => o.id),
     pocketArt: (slot) => {
       const sprite = game.session?.pocket.spriteAt(slot);
       if (!sprite) return null;

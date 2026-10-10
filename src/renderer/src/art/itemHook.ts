@@ -1,3 +1,5 @@
+import type { Container } from 'pixi.js';
+import { Graphics } from 'pixi.js';
 import { CONTENT } from '../../../game/data';
 import type { Game } from '../app/game';
 import { BugSprite } from '../render/draw/bug';
@@ -36,6 +38,12 @@ export interface ItemArtHook {
   wornItemArt(bugId: number): (ItemArtInfo & { defId: string })[];
   /** How an item would be drawn anywhere it is shown (the journal, a speech bubble), by item ID. */
   itemArtFor(defId: string): ItemArtChoice;
+  /**
+   * The fill and stroke colors of the shapes an item's view is drawn with in code, in drawing
+   * order: an item in the world or the hand by entity ID, the thing in a pocket slot, or a thing
+   * a bug wears. Null when there is no such view. A set's backdrop must never change them.
+   */
+  itemColors(where: { id: number } | { slot: number } | { bug: number; defId: string }): number[] | null;
   /** Open the item board on a sheet, or close it with null. */
   itemBoard(sheetId: string | null): { rows: BoardRow[]; zoom: number; painted: number } | null;
 }
@@ -49,6 +57,18 @@ export function itemArtHook(game: Game): ItemArtHook {
     const texture = sprite.artTexture?.uid ?? null;
     const choice = itemArtChoice(sprite.def);
     return { art: texture === null ? 'code' : choice, texture };
+  };
+  const colors = (sprite: unknown): number[] | null => {
+    if (!(sprite instanceof ItemSprite)) return null;
+    const out: number[] = [];
+    const walk = (c: Container): void => {
+      if (c instanceof Graphics)
+        for (const ins of c.context.instructions)
+          if (ins.action !== 'texture') out.push(ins.data.style.color);
+      for (const child of c.children) walk(child as Container);
+    };
+    walk(sprite);
+    return out;
   };
   return {
     artItemSheets: () => itemSheetPlans().map((p) => ({ id: p.id, items: p.items.map((d) => d.id) })),
@@ -66,6 +86,15 @@ export function itemArtHook(game: Game): ItemArtHook {
       return sprite.wornSprites().map((w) => ({ defId: w.def.id, ...info(w.sprite)! }));
     },
     itemArtFor: (defId) => itemArtChoice(CONTENT.items.get(defId)),
+    itemColors: (where) => {
+      const s = game.session;
+      if (!s) return null;
+      if ('slot' in where) return colors(s.pocket.spriteAt(where.slot));
+      if ('id' in where) return colors(s.view.sprites.get(where.id));
+      const bug = s.view.sprites.get(where.bug);
+      if (!(bug instanceof BugSprite)) return null;
+      return colors(bug.wornSprites().find((w) => w.def.id === where.defId)?.sprite);
+    },
     itemBoard: (sheetId) => {
       board?.destroy();
       board = null;
