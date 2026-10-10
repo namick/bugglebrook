@@ -121,6 +121,18 @@ This creates empty templates under `art/src/sets/garden_drawings/bugs/` and `fac
 }
 ```
 
+If your bugs are different colors from the originals, add a `colors.json` beside `set.json`. The game tints the sleepy eyelid and Barty's shell itself, and draws a few things beside a bug in its main color. Without the file it uses the original bugs' colors for those. With it, you choose them:
+
+```json
+{
+  "bugs": {
+    "bug_ladybug_dot": { "lid": "#2a3a60", "body": "#3c8fe8" }
+  }
+}
+```
+
+The keys are `lid` (the sleepy eyelid), `body` (the bug's main color), `sheen` (two colors Barty's shell shimmers between), and `glow` (Flick's light at night). Leave out any you don't need. Section B19 has the details.
+
 Draw in those templates using the same layer names, canvas and pivots described below. Save each ORA next to its `.rig.json`. You can finish one bug at a time. The set uses its own face kit and per-bug faces; it never borrows another artist's drawings. Missing, empty or broken bug art uses the original code-drawn bug. Missing face pieces use the code-drawn face.
 
 ```sh
@@ -818,7 +830,7 @@ Budget: about 20 to 45 sprites per bug, 16 bugs, one or two texture pages each. 
 
 ## B8. Tint layers
 
-Tinting multiplies, so the rules for the artist (A4) are: light greys for color, darker grey for shade, white for highlights, dark outline. The importer checks that a `_tint` layer has low saturation: mean saturation of opaque pixels under 0.12, as a warning. Required now: Barty's `shell_tint`, `thorax_tint`, `head_tint`, `ball_tint`, and the kit's `eye_sleepy_lid`. Later uses: paint-colored potion wings (a shared extras file), and color variants if the game ever wants them.
+Tinting multiplies, so the rules for the artist (A4) are: light greys for color, darker grey for shade, white for highlights, dark outline. The importer checks that a `_tint` layer has low saturation: mean saturation of opaque pixels under 0.12, as a warning. Required now: Barty's `shell_tint`, `thorax_tint`, `head_tint`, `ball_tint`, and the kit's `eye_sleepy_lid`. Later uses: paint-colored potion wings (a shared extras file), and color variants if the game ever wants them. A set chooses the colors these layers take in its `colors.json` (B19).
 
 ## B9. Hot reload
 
@@ -961,6 +973,37 @@ Built on 2026-10-02.
 - **Art Lab poses added:** skate (Skeet), fly with wings open (Prim), karate pose without the chop (Prim), fluttering and floating (Munch).
 - Still not built: the Krita-saved fixture and a frame-time check with all bugs drawn.
 - **M11's music bugs.** Buzzby, Fiddle, and Luma have painters (`species/bee.ts`, `cricket.ts`, `moth.ts`), rigs, templates, and crude test art like the rest. Buzzby's and Luma's wings flap in flight (`fly` in the Art Lab); Fiddle's `fiddle` pose bows his near back leg across the far one (`frame.fiddling`, or while performing or playing).
+
+## B19. A set's own colors
+
+Built on 2026-10-10.
+
+The game colors a few things itself, from the original bugs' palette. A set that paints a bug in other colors can name its own in `colors.json`, next to `set.json`. The reference set's file would be `art/src/colors.json`.
+
+```json
+{
+  "bugs": {
+    "bug_ladybug_dot": { "lid": "#3a2a40", "body": "#e8453c" },
+    "bug_dungbeetle_barty": { "sheen": ["#2e8b7a", "#6a4fa3"] },
+    "bug_firefly_flick": { "glow": "#d8ff4f" }
+  }
+}
+```
+
+Every key is optional, for each bug. A key left out keeps the game's color, so a set with no file looks as it always has. The example above lists the game's own colors for those three bugs.
+
+| Key | What it colors | Without it |
+|---|---|---|
+| `lid` | The tint multiplied over `eye_sleepy_lid`. | A color the rig picks from the original palette: plum `#3a2a40` for Dot and Flick, the body color lightened for most others. |
+| `sheen` | Two colors. Barty's `shell_tint`, `thorax_tint`, and `ball_tint` shimmer between them, and `head_tint` is the shell's color mixed a quarter of the way to the outline plum. His eyelid is the first color darkened the same way, unless `lid` is given. The same color twice holds the shell still. | Teal `#2e8b7a` and violet `#6a4fa3`. |
+| `body` | The bug's main color, for what the game draws beside the bug: Glorp's foot ripples, the puffs behind a flung bug, the fur of the hairy potion, and the frame behind the bug's portrait in the journal. | `BugDef.body`. |
+| `glow` | The light a glowing bug casts at night. Only Flick glows. The light's core is the same color mixed 65% of the way to white. | Yellow-green `#d8ff4f` with a `#f4ffc0` core. |
+
+Colors are six-digit hex strings. `pnpm art:build` stops, naming the file and every problem in it, if a key is unknown, a color is malformed, or the file names a bug the set has no `.ora` for. The build copies each bug's colors into its manifest entry (`ManifestAsset.colors`, as numbers), so the packs that hot reload and the tests install carry them too. `tests/unit/setColors.test.ts` fails a shipped set that gives `glow` to a bug that does not glow, or `sheen` to one with no tint layers.
+
+The colors apply only while the selected set draws that bug. `SpriteBugView` reads them from its manifest entry. `ArtStore.colors(def)` serves the two places outside the sprite: the night light in `WeatherView` and the journal's frame. The file's checks and the glow rule are in `art/setColors.ts`.
+
+Some colors are left out on purpose. Paint, potion tints, wet, frozen, hot, the red and green face washes, the far side's darkening, and the white hover rim are the game's own signals and mean the same thing in every set. Pictograms in thought bubbles, the journal's small friend faces, and the face stickers are code-drawn pictures of the original bugs, so they keep the original colors.
 
 ## B17. What we're unsure about
 
