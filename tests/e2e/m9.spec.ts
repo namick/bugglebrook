@@ -32,6 +32,7 @@ const music = (page: Page): Promise<Music> => page.evaluate(() => window.__bb!.m
 const notes = (page: Page): Promise<ReturnType<TestHook['musicNotes']>> =>
   page.evaluate(() => window.__bb!.musicNotes());
 const FLOWERBED_X = 0;
+const PORCH_X = 102.4;
 
 /** Pentatonic pitch classes of a key named like `C major`. */
 function scaleOf(key: string): number[] {
@@ -57,16 +58,23 @@ test('the music follows the camera from the plaza to the pond, and the clock int
     expect(m.key).toBe('C major');
     expect(m.area).toBe('area_stump_plaza');
     expect(m.layers.drums).toBe(1);
-    // Wheel over to the pond: it has no track yet, so the pad plays in its key.
+    // Wheel over to the pond: its own track, in the key Suno gave it.
     await scrollTo(page, POND_X + 6);
-    await expect.poll(async () => (await music(page)).target).toBe('pad:puddle_pond_day');
-    await expect.poll(async () => (await music(page)).key).toBe('G major');
-    // Back to the plaza, then dusk and night: no night track, so the day track plays by the night rules.
-    await scrollTo(page, PLAZA_X + 3);
+    await expect.poll(async () => (await music(page)).target).toBe('puddle_pond_day');
+    await expect.poll(async () => (await music(page)).key).toBe('E major');
+    // The porch has no track yet, so the pad plays in its key.
+    await send(page, { type: 'unlock', area: 'area_under_porch' });
+    await frames(page, 2);
+    await jumpTo(page, PORCH_X + 10);
+    await expect.poll(async () => (await music(page)).target).toBe('pad:under_porch_day');
+    await expect.poll(async () => (await music(page)).key).toBe('A minor');
+    // Back to the plaza, then dusk and night: the night track, by the night rules.
+    await jumpTo(page, PLAZA_X + 3);
     await expect.poll(async () => (await music(page)).target).toBe('stump_plaza_day');
     await send(page, { type: 'set_time', hour: 20 });
     await frames(page, 2);
     await expect.poll(async () => (await music(page)).phase).toBe('night');
+    await expect.poll(async () => (await music(page)).target).toBe('stump_plaza_night');
     m = await music(page);
     expect(m.state.rules).toBe('night');
     expect(m.layers.drums).toBeCloseTo(0.6, 5);

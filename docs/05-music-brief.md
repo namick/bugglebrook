@@ -661,6 +661,16 @@ What the first two tracks taught, for the remaining fourteen:
 - Suno made 12 stems for each and 3 to 6 were silent, including both vocal stems. That is expected (playtest F5).
 - The tune hides in `Keyboard` when it is a marimba. If a track's lead is a mallet or a synth, say which stem it landed in after listening and pin it in `overrides.json`.
 
+What the next five taught (plaza night, both pond tracks, both flowerbed tracks):
+
+- Suno Studio can change a track's BPM before export, and it changes the stems with it. Use it when a take is more than 4 percent off: the importer leaves those alone. Studio's slow-down kept the drum hits sharp at 7 percent (flowerbed day, 206 to 192), where rubberband smeared them.
+- A cover follows its source's tempo. When a night cover won't slow down without losing the tune, set the day track to the night tempo in Studio first (144 for a track Suno counts in double time), then cover that slowed version with Audio Influence left high. The flowerbed night came out at exactly 72 this way.
+- Suno counts some tracks in double time. 192 is 96 and 144 is 72; the importer treats them the same.
+- Stem labels are loose. Pond night's sliding lead landed in `Backing_Vocals` and `Vocals`, with nobody singing; both are pinned to `lead` in `overrides.json`. A few piano notes can leak into `Percussion`. They play in place with every layer on and drop out with the drums in rain.
+- Studio's zip names the full mix `0 <track_id>.wav`. The importer takes that as the full mix, so nothing needs renaming.
+- The importer stretches the drums layer with rubberband's `transients=crisp`. The default softened each hit even at 2 percent (22 ms to 30 ms rise on pond day's drums). Crisp keeps the peaks, so a stretched track can sit a little further under -18 LUFS: plaza day went from 2.4 dB under to 2.9.
+- Keys: four of seven matched the prompt. Pond day came out in E major (asked G major) and its night cover followed it; flowerbed day reads C major (asked D major). The importer misread flowerbed night as E major when its brass and keyboard stems are plainly B minor, so that key is pinned. Check a low-confidence key against single stems before trusting it.
+
 ---
 
 ## 8. Licensing

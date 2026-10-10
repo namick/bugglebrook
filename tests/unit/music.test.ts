@@ -77,15 +77,19 @@ describe('the committed manifest', () => {
       }
     expect(lib.forMenu().id).toBe('main_menu');
     expect(lib.forArea('area_stump_plaza', 'day').id).toBe('stump_plaza_day');
-    // No night track yet: the day track plays, by the night rules.
-    expect(lib.forArea('area_stump_plaza', 'night')).toMatchObject({ id: 'stump_plaza_day', rules: 'night' });
-    // No pond tracks: the pad in the brief's key and tempo.
-    expect(lib.forArea('area_puddle_pond', 'day')).toMatchObject({
-      id: 'pad:puddle_pond_day',
+    expect(lib.forArea('area_stump_plaza', 'night')).toMatchObject({
+      id: 'stump_plaza_night',
+      rules: 'night',
+    });
+    expect(lib.forArea('area_puddle_pond', 'day')).toMatchObject({ id: 'puddle_pond_day', bpm: 96 });
+    expect(lib.forArea('area_puddle_pond', 'night')).toMatchObject({ id: 'puddle_pond_night', bpm: 72 });
+    // No porch tracks yet: the pad in the brief's key and tempo.
+    expect(lib.forArea('area_under_porch', 'day')).toMatchObject({
+      id: 'pad:under_porch_day',
       bpm: 96,
       track: null,
     });
-    expect(lib.forArea('area_puddle_pond', 'night').key).toEqual({ tonic: 'E', mode: 'minor' });
+    expect(lib.forArea('area_under_porch', 'night').key).toEqual({ tonic: 'A', mode: 'minor' });
     expect(lib.forArea('area_ant_hill_depths', 'night')).toMatchObject({
       id: 'pad:ant_hill_depths',
       key: { tonic: 'D', mode: 'minor' },
@@ -421,7 +425,14 @@ describe('the music engine', () => {
     const sink = new FakeSink();
     const backend = new NullAudioBackend();
     const e = new MusicEngine(sink, backend);
-    e.setLibrary(new MusicLibrary(committed));
+    // The pond as it was before its tracks came in: no music of its own.
+    const { main_menu, stump_plaza_day } = committed.tracks;
+    e.setLibrary(
+      new MusicLibrary({
+        ...committed,
+        tracks: { main_menu: main_menu!, stump_plaza_day: stump_plaza_day! },
+      }),
+    );
     await run(e, sink, 1, plaza.xStart + 10);
     await run(e, sink, 1, plaza.xStart + 10);
     expect(e.report().playing).toBe('stump_plaza_day');
@@ -443,6 +454,23 @@ describe('the music engine', () => {
     await run(e, sink, 8, plaza.xStart + 10);
     const restart = sink.calls.filter((c) => c.startsWith('start stump_plaza_day')).at(-1)!;
     expect(Number(restart.split('+')[1])).toBeGreaterThan(10);
+  });
+
+  it('crossfades from the plaza to the pond’s own track, and to each one’s night track after dark', async () => {
+    const sink = new FakeSink();
+    const e = new MusicEngine(sink, new NullAudioBackend());
+    e.setLibrary(new MusicLibrary(committed));
+    await run(e, sink, 4, plaza.xStart + 10);
+    expect(e.report().playing).toBe('stump_plaza_day');
+    await run(e, sink, 8, plaza.xStart - 5);
+    expect(e.report().playing).toBe('puddle_pond_day');
+    expect(e.report().key).toBe('E major');
+    expect(e.clock.bpm).toBe(96);
+    await run(e, sink, 20, plaza.xStart - 5, { clock: 22 * HOUR });
+    expect(e.report().playing).toBe('puddle_pond_night');
+    expect(e.clock.bpm).toBe(72);
+    await run(e, sink, 8, plaza.xStart + 10, { clock: 22 * HOUR });
+    expect(e.report().playing).toBe('stump_plaza_night');
   });
 
   it('drops the drums in the rain on the next bar line, and opens back up after', async () => {

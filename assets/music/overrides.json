@@ -1,1 +1,8 @@
-{}
+{
+  "flowerbed_stage_night": {
+    "key": "B minor"
+  },
+  "puddle_pond_night": {
+    "layers": { "backing vocals": "lead", "vocals": "lead" }
+  }
+}

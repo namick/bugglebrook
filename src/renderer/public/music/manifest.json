@@ -3,6 +3,120 @@
   "sampleRate": 48000,
   "lufs": -18,
   "tracks": {
+    "flowerbed_stage_day": {
+      "area": "area_flowerbed_stage",
+      "phase": "day",
+      "bpm": 96,
+      "bpmDetected": 96,
+      "beatsPerBar": 4,
+      "key": {
+        "tonic": "C",
+        "mode": "major",
+        "confidence": 0.81,
+        "source": "detected"
+      },
+      "scale": [
+        0,
+        2,
+        4,
+        7,
+        9
+      ],
+      "loop": {
+        "samples": 2400000,
+        "start": 4800,
+        "bars": 20,
+        "sourceStart": 12.022,
+        "score": 0.73
+      },
+      "layers": {
+        "lead": "flowerbed_stage_day/lead.ogg",
+        "drums": "flowerbed_stage_day/drums.ogg",
+        "harmony": "flowerbed_stage_day/harmony.ogg",
+        "bass": "flowerbed_stage_day/bass.ogg"
+      },
+      "stems": {
+        "1 Woodwinds.wav": "lead",
+        "10 Drums.wav": "drums",
+        "11 Backing_Vocals.wav": "dropped: silent",
+        "12 Vocals.wav": "dropped: vocal",
+        "2 Brass.wav": "lead",
+        "3 FX.wav": "harmony",
+        "4 Synth.wav": "harmony",
+        "5 Strings.wav": "harmony",
+        "6 Percussion.wav": "drums",
+        "7 Keyboard.wav": "harmony",
+        "8 Guitar.wav": "harmony",
+        "9 Bass.wav": "bass"
+      },
+      "warnings": [
+        "vocal stem 12 Vocals.wav has sound in it (loud end -34.7 dBFS (-19.7 dB vs mix), peak -14.9, active 4%); listen to it, and pick another take if it sings",
+        "sum check +0.8 dB: a stem is probably missing or from another take",
+        "envelope correlation 0.93: a stem may come from a different take",
+        "key detected as C major (confidence 0.81), not the target D major; neighbors may clash",
+        "loudness held 0.5 dB under -18 LUFS to keep the true peak under -1.5 dBTP"
+      ],
+      "source": {
+        "hash": "sha1:6de0794ad030d87b92d0673404d83068ba54ceb8",
+        "importedAt": "2026-10-10"
+      }
+    },
+    "flowerbed_stage_night": {
+      "area": "area_flowerbed_stage",
+      "phase": "night",
+      "bpm": 72,
+      "bpmDetected": 72,
+      "beatsPerBar": 4,
+      "key": {
+        "tonic": "B",
+        "mode": "minor",
+        "confidence": 0.61,
+        "source": "override"
+      },
+      "scale": [
+        0,
+        3,
+        5,
+        7,
+        10
+      ],
+      "loop": {
+        "samples": 2560000,
+        "start": 4800,
+        "bars": 16,
+        "sourceStart": 53.563,
+        "score": 0.706
+      },
+      "layers": {
+        "lead": "flowerbed_stage_night/lead.ogg",
+        "drums": "flowerbed_stage_night/drums.ogg",
+        "harmony": "flowerbed_stage_night/harmony.ogg",
+        "bass": "flowerbed_stage_night/bass.ogg"
+      },
+      "stems": {
+        "1 Woodwinds.wav": "lead",
+        "10 Drums.wav": "drums",
+        "11 Backing_Vocals.wav": "dropped: silent",
+        "12 Vocals.wav": "dropped: silent",
+        "2 Brass.wav": "lead",
+        "3 FX.wav": "dropped: silent",
+        "4 Synth.wav": "harmony",
+        "5 Strings.wav": "dropped: silent",
+        "6 Percussion.wav": "drums",
+        "7 Keyboard.wav": "harmony",
+        "8 Guitar.wav": "harmony",
+        "9 Bass.wav": "bass"
+      },
+      "warnings": [
+        "pitched percussion in 6 Percussion.wav (pitchiness 4.1), check whether this is the melody",
+        "sum check +0.1 dB: a stem is probably missing or from another take",
+        "envelope correlation 0.85: a stem may come from a different take"
+      ],
+      "source": {
+        "hash": "sha1:90383ff20f0775cabbb26d58a69f2472ee273d50",
+        "importedAt": "2026-10-10"
+      }
+    },
     "main_menu": {
       "phase": "always",
       "bpm": 96,
@@ -22,11 +136,11 @@
         9
       ],
       "loop": {
-        "samples": 2400000,
+        "samples": 3360000,
         "start": 4800,
-        "bars": 20,
-        "sourceStart": 36.341,
-        "score": 0.757
+        "bars": 28,
+        "sourceStart": 35.091,
+        "score": 0.683
       },
       "layers": {
         "lead": "main_menu/lead.ogg",
@@ -55,7 +169,122 @@
       ],
       "source": {
         "hash": "sha1:89b3013e5606a725ae72a7063e7e291f9ba75c7a",
-        "importedAt": "2026-10-02"
+        "importedAt": "2026-10-10"
+      }
+    },
+    "puddle_pond_day": {
+      "area": "area_puddle_pond",
+      "phase": "day",
+      "bpm": 96,
+      "bpmDetected": 98,
+      "beatsPerBar": 4,
+      "key": {
+        "tonic": "E",
+        "mode": "major",
+        "confidence": 0.95,
+        "source": "detected"
+      },
+      "scale": [
+        0,
+        2,
+        4,
+        7,
+        9
+      ],
+      "loop": {
+        "samples": 2880000,
+        "start": 4800,
+        "bars": 24,
+        "sourceStart": 56.669,
+        "score": 0.726
+      },
+      "layers": {
+        "drums": "puddle_pond_day/drums.ogg",
+        "harmony": "puddle_pond_day/harmony.ogg",
+        "lead": "puddle_pond_day/lead.ogg",
+        "bass": "puddle_pond_day/bass.ogg"
+      },
+      "stems": {
+        "1 Woodwinds.wav": "dropped: silent",
+        "10 Drums.wav": "drums",
+        "11 Backing_Vocals.wav": "dropped: vocal",
+        "12 Vocals.wav": "dropped: vocal",
+        "2 Brass.wav": "dropped: silent",
+        "3 FX.wav": "harmony",
+        "4 Synth.wav": "lead",
+        "5 Strings.wav": "dropped: silent",
+        "6 Percussion.wav": "drums",
+        "7 Keyboard.wav": "harmony",
+        "8 Guitar.wav": "harmony",
+        "9 Bass.wav": "bass"
+      },
+      "warnings": [
+        "vocal stem 11 Backing_Vocals.wav has sound in it (loud end -41.7 dBFS (-26.1 dB vs mix), peak -13.4, active 3%); listen to it, and pick another take if it sings",
+        "vocal stem 12 Vocals.wav has sound in it (loud end -42.7 dBFS (-27.1 dB vs mix), peak -14.5, active 3%); listen to it, and pick another take if it sings",
+        "no stem is a lead by name; made 4 Synth.wav the lead (it plays most of the song and sits highest). Check by ear and pin it in overrides.json (\"synth\": \"lead\" or \"harmony\")",
+        "sum check -5.2 dB: a stem is probably missing or from another take",
+        "envelope correlation 0.58: a stem may come from a different take",
+        "key detected as E major (confidence 0.95), not the target G major; neighbors may clash",
+        "loudness held 1.8 dB under -18 LUFS to keep the true peak under -1.5 dBTP"
+      ],
+      "source": {
+        "hash": "sha1:93927e0bde19b22afa455598e764c92eb9d8c973",
+        "importedAt": "2026-10-10"
+      }
+    },
+    "puddle_pond_night": {
+      "area": "area_puddle_pond",
+      "phase": "night",
+      "bpm": 72,
+      "bpmDetected": 72,
+      "beatsPerBar": 4,
+      "key": {
+        "tonic": "E",
+        "mode": "major",
+        "confidence": 0.9,
+        "source": "detected"
+      },
+      "scale": [
+        0,
+        2,
+        4,
+        7,
+        9
+      ],
+      "loop": {
+        "samples": 3840000,
+        "start": 4800,
+        "bars": 24,
+        "sourceStart": 17.064,
+        "score": 0.674
+      },
+      "layers": {
+        "lead": "puddle_pond_night/lead.ogg",
+        "harmony": "puddle_pond_night/harmony.ogg",
+        "drums": "puddle_pond_night/drums.ogg",
+        "bass": "puddle_pond_night/bass.ogg"
+      },
+      "stems": {
+        "1 Woodwinds.wav": "lead",
+        "10 Backing_Vocals.wav": "lead",
+        "11 Vocals.wav": "lead",
+        "2 Brass.wav": "lead",
+        "3 Synth.wav": "harmony",
+        "4 Strings.wav": "harmony",
+        "5 Percussion.wav": "drums",
+        "6 Keyboard.wav": "harmony",
+        "7 Guitar.wav": "harmony",
+        "8 Bass.wav": "bass",
+        "9 Drums.wav": "drums"
+      },
+      "warnings": [
+        "sum check +1.7 dB: a stem is probably missing or from another take",
+        "envelope correlation 0.78: a stem may come from a different take",
+        "key detected as E major (confidence 0.9), not the target E minor; neighbors may clash"
+      ],
+      "source": {
+        "hash": "sha1:8083f57327a20911a82d283780b9855a91ec6465",
+        "importedAt": "2026-10-10"
       }
     },
     "stump_plaza_day": {
@@ -108,11 +337,67 @@
         "no stem is a lead by name; made 7 Keyboard.wav the lead (it plays most of the song and sits highest). Check by ear and pin it in overrides.json (\"keyboard\": \"lead\" or \"harmony\")",
         "sum check -5.6 dB: a stem is probably missing or from another take",
         "envelope correlation 0.86: a stem may come from a different take",
-        "loudness held 2.4 dB under -18 LUFS to keep the true peak under -1.5 dBTP"
+        "loudness held 2.9 dB under -18 LUFS to keep the true peak under -1.5 dBTP"
       ],
       "source": {
         "hash": "sha1:923ac16a998833b14257b7d805c918713ee1c305",
-        "importedAt": "2026-10-02"
+        "importedAt": "2026-10-10"
+      }
+    },
+    "stump_plaza_night": {
+      "area": "area_stump_plaza",
+      "phase": "night",
+      "bpm": 72,
+      "bpmDetected": 71,
+      "beatsPerBar": 4,
+      "key": {
+        "tonic": "A",
+        "mode": "minor",
+        "confidence": 0.79,
+        "source": "target"
+      },
+      "scale": [
+        0,
+        3,
+        5,
+        7,
+        10
+      ],
+      "loop": {
+        "samples": 3200000,
+        "start": 4800,
+        "bars": 20,
+        "sourceStart": 35.831,
+        "score": 0.802
+      },
+      "layers": {
+        "drums": "stump_plaza_night/drums.ogg",
+        "harmony": "stump_plaza_night/harmony.ogg",
+        "lead": "stump_plaza_night/lead.ogg",
+        "bass": "stump_plaza_night/bass.ogg"
+      },
+      "stems": {
+        "1 Woodwinds.wav": "dropped: silent",
+        "10 Drums.wav": "drums",
+        "11 Backing_Vocals.wav": "dropped: silent",
+        "12 Vocals.wav": "dropped: silent",
+        "2 Brass.wav": "dropped: silent",
+        "3 FX.wav": "dropped: silent",
+        "4 Synth.wav": "harmony",
+        "5 Strings.wav": "dropped: silent",
+        "6 Percussion.wav": "drums",
+        "7 Keyboard.wav": "lead",
+        "8 Guitar.wav": "harmony",
+        "9 Bass.wav": "bass"
+      },
+      "warnings": [
+        "no stem is a lead by name; made 7 Keyboard.wav the lead (it plays most of the song and sits highest). Check by ear and pin it in overrides.json (\"keyboard\": \"lead\" or \"harmony\")",
+        "sum check -2.0 dB: a stem is probably missing or from another take",
+        "key detected as C major, the relative of the target A minor: same notes, kept the target"
+      ],
+      "source": {
+        "hash": "sha1:8b78931f9845fe38b3bf00a29b55035dde23d3c3",
+        "importedAt": "2026-10-10"
       }
     }
   }
