@@ -53,14 +53,18 @@ export const RAW_IN = (channels: number): string[] => [
   'pipe:0',
 ];
 
-/** Time-stretch stereo audio by `tempo` (above 1 is faster) with rubberband, or atempo without it. */
+/**
+ * Time-stretch stereo audio by `tempo` (above 1 is faster) with rubberband, or atempo without it.
+ * `crisp` is for drums: the default smears each hit, even at a 2 percent stretch.
+ */
 export async function stretch(
   audio: Float32Array,
   tempo: number,
   rubberband: boolean,
+  crisp = false,
 ): Promise<Float32Array> {
   const filter = rubberband
-    ? `rubberband=tempo=${tempo}:pitchq=quality:channels=together:transients=mixed`
+    ? `rubberband=tempo=${tempo}:pitchq=quality:channels=together:transients=${crisp ? 'crisp' : 'mixed'}`
     : `atempo=${tempo}`;
   const { out } = await run(
     [...RAW_IN(2), '-af', filter, '-f', 'f32le', '-ac', '2', '-ar', String(SR), 'pipe:1'],

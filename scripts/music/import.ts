@@ -219,7 +219,7 @@ async function importTrack(
   const files = audioFiles(dir);
   const fullFile =
     files.find((f) => /^full\.[a-z0-9]+$/i.test(f.replace(/^.*[\\/]/, ''))) ??
-    files.find((f) => isFullMixName(f.replace(/^.*[\\/]/, '')));
+    files.find((f) => isFullMixName(f.replace(/^.*[\\/]/, ''), id));
   const stemFiles = files.filter((f) => f !== fullFile);
   r.lines.push(`source: ${dir}`);
   r.lines.push(`files: ${files.map((f) => relative(dir, f)).join(', ')}`);
@@ -414,7 +414,7 @@ async function importTrack(
     if (!rubberband)
       warn(r, 'ffmpeg has no rubberband filter; stretched with atempo, which smears drums a little');
     r.lines.push(`conformed to ${tempo.bpm} BPM (time-stretch x${tempo.stretch.toFixed(4)})`);
-    for (const [k, v] of layers) layers.set(k, await stretch(v, tempo.stretch, rubberband));
+    for (const [k, v] of layers) layers.set(k, await stretch(v, tempo.stretch, rubberband, k === 'drums'));
     reference = await stretch(reference, tempo.stretch, rubberband);
   }
   // The final beat grid on the stretched audio.

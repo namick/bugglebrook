@@ -108,6 +108,10 @@ describe('stem names (brief 7.4)', () => {
     expect(isFullMixName('full.wav')).toBe(true);
     expect(isFullMixName('Song Master.wav')).toBe(true);
     expect(isFullMixName('Drums.wav')).toBe(false);
+    // Suno Studio's export: the full mix is numbered 0 and named for the track.
+    expect(isFullMixName('0 puddle_pond_night.wav', 'puddle_pond_night')).toBe(true);
+    expect(isFullMixName('9 Drums.wav', 'puddle_pond_night')).toBe(false);
+    expect(normalizeStemName('0 puddle_pond_night Bass.wav', 'puddle_pond_night')).toBe('bass');
   });
 
   it('applies overrides by normalized name', () => {
