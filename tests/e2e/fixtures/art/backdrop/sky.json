@@ -1,0 +1,157 @@
+{
+  "moments": {
+    "night": {
+      "skyTop": "#2a0a3a",
+      "skyBottom": "#4a1450",
+      "horizon": "#4a4f8e",
+      "far": "#5a3a8a",
+      "mid": "#5a64a8",
+      "near": "#9a7ac8",
+      "front": "#4d5694",
+      "cloud": "#5d6399",
+      "horizonAlpha": 0.35,
+      "stars": 1,
+      "warmth": 0
+    },
+    "late_night": {
+      "skyTop": "#2a0a3a",
+      "skyBottom": "#4a1450",
+      "horizon": "#5a5a9a",
+      "far": "#434b8c",
+      "mid": "#5e68ac",
+      "near": "#9a7ac8",
+      "front": "#505a98",
+      "cloud": "#61679e",
+      "horizonAlpha": 0.4,
+      "stars": 1,
+      "warmth": 0
+    },
+    "dawn": {
+      "skyTop": "#3c3f86",
+      "skyBottom": "#e89ab8",
+      "horizon": "#ffc3a3",
+      "far": "#8a7fb8",
+      "mid": "#a396c8",
+      "near": "#c0b4dc",
+      "front": "#8f86b8",
+      "cloud": "#f2a9c2",
+      "horizonAlpha": 0.65,
+      "stars": 0.45,
+      "warmth": 0.5
+    },
+    "morning": {
+      "skyTop": "#86b4ea",
+      "skyBottom": "#ffcfd8",
+      "horizon": "#ffe0b0",
+      "far": "#d8c8e6",
+      "mid": "#e8dcee",
+      "near": "#f6ecf0",
+      "front": "#d6cce0",
+      "cloud": "#ffe0ea",
+      "horizonAlpha": 0.55,
+      "stars": 0,
+      "warmth": 0.45
+    },
+    "day": {
+      "skyTop": "#3fd07a",
+      "skyBottom": "#d8ff9a",
+      "horizon": "#f2fbff",
+      "far": "#ffe8f0",
+      "mid": "#ffffff",
+      "near": "#f6ecff",
+      "front": "#ffffff",
+      "cloud": "#ffffff",
+      "horizonAlpha": 0.35,
+      "stars": 0,
+      "warmth": 0.1
+    },
+    "afternoon": {
+      "skyTop": "#8fd0ee",
+      "skyBottom": "#cdebef",
+      "horizon": "#fff4dc",
+      "far": "#fff6e8",
+      "mid": "#fff8ee",
+      "near": "#fffaf2",
+      "front": "#f6f0e6",
+      "cloud": "#fffaf0",
+      "horizonAlpha": 0.4,
+      "stars": 0,
+      "warmth": 0.25
+    },
+    "dusk": {
+      "skyTop": "#8c8ad0",
+      "skyBottom": "#ff9f5a",
+      "horizon": "#ffd27a",
+      "far": "#ffb898",
+      "mid": "#ffc8a0",
+      "near": "#ffdcbc",
+      "front": "#d9a488",
+      "cloud": "#ffc08a",
+      "horizonAlpha": 0.75,
+      "stars": 0,
+      "warmth": 1
+    },
+    "sunset": {
+      "skyTop": "#4a3f94",
+      "skyBottom": "#ff7f6e",
+      "horizon": "#ffae6e",
+      "far": "#b88ab8",
+      "mid": "#d4a0bc",
+      "near": "#e0b6c6",
+      "front": "#9c7ea6",
+      "cloud": "#f29a9a",
+      "horizonAlpha": 0.7,
+      "stars": 0.2,
+      "warmth": 0.8
+    },
+    "twilight": {
+      "skyTop": "#282a6a",
+      "skyBottom": "#7a5aa0",
+      "horizon": "#b97aa8",
+      "far": "#5c5a9c",
+      "mid": "#7c78b8",
+      "near": "#9c98cc",
+      "front": "#6a68a4",
+      "cloud": "#8a78b0",
+      "horizonAlpha": 0.5,
+      "stars": 0.7,
+      "warmth": 0.2
+    }
+  },
+  "sun": {
+    "disc": "#ff7ad0",
+    "rays": "#ffe066",
+    "glow": "#fff6c2",
+    "cheek": "#ff9f6b",
+    "low": "#ff9a5a"
+  },
+  "moon": {
+    "disc": "#b8ffb0",
+    "crater": "#e8d6a0",
+    "glow": "#e8ecff",
+    "cheek": "#ffa8b8"
+  },
+  "stars": [
+    "#ffb0f0",
+    "#b0fff0"
+  ],
+  "shooting": "#fff4c2",
+  "rainbow": [
+    "#ff6b6b",
+    "#ffa94d",
+    "#ffe066",
+    "#8ce99a",
+    "#74c0fc",
+    "#9775fa"
+  ],
+  "rooms": {
+    "depths": {
+      "day": "#f2d6bc",
+      "night": "#c9b0a4"
+    },
+    "hollow": {
+      "day": "#f0ecfa",
+      "night": "#f0ecfa"
+    }
+  }
+}

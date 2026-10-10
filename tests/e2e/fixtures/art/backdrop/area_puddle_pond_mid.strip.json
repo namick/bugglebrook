@@ -1,0 +1,26 @@
+{
+ "area": "area_puddle_pond",
+ "blend": {
+  "left": 128,
+  "right": 128
+ },
+ "canvas": {
+  "h": 1080,
+  "w": 2016
+ },
+ "cover": 940,
+ "ground": 900,
+ "hidden": [],
+ "id": "area_puddle_pond_mid",
+ "kind": "strip",
+ "layer": "mid",
+ "scale": 1,
+ "schema": 1,
+ "span": {
+  "x0": 2192,
+  "x1": 3952
+ },
+ "stripHash": "781c8afd1b361f94",
+ "title": "Puddle Pond, mid layer",
+ "x": 2064
+}
