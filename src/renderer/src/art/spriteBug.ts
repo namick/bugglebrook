@@ -190,6 +190,11 @@ export class SpriteBugView extends BugSprite {
     return this.colors.body ?? this.def.body;
   }
 
+  /** The paint patches and the sprites that clip them. The test hook draws this layer alone. */
+  get paintLayer(): Container {
+    return this.sPaint;
+  }
+
   /**
    * The set's night lights as they sit this frame. Each rides the sprite of
    * the part it was painted on, so it turns, stretches, and flips with it. A
@@ -677,7 +682,10 @@ export class SpriteBugView extends BugSprite {
         drawPaintPatches(g, cs, b, Math.round(this.r) + this.def.id.length + idx);
       }
       g.visible = true;
-      g.mask = mask;
+      // Clip to the drawing's alpha. Left alone, Pixi reads a sprite mask's red channel, and paint
+      // comes out only as opaque as the art under it is red. `setMask` marks the render group for
+      // a rebuild on every call, so call it only when the mask changes.
+      if (g.mask !== mask) g.setMask({ mask, channel: 'alpha' });
     }
     for (let i = n; i < this.paintPool.length; i++) {
       const slot = this.paintPool[i]!;
