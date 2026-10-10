@@ -85,6 +85,8 @@ export interface BugColors {
   body?: number;
   /** The light a glowing bug casts at night (Flick's lantern). */
   glow?: number;
+  /** Where that light sits: game pixels from the rig's origin, as the bug faces right. */
+  lantern?: XY;
 }
 
 /**

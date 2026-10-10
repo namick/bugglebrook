@@ -144,6 +144,8 @@ If your bugs are different colors from the originals, add a `colors.json` beside
 
 The keys are `lid` (the sleepy eyelid), `body` (the bug's main color), `sheen` (two colors Barty's shell shimmers between), and `glow` (Flick's light at night). Leave out any you don't need. Section B19 has the details.
 
+The game shines Flick's light on the tip of his tail, where the original lantern is. If you paint his lantern somewhere else, say where with `lantern`, using the spot's place on his template: `"bug_firefly_flick": { "glow": "#d8ff4f", "lantern": { "x": 232, "y": 540 } }`.
+
 If parts of your bugs should glow in the dark, don't paint the glow brighter. The game darkens the whole bug at night. Instead, list the glowing spots in a file beside the bug's drawing, `bug_ladybug_dot.lights.json`, and the game lights them after dark. Section B20 shows how.
 
 Draw in those templates using the same layer names, canvas and pivots described below. Save each ORA next to its `.rig.json`. You can finish one bug at a time. The set uses its own face kit and per-bug faces; it never borrows another artist's drawings. Missing, empty or broken bug art uses the original code-drawn bug. Missing face pieces use the code-drawn face. Items and the backdrop fall back the same way, one item and one strip at a time.
@@ -970,7 +972,7 @@ Per frame:
 - **Paint.** Patches drawn as now into `paintG`, masked by a sprite of `body` (or `shield`, `abdomen`, segments for Munch). `paintBox` comes from the rig.
 - **Tintable parts.** `_tint` sprites get `tint` every frame from the existing color function (Barty's `sheenColors`). `shine` sits above them untinted.
 - **Hover rim.** A rim container behind the rig mirrors every visible part's transform with its `@rim` texture, at the current rim alpha.
-- **Effects stay as they are.** Dizzy stars and steam (`drawStars` with `crown`), Flick's night glow (the `WeatherView` light at the lantern anchor), Whiff's cloud, Glorp's slime, foot ripples, water dimples.
+- **Effects stay as they are.** Dizzy stars and steam (`drawStars` with `crown`), Flick's night glow (the `WeatherView` light on his tail, or where the set's `colors.json` puts his lantern), Whiff's cloud, Glorp's slime, foot ripples, water dimples.
 
 Budget: about 20 to 45 sprites per bug, 16 bugs, one or two texture pages each. That's well under what Pixi batches cheaply. Add a perf check to `tests/unit/perf.test.ts` style or an E2E frame-time check with all bugs drawn.
 
@@ -1183,12 +1185,12 @@ The game colors a few things itself, from the original bugs' palette. A set that
   "bugs": {
     "bug_ladybug_dot": { "lid": "#3a2a40", "body": "#e8453c" },
     "bug_dungbeetle_barty": { "sheen": ["#2e8b7a", "#6a4fa3"] },
-    "bug_firefly_flick": { "glow": "#d8ff4f" }
+    "bug_firefly_flick": { "glow": "#d8ff4f", "lantern": { "x": 272, "y": 528 } }
   }
 }
 ```
 
-Every key is optional, for each bug. A key left out keeps the game's color, so a set with no file looks as it always has. The example above lists the game's own colors for those three bugs.
+Every key is optional, for each bug. A key left out keeps the game's value, so a set with no file looks as it always has. The example above lists the game's own values for those three bugs.
 
 | Key | What it colors | Without it |
 |---|---|---|
@@ -1196,10 +1198,13 @@ Every key is optional, for each bug. A key left out keeps the game's color, so a
 | `sheen` | Two colors. Barty's `shell_tint`, `thorax_tint`, and `ball_tint` shimmer between them, and `head_tint` is the shell's color mixed a quarter of the way to the outline plum. His eyelid is the first color darkened the same way, unless `lid` is given. The same color twice holds the shell still. | Teal `#2e8b7a` and violet `#6a4fa3`. |
 | `body` | The bug's main color, for what the game draws beside the bug: Glorp's foot ripples, the puffs behind a flung bug, the fur of the hairy potion, and the frame behind the bug's portrait in the journal. | `BugDef.body`. |
 | `glow` | The light a glowing bug casts at night. Only Flick glows. The light's core is the same color mixed 65% of the way to white. | Yellow-green `#d8ff4f` with a `#f4ffc0` core. |
+| `lantern` | Where that light sits: `{ "x": 272, "y": 528 }`, the middle of the painted lantern in template pixels on the bug's canvas. These are the coordinates `.lights.json` uses (B20). | The tip of the code-drawn tail, 0.7 of the bug's radius behind its middle and 0.1 below it. On Flick's template that is (272, 528). |
 
-Colors are six-digit hex strings. `pnpm art:build` stops, naming the file and every problem in it, if a key is unknown, a color is malformed, or the file names a bug the set has no `.ora` for. The build copies each bug's colors into its manifest entry (`ManifestAsset.colors`, as numbers), so the packs that hot reload and the tests install carry them too. `tests/unit/setColors.test.ts` fails a shipped set that gives `glow` to a bug that does not glow, or `sheen` to one with no tint layers.
+Colors are six-digit hex strings. `pnpm art:build` stops, naming the file and every problem in it, if a key is unknown, a color is malformed, a `lantern` is not a spot on the bug's canvas, or the file names a bug the set has no `.ora` for. The build copies each bug's colors into its manifest entry (`ManifestAsset.colors`, as numbers), so the packs that hot reload and the tests install carry them too. It reads `lantern` against the bug's `.rig.json` and writes it in game pixels from the rig's origin. `tests/unit/setColors.test.ts` fails a shipped set that gives `glow` or `lantern` to a bug that does not glow, or `sheen` to one with no tint layers.
 
-The colors apply only while the selected set draws that bug. `SpriteBugView` reads them from its manifest entry. `ArtStore.colors(def)` serves the two places outside the sprite: the night light in `WeatherView` and the journal's frame. The file's checks and the glow rule are in `art/setColors.ts`.
+The lantern's light is not one of the bug's night lights (B20). It follows the bug's middle and the way it faces, and it does not tilt with a held bug or grow with a potion, as before. A star painted far from the bug's middle will drift off its light when the bug tilts, so keep the lantern near the body.
+
+The colors apply only while the selected set draws that bug. `SpriteBugView` reads them from its manifest entry. `ArtStore.colors(def)` serves the two places outside the sprite: the night light in `WeatherView` and the journal's frame. The file's checks, the glow rule (`glowColors`), and the lantern's place (`lanternAt`) are in `art/setColors.ts`. `__bb.weatherLightSpots()` lists where each light is drawn.
 
 Some colors are left out on purpose. Paint, potion tints, wet, frozen, hot, the red and green face washes, the far side's darkening, and the white hover rim are the game's own signals and mean the same thing in every set. Pictograms in thought bubbles, the journal's small friend faces, and the face stickers are code-drawn pictures of the original bugs, so they keep the original colors.
 

@@ -23,7 +23,7 @@ import type { TestHook } from './app';
 
 // An art set's own colors (its colors.json) on the bugs a player sees. The
 // crude test art pack stands in for a set, with colors of its own for Barty's
-// shimmer, Luma's eyelids, and Flick's light.
+// shimmer, Luma's eyelids, and Flick's light, and its own place for his lantern.
 
 const FIXTURES = join(import.meta.dirname, 'fixtures/art');
 const BARTY = 'bug_dungbeetle_barty';
@@ -36,6 +36,12 @@ const TURQUOISE = 0x40e0d0;
 const FLICK_GLOW = [0xd8ff4f, 0xf4ffc0];
 /** Luma's eyelid as the game colors it, from her own body color. */
 const LUMA_LID = lighten(0xcfc3e8, 0.2);
+/** Where the game puts Flick's light, in millimeters from his middle as he faces right: on his code-drawn tail. */
+const FLICK_TAIL = { x: -280, y: 40 };
+/** Where the set painted his lantern, in game pixels from his middle: ahead of it and above it. */
+const SET_LANTERN = { x: 30, y: -12 };
+/** Millimeters to a game pixel. */
+const MM = 10;
 
 const built = (id: string, colors?: BugColors): BuiltAsset =>
   buildAsset(
@@ -49,6 +55,24 @@ const send = (page: Page, c: Command): Promise<void> => page.evaluate((cmd) => w
 const shown = async (page: Page, id: number) =>
   (await page.evaluate((i) => window.__bb!.bugArt(i), id))?.shown;
 
+/**
+ * Where a bug's lantern light is drawn (found by its core's color), in
+ * millimeters from the bug's middle as it faces right, or null if it is not lit.
+ */
+const lanternFrom = (page: Page, id: number, core: number): Promise<{ x: number; y: number } | null> =>
+  page.evaluate(
+    ([bug, color]) => {
+      const e = window.__bb!.entity(bug!)!;
+      const spot = window.__bb!.weatherLightSpots().find((s) => s.color === color);
+      if (!spot) return null;
+      return {
+        x: Math.round((spot.x - e.x) * (e.bug?.facing ?? 1) * 1000),
+        y: Math.round((spot.y - e.y) * 1000),
+      };
+    },
+    [id, core],
+  );
+
 test('a set chosen with the Art arrows brings its own shimmer, eyelid, and glow colors, and another set does not', async () => {
   const { page, close, errors } = await launchApp();
   try {
@@ -58,7 +82,7 @@ test('a set chosen with the Art arrows brings its own shimmer, eyelid, and glow 
     const pack = toArtPack([
       built(BARTY, { sheen: [PINK, PINK] }),
       built(LUMA, { lid: NAVY }),
-      built(FLICK, { glow: TURQUOISE }),
+      built(FLICK, { glow: TURQUOISE, lantern: SET_LANTERN }),
       built('face_kit'),
     ]);
     await page.evaluate((p) => window.__bb!.loadArtSet(p, 'family', 'Family drawing'), pack);
@@ -82,6 +106,8 @@ test('a set chosen with the Art arrows brings its own shimmer, eyelid, and glow 
     // Tests start with the original bugs: nothing is drawn from art yet, and Flick's light is the game's.
     expect(await shown(page, barty)).toBeNull();
     expect(await lights()).toEqual(expect.arrayContaining(FLICK_GLOW));
+    // The light sits on his code-drawn tail: behind his middle and a little below it.
+    await expect.poll(() => lanternFrom(page, flick, FLICK_GLOW[1]!)).toEqual(FLICK_TAIL);
 
     await clickUi(page, 'pause');
     await chooseArtSet(page, 'family');
@@ -99,6 +125,10 @@ test('a set chosen with the Art arrows brings its own shimmer, eyelid, and glow 
     // Flick's light is the set's color, with a paler core. (The wild fireflies keep the game's halo.)
     expect(await lights()).toEqual(expect.arrayContaining([TURQUOISE, lighten(TURQUOISE, 0.65)]));
     expect(await lights()).not.toContain(FLICK_GLOW[1]);
+    // And it has moved to where the set painted his lantern, whichever way he faces.
+    await expect
+      .poll(() => lanternFrom(page, flick, lighten(TURQUOISE, 0.65)))
+      .toEqual({ x: SET_LANTERN.x * MM, y: SET_LANTERN.y * MM });
 
     // The reference set names no colors: the game's own come back.
     await clickUi(page, 'pause');
@@ -113,6 +143,7 @@ test('a set chosen with the Art arrows brings its own shimmer, eyelid, and glow 
     expect(await lid()).toBe(LUMA_LID);
     expect(await lights()).toEqual(expect.arrayContaining(FLICK_GLOW));
     expect(await lights()).not.toContain(TURQUOISE);
+    await expect.poll(() => lanternFrom(page, flick, FLICK_GLOW[1]!)).toEqual(FLICK_TAIL);
     expect(errors).toEqual([]);
   } finally {
     await close();

@@ -444,6 +444,8 @@ export interface TestHook extends ArtHook, ItemArtHook, BackdropHook {
   weatherStats(): { drops: number; leaves: number; lights: number };
   /** The color of each glow light drawn now: night glows, lamps, Flick's lantern (its halo, then its core). */
   weatherLights(): number[];
+  /** Where each of those lights is drawn, in world meters, with its color. Flick's lantern is two, one on the other. */
+  weatherLightSpots(): { x: number; y: number; color: number }[];
   /**
    * The night lights an art set put on its bugs, as drawn now (art/setLights.ts):
    * where in the world (meters), how far each reaches (meters), its color, and how bright.
@@ -1107,6 +1109,12 @@ export function installTestHook(game: Game, boundary?: ErrorBoundary): void {
     },
     weatherStats: () => game.session?.view.weather.stats() ?? { drops: 0, leaves: 0, lights: 0 },
     weatherLights: () => game.session?.view.weather.lightColors() ?? [],
+    weatherLightSpots: () =>
+      (game.session?.view.weather.lightSpots() ?? []).map((s) => ({
+        x: s.x / PPM,
+        y: s.y / PPM,
+        color: s.color,
+      })),
     bugLights: () =>
       (game.session?.view.bugLightSpots ?? [])
         .slice(0, BUG_LIGHTS)

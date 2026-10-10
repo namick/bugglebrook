@@ -5,6 +5,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { BugColors } from '../../src/renderer/src/art/rigFile.ts';
+import type { LanternRig } from '../../src/renderer/src/art/setColors.ts';
 import { parseSetColors } from '../../src/renderer/src/art/setColors.ts';
 
 /**
@@ -21,7 +22,16 @@ export function readSetColors(srcDir: string): Record<string, BugColors> {
   } catch (err) {
     throw new Error(`${file} is not valid JSON: ${(err as Error).message}`, { cause: err });
   }
-  const { bugs, problems } = parseSetColors(raw);
+  // A lantern's place is given on the bug's template, so it is read against that bug's rig.
+  const rigOf = (id: string): LanternRig | undefined => {
+    const rig = join(srcDir, 'bugs', `${id}.rig.json`);
+    try {
+      return existsSync(rig) ? (JSON.parse(readFileSync(rig, 'utf8')) as LanternRig) : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  const { bugs, problems } = parseSetColors(raw, rigOf);
   for (const id of Object.keys(bugs))
     if (!existsSync(join(srcDir, 'bugs', `${id}.ora`)))
       problems.push(`${id}: this set has no bugs/${id}.ora. Check the ID.`);

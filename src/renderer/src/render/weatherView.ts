@@ -5,7 +5,7 @@ import type { EntityView, Sim } from '../../../game/sim';
 import type { AreaDef } from '../../../game/data/types';
 import { HOUR, timeOfDay } from '../../../game/systems/sky';
 import { artStore } from '../art/artStore';
-import { glowColors } from '../art/setColors';
+import { glowColors, lanternAt } from '../art/setColors';
 import { MUSHROOMS } from './background';
 import type { LightSpot } from './draw/bug';
 import type { Camera } from './camera';
@@ -219,6 +219,11 @@ export class WeatherView {
   /** The color of each glow drawn this frame (test hook). */
   lightColors(): number[] {
     return this.lightSprites.slice(0, this.used).map((s) => s.tint);
+  }
+
+  /** Each glow drawn this frame: its middle in world pixels, and its color (test hook). */
+  lightSpots(): { x: number; y: number; color: number }[] {
+    return this.lightSprites.slice(0, this.used).map((s) => ({ x: s.x, y: s.y, color: s.tint }));
   }
 
   /** The fireflies blink back at a light; `big` is the answer that brings Flick. */
@@ -475,8 +480,11 @@ export class WeatherView {
         const asleep = v.bug?.mode === 'st_sleep';
         const blink = Math.pow(Math.max(0, Math.sin(this.time * 2.2 + v.id)), 6);
         const lit = v.submerged > 0.3 ? 0 : (asleep ? 0.35 : 0.75) + blink * 0.5;
-        const tail = { x: x - (v.bug?.facing ?? 1) * def.radius * 0.7 * PPM, y: y + def.radius * 0.1 * PPM };
-        const { halo, core } = glowColors(artStore.colors(def));
+        // The light sits on his lantern: where the art set painted it, or on the code-drawn tail.
+        const colors = artStore.colors(def);
+        const at = lanternAt(colors, def.radius * PPM);
+        const tail = { x: x + (v.bug?.facing ?? 1) * at.x, y: y + at.y };
+        const { halo, core } = glowColors(colors);
         this.light(tail.x, tail.y, 180, halo, lit * (0.25 + glow * 0.9));
         this.light(tail.x, tail.y, 40, core, lit * (0.3 + glow * 0.6));
         continue;
