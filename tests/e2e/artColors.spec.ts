@@ -8,6 +8,7 @@ import type { BugColors, RigFile } from '../../src/renderer/src/art/rigFile';
 import { darken, lighten } from '../../src/renderer/src/render/palette';
 import {
   PLAZA_X,
+  chooseArtSet,
   clickUi,
   content,
   entities,
@@ -48,13 +49,6 @@ const send = (page: Page, c: Command): Promise<void> => page.evaluate((cmd) => w
 const shown = async (page: Page, id: number) =>
   (await page.evaluate((i) => window.__bb!.bugArt(i), id))?.shown;
 
-/** Click the Art arrow until the board shows this set. */
-async function chooseSet(page: Page, id: string): Promise<void> {
-  const chosen = (): Promise<string> => page.evaluate(() => window.__bb!.settings().artSet);
-  for (let i = 0; i < 12 && (await chosen()) !== id; i++) await clickUi(page, 'art_next');
-  expect(await chosen()).toBe(id);
-}
-
 test('a set chosen with the Art arrows brings its own shimmer, eyelid, and glow colors, and another set does not', async () => {
   const { page, close, errors } = await launchApp();
   try {
@@ -90,7 +84,7 @@ test('a set chosen with the Art arrows brings its own shimmer, eyelid, and glow 
     expect(await lights()).toEqual(expect.arrayContaining(FLICK_GLOW));
 
     await clickUi(page, 'pause');
-    await chooseSet(page, 'family');
+    await chooseArtSet(page, 'family');
     await clickUi(page, 'resume');
     await frames(page, 2);
     expect((await shown(page, barty))!.tints).toMatchObject({
@@ -108,7 +102,7 @@ test('a set chosen with the Art arrows brings its own shimmer, eyelid, and glow 
 
     // The reference set names no colors: the game's own come back.
     await clickUi(page, 'pause');
-    await chooseSet(page, 'reference');
+    await chooseArtSet(page, 'reference');
     await clickUi(page, 'resume');
     await frames(page, 2);
     // His shell keeps shimmering while the sim is frozen, so read one frame's tints together.

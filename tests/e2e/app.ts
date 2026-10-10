@@ -337,6 +337,13 @@ export async function clickUi(page: Page, name: UiName): Promise<void> {
   await page.mouse.click(p.x, p.y);
 }
 
+/** With the settings board open: click the Art arrow until it shows this set, however many sets the build has. */
+export async function chooseArtSet(page: Page, id: string): Promise<void> {
+  const chosen = (): Promise<string> => page.evaluate(() => window.__bb!.settings().artSet);
+  for (let i = 0; i < 16 && (await chosen()) !== id; i++) await clickUi(page, 'art_next');
+  expect(await chosen()).toBe(id);
+}
+
 /** Run `n` frames of input and sim at 60 Hz right now (the sim should be frozen with `setPaused`). */
 export const frames = (page: Page, n: number): Promise<void> =>
   page.evaluate((k) => window.__bb!.frames(k), n);
