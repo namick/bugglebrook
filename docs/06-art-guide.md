@@ -1,8 +1,8 @@
 # Bugglebrook art guide
 
-This is two documents in one. Part A is for the artist who will hand-draw the bugs, and later the backgrounds, in Krita. Part B is the spec engineers build the art pipeline milestone against.
+This is two documents in one. Part A is for the artist who hand-draws the bugs, the items, and the world behind them in Krita. Part B is the spec engineers build the art pipeline against.
 
-The game draws bugs in code by default. The owner approved hand-drawn replacements in `00-decisions.md`. Players can choose a named art set in Settings, and each incomplete set falls back to the original bugs for anything not yet drawn. A set may paint items too (A9 and B21), one item at a time.
+The game draws everything in code by default. The owner approved hand-drawn replacements in `00-decisions.md`. Players choose a named art set in Settings. A set can supply bugs and their faces (A3 to A6), its own colors and night lights for those bugs (A3), items (A9), and a backdrop: a sky, painted hills and big plants, and new colors for the ground (A7). Every piece is optional. Whatever a set has not drawn stays as the game draws it, one bug, one item, and one stretch of background at a time.
 
 Krita facts below were checked on 2026-10-01 against the Krita site, the Krita manual, and Krita's own source code. Where a detail could not be confirmed, the guide says so and gives an instruction that works either way.
 
@@ -102,7 +102,7 @@ Bugglebrook looks like flat cut-paper toys: chunky dark outlines, round friendly
 
 ### Choosing and adding an art set
 
-Open the pause board or the main menu's gear. Use the arrows beside **Art** to choose **Original bugs**, **Krita reference**, **Storybook**, or another installed set. The selected artist credit appears below the set name. The choice applies at once, including the bugs and things in the pocket, and stays selected after restarting. It is a machine setting, shared by all save slots. Changing it does not change the bugs or their saved game state.
+Open the pause board or the main menu's gear. Use the arrows beside **Art** to choose **Original bugs**, **Krita reference**, **Storybook**, or another installed set. The selected artist credit appears below the set name. The choice applies at once to everything the set has: the bugs, the items (the ones in the pocket too), and the sky and world behind them. It stays selected after restarting. It is a machine setting, shared by all save slots. Changing it does not change the bugs or their saved game state.
 
 The Krita reference set is agent-created reference artwork, separate from the daughter's drawings. Its sources stay in `art/src/bugs/` and `art/src/faces/`. Storybook is a second agent-created set in a shaded style, kept in `art/src/sets/storybook/` and described in `art/STORYBOOK-SET.md`.
 
@@ -121,6 +121,17 @@ This creates empty templates under `art/src/sets/garden_drawings/bugs/` and `fac
 }
 ```
 
+A set's folder can hold all of this. Only `set.json` is required, and you can add the rest in any order:
+
+| In `art/src/sets/garden_drawings/` | What it is | Where to read |
+|---|---|---|
+| `set.json` | The set's name and its artist's credit | above |
+| `bugs/<bug_id>.ora`, `faces/face_kit.ora` | The bugs and their faces | the rest of A3, A4 to A6 |
+| `colors.json` | Your colors for the few things the game tints on a bug | just below |
+| `bugs/<bug_id>.lights.json` | Spots on a bug that glow after dark | just below |
+| `items/items_<group>_<n>.ora` | Painted items, a few to a sheet | A9 |
+| `backdrop/` | The sky, the far and mid strips, and the world's colors | A7 |
+
 If your bugs are different colors from the originals, add a `colors.json` beside `set.json`. The game tints the sleepy eyelid and Barty's shell itself, and draws a few things beside a bug in its main color. Without the file it uses the original bugs' colors for those. With it, you choose them:
 
 ```json
@@ -135,7 +146,7 @@ The keys are `lid` (the sleepy eyelid), `body` (the bug's main color), `sheen` (
 
 If parts of your bugs should glow in the dark, don't paint the glow brighter. The game darkens the whole bug at night. Instead, list the glowing spots in a file beside the bug's drawing, `bug_ladybug_dot.lights.json`, and the game lights them after dark. Section B20 shows how.
 
-Draw in those templates using the same layer names, canvas and pivots described below. Save each ORA next to its `.rig.json`. You can finish one bug at a time. The set uses its own face kit and per-bug faces; it never borrows another artist's drawings. Missing, empty or broken bug art uses the original code-drawn bug. Missing face pieces use the code-drawn face.
+Draw in those templates using the same layer names, canvas and pivots described below. Save each ORA next to its `.rig.json`. You can finish one bug at a time. The set uses its own face kit and per-bug faces; it never borrows another artist's drawings. Missing, empty or broken bug art uses the original code-drawn bug. Missing face pieces use the code-drawn face. Items and the backdrop fall back the same way, one item and one strip at a time.
 
 ```sh
 pnpm art:build
@@ -143,7 +154,7 @@ pnpm art:check
 pnpm art:watch --set garden_drawings bug_ladybug_dot
 ```
 
-Build and check process every set. Watch opens the Art Lab for the chosen set and updates it when you save in Krita. Commit the sources, `set.json`, and the generated `src/renderer/art/` files together. The built game offers all sets in its catalog; copying an ORA into an already installed game does not add a set until the game is rebuilt.
+Build and check process every set, and everything in it: bugs, colors, lights, items, and the backdrop. Watch opens the Art Lab for the chosen set and updates it when you save a bug in Krita. Commit the sources, `set.json`, and the generated `src/renderer/art/` files together. The built game offers all sets in its catalog; copying an ORA into an already installed game does not add a set until the game is rebuilt.
 
 `pnpm art:templates --set garden_drawings --refresh-guides` refreshes that set's guides while keeping its drawings. Without `--refresh-guides`, existing drawings are kept and fresh comparison templates go to `art/templates/sets/garden_drawings/`.
 
@@ -592,6 +603,14 @@ bug_ladybug_dot.ora
 
 ✗ means the game can't use the bug yet and keeps showing the code-drawn version. ! is a warning: the game works, but have a look.
 
+The Art Lab shows bugs. Items and the backdrop have their own quick checks and screenshot tours (A9 and A7). To see the whole set together in the real game, ask for any screenshot tour with your set on:
+
+```sh
+BB_SHOTS_SET=garden_drawings BB_ART_SOURCE=1 pnpm shots -g "areas.spec"
+```
+
+That one walks every area by day, at dusk, at night, and in rain, with your bugs, items, sky, strips, and colors all showing, and saves the pictures to `/tmp/bb-shots`. `BB_ART_SOURCE=1` reads your files as they are right now, so you don't need `pnpm art:build` first.
+
 ## A6. Suggested order
 
 1. **Draw the face kit first, roughly.** Even quick faces help, because every bug uses them.
@@ -600,7 +619,7 @@ bug_ladybug_dot.ora
 4. **Polish the face kit**, now that you've seen it on five bugs.
 5. **The found bugs:** Flick, Whiff, Moose, Barty, Munch, Prim, Twig, in any order.
 6. **Items, whenever you like** (section A9). One at a time is fine.
-7. **Backgrounds, later** (section A7).
+7. **The backdrop, when the bugs feel right** (section A7). Start with `sky.json` and `world.json`. They are two small text files and change the whole world.
 
 Checklist for each bug:
 
@@ -660,7 +679,7 @@ The porch and the treehouse are rooms that hide the sky. Their strips show only 
 ### Getting templates
 
 ```sh
-node scripts/art/backdropTemplates.ts --set garden_drawings
+pnpm art:backdrop-templates --set garden_drawings
 ```
 
 This writes a template for every strip into `art/src/sets/garden_drawings/backdrop/`, with a `.strip.json` next to each one (don't edit or rename those), plus a starter `sky.json` and `world.json` that change nothing until you edit them. Name one strip (`area_puddle_pond_far`) or one area (`area_puddle_pond`) to make only those. Like the bug templates, it never overwrites a file you have painted in: add `--refresh-guides` to update only the guides.
@@ -705,7 +724,7 @@ B14 has every key and every rule.
 ### Checking and looking
 
 ```sh
-node scripts/art/checkBackdrop.ts art/src/sets/garden_drawings/backdrop/ --out /tmp/look
+pnpm art:check-backdrop art/src/sets/garden_drawings/backdrop/ --out /tmp/look
 ```
 
 This checks every file in the folder in a few seconds and tells you what to fix. With `--out` it also saves a picture of each strip over the noon sky and the night sky, tinted the way the game tints it. Give it one file to check only that one.
@@ -716,7 +735,7 @@ To see the whole world with your backdrop on:
 BB_BACKDROP_SRC=art/src/sets/garden_drawings pnpm shots -g "backdrop tour"
 ```
 
-That saves screenshots of every area by day, at dusk, at night, and in rain, and of every seam, to `/tmp/bb-shots`. When you are happy, `pnpm art:build` puts the backdrop in the game with the rest of your set.
+That saves screenshots of every area by day, at dusk, at night, and in rain, and of every seam, to `/tmp/bb-shots`. It shows the backdrop with the game's own bugs and items. A5 has the command that shows your whole set together. When you are happy, `pnpm art:build` puts the backdrop in the game with the rest of your set.
 
 ## A8. Your art is yours
 
@@ -795,7 +814,7 @@ When a sheet is done: `pnpm art:build`, then pick your set in Settings.
 
 # Part B: Art pipeline spec (for engineers)
 
-This is the milestone that makes hand-drawn bugs work. Backgrounds and items are follow-up milestones. The code-drawn art stays as the fallback, so the game never breaks for lack of art.
+B1 to B18 are the milestone that made hand-drawn bugs work. Four follow-ups are built on top of it: a set's own colors (B19), its night lights (B20), item art (B21), and the backdrop (B14). The code-drawn art stays as the fallback for every piece, so the game never breaks for lack of art.
 
 ## B1. Decisions this milestone needs
 
@@ -828,7 +847,13 @@ art/
     bugs/<bug_id>.rig.json     generated by art:template, committed, not hand-edited
     faces/face_kit.ora
     faces/face_kit.rig.json
-    sets/<set_id>/backdrop/    a set's sky.json, world.json, and far and mid strips (B14)
+    sets/<set_id>/             another artist's set, laid out like art/src itself:
+      set.json                   its name and credit
+      bugs/, faces/              its bugs and face kit
+      colors.json                its own colors for what the game tints (B19)
+      bugs/<bug_id>.lights.json  a bug's night lights (B20)
+      items/                     item sheets, items_<group>_<n>.ora with a .rig.json each (B21)
+      backdrop/                  sky.json, world.json, and far and mid strips (B14)
   templates/                   fresh templates from art:template, git-ignored
 scripts/art/
   template.mjs                 the template generator
@@ -841,6 +866,10 @@ src/renderer/art/
   manifest.json
   bugs/<bug_id>@1x.png, <bug_id>@1x.json, <bug_id>@2x.png, <bug_id>@2x.json
   faces/face_kit@1x.png, ... (and per-bug face overrides go in the bug's own atlas)
+  sets.json                    every set's ID, name, credit, and folder
+  sets/<set_id>/               one set's build: the same manifest.json, bugs/, and faces/, plus
+    items/manifest.json, items/<sheet>@1x.png, ...   its item pages (B21)
+    backdrop.json, backdrop/<strip>.png, <strip>.glow.png   its backdrop (B14)
 src/renderer/src/art/
   artStore.ts                  loads the manifest and textures, answers hasArt(id)
   spriteBug.ts                 SpriteBugView, the cutout rig renderer
@@ -849,7 +878,7 @@ src/renderer/src/render/rig/
   bugRig.ts                    pure: part anchors and joint positions per species
 ```
 
-`package.json` scripts: `art:templates`, `art:build`, `art:check`, `art:watch`.
+`package.json` scripts: `art:templates`, `art:build`, `art:check`, `art:watch`, and since the follow-ups `art:check-one`, `art:item-templates`, `art:backdrop-templates`, and `art:check-backdrop`.
 
 New dev dependencies: `fflate` (zip read and write, pure JS) and `fast-xml-parser` (stack.xml). Image work uses `@napi-rs/canvas`, which is already a dev dependency: PNG decode and encode, compositing, and resampling. A maxrects packer is about 150 lines. Write it instead of adding a dependency, so packing is deterministic and tested.
 
@@ -1087,8 +1116,8 @@ A sky that breaks a rule is an error and the set falls back to the game's own sk
 
 ### Tools
 
-- `node scripts/art/backdropTemplates.ts --set <id> [strip ...] [--scale 1|2] [--refresh-guides] [--out dir] [--no-build]` builds the app and runs `tests/art/backdropTemplate.spec.ts` on the virtual display. `__bb.backdropTemplate(id, scale)` draws the guides; `scripts/art/backdropTemplate.ts` writes the `.ora`.
-- `node scripts/art/checkBackdrop.ts <file or folder ...> [--out dir] [--strict]` checks a strip, a `sky.json`, or a `world.json` on its own in a second or two, and with `--out` writes the built strip and a noon and a night preview. It reads only what it is given, so painters can run many at once. `pnpm art:build` rebuilds every set and is not safe to run concurrently.
+- `pnpm art:backdrop-templates --set <id> [strip ...] [--scale 1|2] [--refresh-guides] [--out dir] [--no-build]` (`scripts/art/backdropTemplates.ts`) builds the app and runs `tests/art/backdropTemplate.spec.ts` on the virtual display. `__bb.backdropTemplate(id, scale)` draws the guides; `scripts/art/backdropTemplate.ts` writes the `.ora`.
+- `pnpm art:check-backdrop <file or folder ...> [--out dir] [--strict]` (`scripts/art/checkBackdrop.ts`) checks a strip, a `sky.json`, or a `world.json` on its own in a second or two, and with `--out` writes the built strip and a noon and a night preview. It reads only what it is given, so painters can run many at once. `pnpm art:build` rebuilds every set and is not safe to run concurrently.
 - `pnpm art:build` and `pnpm art:check` call `buildBackdrop` for every set and write `backdrop.json` and `backdrop/*.png` beside the set's atlases. A set with no `backdrop/` folder gets no new files.
 - `pnpm shots -g "backdrop tour"` (`tests/shots/backdrop.spec.ts`) shows every area and every seam. `BB_BACKDROP_SRC` builds a set's backdrop from its sources on the spot.
 
@@ -1209,7 +1238,7 @@ How a light follows its part:
 
 When they show:
 
-- Their brightness follows `SkyLook.glow`, the curve the mushrooms and Flick's lantern use, so they rise at dusk and fall at dawn. At or below 0.05 they are off and cost nothing.
+- Their brightness follows `SkyLook.glow`, the curve the mushrooms and Flick's lantern use, so they rise at dusk and fall at dawn. At or below 0.1 they are off and cost nothing. The glow is read from the light on the near layer, so under a set's own sky (B14) the lights follow that sky. Its rules leave at most 0.09 of glow at noon, which keeps the lights off by day, and at least 0.59 at night.
 - A sleeping bug's lights are half as bright. They go out under water, as the lantern does. They fade with a see-through bug and scale with potion size.
 - A bug in the pocket or off screen has none. Neither has Twig while he is disguised: plain twigs do not glow, and lights would give him away. A light under a worn thing on the front of the bug is hidden.
 - The world draws at most 150 at once (`BUG_LIGHTS` in `weatherView.ts`). They are sprites of one texture in one layer, so they draw as one batch. Placing 166 lights on sixteen walking bugs added about 0.15 ms a frame, and 345 lights about 0.8 ms, measured in Node on a desktop that was heavily loaded at the time. The frame-time bars are judged on CI.
