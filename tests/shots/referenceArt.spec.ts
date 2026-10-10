@@ -7,8 +7,21 @@ import { setSource, sourceSets } from '../../scripts/art/sets.ts';
 import { rebuild } from '../../scripts/art/vitePlugin.ts';
 import { BUGS } from '../../src/game/data';
 import { FACE_KIT_ID } from '../../src/renderer/src/art/kit';
-import { clickSlot, clickUi, launchApp, waitForScene } from '../e2e/app';
-import { sharpShots } from './clip';
+import {
+  PLAZA_X,
+  clickSlot,
+  clickUi,
+  content,
+  entities,
+  entity,
+  frames,
+  framesUntil,
+  jumpTo,
+  launchApp,
+  openFrozen,
+  waitForScene,
+} from '../e2e/app';
+import { sharpShots, worldClip } from './clip';
 
 // The cast tour: every bug of an art set in the Art Lab, for looking at.
 // There is one tour per set in art/src (the reference cast and each folder in
@@ -22,6 +35,11 @@ import { sharpShots } from './clip';
 //
 // A set still being painted is fine: a bug it has not drawn yet is skipped,
 // unless BB_ART_ONLY asked for it by name.
+//
+// Each set also has a night tour, `pnpm shots -g 'Storybook night'`: every
+// bug on the plaza after dark, held up in the hand (<set id>-<bug>-night-held.png)
+// and then left alone (-night-world.png). It is where a set's night lights
+// (a bug's .lights.json) show against the real dark.
 
 const DIR = process.env.BB_SHOTS_DIR ?? '/tmp/bb-shots';
 const ONLY = (process.env.BB_ART_ONLY ?? '').split(',').filter(Boolean);
@@ -115,4 +133,86 @@ async function castTour(set: ArtSet): Promise<void> {
   }
 }
 
-for (const set of sourceSets(SRC_DIR)) test(`${set.name} cast poses and expressions`, () => castTour(set));
+/** A set's bugs in the world at night, one at a time: held up in the hand, then left to themselves. */
+async function nightTour(set: ArtSet): Promise<void> {
+  test.setTimeout(1_800_000);
+  mkdirSync(DIR, { recursive: true });
+  const defs = ONLY.length ? ONLY.map((id) => BUGS.get(id)) : BUGS.all;
+  const { page, close, errors } = await launchApp();
+  sharpShots(page);
+  try {
+    await waitForScene(page, 'menu');
+    await page.evaluate(() => window.__bb!.artMode('drawn'));
+    if (FROM_SOURCE)
+      await installSource(
+        page,
+        set,
+        defs.map((d) => d.id),
+      );
+    await page.evaluate((id) => window.__bb!.artSelect(id), set.id);
+    await openFrozen(page, 0);
+    const send = (c: Parameters<NonNullable<typeof window.__bb>['send']>[0]): Promise<void> =>
+      page.evaluate((cmd) => window.__bb!.send(cmd), c);
+    await send({ type: 'set_time', hour: 23 });
+    // A flat stretch of the plaza, away from the stump.
+    const at = PLAZA_X + 29.5;
+    await jumpTo(page, at - 9.6);
+    await page.mouse.move(960, 40);
+    const skipped: string[] = [];
+    for (const def of defs) {
+      const name = def.id.split('_').at(-1)!;
+      const before = new Set((await entities(page)).map((e) => e.id));
+      await send({ type: 'spawn', kind: 'bug', defId: def.id, x: at, y: 7 });
+      await frames(page, 2);
+      const id = (await entities(page)).find((e) => !before.has(e.id) && e.defId === def.id)!.id;
+      await content(page, id);
+      await frames(page, 60);
+      const art = await page.evaluate((i) => window.__bb!.bugArt(i), id);
+      if (art?.art !== 'drawn') {
+        const why = `${def.name} is not drawn in ${set.name}: ${art?.reason}.`;
+        if (ONLY.length) throw new Error(why);
+        console.log(`Skipped. ${why}`);
+        skipped.push(def.name);
+      } else {
+        /** A close-up of the bug, and how many night lights are on it. */
+        const shoot = async (tag: string): Promise<number> => {
+          const e = (await entity(page, id))!;
+          const clip = await worldClip(page, e.x - 2.2, e.y - 2, e.x + 2.2, e.y + 1.2);
+          await page.screenshot({ path: join(DIR, `${set.id}-${name}-night-${tag}.png`), clip });
+          const lights = await page.evaluate(() => window.__bb!.bugLights());
+          return lights.filter((l) => Math.hypot(l.x - e.x, l.y - e.y) < 2).length;
+        };
+        // Held up, it is awake: its lights at full strength.
+        const e = (await entity(page, id))!;
+        await send({ type: 'grab', x: e.x, y: e.y });
+        for (let i = 1; i <= 10; i++) {
+          await send({ type: 'drag', x: e.x, y: e.y - 0.12 * i });
+          await frames(page, 1);
+        }
+        await frames(page, 12);
+        const held = await shoot('held');
+        // Put down and left alone. A day bug beds down, and its lights dim to half.
+        await send({ type: 'release', vx: 0, vy: 0 });
+        await framesUntil(page, async () => (await entity(page, id))?.bug?.mode === 'st_sleep', 600);
+        await frames(page, 30);
+        const mode = (await entity(page, id))?.bug?.mode;
+        const left = await shoot('world');
+        console.log(
+          `Reviewed ${def.name} at night: ${held} lights held, ${left} left alone (${mode === 'st_sleep' ? 'asleep' : 'awake'}).`,
+        );
+      }
+      await send({ type: 'despawn', id });
+      await frames(page, 2);
+    }
+    if (skipped.length) console.log(`Not drawn yet in ${set.name}: ${skipped.join(', ')}.`);
+    expect(skipped.length, `no bug in ${set.name} is drawn yet`).toBeLessThan(defs.length);
+    expect(errors).toEqual([]);
+  } finally {
+    await close();
+  }
+}
+
+for (const set of sourceSets(SRC_DIR)) {
+  test(`${set.name} cast poses and expressions`, () => castTour(set));
+  test(`${set.name} night in the world`, () => nightTour(set));
+}
