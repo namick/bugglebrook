@@ -37,6 +37,8 @@ import { bugPose } from './bugPose';
 import type { Camera, Point } from './camera';
 import { BugSprite } from './draw/bug';
 import { artStore } from '../art/artStore';
+import type { LoadedBackdrop } from '../art/backdropStore';
+import { backdropStore, skyOf, worldOf } from '../art/backdropStore';
 import { itemArt, makeBugView } from '../art/bugViews';
 import type { BugFrame } from './draw/bug';
 import type { Look } from './draw/face';
@@ -65,6 +67,8 @@ import { hourOf } from '../../../game/systems/sky';
 import type { HintLook } from './hints';
 import { NO_HINTS } from './hints';
 import type { SkyExtras } from './background';
+import type { Tone } from './worldTone';
+import { NO_TONE, makeTone } from './worldTone';
 import {
   listen as _listen,
   listenSocial as _listenSocial,
@@ -150,7 +154,10 @@ export interface PointerSource {
  * events drive squash, particles, bubbles, and shake. Never writes to the sim.
  */
 export class WorldView extends Container {
-  private readonly background: Background;
+  private background: Background;
+  /** The art set's backdrop the world is drawn with (null: the game's own look), and the store's version it came from. */
+  private backdrop: LoadedBackdrop | null = backdropStore.current;
+  private backdropVersion = backdropStore.version;
   /** Everything that scrolls with the world at full speed. */
   private readonly world = new Container();
   /** The part of the world graded by the time of day (all but lights, glows, and bubbles). */
@@ -213,13 +220,14 @@ export class WorldView extends Container {
   constructor(
     readonly sim: Sim,
     private readonly pointer: PointerSource | null = null,
-    renderer: Renderer | null = null,
+    private readonly renderer: Renderer | null = null,
   ) {
     super();
-    this.background = new Background(sim.content.areas.all, sim.terrain, sim.worldWidth, renderer);
+    this.background = this.makeBackground();
     const bg = this.background;
     this.water = new WaterView(sim, this.particles);
     this.weather = new WeatherView(sim, this.water);
+    this.styleWorld();
     this.fixtures = new FixtureArt(sim);
     this.entityLayer.sortableChildren = true;
     this.lives = makeLives(sim, (x) => this.water.surfaceAt(x));
@@ -270,8 +278,10 @@ export class WorldView extends Container {
       bg.rainbow,
       bg.clouds,
       bg.hills,
+      bg.hillsGlow,
       this.weather.back,
       bg.mid,
+      bg.midGlow,
       this.world,
       bg.front,
       this.weather.front,
@@ -279,6 +289,73 @@ export class WorldView extends Container {
     this.listen();
     this.listenSky();
     for (const live of this.lives) this.offs.push(...live.listen(sim, this.particles));
+  }
+
+  private makeBackground(): Background {
+    const sim = this.sim;
+    return new Background(sim.content.areas.all, sim.terrain, sim.worldWidth, this.renderer, this.backdrop);
+  }
+
+  /** The art set's tone map, for what is drawn live. */
+  private tone: Tone = NO_TONE;
+
+  /**
+   * The art set's style on what stays live: the pond's water and plants,
+   * blowing leaves, the mushrooms' glow, and the stems and leaves of live plants.
+   */
+  private styleWorld(): void {
+    const world = worldOf(this.backdrop);
+    this.tone = makeTone(world.tone);
+    this.water.setStyle(world.water, this.tone);
+    this.weather.setTone(this.tone);
+  }
+
+  /**
+   * The art set changed: draw the backdrop again in its look. The sky, the
+   * tone map, and the strips are fixed when a `Background` is built, so a new
+   * one takes the old one's places on the stage.
+   */
+  private restyle(): void {
+    this.backdropVersion = backdropStore.version;
+    this.backdrop = backdropStore.current;
+    const old = this.background;
+    const bg = this.makeBackground();
+    for (const key of [
+      'sky',
+      'rainbow',
+      'clouds',
+      'hills',
+      'hillsGlow',
+      'mid',
+      'midGlow',
+      'near',
+      'front',
+    ] as const) {
+      const parent = old[key].parent;
+      if (!parent) continue;
+      parent.addChildAt(bg[key], parent.getChildIndex(old[key]));
+      parent.removeChild(old[key]);
+    }
+    old.destroy();
+    this.background = bg;
+    this.styleWorld();
+  }
+
+  /** What the backdrop is drawn from right now (test hook). */
+  backdropLook(): {
+    set: string | null;
+    sky: boolean;
+    tone: number;
+    toned: number;
+    strips: ReturnType<Background['stripStats']>;
+  } {
+    return {
+      set: this.backdrop?.id ?? null,
+      sky: !!this.backdrop?.sky,
+      tone: worldOf(this.backdrop).tone.length,
+      toned: this.background.toned,
+      strips: this.background.stripStats(),
+    };
   }
 
   /** The areas' live views: flowers, the porch, the compost lab, the arcade, the barriers, locked previews. */
@@ -587,10 +664,12 @@ export class WorldView extends Container {
   private updateLook(dt: number, camera: Camera): SkyExtras {
     const sky = this.sim.weather;
     this.weatherMix = easeWeather(this.weatherMix, weatherTarget(sky.weather), dt, 4);
-    this.look = skyLook(hourOf(sky.clock), this.weatherMix);
+    const palette = skyOf(this.backdrop);
+    this.look = skyLook(hourOf(sky.clock), this.weatherMix, palette);
     // M10's hidden areas have their own light, not the sky's.
     const room = this.sim.hidden.hiddenAt(camera.centerX);
-    if (room) this.look = roomLook(this.look, room.mood === 'hollow' ? 'hollow' : 'depths', sky.night);
+    if (room)
+      this.look = roomLook(this.look, room.mood === 'hollow' ? 'hollow' : 'depths', sky.night, palette);
     this.shooting = this.shooting.filter((s) => (s.age += dt) < 1.2);
     return {
       shades:
@@ -605,11 +684,13 @@ export class WorldView extends Container {
 
   update(dt: number, camera: Camera): void {
     this.time += dt;
+    if (this.backdropVersion !== backdropStore.version) this.restyle();
     const extras = this.updateLook(dt, camera);
     this.background.update(camera, this.time, this.look, extras);
     this.graded.tint = this.look.near;
     // Water reads the sky too: orange at dusk, deep teal at night.
-    const water = mix(mix(0xffffff, 0xffc8a0, this.look.warmth * 0.5), 0x5f8fb0, this.look.glow * 0.7);
+    const tints = worldOf(this.backdrop).water;
+    const water = mix(mix(0xffffff, tints.dusk, this.look.warmth * 0.5), tints.night, this.look.glow * 0.7);
     this.water.back.tint = this.water.front.tint = water;
     this.fixtures.hints = this.hints;
     this.fixtures.reduced = this.reduced;
@@ -663,6 +744,7 @@ export class WorldView extends Container {
       hints: this.hints,
       reduced: this.reduced,
       music: this.music?.() ?? null,
+      tone: this.tone,
     };
     for (const live of this.lives) {
       live.update(this.areaFrame);

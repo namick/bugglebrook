@@ -1,5 +1,8 @@
 import { Container, FillGradient, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import type { Renderer } from 'pixi.js';
+import type { LoadedBackdrop, LoadedStrip } from '../art/backdropStore';
+import { skyOf, stripsOf, worldOf } from '../art/backdropStore';
+import type { SkyPalette, StripLayer } from '../art/backdropData';
 import { PIXELS_PER_METER, VIEW_HEIGHT_PX, VIEW_WIDTH_PX } from '../../../game/constants';
 import { Rng } from '../../../game/core/rng';
 import type { AreaDef } from '../../../game/data/types';
@@ -16,6 +19,8 @@ import { drawHollowBackdrop } from './areaArt/hollow';
 import type { SkyLook } from './skyLook';
 import { gradientTexture } from './lightTextures';
 import { parallaxX } from './areaArt/common';
+import { chunkPlan } from './stripLayout';
+import { makeTone, toneGraphics } from './worldTone';
 
 const PPM = PIXELS_PER_METER;
 const BOTTOM = VIEW_HEIGHT_PX + 40;
@@ -27,13 +32,21 @@ const CHUNK = 1024;
  * A static layer baked into 1024 px textures on demand. The source shapes
  * stay alive (off stage); chunks near the view are baked (the visible ones
  * at once, one more ahead each frame) and chunks far away are freed.
+ *
+ * An art set's painted strips go into the same chunks: where a strip is
+ * drawn, the chunk holds the painting instead of the code-drawn shapes
+ * (`chunkPlan`), so a frame costs the same few sprites either way.
  */
 class LazyLayer {
   private readonly holder = new Container();
   private readonly out = new Container();
   private readonly chunks = new Map<number, Sprite>();
+  /** Which strips went into each live chunk. */
+  private readonly painted = new Map<number, string[]>();
   /** Chunks baked over the layer's life. */
   baked = 0;
+  /** An art set's painted strips for this layer. */
+  strips: readonly LoadedStrip[] = [];
 
   constructor(
     private readonly renderer: Renderer,
@@ -52,17 +65,72 @@ class LazyLayer {
     return this.chunks.size;
   }
 
-  private bake(i: number): void {
-    const x = i * CHUNK;
-    // Overlap neighbours a little so filtering never shows a seam.
-    const w = Math.min(CHUNK + 4, this.width - x);
-    if (w <= 0) return;
-    const tex = this.renderer.generateTexture({
+  /** The painted strips drawn into the chunks on screen now. */
+  get paintedNow(): string[] {
+    const ids = new Set<string>();
+    for (const [i, strips] of this.painted)
+      if (i >= this.shown[0] && i <= this.shown[1]) strips.forEach((id) => ids.add(id));
+    return [...ids].sort();
+  }
+
+  /** The first and last chunk on screen. */
+  private shown: [number, number] = [0, -1];
+
+  /** The code-drawn shapes from `x`, `w` wide, as a texture. */
+  private bakeCode(x: number, w: number): Texture {
+    return this.renderer.generateTexture({
       target: this.holder,
       frame: new Rectangle(x, this.top, w, this.height - this.top),
       resolution: this.resolution,
       antialias: true,
     });
+  }
+
+  private bake(i: number): void {
+    const x = i * CHUNK;
+    // Overlap neighbours a little so filtering never shows a seam.
+    const w = Math.min(CHUNK + 4, this.width - x);
+    if (w <= 0) return;
+    const h = this.height - this.top;
+    const plan = chunkPlan(
+      x,
+      w,
+      this.strips.map((s) => s.entry),
+    );
+    let tex: Texture;
+    if (!plan.strips.length && plan.code.length === 1) tex = this.bakeCode(x, w);
+    else {
+      // Code-drawn shapes where no strip is, then the strips left to right, each fading over the last.
+      const stage = new Container();
+      const code = plan.code.length ? this.bakeCode(x, w) : null;
+      const cuts: Texture[] = [];
+      for (const [a, b] of plan.code) {
+        const cut = new Texture({ source: code!.source, frame: new Rectangle(a - x, 0, b - a, h) });
+        cuts.push(cut);
+        const piece = new Sprite(cut);
+        piece.x = a - x;
+        stage.addChild(piece);
+      }
+      for (const entry of plan.strips) {
+        const strip = this.strips.find((s) => s.entry === entry)!;
+        const art = new Sprite(strip.paint!);
+        art.position.set(entry.paint!.x - x, entry.paint!.y - this.top);
+        stage.addChild(art);
+      }
+      tex = this.renderer.generateTexture({
+        target: stage,
+        frame: new Rectangle(0, 0, w, h),
+        resolution: this.resolution,
+        antialias: false,
+      });
+      stage.destroy({ children: true });
+      for (const cut of cuts) cut.destroy();
+      code?.destroy(true);
+      this.painted.set(
+        i,
+        plan.strips.map((s) => s.id),
+      );
+    }
     const sprite = new Sprite(tex);
     sprite.position.set(x, this.top);
     this.out.addChild(sprite);
@@ -70,11 +138,20 @@ class LazyLayer {
     this.baked++;
   }
 
+  /** Free every chunk and the source shapes. */
+  destroy(): void {
+    for (const sprite of this.chunks.values()) sprite.destroy({ texture: true, textureSource: true });
+    this.chunks.clear();
+    this.painted.clear();
+    this.holder.destroy({ children: true });
+  }
+
   /** `cameraPx` is the camera's left edge in world pixels. */
   update(cameraPx: number): void {
     const left = cameraPx * this.parallax;
     const first = Math.max(0, Math.floor(left / CHUNK));
     const last = Math.min(Math.ceil(this.width / CHUNK) - 1, Math.floor((left + VIEW_WIDTH_PX) / CHUNK));
+    this.shown = [first, last];
     // What is on screen must exist now.
     for (let i = first; i <= last; i++) if (!this.chunks.has(i)) this.bake(i);
     // One chunk ahead on either side per frame, so panning never waits.
@@ -87,6 +164,7 @@ class LazyLayer {
     for (const [i, sprite] of this.chunks)
       if (i < first - 2 || i > last + 2) {
         this.chunks.delete(i);
+        this.painted.delete(i);
         this.out.removeChild(sprite);
         sprite.destroy({ texture: true, textureSource: true });
       }
@@ -170,7 +248,11 @@ export class Background {
   readonly sky = new Container();
   readonly clouds = new Container();
   readonly hills = new Container();
+  /** What a set's far strips light up after dark: added on top of the hills, outside the grading. */
+  readonly hillsGlow = new Container();
   readonly mid = new Container();
+  /** The same for its mid strips. */
+  readonly midGlow = new Container();
   /** Behind entities, moving with the world. */
   readonly near = new Container();
   /** In front of entities. */
@@ -212,12 +294,24 @@ export class Background {
   private readonly plazaX: number;
   private readonly plaza: AreaDef;
 
+  /** The sky's colors: the art set's, or the game's own. */
+  private readonly palette: SkyPalette;
+  /** How many of the code-drawn world's colors the set's tone map changed. */
+  readonly toned: number;
+
+  /**
+   * `backdrop` is the selected art set's (`backdropStore.current`), or null
+   * for the game's own look. It is fixed for a background's life: to change
+   * it, build a new one (`WorldView` does when the set changes).
+   */
   constructor(
     private readonly areas: readonly AreaDef[],
     private readonly terrain: Terrain,
     worldWidthM: number,
     renderer: Renderer | null = null,
+    private readonly backdrop: LoadedBackdrop | null = null,
   ) {
+    this.palette = skyOf(backdrop);
     this.worldPx = worldWidthM * PPM;
     const area = areas[0]!;
     this.plaza = areas.find((a) => a.id === 'area_stump_plaza') ?? area;
@@ -232,8 +326,59 @@ export class Background {
     this.drawMid(rng);
     this.drawNear(rng);
     this.drawFront(rng);
+    // The set's tone map recolors the code-drawn layers, before any of them is drawn or baked.
+    const tone = makeTone(worldOf(backdrop).tone);
+    this.toned = [this.hills, this.mid, this.near, this.front].reduce((n, l) => n + toneGraphics(l, tone), 0);
+    this.drawGlow();
     if (renderer) this.bakeAll(renderer);
   }
+
+  /** The strips' night glows, as sprites that ride with their layers. */
+  private drawGlow(): void {
+    for (const [layer, into] of [
+      ['far', this.hillsGlow],
+      ['mid', this.midGlow],
+    ] as const) {
+      for (const strip of stripsOf(this.backdrop, layer)) {
+        if (!strip.glow || !strip.entry.glow) continue;
+        const s = new Sprite(strip.glow);
+        s.position.set(strip.entry.glow.x, strip.entry.glow.y);
+        s.blendMode = 'add';
+        into.addChild(s);
+      }
+      into.visible = false;
+    }
+  }
+
+  /** Every strip the art set has, and the ones drawn into the chunks on screen now, by layer (test hook). */
+  stripStats(): Record<StripLayer, { has: string[]; drawn: string[] }> {
+    const of = (layer: StripLayer, i: number): { has: string[]; drawn: string[] } => ({
+      has: stripsOf(this.backdrop, layer).map((s) => s.entry.id),
+      drawn: this.lazy[i]?.paintedNow ?? [],
+    });
+    return { far: of('far', 0), mid: of('mid', 1) };
+  }
+
+  /** Free everything: the baked chunks, the cloud textures, and the shapes. Its containers leave the stage. */
+  destroy(): void {
+    for (const l of this.lazy) l.destroy();
+    this.lazy.length = 0;
+    // Baked clouds own their textures; the sky's sprites share theirs with everything else.
+    this.clouds.destroy({ children: true, texture: this.cloudsBaked, textureSource: this.cloudsBaked });
+    for (const c of [
+      this.sky,
+      this.rainbow,
+      this.hills,
+      this.hillsGlow,
+      this.mid,
+      this.midGlow,
+      this.near,
+      this.front,
+    ])
+      c.destroy({ children: true });
+  }
+
+  private cloudsBaked = false;
 
   /**
    * Bake the static layers into 1024 px wide textures, lazily: only the
@@ -244,6 +389,7 @@ export class Background {
   private bakeAll(renderer: Renderer): void {
     const fine = Math.min(2, Math.max(1, renderer.resolution));
     const height = BOTTOM;
+    this.cloudsBaked = true;
     this.lazy.push(
       new LazyLayer(renderer, this.hills, this.span(PARALLAX.hills) + 200, height, 1, PARALLAX.hills),
       new LazyLayer(renderer, this.mid, this.span(PARALLAX.mid) + 300, height, 1, PARALLAX.mid),
@@ -259,6 +405,8 @@ export class Background {
         FRONT_TOP,
       ),
     );
+    this.lazy[0]!.strips = stripsOf(this.backdrop, 'far');
+    this.lazy[1]!.strips = stripsOf(this.backdrop, 'mid');
     this.cloudSprites.forEach((cloud, i) => {
       const b = cloud.getLocalBounds();
       const frame = new Rectangle(b.x - 4, b.y - 4, b.width + 8, b.height + 8);
@@ -306,8 +454,9 @@ export class Background {
     this.sky.addChild(this.skyBase, this.skyTop, this.horizonGlow, this.starLayer);
 
     // Sun, top right, with slowly turning rays.
+    const sunColors = this.palette.sun;
     const glow = new Graphics();
-    for (let i = 4; i >= 1; i--) glow.circle(0, 0, 70 + i * 26).fill({ color: 0xfff6c2, alpha: 0.12 });
+    for (let i = 4; i >= 1; i--) glow.circle(0, 0, 70 + i * 26).fill({ color: sunColors.glow, alpha: 0.12 });
     const rays = this.sunRays;
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2;
@@ -321,10 +470,10 @@ export class Background {
           Math.cos(b) * 96,
           Math.sin(b) * 96,
         ])
-        .fill({ color: 0xffe066, alpha: 0.85 })
+        .fill({ color: sunColors.rays, alpha: 0.85 })
         .stroke(soft(3, 0.35));
     }
-    const disc = new Graphics().circle(0, 0, 82).fill(0xffd84d).stroke(stroke(5));
+    const disc = new Graphics().circle(0, 0, 82).fill(sunColors.disc).stroke(stroke(5));
     disc.circle(-22, -24, 20).fill({ color: 0xffffff, alpha: 0.45 });
     // A sleepy smile: even the sun is a character.
     disc
@@ -339,9 +488,9 @@ export class Background {
       .stroke(stroke(4));
     disc
       .circle(-38, 24, 9)
-      .fill({ color: 0xff9f6b, alpha: 0.6 })
+      .fill({ color: sunColors.cheek, alpha: 0.6 })
       .circle(38, 24, 9)
-      .fill({ color: 0xff9f6b, alpha: 0.6 });
+      .fill({ color: sunColors.cheek, alpha: 0.6 });
     // Sunglasses, for the sundial's secret.
     const sh = this.shades;
     for (const dx of [-24, 24]) sh.roundRect(dx - 20, -14, 40, 26, 11).fill(0x2b1d2e);
@@ -359,10 +508,12 @@ export class Background {
 
   /** A round, sleepy moon with a soft glow: night is cozy, not scary. */
   private drawMoon(): void {
+    const moonColors = this.palette.moon;
     const glow = new Graphics();
-    for (let i = 14; i >= 1; i--) glow.circle(0, 0, 60 + i * 11).fill({ color: 0xe8ecff, alpha: 0.03 });
+    for (let i = 14; i >= 1; i--)
+      glow.circle(0, 0, 60 + i * 11).fill({ color: moonColors.glow, alpha: 0.03 });
     const g = new Graphics();
-    g.circle(0, 0, 64).fill(0xfff4cc).stroke(stroke(5));
+    g.circle(0, 0, 64).fill(moonColors.disc).stroke(stroke(5));
     // Craters, soft.
     for (const [x, y, r] of [
       [-26, -22, 12],
@@ -370,16 +521,16 @@ export class Background {
       [30, 14, 10],
       [-8, 34, 7],
     ] as const)
-      g.circle(x, y, r).fill({ color: 0xe8d6a0, alpha: 0.8 });
+      g.circle(x, y, r).fill({ color: moonColors.crater, alpha: 0.8 });
     g.circle(-20, -26, 16).fill({ color: 0xffffff, alpha: 0.35 });
     // Asleep, smiling.
     g.moveTo(-28, 4).quadraticCurveTo(-19, 12, -10, 4).stroke(stroke(4));
     g.moveTo(10, 4).quadraticCurveTo(19, 12, 28, 4).stroke(stroke(4));
     g.moveTo(-9, 22).quadraticCurveTo(0, 29, 9, 22).stroke(stroke(4));
     g.circle(-34, 18, 8)
-      .fill({ color: 0xffa8b8, alpha: 0.55 })
+      .fill({ color: moonColors.cheek, alpha: 0.55 })
       .circle(34, 18, 8)
-      .fill({ color: 0xffa8b8, alpha: 0.55 });
+      .fill({ color: moonColors.cheek, alpha: 0.55 });
     this.moon.addChild(glow, g);
     this.moon.visible = false;
   }
@@ -392,7 +543,8 @@ export class Background {
       const x = rng.range(0, width);
       const y = Math.pow(rng.next(), 1.6) * 620 + 10;
       const big = rng.chance(0.08);
-      const color = rng.pick([0xffffff, 0xfff4c2, 0xdfe6ff]);
+      // One draw from the dice whatever the palette, so every sky has its stars in the same places.
+      const color = rng.pick(this.palette.stars);
       if (big) {
         const r = rng.range(7, 11);
         g.poly([
@@ -422,7 +574,7 @@ export class Background {
   /** A rainbow arcing over the pond, drawn once; its alpha comes and goes. */
   private drawRainbow(): void {
     const g = this.rainbowArc;
-    const colors = [0xff6b6b, 0xffa94d, 0xffe066, 0x8ce99a, 0x74c0fc, 0x9775fa];
+    const colors = this.palette.rainbow;
     const r0 = 760;
     colors.forEach((c, i) => {
       g.arc(0, 0, r0 - i * 26, Math.PI, 0).stroke({ width: 28, color: c, alpha: 0.55, cap: 'butt' });
@@ -1031,8 +1183,8 @@ export class Background {
     this.cloudSprites.forEach((c, i) => {
       c.x = ((((this.cloudBase[i]! - dir * ct * 7 + 400) % w) + w) % w) - 400;
     });
-    this.hills.x = -px * PARALLAX.hills;
-    this.mid.x = -px * PARALLAX.mid;
+    this.hills.x = this.hillsGlow.x = -px * PARALLAX.hills;
+    this.mid.x = this.midGlow.x = -px * PARALLAX.mid;
     this.near.x = -px;
     this.front.x = -px * PARALLAX.front;
     // Grass bends with the wind, rooted at the bottom of the screen.
@@ -1045,6 +1197,13 @@ export class Background {
       layer.pivot.y = BOTTOM;
       layer.y = BOTTOM;
       layer.skew.x += (bend * k - layer.skew.x) * 0.08;
+    }
+    // The mid strips' glow leans with them.
+    this.midGlow.pivot.y = this.midGlow.y = BOTTOM;
+    this.midGlow.skew.x = this.mid.skew.x;
+    for (const glow of [this.hillsGlow, this.midGlow]) {
+      glow.visible = !!look && look.glow > 0.01 && glow.children.length > 0;
+      glow.alpha = look?.glow ?? 0;
     }
     this.rainbow.x = 1040 - px * PARALLAX.clouds;
     if (!look) {
@@ -1080,7 +1239,7 @@ export class Background {
     this.sun.alpha = look.sun.alpha;
     this.sun.position.set(sun.x + drift, sun.y);
     const low = 1 - Math.sin(Math.PI * look.sun.t);
-    this.sunDisc.tint = mix(0xffffff, 0xff9a5a, Math.min(1, Math.max(0, low * 1.4 - 0.3)));
+    this.sunDisc.tint = mix(0xffffff, this.palette.sun.low, Math.min(1, Math.max(0, low * 1.4 - 0.3)));
     this.sun.scale.set(1 + low * 0.18);
     this.shades.visible = !!extras?.shades;
     const moon = arcPosition(look.moon.t);
@@ -1110,10 +1269,15 @@ export class Background {
         const back = (k + 1) * 34;
         g.moveTo(hx - s.dir * back * 0.94, hy - back * 0.35)
           .lineTo(hx - s.dir * (back - 34) * 0.94, hy - (back - 34) * 0.35)
-          .stroke({ width: 6 - k * 0.8, color: 0xfff4c2, alpha: fade * (1 - k / 6), cap: 'round' });
+          .stroke({
+            width: 6 - k * 0.8,
+            color: this.palette.shooting,
+            alpha: fade * (1 - k / 6),
+            cap: 'round',
+          });
       }
       g.circle(hx, hy, 6).fill({ color: 0xffffff, alpha: fade });
-      g.circle(hx, hy, 14).fill({ color: 0xfff4c2, alpha: fade * 0.3 });
+      g.circle(hx, hy, 14).fill({ color: this.palette.shooting, alpha: fade * 0.3 });
     }
   }
 }
