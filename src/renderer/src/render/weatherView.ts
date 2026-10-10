@@ -11,9 +11,11 @@ import type { LightSpot } from './draw/bug';
 import type { Camera } from './camera';
 import { LightPool } from './lightPool';
 import { coneTexture, glowTexture } from './lightTextures';
-import { OUTLINE, mix } from './palette';
+import { OUTLINE, lighten, mix } from './palette';
 import type { SkyLook, WeatherMix } from './skyLook';
 import type { WaterView } from './water';
+import type { Tone } from './worldTone';
+import { NO_TONE } from './worldTone';
 
 const PPM = PIXELS_PER_METER;
 
@@ -92,6 +94,18 @@ export function dropCount(rain: number, budget: number): number {
  * moon on the pond). Render-only: it reads the sim and never changes it.
  */
 export class WeatherView {
+  private tone: Tone = NO_TONE;
+  private mushroomGlow = 0xff8fb8;
+
+  /**
+   * Take an art set's tone map: blowing leaves follow the plants it recolors,
+   * and the mushrooms glow in the color their caps became.
+   */
+  setTone(tone: Tone): void {
+    this.tone = tone;
+    this.mushroomGlow = tone === NO_TONE ? 0xff8fb8 : lighten(tone(0xe8453c), 0.4);
+  }
+
   /** Screen space, behind the mid grass: far rain and mist. */
   readonly back = new Container();
   /** World space, graded with the ground: puddles. */
@@ -340,7 +354,7 @@ export class WeatherView {
         vy: -20 + Math.random() * 60,
         spin: (Math.random() - 0.5) * 8,
         rot: Math.random() * 6,
-        color: [0x7ccf4f, 0x9ccc4a, 0xffb703, 0xf28ab2, 0xe8c07a][Math.floor(Math.random() * 5)]!,
+        color: this.tone([0x7ccf4f, 0x9ccc4a, 0xffb703, 0xf28ab2, 0xe8c07a][Math.floor(Math.random() * 5)]!),
         size: 13 + Math.random() * 11,
         petal: Math.random() < 0.3,
       });
@@ -447,7 +461,7 @@ export class WeatherView {
         const x = plaza.xStart * PPM + mx;
         if (!onScreen(x)) return;
         const pulse = 0.8 + 0.2 * Math.sin(this.time * 1.4 + i);
-        this.light(x, 905 - h - r * 0.3, r * 1.7, 0xff8fb8, glow * 0.4 * pulse);
+        this.light(x, 905 - h - r * 0.3, r * 1.7, this.mushroomGlow, glow * 0.4 * pulse);
       });
     // Glowing things and bugs.
     for (const v of views) {

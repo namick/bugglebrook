@@ -186,7 +186,11 @@ export class ArtStore {
       ...catalog.sets.map(({ id, name, credit }) => ({ id, name, credit })),
     );
     const jsons = import.meta.glob<AtlasJson>('../../art/**/*@*.json', { eager: true, import: 'default' });
-    const pngs = import.meta.glob<string>('../../art/**/*.png', { query: '?inline', import: 'default' });
+    // Backdrop strips are big and load by URL (backdropStore.ts), so they stay out of these inlined pages.
+    const pngs = import.meta.glob<string>(['../../art/**/*.png', '!../../art/**/backdrop/**'], {
+      query: '?inline',
+      import: 'default',
+    });
     for (const set of catalog.sets) {
       const base = `../../art/${set.path ? set.path + '/' : ''}`;
       const manifest = manifests[`${base}manifest.json`];

@@ -617,52 +617,106 @@ Checklist for each bug:
 - [ ] Watched it in the Art Lab: walk, fly or hop, held, thrown, asleep, every form.
 - [ ] Seen next to the other bugs in the real world. Does it fit?
 
-## A7. Backgrounds (later)
+## A7. Backgrounds
 
-Backgrounds come after the bugs. This is a preview so you know what's coming.
+A set can change the world behind the bugs too. There are three pieces, and each one is optional. Whatever a set leaves out stays as the game draws it now, area by area and layer by layer.
+
+| Piece | File in your set's `backdrop/` folder | What it changes |
+|---|---|---|
+| The sky | `sky.json` | The sky's colors through the day, the color of the light on everything, the sun, the moon, the stars, and the rainbow |
+| Painted strips | `<area_id>_far.ora` and `<area_id>_mid.ora` | The hills far away and the big plants in the middle distance, behind one area |
+| The world's colors | `world.json` | A tone map that recolors the ground, the soil, the plants, the stump, and the rooms the game draws, and the pond's water |
+
+The ground the bugs walk on, the fixtures, and the grass in front of the screen stay drawn by the game. The tone map is how a set recolors them.
 
 ### How the world is laid out
 
-The world is one long strip, six areas side by side, and the camera slides left and right. It never moves up or down: the screen always shows the full height.
+The world is one long strip, six areas side by side, and the camera slides left and right. It never moves up or down: the screen always shows the full height. Two more areas (the Ant Hill Depths and Gnome Hollow) are sealed rooms with no sky, so they take no strips.
 
-| Area | Width in the game | Near layer canvas (2x) |
-|---|---|---|
-| Flowerbed Stage | 32 m | 6400 x 2160 |
-| Puddle Pond | 32 m | 6400 x 2160 |
-| Mossy Stump Plaza | 38.4 m | 7680 x 2160 |
-| Under the Porch | 32 m | 6400 x 2160 |
-| Compost Lab | 28.8 m | 5760 x 2160 |
-| Treehouse Arcade | 32 m | 6400 x 2160 |
+One screen is 1920 x 1080 game pixels. Strips are painted at **2 times** game size, so a screen is 3840 x 2160 on your canvas.
 
-Backgrounds are drawn at **2 times** game size, not 4. They don't get as big as bugs can, and they're huge already.
+### The two layers you can paint
 
-### Parallax layers
+**Parallax** is the trick where far things slide by slower than near things, which makes the world feel deep. Back to front, the game stacks: the sky, the sun and moon, the stars, the clouds, the **far** layer, the **mid** layer, then the world the bugs live in, then dark grass in front.
 
-**Parallax** is the trick where far things slide by slower than near things, which makes the world feel deep. Each area has these layers, back to front:
-
-| Layer | Speed | What goes there | Canvas width |
+| Layer | Speed | What the game draws there now | What to know |
 |---|---|---|---|
-| Sky | | Stays code: its colors change with time of day and weather. Sun, moon, stars, rainbow too. | none |
-| Clouds | 0.12 | Optional: a few loose cloud drawings the game drifts around | small, separate |
-| `far` | 0.28 | Hills, far fence, the house far away | about 28% of the area's width |
-| `mid` | 0.55 | Big grass, dandelions, far plants | about 55% of the area's width |
-| `near` | 1.0 | The ground, soil, roots, props behind the bugs. Bugs walk here. | the full width (table above) |
-| `front` | 1.22 | Dark grass blades and leaves in front of the bugs | about 122% of the area's width |
+| `far` | 0.28 | Two rows of pale hills | It never leans. Hard things (rocks, towers, a planet on the horizon) belong here. |
+| `mid` | 0.55 | Tall grass, clover, dandelions, a huge watering can, the fence behind the flowerbed | The wind leans this whole layer, so paint things that bend. |
 
-Each area's file has all its layers. The templates show where the next area's art starts at each end, so the edges join up.
+Each area has its own canvas for each layer:
 
-Huge canvases are slow. If Krita struggles, the template can be split into segments (left, middle, right). The game cuts everything into 1024 px pieces anyway.
+| Area | ID | `far` canvas | `mid` canvas |
+|---|---|---|---|
+| Flowerbed Stage | `area_flowerbed_stage` | 3430 x 2160 | 4640 x 2160 |
+| Puddle Pond | `area_puddle_pond` | 2304 x 2160 | 4032 x 2160 |
+| Mossy Stump Plaza | `area_stump_plaza` | 2662 x 2160 | 4736 x 2160 |
+| Under the Porch | `area_under_porch` | 2304 x 2160 | 4032 x 2160 |
+| Compost Lab | `area_compost_lab` | 2126 x 2160 | 3680 x 2160 |
+| Treehouse Arcade | `area_treehouse_arcade` | 3430 x 2160 | 4640 x 2160 |
 
-### What must stay clear
+The porch and the treehouse are rooms that hide the sky. Their strips show only on the way in, so paint them last.
 
-- **The ground line.** The bugs walk on an invisible line that bumps over roots and dips into puddles. The template shows it. Your ground's top edge must follow it, or bugs will float or sink.
-- **Fixtures.** The stage, the gnome, the cauldron, the sundial, the vane, and the other things you can click are drawn by the game for now. The template marks them with boxes. Keep those boxes plain.
-- **The pond water** is the game's (it ripples and splashes). Draw the basin around it, not the water.
-- **Behind the bugs, keep it calm.** Busy patterns behind the play area make bugs hard to see. Lower contrast, thinner and lighter outlines than the bugs, and less saturated colors than the bugs. Save the bright stuff for things you can touch.
+### Getting templates
+
+```sh
+node scripts/art/backdropTemplates.ts --set garden_drawings
+```
+
+This writes a template for every strip into `art/src/sets/garden_drawings/backdrop/`, with a `.strip.json` next to each one (don't edit or rename those), plus a starter `sky.json` and `world.json` that change nothing until you edit them. Name one strip (`area_puddle_pond_far`) or one area (`area_puddle_pond`) to make only those. Like the bug templates, it never overwrites a file you have painted in: add `--refresh-guides` to update only the guides.
+
+In Krita a template looks like this, top to bottom:
+
+```
+guides            (locked)   notes, pink lines, and grey hatching
+glow              empty      paint here what should light up at night
+paint             empty      paint here, or add layers of your own
+guides_under      (locked)   the game's own drawing of this layer, and the noon sky
+```
+
+### Painting a strip
+
+- **Every layer not named `guide...` or `glow` is the picture.** Add as many as you like, with any names.
+- **Hidden layers still count**, as they do for bugs. Name a sketch `guide_sketch` to keep it out.
+- Only the blend modes Normal, Multiply, and Inherit Alpha work.
+- **See-through means sky.** Don't paint a sky. Leave open whatever should show the game's sky, sun, moon, and clouds. Keep the top half mostly open, or they vanish behind your paint.
+- **Pink lines are seams**, where your area's strip meets the next one. The pink hatching round a seam is a **blend zone**: the game fades your strip out there, over its neighbour. Paint right through it to the edge of the canvas. Two strips don't have to match exactly at a seam, only roughly: the same horizon height and the same light.
+- **Grey hatching is never on screen.** The ground or a room always covers it. Leave it empty.
+- **Keep it calmer than the bugs.** Softer edges, less contrast, and less saturated colors than anything the player can touch.
 
 ### Day and night
 
-Draw everything in **daylight**. The game tints the whole scene for dawn, dusk, night, and rain. Don't paint shadows of the sun or glows into the background. Anything that should glow at night (a lamp, a window) goes on its own layer named `glow`, and the game lights it up after dark.
+Paint **noon daylight**. The game tints each layer for dawn, dusk, night, and rain by multiplying your colors with the color of the light. Don't paint the sun's shadows or glows into the picture.
+
+Multiplying can only darken. At night the far layer keeps about a third of its brightness, so very dark paint goes black. Keep things that must show at night at 40 percent lightness or more.
+
+Anything that should glow at night (a lamp, a window, a glowing plant) goes on the layer named `glow`. Paint the light itself on a see-through layer. The game adds it on top after dark. You can set that layer to Addition in Krita to preview it; the game ignores its blend mode.
+
+### The sky and the world's colors
+
+`sky.json` and `world.json` are small text files of colors written like `"#8fd3f0"`. The starter files list everything; change what you want and delete the rest.
+
+- In `sky.json` each moment of the day (`night`, `late_night`, `dawn`, `morning`, `day`, `afternoon`, `dusk`, `sunset`, `twilight`) has a sky color for the top and the bottom, a glow along the horizon, and the color of the light on each layer. `near` is the light on the bugs and everything they touch.
+- The game checks that night still reads as night and day as day. It refuses a sky whose day light is too dark or whose night is too bright, and tells you which number to change.
+- In `world.json`, `tone` is a list of rules like `{ "from": "#5aa845", "to": "#8a5fe0" }`. That one turns every grass green in the code-drawn world violet, keeping the light and dark shades. `water` sets the pond's colors.
+
+B14 has every key and every rule.
+
+### Checking and looking
+
+```sh
+node scripts/art/checkBackdrop.ts art/src/sets/garden_drawings/backdrop/ --out /tmp/look
+```
+
+This checks every file in the folder in a few seconds and tells you what to fix. With `--out` it also saves a picture of each strip over the noon sky and the night sky, tinted the way the game tints it. Give it one file to check only that one.
+
+To see the whole world with your backdrop on:
+
+```sh
+BB_BACKDROP_SRC=art/src/sets/garden_drawings pnpm shots -g "backdrop tour"
+```
+
+That saves screenshots of every area by day, at dusk, at night, and in rain, and of every seam, to `/tmp/bb-shots`. When you are happy, `pnpm art:build` puts the backdrop in the game with the rest of your set.
 
 ## A8. Your art is yours
 
@@ -774,7 +828,7 @@ art/
     bugs/<bug_id>.rig.json     generated by art:template, committed, not hand-edited
     faces/face_kit.ora
     faces/face_kit.rig.json
-    backgrounds/               later milestone; not committed (see B13)
+    sets/<set_id>/backdrop/    a set's sky.json, world.json, and far and mid strips (B14)
   templates/                   fresh templates from art:template, git-ignored
 scripts/art/
   template.mjs                 the template generator
@@ -974,7 +1028,7 @@ Decision:
 
 - **Commit bug and face sources** (`art/src/bugs/`, `art/src/faces/`). They're the record of what shipped, and the importer and CI need them. Commit when a bug is finished or reaches a checkpoint, not on every save. Every save rewrites the whole zip, and git keeps every version.
 - **Commit generated atlases and the manifest.** Builds then don't depend on the importer, and `art:check` proves they match the sources.
-- **Don't commit background sources.** Keep them in a backed-up folder outside the repo and point `BB_ART_SRC` at it. Commit only their generated tiles. Revisit Git LFS when backgrounds start. CI runners would need LFS checkout, which costs bandwidth quota, so avoid it until the size forces it.
+- **Commit backdrop strips** (2026-10-10). The plan was to keep background sources out of the repo, because whole painted areas would have been 10 to 40 MB a file. What got built is the far and mid strips only (B14), which are a few megabytes each, and `art:check` needs the sources to prove the built strips match. Commit them like bugs, at checkpoints.
 - Never commit `.kra` files or `art/templates/`. Add both to `.gitignore`.
 
 ## B13. Licensing in the repo
@@ -984,15 +1038,63 @@ Decision:
 - `package.json` stays `UNLICENSED`. If the code is ever released under an open-source license, state in writing that `art/` and `src/renderer/art/` are excluded, as the music brief already does for the music.
 - **Credits board.** Add a small credits board to the menu (the same plank board style as settings, with `markUi`), reachable from the main menu, listing art, music, and code. The artist's credit name comes from `art/CREDITS.json` so she controls the text. Give it an E2E test that opens it with the real mouse.
 
-## B14. Backgrounds (follow-up milestone, sketch)
+## B14. Backdrops: the sky, the far and mid strips, and the world's tone
 
-Background art uses the same `.ora` route: one file per area, layers `far`, `mid`, `near`, `front`, and optional `glow`, at 2x.
+Built on 2026-10-10. A set's backdrop lives in `art/src/sets/<id>/backdrop/` (`art/src/backdrop/` for the reference set) and has three optional parts: `sky.json`, `world.json`, and one `.ora` per area and layer for the far and mid parallax layers. Anything missing, empty, or broken falls back to the code-drawn look for that area and layer.
 
-- Canvas widths: `near` is the area width at 200 px per meter. Layer `f` is `f` times that, for `f` in 0.28, 0.55, 1.22. The last area's `far` and `mid` extend by `(1 - f) * 1920` px at 1x so the layer covers the screen at the far end of the world. `front` overhangs too. The generator computes all of it from `PARALLAX` in `background.ts` and the area table.
-- Guides: the terrain polyline (from the area's `terrain`), fixture boxes (from `fixtures`, keep-clear), the pond's water region, the porch's and treehouse's opaque backdrop zones, and 256 px strips of the neighbors' art at each end.
-- Import cuts each layer into 1024 px wide tiles, which `LazyLayer` already bakes and frees on the fly. The art tiles replace the baked procedural tiles one for one.
-- `glow` goes into `WeatherView`'s additive light layer at night, outside the graded container, like other lights.
-- Sky, sun, moon, stars, rain, water, and every live fixture stay code until a later milestone gives them parts.
+Painting whole areas was the first plan here. It did not survive the numbers: the near layer alone is about 107 megapixels at 2x, follows the terrain, and has every fixture standing on it. So the near and front layers stay code-drawn, and a set restyles them with a tone map.
+
+### Strips
+
+- Layers: `far` (the hills, parallax 0.28) and `mid` (the big grass, 0.55). `render/stripLayout.ts` (pure) works out the geometry from the area table. Each area under the sky owns the stretch of a layer that passes the middle of the screen while the camera is in that area: from `(xStart * 100 - 960) * f + 960` to the same for `xEnd`. The first area's stretch starts at the layer's left edge and the last one's ends at what the screen shows with the camera at the far end of the surface. The two hidden areas have no sky and no strips.
+- A canvas is its area's stretch plus a 128 px blend zone past each seam (none at the ends of the world), 1080 px tall, at 2 template px per game px. `--scale 1` makes 1x canvases.
+- `<id>.strip.json` (type `StripFile` in `art/backdropData.ts`) holds the canvas, where it sits in the layer, the stretch, the blend zones, `cover` (the y below which nothing is ever on screen), `hidden` (stretches always behind a room), and `stripHash`. The hash covers the geometry only. A hidden `guide_strip_<hash>` layer stamps the template, as `guide_rig_<hash>` does for bugs, and a unit test checks the test fixture's hashes against the area table.
+- Every top-level layer or group not named `guide...` or `glow` is flattened into the painting, with opacity and the three blend modes bugs allow. Hidden layers count and get a warning. A layer or group named `glow` is built on its own; its own blend mode, opacity, and visibility are ignored.
+- The importer (`scripts/art/backdrop.ts`, `buildStrip`) halves a 2x canvas, empties the rows from `cover` down and the `hidden` columns, fades the alpha across each blend zone with a smoothstep, trims to the alpha bounds plus 2 px, bleeds color into the edge, and writes `backdrop/<id>.png` (and `<id>.glow.png`). Placement goes in `backdrop.json`.
+- Strips ship at 1x. The far and mid layers bake at resolution 1 on every screen today, so a painted strip is as sharp as the code-drawn layer it replaces: exact on a 1080p screen, soft on a HiDPI one. A set's twelve strips come to about 8128 px of far and 12880 px of mid at 1x. With flat cartoon art in every strip the build is 1.4 MB of PNG and 36 MB decoded; the worst case (every strip painted solid from the top of the screen to the ground) is about 80 MB decoded. A built strip over 3 MB and a source over 8 MB get warnings.
+
+### What is never on screen
+
+The template generator works it out by looking, so it stays right when an area's art changes. `art/backdropTemplate.ts` renders the code-drawn near layer at a quarter size and marks where it is opaque (plus each pond's water below its surface, which is drawn live). A spot of a layer at x `L` sits behind the world from `L + (L - 1920) / f * (1 - f)` to `L + L / f * (1 - f)` as the camera pans (`frontRange`). The spot is never seen when that whole stretch is opaque at its height (`neverSeen`, with slack for the wind's lean). The template shades those pixels, and `seenSummary` turns them into `cover` and `hidden` with safety margins.
+
+For the far layer one spot passes behind 4937 px of world, more than any room is wide, so only the ground hides it. For the mid layer it is 1571 px, and the porch (3200 px) always covers the middle of its own mid strip.
+
+### Seams
+
+A strip that is drawn replaces the code-drawn art across its whole stretch, transparent parts and all. Strips are drawn left to right, each over the last, and each fades out across its blend zones. Where two painted strips meet, the right one fades in over the left one's solid end, so nothing of the code-drawn layer shows through and silhouettes that differ cross-fade over 256 px. Where a painted strip meets a code-drawn stretch, the code-drawn art starts hard at the seam and the strip fades out over it.
+
+### The sky
+
+`sky.json` is read over `DEFAULT_SKY` by `parseSky` (`art/backdropData.ts`): nine named moments with fixed hours (`SKY_HOURS`; the sim owns the clock), each with the sky's top, bottom, and horizon colors, the multiply tint for each layer, the clouds' tint, the stars, and the warmth; then the colors of the sun, moon, stars, shooting stars, rainbow, and the light in the two hidden rooms. `skyLook(hour, weather, palette)` eases between the palette's moments as it always did between its own keys.
+
+`skyRules` keeps the game readable whatever the colors (brightness is 0.30 R + 0.55 G + 0.15 B):
+
+- `day.near` is at least 225. It tints every bug and item, and the night lights come on by how dark `near` is (`glow = (235 - brightness) / 110`), so a darker day would light the fireflies at noon.
+- `night.near` and `late_night.near` are between 105 and 170: dark enough for the night lights, bright enough to see the bugs.
+- The night sky is at most 60 percent as bright as the day sky.
+
+A sky that breaks a rule is an error and the set falls back to the game's own sky. Rain and cloud are not in the file: `applyWeather` greys, cools, and dims whatever the palette gives, so rain reads as rain in any sky.
+
+### The world's tone
+
+`world.json` has `tone`, a list of up to 12 rules `{from, to, spread}`, and `water`.
+
+- `toneColor` (pure) maps one color. A rule pulls colors near `from`'s hue: full strength within half of `spread` degrees (default 40), easing off to nothing at `spread`. The hue turns by the angle from `from` to `to`, saturation scales by their ratio, and lightness bends by a power that sends `from`'s lightness to `to`'s. So `from` lands on `to` exactly and the rest of its hue family follows with its shading intact. Colors with less than 0.1 chroma (greys, the outline) fade out of the map. The parser warns when overlapping rules stop a `from` from landing on its `to`.
+- The tone map is applied to shapes, not pixels. `toneGraphics` (`render/worldTone.ts`) walks the code-drawn hills, mid, near, and front layers once, before they are baked, and maps each fill and stroke color and each gradient's stops. Mapping pixels after antialiasing would leave fringes of in-between hues where two colors meet.
+- Live plants take it at draw time through a cached function (`makeTone`): the pond's lily pads, blooms, and weed, the stems and leaves of the flowerbed's flowers and the sunflower, and the leaves the wind blows. The mushrooms' night glow takes the color their caps became.
+- It leaves alone: painted strips, the water itself (which `water.surface` and `water.deep` set on purpose, and the parser checks the surface is the lighter one), petals, every fixture, bugs, items, particles, rain, and the UI. Fixtures share colors with things that mean something (potions, paint, the sequencer's caps), so a blanket recolor would break those matches.
+- `WORLD_SWATCHES` lists the code-drawn world's main colors. The validator prints what a map does to each.
+
+### Tools
+
+- `node scripts/art/backdropTemplates.ts --set <id> [strip ...] [--scale 1|2] [--refresh-guides] [--out dir] [--no-build]` builds the app and runs `tests/art/backdropTemplate.spec.ts` on the virtual display. `__bb.backdropTemplate(id, scale)` draws the guides; `scripts/art/backdropTemplate.ts` writes the `.ora`.
+- `node scripts/art/checkBackdrop.ts <file or folder ...> [--out dir] [--strict]` checks a strip, a `sky.json`, or a `world.json` on its own in a second or two, and with `--out` writes the built strip and a noon and a night preview. It reads only what it is given, so painters can run many at once. `pnpm art:build` rebuilds every set and is not safe to run concurrently.
+- `pnpm art:build` and `pnpm art:check` call `buildBackdrop` for every set and write `backdrop.json` and `backdrop/*.png` beside the set's atlases. A set with no `backdrop/` folder gets no new files.
+- `pnpm shots -g "backdrop tour"` (`tests/shots/backdrop.spec.ts`) shows every area and every seam. `BB_BACKDROP_SRC` builds a set's backdrop from its sources on the spot.
+
+### Not built
+
+Painted near and front layers, cloud drawings, and art for fixtures. The glow layer covers the far and mid strips only.
 
 ## B15. Milestone scope and acceptance
 

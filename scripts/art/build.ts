@@ -20,6 +20,7 @@ import type {
   ManifestPart,
   RigFile,
 } from '../../src/renderer/src/art/rigFile.ts';
+import { BACKDROP_DIR, buildBackdrop } from './backdrop.ts';
 import { readSetColors } from './colors.ts';
 import { readBugLights } from './lights.ts';
 import type { Rect } from './image.ts';
@@ -329,6 +330,12 @@ export function buildSets(srcDir = SRC_DIR): BuildAll {
     for (const [path, bytes] of Object.entries(built.files))
       result.files[set.path ? `${set.path}/${path}` : path] = bytes;
     for (const [id, messages] of built.messages) result.messages.set(`${set.id}/${id}`, messages);
+    // The set's backdrop: its sky, its world style, and its painted strips (scripts/art/backdrop.ts).
+    const backdrop = buildBackdrop(setSource(srcDir, set.id));
+    for (const [path, bytes] of Object.entries(backdrop.files))
+      result.files[set.path ? `${set.path}/${path}` : path] = bytes;
+    for (const [id, messages] of backdrop.messages)
+      result.messages.set(`${set.id}/${BACKDROP_DIR}/${id}`, messages);
   }
   result.files['sets.json'] = new TextEncoder().encode(stableJson({ sets }));
   return result;
@@ -379,7 +386,7 @@ const MARK = { error: 'x', warning: '!', info: '-' } as const;
 
 /** The report as the artist sees it in the terminal. */
 export function formatReport(id: string, messages: readonly ArtMessage[]): string {
-  const lines = [`${id}.ora`];
+  const lines = [id.endsWith('.json') ? id : `${id}.ora`];
   for (const m of messages) lines.push(`  ${MARK[m.level]} ${m.text}`);
   if (!messages.length) lines.push('  - All good.');
   return lines.join('\n');

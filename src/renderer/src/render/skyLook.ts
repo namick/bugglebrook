@@ -1,4 +1,6 @@
 import type { WeatherId } from '../../../game/systems/sky';
+import type { SkyMoment, SkyPalette } from '../art/backdropData';
+import { DEFAULT_SKY, SKY_HOURS } from '../art/backdropData';
 import { mix } from './palette';
 
 /**
@@ -35,185 +37,25 @@ export interface SkyLook {
 }
 
 /** A key moment in the day: hour, then colors. */
-interface Key {
+interface Key extends SkyMoment {
   h: number;
-  skyTop: number;
-  skyBottom: number;
-  horizon: number;
-  horizonAlpha: number;
-  far: number;
-  mid: number;
-  near: number;
-  front: number;
-  cloud: number;
-  stars: number;
-  warmth: number;
 }
 
-// The day's palette. Day uses the doc's #BFE7F5 fading to #8FD3F0 at the top,
-// dusk the orange #FF9F5A to violet, night #1C1F4A with #2C2F5E low down.
-// Night is a deep, friendly blue-violet, never black: bugs stay readable.
-const KEYS: readonly Key[] = [
-  {
-    h: 0,
-    skyTop: 0x1c1f4a,
-    skyBottom: 0x2c2f5e,
-    horizon: 0x4a4f8e,
-    horizonAlpha: 0.35,
-    far: 0x3e4686,
-    mid: 0x5a64a8,
-    near: 0x7d86c4,
-    front: 0x4d5694,
-    cloud: 0x5d6399,
-    stars: 1,
-    warmth: 0,
-  },
-  {
-    h: 4.4,
-    skyTop: 0x181a48,
-    skyBottom: 0x33366a,
-    horizon: 0x5a5a9a,
-    horizonAlpha: 0.4,
-    far: 0x434b8c,
-    mid: 0x5e68ac,
-    near: 0x8089c6,
-    front: 0x505a98,
-    cloud: 0x61679e,
-    stars: 1,
-    warmth: 0,
-  },
-  {
-    // Dawn: pink to pale blue.
-    h: 5.3,
-    skyTop: 0x3c3f86,
-    skyBottom: 0xe89ab8,
-    horizon: 0xffc3a3,
-    horizonAlpha: 0.65,
-    far: 0x8a7fb8,
-    mid: 0xa396c8,
-    near: 0xc0b4dc,
-    front: 0x8f86b8,
-    cloud: 0xf2a9c2,
-    stars: 0.45,
-    warmth: 0.5,
-  },
-  {
-    h: 6.2,
-    skyTop: 0x86b4ea,
-    skyBottom: 0xffcfd8,
-    horizon: 0xffe0b0,
-    horizonAlpha: 0.55,
-    far: 0xd8c8e6,
-    mid: 0xe8dcee,
-    near: 0xf6ecf0,
-    front: 0xd6cce0,
-    cloud: 0xffe0ea,
-    stars: 0,
-    warmth: 0.45,
-  },
-  {
-    // Day.
-    h: 7.2,
-    skyTop: 0x8fd3f0,
-    skyBottom: 0xbfe7f5,
-    horizon: 0xf2fbff,
-    horizonAlpha: 0.35,
-    far: 0xffffff,
-    mid: 0xffffff,
-    near: 0xffffff,
-    front: 0xffffff,
-    cloud: 0xffffff,
-    stars: 0,
-    warmth: 0.1,
-  },
-  {
-    // The day holds its colors until mid-afternoon.
-    h: 15,
-    skyTop: 0x8fd3f0,
-    skyBottom: 0xbfe7f5,
-    horizon: 0xf2fbff,
-    horizonAlpha: 0.35,
-    far: 0xffffff,
-    mid: 0xffffff,
-    near: 0xffffff,
-    front: 0xffffff,
-    cloud: 0xffffff,
-    stars: 0,
-    warmth: 0.1,
-  },
-  {
-    h: 16.6,
-    skyTop: 0x8fd0ee,
-    skyBottom: 0xcdebef,
-    horizon: 0xfff4dc,
-    horizonAlpha: 0.4,
-    far: 0xfff6e8,
-    mid: 0xfff8ee,
-    near: 0xfffaf2,
-    front: 0xf6f0e6,
-    cloud: 0xfffaf0,
-    stars: 0,
-    warmth: 0.25,
-  },
-  {
-    // Dusk: orange low down, violet above; long warm light.
-    h: 18.1,
-    skyTop: 0x8c8ad0,
-    skyBottom: 0xff9f5a,
-    horizon: 0xffd27a,
-    horizonAlpha: 0.75,
-    far: 0xffb898,
-    mid: 0xffc8a0,
-    near: 0xffdcbc,
-    front: 0xd9a488,
-    cloud: 0xffc08a,
-    stars: 0,
-    warmth: 1,
-  },
-  {
-    h: 19.1,
-    skyTop: 0x4a3f94,
-    skyBottom: 0xff7f6e,
-    horizon: 0xffae6e,
-    horizonAlpha: 0.7,
-    far: 0xb88ab8,
-    mid: 0xd4a0bc,
-    near: 0xe0b6c6,
-    front: 0x9c7ea6,
-    cloud: 0xf29a9a,
-    stars: 0.2,
-    warmth: 0.8,
-  },
-  {
-    h: 19.85,
-    skyTop: 0x282a6a,
-    skyBottom: 0x7a5aa0,
-    horizon: 0xb97aa8,
-    horizonAlpha: 0.5,
-    far: 0x5c5a9c,
-    mid: 0x7c78b8,
-    near: 0x9c98cc,
-    front: 0x6a68a4,
-    cloud: 0x8a78b0,
-    stars: 0.7,
-    warmth: 0.2,
-  },
-  {
-    // Night.
-    h: 20.6,
-    skyTop: 0x1c1f4a,
-    skyBottom: 0x2c2f5e,
-    horizon: 0x4a4f8e,
-    horizonAlpha: 0.35,
-    far: 0x3e4686,
-    mid: 0x5a64a8,
-    near: 0x7d86c4,
-    front: 0x4d5694,
-    cloud: 0x5d6399,
-    stars: 1,
-    warmth: 0,
-  },
-];
+// The day's keys come from a sky palette: the game's own (`DEFAULT_SKY`: day
+// is the doc's #BFE7F5 fading to #8FD3F0 at the top, dusk the orange #FF9F5A
+// to violet, night #1C1F4A with #2C2F5E low down) or an art set's. Night is a
+// deep, friendly blue-violet, never black: bugs stay readable.
+const keysByPalette = new WeakMap<SkyPalette, readonly Key[]>();
+
+/** A palette's moments laid out through the day. */
+function keysOf(palette: SkyPalette): readonly Key[] {
+  let keys = keysByPalette.get(palette);
+  if (!keys) {
+    keys = SKY_HOURS.map(([h, name]) => ({ h, ...palette.moments[name] }));
+    keysByPalette.set(palette, keys);
+  }
+  return keys;
+}
 
 /** The sun is up from 05:15 to 19:45, and the moon from 19:30 to 05:30. */
 const SUNRISE = 5.25;
@@ -290,8 +132,13 @@ function arc(hour: number, rise: number, set: number): { t: number; alpha: numbe
   return { t, alpha };
 }
 
-/** The look at `hour` (0 to 24) in weather `w`. */
-export function skyLook(hour: number, w: WeatherMix = NO_WEATHER): SkyLook {
+/** The look at `hour` (0 to 24) in weather `w`, in the game's own sky or an art set's. */
+export function skyLook(
+  hour: number,
+  w: WeatherMix = NO_WEATHER,
+  palette: SkyPalette = DEFAULT_SKY,
+): SkyLook {
+  const KEYS = keysOf(palette);
   const h = ((hour % 24) + 24) % 24;
   let a = KEYS[KEYS.length - 1]!;
   let b: Key = { ...KEYS[0]!, h: 24 };
@@ -322,7 +169,7 @@ export function skyLook(hour: number, w: WeatherMix = NO_WEATHER): SkyLook {
     glow: 0,
     warmth: n(a.warmth, b.warmth),
     dapple: 0,
-    sun: { ...arc(h, SUNRISE, SUNSET), color: 0xffd84d },
+    sun: { ...arc(h, SUNRISE, SUNSET), color: palette.sun.disc },
     moon: arc(h, MOONRISE, MOONSET),
   };
   // Lights matter as it gets dark: how far the near tint is from daylight.
@@ -330,7 +177,7 @@ export function skyLook(hour: number, w: WeatherMix = NO_WEATHER): SkyLook {
   look.glow = clamp01((235 - nearL) / 110);
   // The sun grows warm and orange near the horizon.
   const low = 1 - Math.sin(Math.PI * look.sun.t);
-  look.sun.color = mix(0xffd84d, 0xff8a3d, clamp01(low * 1.3 - 0.2));
+  look.sun.color = mix(palette.sun.disc, multiply(palette.sun.disc, 0xffa3ca), clamp01(low * 1.3 - 0.2));
   look.dapple = clamp01(1 - look.glow * 2) * look.sun.alpha;
   look = applyWeather(look, w);
   return look;
@@ -374,15 +221,21 @@ function applyWeather(look: SkyLook, w: WeatherMix): SkyLook {
  * are warm and lamp-lit; the hollow is a cosy, starry blue. Lights count as
  * in the dark (`glow`), so lamps and stars shine. At night the depths dim a little. Pure.
  */
-export function roomLook(base: SkyLook, mood: 'depths' | 'hollow', night = false): SkyLook {
+export function roomLook(
+  base: SkyLook,
+  mood: 'depths' | 'hollow',
+  night = false,
+  palette: SkyPalette = DEFAULT_SKY,
+): SkyLook {
   const depths = mood === 'depths';
+  const room = palette.rooms[mood];
   return {
     ...base,
     // The colony dims its lamps when it sleeps.
-    near: depths ? (night ? 0xc9b0a4 : 0xf2d6bc) : 0xf0ecfa,
-    mid: depths ? 0xf2d6bc : 0xf0ecfa,
-    far: depths ? 0xf2d6bc : 0xf0ecfa,
-    front: depths ? 0xf2d6bc : 0xf0ecfa,
+    near: night ? room.night : room.day,
+    mid: room.day,
+    far: room.day,
+    front: room.day,
     stars: 0,
     glow: depths ? 0.72 : 0.62,
     warmth: depths ? 0.5 : 0.2,
