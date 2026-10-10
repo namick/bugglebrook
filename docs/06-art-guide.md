@@ -133,6 +133,8 @@ If your bugs are different colors from the originals, add a `colors.json` beside
 
 The keys are `lid` (the sleepy eyelid), `body` (the bug's main color), `sheen` (two colors Barty's shell shimmers between), and `glow` (Flick's light at night). Leave out any you don't need. Section B19 has the details.
 
+If parts of your bugs should glow in the dark, don't paint the glow brighter. The game darkens the whole bug at night. Instead, list the glowing spots in a file beside the bug's drawing, `bug_ladybug_dot.lights.json`, and the game lights them after dark. Section B20 shows how.
+
 Draw in those templates using the same layer names, canvas and pivots described below. Save each ORA next to its `.rig.json`. You can finish one bug at a time. The set uses its own face kit and per-bug faces; it never borrows another artist's drawings. Missing, empty or broken bug art uses the original code-drawn bug. Missing face pieces use the code-drawn face.
 
 ```sh
@@ -1004,6 +1006,50 @@ Colors are six-digit hex strings. `pnpm art:build` stops, naming the file and ev
 The colors apply only while the selected set draws that bug. `SpriteBugView` reads them from its manifest entry. `ArtStore.colors(def)` serves the two places outside the sprite: the night light in `WeatherView` and the journal's frame. The file's checks and the glow rule are in `art/setColors.ts`.
 
 Some colors are left out on purpose. Paint, potion tints, wet, frozen, hot, the red and green face washes, the far side's darkening, and the white hover rim are the game's own signals and mean the same thing in every set. Pictograms in thought bubbles, the journal's small friend faces, and the face stickers are code-drawn pictures of the original bugs, so they keep the original colors.
+
+## B20. A set's night lights
+
+Built on 2026-10-10.
+
+Set art sits in the container the sky grades, so anything painted to glow goes dark at night with the rest of the bug. A set can list points on a bug that the game lights after dark. The game draws each as a soft additive glow in `WeatherView`'s light layer, outside the graded container, riding the part it was painted on.
+
+The points are data, one file for each bug that has any, beside its `.ora`: `art/src/sets/<id>/bugs/<bug_id>.lights.json`.
+
+```json
+{
+  "lights": [
+    { "part": "shell", "x": 350, "y": 634, "r": 60, "color": "#7dffe0" },
+    { "part": "wing", "x": 420, "y": 250, "r": 50, "color": "#bff8ff", "forms": ["flying"] }
+  ]
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `part` | The rig part the light sits on: the layer the glowing spot is painted on. Face pieces cannot carry lights. |
+| `x`, `y` | The spot's center in template pixels on the bug's canvas, the coordinates the layer is painted in and the pivots in `.rig.json` use. |
+| `r` | How far the glow reaches, in template pixels, 1 to 400. The glow is brightest in the middle and gone at `r`, so about three times the painted spot's radius is a good start. |
+| `color` | Six-digit hex. It is added as light, so a dark color barely shows. |
+| `forms` | Optional. Limits the light to some of `normal`, `curled`, `in_shell`, `flying`. |
+
+A bug may list 16 lights.
+
+How a light follows its part:
+
+- It shows only while its part is drawn. A light on `shell` is off when Rollo is a ball. The ball, the closed shell, the cocoon, and the butterfly parts get lights of their own. `forms` is for a part that is drawn in a form where its light should be off, such as a belly spot the shell covers unless the bug is flying. The glow is added over everything, so a light under another part shines through it.
+- A part drawn several times shows its light on each near-side copy: one light on `leg_lower` is three lights. Far-side copies, which the game draws darker behind the body, get none.
+- On a feeler (a `rope` part) the light sits as far along the feeler as it was painted above the base dot, and follows the bend. Its sideways offset is ignored.
+
+When they show:
+
+- Their brightness follows `SkyLook.glow`, the curve the mushrooms and Flick's lantern use, so they rise at dusk and fall at dawn. At or below 0.05 they are off and cost nothing.
+- A sleeping bug's lights are half as bright. They go out under water, as the lantern does. They fade with a see-through bug and scale with potion size.
+- A bug in the pocket or off screen has none. Neither has Twig while he is disguised: plain twigs do not glow, and lights would give him away. A light under a worn thing on the front of the bug is hidden.
+- The world draws at most 150 at once (`BUG_LIGHTS` in `weatherView.ts`). They are sprites of one texture in one layer, so they draw as one batch. Placing 166 lights on sixteen walking bugs added about 0.15 ms a frame, and 345 lights about 0.8 ms, measured in Node on a desktop that was heavily loaded at the time. The frame-time bars are judged on CI.
+
+The importer checks the file against the bug's rig. A light that is wrong is left out and reported as a warning in that bug's report, and the bug still draws. The build writes each light into the manifest (`ManifestAsset.lights`) in game pixels from its part's pivot. `art/setLights.ts` has the checks, the form rule, the brightness rule, and the feeler math. `SpriteBugView.nightLights` places the lights by asking each part's sprite where the point is. `WorldView` gathers them as it poses each bug, after the bug has moved, so they do not trail a frame behind.
+
+To see them: the Art Lab's night look draws them, so the cast tour's `<set>-<bug>-night.png` shows them, and `pnpm shots -g '<set name> night'` photographs each bug on the plaza after dark, held up and then left alone (`<set>-<bug>-night-held.png`, `-night-world.png`). `__bb.bugLights()` lists the lights drawn in the world.
 
 ## B17. What we're unsure about
 
