@@ -2,7 +2,7 @@
 
 Storybook is a second agent-made cast: all sixteen bugs, every face piece for each of them, and its own face kit. Claude painted it in Krita 6.0.4 on 6 October 2026 at the owner's request. It's meant as a worked example of what a finished art set can look like. It is not the owner's daughter's artwork, and it doesn't replace her drawings.
 
-Pick it in Settings with the Art arrows. The order is **Original bugs**, **Krita reference**, **Storybook**, then any other installed sets.
+Pick it in Settings with the Art arrows. The order is **Original bugs**, **Krita reference**, **Storybook**, **Alien planet**, then any other installed sets.
 
 ## How it differs from the reference cast
 
@@ -30,7 +30,7 @@ The sources are in `src/sets/storybook/bugs/` and `src/sets/storybook/faces/`, e
 
 ## Checking it
 
-`tests/unit/referenceArt.test.ts` checks both agent-made casts: every bug must build with no report messages, carry all 28 of its own face pieces, and show only drawn parts and faces in every pose and expression at both atlas sizes.
+`tests/unit/referenceArt.test.ts` checks every agent-made cast: every bug must build with no report messages, carry all 28 of its own face pieces, and show only drawn parts and faces in every pose and expression at both atlas sizes.
 
 For screenshots on a virtual display:
 

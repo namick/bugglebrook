@@ -1,11 +1,13 @@
 Bugglebrook artwork
 
 Provenance note: the current files directly in art/src/bugs/ and art/src/faces/
-are an agent-created Krita reference set, described in REFERENCE-SET.md, and
+are an agent-created Krita reference set, described in REFERENCE-SET.md.
 art/src/sets/storybook/ is a second agent-created set, described in
-STORYBOOK-SET.md. Neither is attributed to the human artist. The ownership and
-permission statements below concern her original drawings, including future
-named sets. This file grants no additional permissions for either agent-created
+STORYBOOK-SET.md. art/src/sets/xeno/ ("Alien planet") is a third, painted by
+Claude in Krita at the owner's request in October 2026 and described in
+XENO-SET.md. None of the three is attributed to the human artist. The ownership
+and permission statements below concern her original drawings, including future
+named sets. This file grants no additional permissions for any agent-created
 set. The exclusion from the code license applies to every art set.
 
 Copyright (c) 2026 the artist. All rights reserved.

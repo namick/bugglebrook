@@ -102,9 +102,9 @@ Bugglebrook looks like flat cut-paper toys: chunky dark outlines, round friendly
 
 ### Choosing and adding an art set
 
-Open the pause board or the main menu's gear. Use the arrows beside **Art** to choose **Original bugs**, **Krita reference**, **Storybook**, or another installed set. The selected artist credit appears below the set name. The choice applies at once to everything the set has: the bugs, the items (the ones in the pocket too), and the sky and world behind them. It stays selected after restarting. It is a machine setting, shared by all save slots. Changing it does not change the bugs or their saved game state.
+Open the pause board or the main menu's gear. Use the arrows beside **Art** to choose **Original bugs**, **Krita reference**, **Storybook**, **Alien planet**, or another installed set. The selected artist credit appears below the set name. The choice applies at once to everything the set has: the bugs, the items (the ones in the pocket too), and the sky and world behind them. It stays selected after restarting. It is a machine setting, shared by all save slots. Changing it does not change the bugs or their saved game state.
 
-The Krita reference set is agent-created reference artwork, separate from the daughter's drawings. Its sources stay in `art/src/bugs/` and `art/src/faces/`. Storybook is a second agent-created set in a shaded style, kept in `art/src/sets/storybook/` and described in `art/STORYBOOK-SET.md`.
+The Krita reference set is agent-created reference artwork, separate from the daughter's drawings. Its sources stay in `art/src/bugs/` and `art/src/faces/`. Storybook is a second agent-created set in a shaded style, kept in `art/src/sets/storybook/` and described in `art/STORYBOOK-SET.md`. Alien planet is a third, with the bugs as creatures from another planet and its own items and backdrop, kept in `art/src/sets/xeno/` and described in `art/XENO-SET.md`.
 
 To start a separate set, choose a lowercase ID with underscores, for example `garden_drawings`:
 
