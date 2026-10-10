@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
   buildBackdrop,
@@ -464,7 +464,7 @@ describe('the crude test backdrop', () => {
 
   it('passes the single-file validator, which shows it by day and by night', () => {
     const files = filesAt(FIXTURE);
-    expect(files.map((f) => f.split('/').pop())).toEqual([
+    expect(files.map((f) => basename(f))).toEqual([
       'area_flowerbed_stage_far.ora',
       'area_puddle_pond_far.ora',
       'area_puddle_pond_mid.ora',

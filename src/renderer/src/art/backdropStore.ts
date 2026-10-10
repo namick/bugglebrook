@@ -113,11 +113,12 @@ export class BackdropStore {
       import: 'default',
     });
     for (const [path, manifest] of Object.entries(manifests)) {
+      const set = setOfPath(path);
       const base = path.slice(0, -'backdrop.json'.length);
       const images: Record<string, string> = {};
       for (const [file, url] of Object.entries(urls))
-        if (file.startsWith(base)) images[file.slice(base.length)] = url;
-      this.bundles.set(setOfPath(path), { manifest, images });
+        if (setOfPath(file) === set) images[file.slice(base.length)] = url;
+      this.bundles.set(set, { manifest, images });
     }
   }
 
