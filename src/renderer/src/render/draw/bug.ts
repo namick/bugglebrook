@@ -944,6 +944,11 @@ export class BugSprite extends Container {
     return this.painter?.life ?? 0;
   }
 
+  /** The bug's main color as it is drawn, for what the game draws beside it (a flung trail, potion fur). */
+  get bodyColor(): number {
+    return this.def.body;
+  }
+
   /** A bug drawn by its species painter: the same rig, with the painter filling in the art. */
   private updatePainted(frame: BugFrame, p: SpeciesPainter): void {
     const key = p.key(frame);

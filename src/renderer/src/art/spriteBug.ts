@@ -15,7 +15,7 @@ import type { AtlasSet, LoadedArt } from './artStore';
 import type { FacePiece } from './faceKit';
 import { cheekPiece, eyePieces, isMouth, mouthPiece, politePiece } from './faceKit';
 import { KIT_EYE_R, KIT_MOUTH_W } from './kit';
-import type { ManifestPart } from './rigFile';
+import type { BugColors, ManifestPart } from './rigFile';
 
 /** Leg pieces stretch at most this much before the foot falls short instead. */
 const STRETCH = [0.8, 1.25] as const;
@@ -49,6 +49,8 @@ export interface SpriteShown {
   paint: number;
   /** Effects the game draws over the art (ripples, the cocoon's thread, a chop's swoosh). */
   extras: string[];
+  /** The color the game put on each tint layer it showed: tintable parts and the sleepy eyelid. */
+  tints: Record<string, number>;
 }
 
 /** A bendy feeler: the mesh, the points it follows, and the part it shows. */
@@ -88,10 +90,13 @@ export class SpriteBugView extends BugSprite {
     ball: null,
     paint: 0,
     extras: [],
+    tints: {},
   };
   /** The last skeleton drawn (tests). */
   lastSkeleton: Skeleton | null = null;
   private readonly parts: Record<string, ManifestPart>;
+  /** The set's own colors for this bug (art/setColors.ts); the game's own where it names none. */
+  private readonly colors: BugColors;
   private pageScale: 1 | 2 = 1;
   private readonly sRim = new Container();
   private readonly slots: Record<Slot, Container>;
@@ -113,6 +118,8 @@ export class SpriteBugView extends BugSprite {
   ) {
     super(def);
     this.parts = art.entry.parts;
+    this.colors = art.entry.colors ?? {};
+    if (this.colors.sheen && this.painter?.sheenEnds) this.painter.sheenEnds = this.colors.sheen;
     for (const g of [
       this.legsBack,
       this.wings,
@@ -164,6 +171,10 @@ export class SpriteBugView extends BugSprite {
     const holder = this.ball.parent!;
     holder.addChildAt(this.sBall, holder.getChildIndex(this.ball) + 1);
     this.pageScale = this.pickScale();
+  }
+
+  override get bodyColor(): number {
+    return this.colors.body ?? this.def.body;
   }
 
   /** The rig container (BugSprite's `rig`, named apart from the skeleton). */
@@ -267,7 +278,8 @@ export class SpriteBugView extends BugSprite {
   }
 
   private color(s: Sprite, item: SkeletonItem): void {
-    const tint = item.tint ?? (this.parts[s.label]?.tintable ? this.def.body : null);
+    const tint = item.tint ?? (this.parts[s.label]?.tintable ? this.bodyColor : null);
+    if (tint !== null && s.visible) this.shown.tints[s.label] = tint;
     s.tint = tint ?? (item.far ? FAR_TINT : 0xffffff);
     s.alpha = item.alpha ?? (item.far ? FAR_ALPHA : 1);
   }
@@ -317,6 +329,7 @@ export class SpriteBugView extends BugSprite {
       this.clear();
     }
     this.shown.scale = this.pageScale;
+    this.shown.tints = {};
 
     // Feelers follow the body's acceleration, as on the code-drawn bug.
     const dt = Math.max(1e-3, frame.dt);
@@ -380,6 +393,7 @@ export class SpriteBugView extends BugSprite {
       const at = pivotOf(this.bones, ball.part);
       this.place(s, at.x, at.y, k);
       s.tint = ball.tint ?? 0xffffff;
+      if (ball.tint !== undefined) this.shown.tints[ball.part] = ball.tint;
     }
     this.sBall.rotation = frame.angle;
     this.sBall.scale.set(frame.squashX, frame.squashY);
@@ -478,6 +492,7 @@ export class SpriteBugView extends BugSprite {
       this.place(s, p.x, p.y, (p.size / t.ref) * t.k, p.rotation, p.sx, p.sy);
       s.tint = p.tint ?? 0xffffff;
       s.alpha = p.alpha;
+      if (p.tint !== null) this.shown.tints[p.name] = p.tint;
       this.shown.face.push(p.name);
     };
     /** Show pieces from art if all of them are drawn; otherwise let the code draw this one. */
@@ -489,7 +504,9 @@ export class SpriteBugView extends BugSprite {
     };
     if (spot) {
       const look = spot.look ?? { x: frame.look.x * frame.facing, y: frame.look.y };
-      for (const e of spot.eyes) {
+      const lid = this.colors.lid;
+      for (const rigEye of spot.eyes) {
+        const e = lid === undefined ? rigEye : { ...rigEye, lid };
         const open = e.open ?? frame.pose.eyeOpen;
         if (tryArt(eyePieces(e, look, open, frame.time))) {
           const brow = spot.polite ? politePiece(e) : null;
@@ -518,7 +535,7 @@ export class SpriteBugView extends BugSprite {
     for (const e of extras) {
       if (e.kind === 'thread') drawThread(back, this.r);
       else if (e.kind === 'swoosh') drawSwoosh(top, this.r, e.alpha);
-      else footRipple(top, this.r, this.def.body, frame.pose);
+      else footRipple(top, this.r, this.bodyColor, frame.pose);
     }
   }
 

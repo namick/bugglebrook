@@ -893,7 +893,7 @@ export class WorldView extends Container {
   }
 
   private colorOf(sprite: BugSprite | ItemSprite): number {
-    return sprite instanceof BugSprite ? sprite.def.body : sprite.def.color;
+    return sprite instanceof BugSprite ? sprite.bodyColor : sprite.def.color;
   }
 
   private updateBug(
@@ -1214,7 +1214,7 @@ export class WorldView extends Container {
       r,
       facing: view.bug!.facing,
       time: this.time,
-      body: sprite.def.body,
+      body: sprite.bodyColor,
       speed: Math.hypot(view.vx, view.vy),
       seed: view.id,
     };

@@ -13,11 +13,13 @@ import type {
   ArtPack,
   AtlasFrame,
   AtlasJson,
+  BugColors,
   Manifest,
   ManifestAsset,
   ManifestPart,
   RigFile,
 } from '../../src/renderer/src/art/rigFile.ts';
+import { readSetColors } from './colors.ts';
 import type { Rect } from './image.ts';
 import { bleed, crop, halve, rimOf, rotateCw } from './image.ts';
 import { pack } from './pack.ts';
@@ -105,8 +107,8 @@ export interface BuiltAsset {
   messages: ArtMessage[];
 }
 
-/** Import one .ora against its rig. Pure: bytes in, files out. */
-export function buildAsset(bytes: Uint8Array, rig: RigFile): BuiltAsset {
+/** Import one .ora against its rig. Pure: bytes in, files out. `colors` are the set's own for this bug. */
+export function buildAsset(bytes: Uint8Array, rig: RigFile, colors?: BugColors): BuiltAsset {
   const a = analyze(bytes, rig);
   const dir = rig.kind === 'face_kit' ? 'faces' : 'bugs';
   const entry: ManifestAsset = {
@@ -119,6 +121,7 @@ export function buildAsset(bytes: Uint8Array, rig: RigFile): BuiltAsset {
     parts: {},
     face: [],
     ...(rig.faceAnchors ? { faceAnchors: scaledAnchors(rig) } : {}),
+    ...(colors ? { colors } : {}),
     report: a.messages,
   };
   const files: Record<string, Uint8Array> = {};
@@ -273,6 +276,7 @@ export function buildAll(srcDir = SRC_DIR): BuildAll {
   const manifest: Manifest = { schema: 1, assets: {} };
   const files: Record<string, Uint8Array> = {};
   const messages = new Map<string, ArtMessage[]>();
+  const colors = readSetColors(srcDir);
   for (const s of findSources(srcDir)) {
     if (!existsSync(s.rig)) {
       messages.set(s.id, [
@@ -284,7 +288,7 @@ export function buildAll(srcDir = SRC_DIR): BuildAll {
       continue;
     }
     const rig = JSON.parse(readFileSync(s.rig, 'utf8')) as RigFile;
-    const built = buildAsset(new Uint8Array(readFileSync(s.ora)), rig);
+    const built = buildAsset(new Uint8Array(readFileSync(s.ora)), rig, colors[s.id]);
     manifest.assets[s.id] = built.entry;
     Object.assign(files, built.files);
     messages.set(s.id, built.messages);

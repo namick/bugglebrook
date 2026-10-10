@@ -4,6 +4,8 @@ import { PIXELS_PER_METER, VIEW_HEIGHT_PX, VIEW_WIDTH_PX } from '../../../game/c
 import type { EntityView, Sim } from '../../../game/sim';
 import type { AreaDef } from '../../../game/data/types';
 import { HOUR, timeOfDay } from '../../../game/systems/sky';
+import { artStore } from '../art/artStore';
+import { glowColors } from '../art/setColors';
 import { MUSHROOMS } from './background';
 import type { Camera } from './camera';
 import { coneTexture, glowTexture } from './lightTextures';
@@ -182,6 +184,11 @@ export class WeatherView {
       leaves: this.leaves.length,
       lights: this.used + this.cone,
     };
+  }
+
+  /** The color of each glow drawn this frame (test hook). */
+  lightColors(): number[] {
+    return this.lightSprites.slice(0, this.used).map((s) => s.tint);
   }
 
   /** The fireflies blink back at a light; `big` is the answer that brings Flick. */
@@ -439,8 +446,9 @@ export class WeatherView {
         const blink = Math.pow(Math.max(0, Math.sin(this.time * 2.2 + v.id)), 6);
         const lit = v.submerged > 0.3 ? 0 : (asleep ? 0.35 : 0.75) + blink * 0.5;
         const tail = { x: x - (v.bug?.facing ?? 1) * def.radius * 0.7 * PPM, y: y + def.radius * 0.1 * PPM };
-        this.light(tail.x, tail.y, 180, 0xd8ff4f, lit * (0.25 + glow * 0.9));
-        this.light(tail.x, tail.y, 40, 0xf4ffc0, lit * (0.3 + glow * 0.6));
+        const { halo, core } = glowColors(artStore.colors(def));
+        this.light(tail.x, tail.y, 180, halo, lit * (0.25 + glow * 0.9));
+        this.light(tail.x, tail.y, 40, core, lit * (0.3 + glow * 0.6));
         continue;
       }
       if (!v.tags.includes('tag_glowing')) continue;

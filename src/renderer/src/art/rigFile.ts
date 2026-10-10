@@ -71,6 +71,22 @@ export interface ManifestPart {
   form?: string;
 }
 
+/**
+ * Colors an art set names for one bug, for the things the game would
+ * otherwise color from the original palette (art/setColors.ts). Each is
+ * 0xRRGGBB, and each is optional: without one the game keeps its own color.
+ */
+export interface BugColors {
+  /** The sleepy eyelid's tint. */
+  lid?: number;
+  /** The two colors the tint layers shimmer between (Barty's shell). */
+  sheen?: [number, number];
+  /** The bug's main color, for what the game draws beside it: ripples, a flung trail, potion fur, the journal's frame. */
+  body?: number;
+  /** The light a glowing bug casts at night (Flick's lantern). */
+  glow?: number;
+}
+
 export interface ManifestAsset {
   id: string;
   kind: 'bug' | 'face_kit';
@@ -85,6 +101,8 @@ export interface ManifestAsset {
   /** Face pieces drawn in this file. */
   face: string[];
   faceAnchors?: { eye: XY & { r: number }; mouth: XY & { s: number } };
+  /** The set's own colors for this bug, from its colors.json. */
+  colors?: BugColors;
   /** The importer's messages, for the Art Lab. */
   report: ArtMessage[];
 }

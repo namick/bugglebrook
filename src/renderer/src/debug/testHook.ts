@@ -437,6 +437,8 @@ export interface TestHook extends ArtHook {
   debugFinale(): void;
   /** Rain drops, leaves, and light sprites being drawn now (particle budgets). */
   weatherStats(): { drops: number; leaves: number; lights: number };
+  /** The color of each glow light drawn now: night glows, lamps, Flick's lantern (its halo, then its core). */
+  weatherLights(): number[];
   /** M11: photo mode's state. `open` false means the camera is away. */
   photo(): PhotoInfo;
   /** Where a placed sticker's middle is, in client pixels, or null. */
@@ -1092,6 +1094,7 @@ export function installTestHook(game: Game, boundary?: ErrorBoundary): void {
       };
     },
     weatherStats: () => game.session?.view.weather.stats() ?? { drops: 0, leaves: 0, lights: 0 },
+    weatherLights: () => game.session?.view.weather.lightColors() ?? [],
     bench: () => {
       const b = game.session?.sim.bench;
       if (!b) return { trays: [null, null, null], busy: false, made: [], hinted: [], nudged: [] };

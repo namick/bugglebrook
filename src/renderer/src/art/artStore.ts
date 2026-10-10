@@ -2,7 +2,7 @@ import type { TextureSource } from 'pixi.js';
 import { ImageSource, Rectangle, Texture } from 'pixi.js';
 import type { BugDef } from '../../../game/data/types';
 import { FACE_KIT_ID } from './kit';
-import type { ArtPack, AtlasJson, Manifest, ManifestAsset } from './rigFile';
+import type { ArtPack, AtlasJson, BugColors, Manifest, ManifestAsset } from './rigFile';
 
 export type { ArtPack };
 
@@ -61,6 +61,8 @@ async function sourceFrom(url: string): Promise<TextureSource> {
   });
 }
 
+const NO_COLORS: BugColors = {};
+
 export class ArtStore {
   /** The game applies its persisted selection during startup. */
   mode: ArtMode = 'drawn';
@@ -115,6 +117,11 @@ export class ArtStore {
   kit(): LoadedArt | null {
     const k = this.assets.get(FACE_KIT_ID);
     return k && k.entry.status === 'drawn' && this.mode === 'drawn' ? k : null;
+  }
+
+  /** The selected set's own colors for a bug it draws (art/setColors.ts). Empty when the game's own apply. */
+  colors(def: BugDef): BugColors {
+    return (this.status(def).drawn && this.assets.get(def.id)?.entry.colors) || NO_COLORS;
   }
 
   /** Add (or replace) an asset whose pages are already textures. */
