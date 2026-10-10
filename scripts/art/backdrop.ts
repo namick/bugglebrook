@@ -1,7 +1,7 @@
 // The backdrop importer: a set's sky.json, world.json, and painted parallax
 // strips (art/src/sets/<id>/backdrop/) become backdrop.json and one PNG per
 // strip next to the set's bug atlases. `pnpm art:build` and `pnpm art:check`
-// run it for every set; `node scripts/art/checkBackdrop.ts` checks one file.
+// run it for every set; `pnpm art:check-backdrop` checks one file.
 // docs/06-art-guide.md, B14.
 
 import { createHash } from 'node:crypto';
@@ -251,7 +251,7 @@ export function buildStrip(bytes: Uint8Array, strip: StripFile): BuiltStrip {
   if (madeFor !== null && madeFor !== strip.stripHash)
     say({
       level: 'error',
-      text: `This template is out of date: the area or its layer changed size since it was made. Run "node scripts/art/backdropTemplates.ts --refresh-guides" to update the guides. Your painting is kept.`,
+      text: `This template is out of date: the area or its layer changed size since it was made. Run "pnpm art:backdrop-templates --refresh-guides" to update the guides. Your painting is kept.`,
     });
   const top = doc.root.children.filter((n) => !isGuide(n.name));
   const glowNodes = top.filter((n) => n.name.trim().toLowerCase() === GLOW_LAYER);
@@ -359,7 +359,7 @@ export function readStripFile(path: string): { strip: StripFile | null; message:
   });
   if (!existsSync(path))
     return fail(
-      `There's no ${path.split(/[\\/]/).pop()} next to the file. It comes with the template; copy both, or run "node scripts/art/backdropTemplates.ts".`,
+      `There's no ${path.split(/[\\/]/).pop()} next to the file. It comes with the template; copy both, or run "pnpm art:backdrop-templates".`,
     );
   let raw: unknown;
   try {

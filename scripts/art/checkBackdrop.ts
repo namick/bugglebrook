@@ -1,4 +1,4 @@
-// `node scripts/art/checkBackdrop.ts <file or folder ...> [--out <dir>] [--strict]`
+// `pnpm art:check-backdrop <file or folder ...> [--out <dir>] [--strict]`
 //
 // Checks one piece of a set's backdrop in a second or two, without touching
 // the built art: a strip's .ora (its .strip.json must sit next to it), a
@@ -207,7 +207,7 @@ function main(argv: string[]): number {
   const paths = args.filter((a) => !a.startsWith('--'));
   if (!paths.length) {
     console.error(
-      'usage: node scripts/art/checkBackdrop.ts <strip.ora | sky.json | world.json | folder ...> [--out <dir>] [--strict]',
+      'usage: pnpm art:check-backdrop <strip.ora | sky.json | world.json | folder ...> [--out <dir>] [--strict]',
     );
     return 2;
   }

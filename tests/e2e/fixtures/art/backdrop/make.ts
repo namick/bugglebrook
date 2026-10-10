@@ -6,9 +6,9 @@
 //   node tests/e2e/fixtures/art/backdrop/make.ts
 //
 // It paints one .ora for every .strip.json in this folder. Make those with
-//   node scripts/art/backdropTemplates.ts --out tests/e2e/fixtures/art/backdrop --scale 1 \
+//   pnpm art:backdrop-templates --out tests/e2e/fixtures/art/backdrop --scale 1 \
 //     area_puddle_pond_mid area_flowerbed_stage_far
-//   node scripts/art/backdropTemplates.ts --out tests/e2e/fixtures/art/backdrop area_puddle_pond_far
+//   pnpm art:backdrop-templates --out tests/e2e/fixtures/art/backdrop area_puddle_pond_far
 // and rerun this when an area changes size (a unit test checks the hashes).
 // The plaza and the other areas have no strip here on purpose: tests check
 // that they fall back to the code-drawn layers.

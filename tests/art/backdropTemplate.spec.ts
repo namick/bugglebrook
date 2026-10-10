@@ -7,7 +7,7 @@ import { setSource } from '../../scripts/art/sets.ts';
 import { launchApp } from '../e2e/app';
 
 // Draws every strip template's guides in the real game and writes the .ora files.
-// Run it with `node scripts/art/backdropTemplates.ts`, not directly: on its own
+// Run it with `pnpm art:backdrop-templates`, not directly: on its own
 // (as part of `pnpm art:templates`, which makes the bug templates) it does nothing.
 
 test('backdrop templates', async () => {

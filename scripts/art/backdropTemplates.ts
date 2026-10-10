@@ -1,4 +1,4 @@
-// `node scripts/art/backdropTemplates.ts --set <id> [strip ...] [--scale 1|2] [--refresh-guides] [--out <dir>]`
+// `pnpm art:backdrop-templates --set <id> [strip ...] [--scale 1|2] [--refresh-guides] [--out <dir>]`
 //
 // Writes blank templates for a set's painted parallax strips, with the
 // code-drawn layer as a guide. A strip is `<area_id>_far` or `<area_id>_mid`;

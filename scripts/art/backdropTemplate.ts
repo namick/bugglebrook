@@ -1,6 +1,6 @@
 // Strip templates: turns the guide pictures the game draws for a painted
 // parallax strip (src/renderer/src/art/backdropTemplate.ts) into a layered
-// .ora, plus its strip.json. Run with `node scripts/art/backdropTemplates.ts`,
+// .ora, plus its strip.json. Run with `pnpm art:backdrop-templates`,
 // which drives the real app. docs/06-art-guide.md, B14.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
