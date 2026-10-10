@@ -1,0 +1,26 @@
+{
+ "area": "area_treehouse_arcade",
+ "blend": {
+  "left": 128,
+  "right": 0
+ },
+ "canvas": {
+  "h": 2160,
+  "w": 3430
+ },
+ "cover": 1080,
+ "ground": 900,
+ "hidden": [],
+ "id": "area_treehouse_arcade_far",
+ "kind": "strip",
+ "layer": "far",
+ "scale": 2,
+ "schema": 1,
+ "span": {
+  "x0": 5261,
+  "x1": 6848
+ },
+ "stripHash": "0cc66b09087d4492",
+ "title": "Treehouse Arcade, far layer",
+ "x": 5133
+}
