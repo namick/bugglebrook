@@ -1,6 +1,7 @@
 import { Container } from 'pixi.js';
 import type { ItemDef } from '../../../game/data/types';
-import { ItemSprite } from './draw/item';
+import type { ItemSprite } from './draw/item';
+import { makeItemView } from '../art/itemViews';
 import type { Particles } from './particles';
 import { SWOOSH_SECONDS, swoosh } from './trashLook';
 import type { Pt } from './trashLook';
@@ -33,7 +34,7 @@ export class SwooshView extends Container {
 
   /** Send a copy of `def` from `from` to `to`, in world pixels. */
   add(def: ItemDef, from: Pt, to: Pt): void {
-    const sprite = new ItemSprite(def, 7);
+    const sprite = makeItemView(def, 7);
     sprite.position.set(from.x, from.y);
     this.addChild(sprite);
     this.flights.push({ sprite, from, to, t: 0, color: def.color });

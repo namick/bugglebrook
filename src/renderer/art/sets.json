@@ -11,6 +11,12 @@
    "id": "storybook",
    "name": "Storybook",
    "path": "sets/storybook"
+  },
+  {
+   "credit": "Agent-painted creatures from another planet, brush-scripted in Krita by Claude",
+   "id": "xeno",
+   "name": "Alien planet",
+   "path": "sets/xeno"
   }
  ]
 }

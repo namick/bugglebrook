@@ -4,12 +4,18 @@ import { PIXELS_PER_METER, VIEW_HEIGHT_PX, VIEW_WIDTH_PX } from '../../../game/c
 import type { EntityView, Sim } from '../../../game/sim';
 import type { AreaDef } from '../../../game/data/types';
 import { HOUR, timeOfDay } from '../../../game/systems/sky';
+import { artStore } from '../art/artStore';
+import { glowColors, lanternAt } from '../art/setColors';
 import { MUSHROOMS } from './background';
+import type { LightSpot } from './draw/bug';
 import type { Camera } from './camera';
+import { LightPool } from './lightPool';
 import { coneTexture, glowTexture } from './lightTextures';
-import { OUTLINE, mix } from './palette';
+import { OUTLINE, lighten, mix } from './palette';
 import type { SkyLook, WeatherMix } from './skyLook';
 import type { WaterView } from './water';
+import type { Tone } from './worldTone';
+import { NO_TONE } from './worldTone';
 
 const PPM = PIXELS_PER_METER;
 
@@ -19,6 +25,8 @@ export const RAIN_FAR = 130;
 export const SPLASH_MAX = 70;
 export const LEAF_MAX = 26;
 export const FIREFLIES = 16;
+/** The most night lights an art set's bugs show at once (art/setLights.ts). */
+export const BUG_LIGHTS = 150;
 
 interface Drop {
   x: number;
@@ -86,6 +94,18 @@ export function dropCount(rain: number, budget: number): number {
  * moon on the pond). Render-only: it reads the sim and never changes it.
  */
 export class WeatherView {
+  private tone: Tone = NO_TONE;
+  private mushroomGlow = 0xff8fb8;
+
+  /**
+   * Take an art set's tone map: blowing leaves follow the plants it recolors,
+   * and the mushrooms glow in the color their caps became.
+   */
+  setTone(tone: Tone): void {
+    this.tone = tone;
+    this.mushroomGlow = tone === NO_TONE ? 0xff8fb8 : lighten(tone(0xe8453c), 0.4);
+  }
+
   /** Screen space, behind the mid grass: far rain and mist. */
   readonly back = new Container();
   /** World space, graded with the ground: puddles. */
@@ -103,6 +123,8 @@ export class WeatherView {
   private readonly mistFront: Sprite[] = [];
   private readonly fireflyDots = new Graphics();
   private readonly lightSprites: Sprite[] = [];
+  private readonly bugLightPool = new LightPool(this.lights);
+  private bugLit = 0;
   private readonly cones: Sprite[] = [];
   private used = 0;
   private cone = 0;
@@ -180,8 +202,28 @@ export class WeatherView {
     return {
       drops: this.near.length + this.far.length,
       leaves: this.leaves.length,
-      lights: this.used + this.cone,
+      lights: this.used + this.cone + this.bugLit,
     };
+  }
+
+  /**
+   * The night lights an art set put on its bugs (art/setLights.ts), in this
+   * layer's coordinates. The world calls it once a frame after it has posed
+   * the bugs, so the lights do not trail a frame behind them. Draws at most
+   * BUG_LIGHTS.
+   */
+  bugLights(spots: readonly LightSpot[]): void {
+    this.bugLit = this.bugLightPool.show(spots, BUG_LIGHTS);
+  }
+
+  /** The color of each glow drawn this frame (test hook). */
+  lightColors(): number[] {
+    return this.lightSprites.slice(0, this.used).map((s) => s.tint);
+  }
+
+  /** Each glow drawn this frame: its middle in world pixels, and its color (test hook). */
+  lightSpots(): { x: number; y: number; color: number }[] {
+    return this.lightSprites.slice(0, this.used).map((s) => ({ x: s.x, y: s.y, color: s.tint }));
   }
 
   /** The fireflies blink back at a light; `big` is the answer that brings Flick. */
@@ -317,7 +359,7 @@ export class WeatherView {
         vy: -20 + Math.random() * 60,
         spin: (Math.random() - 0.5) * 8,
         rot: Math.random() * 6,
-        color: [0x7ccf4f, 0x9ccc4a, 0xffb703, 0xf28ab2, 0xe8c07a][Math.floor(Math.random() * 5)]!,
+        color: this.tone([0x7ccf4f, 0x9ccc4a, 0xffb703, 0xf28ab2, 0xe8c07a][Math.floor(Math.random() * 5)]!),
         size: 13 + Math.random() * 11,
         petal: Math.random() < 0.3,
       });
@@ -424,7 +466,7 @@ export class WeatherView {
         const x = plaza.xStart * PPM + mx;
         if (!onScreen(x)) return;
         const pulse = 0.8 + 0.2 * Math.sin(this.time * 1.4 + i);
-        this.light(x, 905 - h - r * 0.3, r * 1.7, 0xff8fb8, glow * 0.4 * pulse);
+        this.light(x, 905 - h - r * 0.3, r * 1.7, this.mushroomGlow, glow * 0.4 * pulse);
       });
     // Glowing things and bugs.
     for (const v of views) {
@@ -438,9 +480,13 @@ export class WeatherView {
         const asleep = v.bug?.mode === 'st_sleep';
         const blink = Math.pow(Math.max(0, Math.sin(this.time * 2.2 + v.id)), 6);
         const lit = v.submerged > 0.3 ? 0 : (asleep ? 0.35 : 0.75) + blink * 0.5;
-        const tail = { x: x - (v.bug?.facing ?? 1) * def.radius * 0.7 * PPM, y: y + def.radius * 0.1 * PPM };
-        this.light(tail.x, tail.y, 180, 0xd8ff4f, lit * (0.25 + glow * 0.9));
-        this.light(tail.x, tail.y, 40, 0xf4ffc0, lit * (0.3 + glow * 0.6));
+        // The light sits on his lantern: where the art set painted it, or on the code-drawn tail.
+        const colors = artStore.colors(def);
+        const at = lanternAt(colors, def.radius * PPM);
+        const tail = { x: x + (v.bug?.facing ?? 1) * at.x, y: y + at.y };
+        const { halo, core } = glowColors(colors);
+        this.light(tail.x, tail.y, 180, halo, lit * (0.25 + glow * 0.9));
+        this.light(tail.x, tail.y, 40, core, lit * (0.3 + glow * 0.6));
         continue;
       }
       if (!v.tags.includes('tag_glowing')) continue;

@@ -9,7 +9,7 @@ import type { BugSprite } from '../render/draw/bug';
 import { standaloneFrame } from '../render/draw/bug';
 import { drawNumber } from '../render/draw/digits';
 import { drawAreaIcon, drawGlyph } from '../render/draw/glyphs';
-import { ItemSprite } from '../render/draw/item';
+import { makeItemView } from '../art/itemViews';
 import { drawFriend, drawPicto } from '../render/draw/pictogram';
 import { bugSpan } from '../render/draw/species';
 import { drawTagIcon } from '../render/draw/tagIcon';
@@ -172,7 +172,7 @@ export class Picture extends Container {
 
 /** Build an item's art. */
 export function itemBuilder(def: ItemDef, seed = 3): () => Container {
-  return () => new ItemSprite(def, seed);
+  return () => makeItemView(def, seed);
 }
 
 /** Build a bug's art (or Munch's butterfly). */
@@ -249,7 +249,7 @@ export function hintNode(hint: string, s: number, content: Content): Container {
     const def = content.items.tryGet(hint);
     if (def) {
       const holder = new Container();
-      const sprite = new ItemSprite(def, 5);
+      const sprite = makeItemView(def, 5);
       holder.addChild(sprite);
       fitInto(sprite, s, s, 1.4);
       return holder;

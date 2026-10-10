@@ -1,0 +1,26 @@
+{
+ "area": "area_puddle_pond",
+ "blend": {
+  "left": 128,
+  "right": 128
+ },
+ "canvas": {
+  "h": 2160,
+  "w": 2304
+ },
+ "cover": 940,
+ "ground": 900,
+ "hidden": [],
+ "id": "area_puddle_pond_far",
+ "kind": "strip",
+ "layer": "far",
+ "scale": 2,
+ "schema": 1,
+ "span": {
+  "x0": 1587,
+  "x1": 2483
+ },
+ "stripHash": "0a5210abab0b7e40",
+ "title": "Puddle Pond, far layer",
+ "x": 1459
+}

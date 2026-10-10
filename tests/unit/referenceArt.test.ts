@@ -13,10 +13,11 @@ import { SpriteBugView } from '../../src/renderer/src/art/spriteBug';
 
 const ART = resolve(import.meta.dirname, '../../src/renderer/art');
 
-/** The shipped sets whose every bug must be fully drawn: the reference cast and the Storybook showcase. */
+/** The shipped sets whose every bug must be fully drawn: the reference cast and the two agent-painted sets. */
 const SETS = [
   { name: 'Krita reference cast', dir: ART },
   { name: 'Storybook set', dir: join(ART, 'sets/storybook') },
+  { name: 'Alien planet set', dir: join(ART, 'sets/xeno') },
 ];
 
 function load(DIR: string, id: string): LoadedArt {

@@ -1,0 +1,205 @@
+{
+ "frames": {
+  "item_hat_acorn_cap": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.489
+   },
+   "frame": {
+    "h": 94,
+    "w": 144,
+    "x": 126,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 94,
+    "w": 144
+   },
+   "spriteSourceSize": {
+    "h": 94,
+    "w": 144,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_hat_candle": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.521
+   },
+   "frame": {
+    "h": 146,
+    "w": 92,
+    "x": 2,
+    "y": 302
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 146,
+    "w": 92
+   },
+   "spriteSourceSize": {
+    "h": 146,
+    "w": 92,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_hat_chef": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.486
+   },
+   "frame": {
+    "h": 140,
+    "w": 132,
+    "x": 2,
+    "y": 450
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 140,
+    "w": 132
+   },
+   "spriteSourceSize": {
+    "h": 140,
+    "w": 132,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_hat_eggshell": {
+   "anchor": {
+    "x": 0.493,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 100,
+    "w": 142,
+    "x": 106,
+    "y": 154
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 100,
+    "w": 142
+   },
+   "spriteSourceSize": {
+    "h": 100,
+    "w": 142,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_hat_flower_petal": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.525
+   },
+   "frame": {
+    "h": 80,
+    "w": 140,
+    "x": 2,
+    "y": 592
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 80,
+    "w": 140
+   },
+   "spriteSourceSize": {
+    "h": 80,
+    "w": 140,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_hat_party_cone": {
+   "anchor": {
+    "x": 0.49,
+    "y": 0.493
+   },
+   "frame": {
+    "h": 146,
+    "w": 102,
+    "x": 2,
+    "y": 154
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 146,
+    "w": 102
+   },
+   "spriteSourceSize": {
+    "h": 146,
+    "w": 102,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_hat_tiny_top_hat": {
+   "anchor": {
+    "x": 0.492,
+    "y": 0.478
+   },
+   "frame": {
+    "h": 134,
+    "w": 122,
+    "x": 96,
+    "y": 302
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 134,
+    "w": 122
+   },
+   "spriteSourceSize": {
+    "h": 134,
+    "w": 122,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_hat_wizard": {
+   "anchor": {
+    "x": 0.492,
+    "y": 0.48
+   },
+   "frame": {
+    "h": 150,
+    "w": 122,
+    "x": 2,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 150,
+    "w": 122
+   },
+   "spriteSourceSize": {
+    "h": 150,
+    "w": 122,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  }
+ },
+ "meta": {
+  "format": "RGBA8888",
+  "image": "items_hats_2@2x.png",
+  "scale": 2,
+  "size": {
+   "h": 676,
+   "w": 272
+  }
+ }
+}

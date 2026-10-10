@@ -7,11 +7,14 @@ import type { WaterSurface } from '../../../game/systems/water';
 import type { Camera } from './camera';
 import { OUTLINE, darken, lighten, mix, stroke } from './palette';
 import type { Particles } from './particles';
+import type { WaterStyle } from '../art/backdropData';
 import { POND_COLORS } from './pondArt';
 import { WaveSurface, swell } from './waveSurface';
+import type { Tone } from './worldTone';
+import { NO_TONE } from './worldTone';
 
 const PPM = PIXELS_PER_METER;
-const C = POND_COLORS;
+type PondColors = Record<keyof typeof POND_COLORS, number>;
 
 interface Ripple {
   x: number;
@@ -81,7 +84,10 @@ export class WaterView {
   private tapAngle = 0;
   private sprayRamp = 0;
   private dripIn = 1;
-  private deepFill: FillGradient;
+  private deepFill!: FillGradient;
+  /** The pond's colors now: the game's own, or an art set's water and its tone map on the pond's plants. */
+  private c: PondColors = POND_COLORS;
+  private tone: Tone = NO_TONE;
 
   constructor(
     private readonly sim: Sim,
@@ -89,17 +95,7 @@ export class WaterView {
   ) {
     this.back.addChild(this.deep, this.bottom, this.life, this.pads, this.ice, this.tap);
     this.front.addChild(this.overlay, this.spray, this.surfaceG);
-    this.deepFill = new FillGradient({
-      type: 'linear',
-      start: { x: 0, y: 0 },
-      end: { x: 0, y: 1 },
-      colorStops: [
-        { offset: 0, color: mix(C.surface, 0xffffff, 0.1) },
-        { offset: 0.35, color: C.surface },
-        { offset: 1, color: C.deep },
-      ],
-      textureSpace: 'local',
-    });
+    this.fillDeep();
     for (const area of sim.content.areas.all) {
       const w = area.water;
       if (!w) continue;
@@ -128,6 +124,39 @@ export class WaterView {
     this.dragonfly = { x: home, y: 520, tx: home, ty: 520, wait: 8, flying: false };
   }
 
+  private fillDeep(): void {
+    this.deepFill = new FillGradient({
+      type: 'linear',
+      start: { x: 0, y: 0 },
+      end: { x: 0, y: 1 },
+      colorStops: [
+        { offset: 0, color: mix(this.c.surface, 0xffffff, 0.1) },
+        { offset: 0.35, color: this.c.surface },
+        { offset: 1, color: this.c.deep },
+      ],
+      textureSpace: 'local',
+    });
+  }
+
+  /**
+   * Take an art set's look: its water colors, and its tone map on the pond's
+   * plants (lily pads, blooms, weed). The tap and everything else stay.
+   */
+  setStyle(water: WaterStyle, tone: Tone): void {
+    this.tone = tone;
+    this.c = {
+      ...POND_COLORS,
+      surface: water.surface,
+      deep: water.deep,
+      lily: tone(POND_COLORS.lily),
+      bloom: tone(POND_COLORS.bloom),
+    };
+    this.deepFill.destroy();
+    this.fillDeep();
+    this.bottom.clear();
+    for (const pond of this.ponds) this.drawBottom(pond.area);
+  }
+
   /** Static things on the pond bottom: the sunken teacup, the rubber boot, pond weed. */
   private drawBottom(area: AreaDef): void {
     const g = this.bottom;
@@ -137,7 +166,7 @@ export class WaterView {
     {
       const x = ax + 12 * PPM;
       const y = ground(x) + 6;
-      const tint = (c: number): number => mix(c, C.deep, 0.35);
+      const tint = (c: number): number => mix(c, this.c.deep, 0.35);
       g.moveTo(x - 62, y - 70)
         .bezierCurveTo(x - 60, y - 5, x + 60, y - 5, x + 62, y - 70)
         .closePath()
@@ -313,7 +342,7 @@ export class WaterView {
         const sway = Math.sin(this.time * 1.4 + i) * 14;
         g.moveTo(x, y)
           .bezierCurveTo(x + sway * 0.5, y - h * 0.4, x - sway, y - h * 0.7, x + sway, y - h)
-          .stroke({ width: 9, color: mix(0x5fa347, C.deep, 0.3), cap: 'round' });
+          .stroke({ width: 9, color: mix(this.tone(0x5fa347), this.c.deep, 0.3), cap: 'round' });
       }
       // Tadpoles: little black commas that wiggle about and flee splashes.
       for (const t of p.tadpoles) {
@@ -412,14 +441,14 @@ export class WaterView {
         pts.push(x + Math.cos(a) * rx * notch, y + Math.sin(a) * ry);
       }
       pts.push(x, y);
-      g.poly(pts).fill(darken(C.lily, 0.25)).stroke(stroke(4));
+      g.poly(pts).fill(darken(this.c.lily, 0.25)).stroke(stroke(4));
       const top: number[] = [];
       for (let k = 0; k <= 40; k++) {
         const a = -Math.PI / 2 + notch * 0.22 + (k / 40) * (Math.PI * 2 - 0.44);
         top.push(x + Math.cos(a) * rx * 0.93 * notch, y - 3 + Math.sin(a) * ry * 0.7);
       }
       top.push(x, y - 3);
-      g.poly(top).fill(C.lily);
+      g.poly(top).fill(this.c.lily);
       for (let k = 0; k < 6; k++) {
         const a = Math.PI * (0.15 + k * 0.14);
         g.moveTo(x, y - 3)
@@ -427,7 +456,7 @@ export class WaterView {
             x + Math.cos(a) * rx * 0.85 * (k % 2 ? 1 : -1),
             y - 3 + Math.sin(a - Math.PI / 2) * ry * 0.55,
           )
-          .stroke({ width: 2.5, color: lighten(C.lily, 0.25), alpha: 0.8, cap: 'round' });
+          .stroke({ width: 2.5, color: lighten(this.c.lily, 0.25), alpha: 0.8, cap: 'round' });
       }
       g.ellipse(x - rx * 0.35, y - 8, rx * 0.25, 3).fill({ color: 0xffffff, alpha: 0.35 });
       if (i === 1) this.bloom(g, x + 26, y - 10);
@@ -445,8 +474,8 @@ export class WaterView {
         .fill(color)
         .stroke(soft(2.5, 0.6));
     };
-    for (const a of [-1.3, 1.3, -0.8, 0.8]) petal(a, 26, lighten(C.bloom, 0.25));
-    for (const a of [-0.35, 0.35, 0]) petal(a, 30, C.bloom);
+    for (const a of [-1.3, 1.3, -0.8, 0.8]) petal(a, 26, lighten(this.c.bloom, 0.25));
+    for (const a of [-0.35, 0.35, 0]) petal(a, 30, this.c.bloom);
     g.circle(x, y - 6, 6).fill(0xffd84d);
   }
 
@@ -502,18 +531,18 @@ export class WaterView {
         .stroke({ width: 13, color: OUTLINE, cap: 'round' });
       g.moveTo(x, y)
         .lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r * 0.55)
-        .stroke({ width: 7, color: C.tap, cap: 'round' });
+        .stroke({ width: 7, color: this.c.tap, cap: 'round' });
     }
     g.ellipse(x, y, r, r * 0.55).stroke({ width: 10, color: OUTLINE });
-    g.ellipse(x, y, r, r * 0.55).stroke({ width: 5, color: C.tap });
-    g.circle(x, y, 9).fill(C.brass).stroke(stroke(3.5));
+    g.ellipse(x, y, r, r * 0.55).stroke({ width: 5, color: this.c.tap });
+    g.circle(x, y, 9).fill(this.c.brass).stroke(stroke(3.5));
     // The dripping nozzle, when off.
     if (!on) {
       this.dripIn -= dt;
       if (this.dripIn <= 0) {
         this.dripIn = 1.2 + Math.random() * 1.6;
         const n = this.nozzle();
-        if (n) this.particles.drops(n.x - 6, n.y + 4, -10, 40, C.surface, 1);
+        if (n) this.particles.drops(n.x - 6, n.y + 4, -10, 40, this.c.surface, 1);
       }
     }
   }
@@ -545,7 +574,7 @@ export class WaterView {
       g.stroke({ width: w, color, alpha, cap: 'round', join: 'round' });
     };
     path(16, OUTLINE, 0.18);
-    path(12, C.surface, 0.75);
+    path(12, this.c.surface, 0.75);
     path(4, 0xffffff, 0.8);
     for (let k = 0; k < 14; k++) {
       const u = (k / 14 + this.time * 1.8) % 1;
@@ -558,7 +587,7 @@ export class WaterView {
     if (n === pts.length) {
       this.ripple(lx, 20);
       if (Math.random() < dt * 14)
-        this.particles.drops(lx, ly - 4, (Math.random() - 0.5) * 200, -220, C.surface, 2);
+        this.particles.drops(lx, ly - 4, (Math.random() - 0.5) * 200, -220, this.c.surface, 2);
       for (const p of this.ponds) p.waves.disturb(lx, 180 * dt * 10, 26);
     }
   }
@@ -572,7 +601,7 @@ export class WaterView {
       if (!s) continue;
       const poly = this.bodyPolygon(p, left, right);
       if (poly.length < 8) continue;
-      g.poly(poly).fill({ color: C.surface, alpha: 0.3 });
+      g.poly(poly).fill({ color: this.c.surface, alpha: 0.3 });
       const top = this.surfacePoints(p, left, right);
       // A lighter band just under the surface.
       const band = [...top];

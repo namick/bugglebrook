@@ -1,0 +1,10 @@
+{
+  "lights": [
+    { "part": "leg_long_lower", "x": 640, "y": 1084, "r": 77, "color": "#8fdcff" },
+    { "part": "leg_lower", "x": 764, "y": 623, "r": 50, "color": "#8fdcff" },
+    { "part": "antenna", "x": 856, "y": 234, "r": 59, "color": "#8fdcff" },
+    { "part": "body", "x": 480, "y": 474, "r": 46, "color": "#8fdcff" },
+    { "part": "body", "x": 590, "y": 491, "r": 46, "color": "#8fdcff" },
+    { "part": "body", "x": 700, "y": 490, "r": 46, "color": "#8fdcff" }
+  ]
+}

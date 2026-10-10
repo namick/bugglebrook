@@ -1,0 +1,25 @@
+{
+  "tone": [
+    {
+      "from": "#5aa845",
+      "to": "#d040c0",
+      "spread": 70
+    },
+    {
+      "from": "#a8744f",
+      "to": "#3050b0",
+      "spread": 30
+    }
+  ],
+  "shade": [
+    {
+      "area": "area_under_porch",
+      "from": "#4a3540",
+      "to": "#206080"
+    }
+  ],
+  "water": {
+    "surface": "#7af0c8",
+    "deep": "#1f8a7a"
+  }
+}

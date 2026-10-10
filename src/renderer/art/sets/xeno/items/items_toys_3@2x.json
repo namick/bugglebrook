@@ -1,0 +1,61 @@
+{
+ "frames": {
+  "item_spoon_catapult": {
+   "anchor": {
+    "x": 0.506,
+    "y": 0.495
+   },
+   "frame": {
+    "h": 194,
+    "w": 490,
+    "x": 2,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 194,
+    "w": 490
+   },
+   "spriteSourceSize": {
+    "h": 194,
+    "w": 490,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_trampoline": {
+   "anchor": {
+    "x": 0.498,
+    "y": 0.533
+   },
+   "frame": {
+    "h": 120,
+    "w": 494,
+    "x": 494,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 120,
+    "w": 494
+   },
+   "spriteSourceSize": {
+    "h": 120,
+    "w": 494,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  }
+ },
+ "meta": {
+  "format": "RGBA8888",
+  "image": "items_toys_3@2x.png",
+  "scale": 2,
+  "size": {
+   "h": 200,
+   "w": 992
+  }
+ }
+}

@@ -2,7 +2,7 @@ import type { TextureSource } from 'pixi.js';
 import { ImageSource, Rectangle, Texture } from 'pixi.js';
 import type { BugDef } from '../../../game/data/types';
 import { FACE_KIT_ID } from './kit';
-import type { ArtPack, AtlasJson, Manifest, ManifestAsset } from './rigFile';
+import type { ArtPack, AtlasJson, BugColors, Manifest, ManifestAsset } from './rigFile';
 
 export type { ArtPack };
 
@@ -49,7 +49,7 @@ export function atlasSet(source: TextureSource, json: AtlasJson, into?: AtlasSet
   return set;
 }
 
-async function sourceFrom(url: string): Promise<TextureSource> {
+export async function sourceFrom(url: string): Promise<TextureSource> {
   const img = new Image();
   img.src = url;
   await img.decode();
@@ -60,6 +60,8 @@ async function sourceFrom(url: string): Promise<TextureSource> {
     label: 'art page',
   });
 }
+
+const NO_COLORS: BugColors = {};
 
 export class ArtStore {
   /** The game applies its persisted selection during startup. */
@@ -115,6 +117,11 @@ export class ArtStore {
   kit(): LoadedArt | null {
     const k = this.assets.get(FACE_KIT_ID);
     return k && k.entry.status === 'drawn' && this.mode === 'drawn' ? k : null;
+  }
+
+  /** The selected set's own colors for a bug it draws (art/setColors.ts). Empty when the game's own apply. */
+  colors(def: BugDef): BugColors {
+    return (this.status(def).drawn && this.assets.get(def.id)?.entry.colors) || NO_COLORS;
   }
 
   /** Add (or replace) an asset whose pages are already textures. */
@@ -179,7 +186,11 @@ export class ArtStore {
       ...catalog.sets.map(({ id, name, credit }) => ({ id, name, credit })),
     );
     const jsons = import.meta.glob<AtlasJson>('../../art/**/*@*.json', { eager: true, import: 'default' });
-    const pngs = import.meta.glob<string>('../../art/**/*.png', { query: '?inline', import: 'default' });
+    // Backdrop strips are big and load by URL (backdropStore.ts), so they stay out of these inlined pages.
+    const pngs = import.meta.glob<string>(['../../art/**/*.png', '!../../art/**/backdrop/**'], {
+      query: '?inline',
+      import: 'default',
+    });
     for (const set of catalog.sets) {
       const base = `../../art/${set.path ? set.path + '/' : ''}`;
       const manifest = manifests[`${base}manifest.json`];

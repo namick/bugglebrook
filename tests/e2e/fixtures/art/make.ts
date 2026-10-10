@@ -16,6 +16,7 @@ import type { Rgba } from '../../../../scripts/art/png.ts';
 import { blank, encodePng } from '../../../../scripts/art/png.ts';
 import { FACE_KIT, KIT_EYE_R, KIT_MOUTH_W, kitCell } from '../../../../src/renderer/src/art/kit.ts';
 import type { RigFile } from '../../../../src/renderer/src/art/rigFile.ts';
+import { TWIG_SIZE, twigOutline } from '../../../../src/renderer/src/art/twigShape.ts';
 
 const HERE = import.meta.dirname;
 const ROOT = resolve(HERE, '../../../..');
@@ -365,12 +366,14 @@ function crudeBug(rig: RigFile): Uint8Array {
     }
     if (p.name === 'stick')
       return (g) => {
-        // The twig item is 1.3 m by 0.11 m; Twig must match it.
-        const sw = 130 * rig.scale;
-        const sh = 11 * rig.scale;
+        // Every loose twig is drawn with this layer, so it keeps the twig item's outline
+        // (art/twigShape.ts): a bar 1.3 m by 0.11 m and the two leaning nubs.
+        const k = rig.scale;
+        const sw = TWIG_SIZE.w * k;
+        const sh = TWIG_SIZE.h * k;
         rect(g, x - sw / 2, y - sh / 2, sw, sh, '#8b6a45');
-        rect(g, x - sw * 0.18, y - sh * 1.3, sh * 0.5, sh, '#8b6a45');
-        rect(g, x + sw * 0.26, y - sh * 1.3, sh * 0.5, sh, '#8b6a45');
+        for (const nub of twigOutline().slice(1))
+          bar(g, x + nub.x0 * k, y + nub.y0 * k, x + nub.x1 * k, y + nub.y1 * k, nub.r * 2 * k, '#8b6a45');
         rect(g, x + sw / 2 - sh, y - sh * 0.3, sh * 0.6, sh * 0.6, '#ffd000');
       };
     const shape = OVERRIDES[`${rig.id}:${p.name}`] ?? SHAPES[p.name];

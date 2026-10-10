@@ -1,0 +1,12 @@
+{
+  "lights": [
+    { "part": "abdomen", "x": 227, "y": 657, "r": 56, "color": "#8dffb0" },
+    { "part": "wing_folded", "x": 544, "y": 517, "r": 45, "color": "#8dffb0" },
+    { "part": "wing_folded", "x": 336, "y": 519, "r": 45, "color": "#8dffb0" },
+    { "part": "wing_folded", "x": 386, "y": 624, "r": 54, "color": "#8dffb0" },
+    { "part": "wing_folded", "x": 440, "y": 632, "r": 54, "color": "#8dffb0" },
+    { "part": "wing_folded", "x": 494, "y": 626, "r": 54, "color": "#8dffb0" },
+    { "part": "hindleg_shin", "x": 439, "y": 1033, "r": 46, "color": "#8dffb0" },
+    { "part": "antenna", "x": 708, "y": 226, "r": 44, "color": "#8dffb0" }
+  ]
+}

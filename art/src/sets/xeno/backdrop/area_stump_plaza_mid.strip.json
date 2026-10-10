@@ -1,0 +1,26 @@
+{
+ "area": "area_stump_plaza",
+ "blend": {
+  "left": 128,
+  "right": 128
+ },
+ "canvas": {
+  "h": 2160,
+  "w": 4736
+ },
+ "cover": 940,
+ "ground": 900,
+ "hidden": [],
+ "id": "area_stump_plaza_mid",
+ "kind": "strip",
+ "layer": "mid",
+ "scale": 2,
+ "schema": 1,
+ "span": {
+  "x0": 3952,
+  "x1": 6064
+ },
+ "stripHash": "f4b14b8cece29ee1",
+ "title": "Mossy Stump Plaza, mid layer",
+ "x": 3824
+}

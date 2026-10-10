@@ -1,0 +1,205 @@
+{
+ "frames": {
+  "item_comb_tooth": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 60,
+    "w": 152,
+    "x": 174,
+    "y": 92
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 60,
+    "w": 152
+   },
+   "spriteSourceSize": {
+    "h": 60,
+    "w": 152,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_inst_acorn_castanets": {
+   "anchor": {
+    "x": 0.493,
+    "y": 0.51
+   },
+   "frame": {
+    "h": 98,
+    "w": 146,
+    "x": 118,
+    "y": 154
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 98,
+    "w": 146
+   },
+   "spriteSourceSize": {
+    "h": 98,
+    "w": 146,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_inst_bottle_flute": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.493
+   },
+   "frame": {
+    "h": 150,
+    "w": 72,
+    "x": 100,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 150,
+    "w": 72
+   },
+   "spriteSourceSize": {
+    "h": 150,
+    "w": 72,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_inst_can_bass": {
+   "anchor": {
+    "x": 0.474,
+    "y": 0.494
+   },
+   "frame": {
+    "h": 154,
+    "w": 114,
+    "x": 2,
+    "y": 160
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 154,
+    "w": 114
+   },
+   "spriteSourceSize": {
+    "h": 154,
+    "w": 114,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_inst_comb_kazoo": {
+   "anchor": {
+    "x": 0.479,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 52,
+    "w": 142,
+    "x": 118,
+    "y": 254
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 52,
+    "w": 142
+   },
+   "spriteSourceSize": {
+    "h": 52,
+    "w": 142,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_inst_rubber_band_harp": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 88,
+    "w": 156,
+    "x": 174,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 88,
+    "w": 156
+   },
+   "spriteSourceSize": {
+    "h": 88,
+    "w": 156,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_inst_seedpod_maraca": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 156,
+    "w": 96,
+    "x": 2,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 156,
+    "w": 96
+   },
+   "spriteSourceSize": {
+    "h": 156,
+    "w": 96,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_inst_thimble_drum": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.526
+   },
+   "frame": {
+    "h": 114,
+    "w": 136,
+    "x": 2,
+    "y": 316
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 114,
+    "w": 136
+   },
+   "spriteSourceSize": {
+    "h": 114,
+    "w": 136,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  }
+ },
+ "meta": {
+  "format": "RGBA8888",
+  "image": "items_music_1@2x.png",
+  "scale": 2,
+  "size": {
+   "h": 432,
+   "w": 332
+  }
+ }
+}

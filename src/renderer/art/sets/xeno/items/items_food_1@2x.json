@@ -1,0 +1,205 @@
+{
+ "frames": {
+  "item_berry_red": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.584
+   },
+   "frame": {
+    "h": 154,
+    "w": 124,
+    "x": 2,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 154,
+    "w": 124
+   },
+   "spriteSourceSize": {
+    "h": 154,
+    "w": 124,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_jelly_bean": {
+   "anchor": {
+    "x": 0.492,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 76,
+    "w": 118,
+    "x": 696,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 76,
+    "w": 118
+   },
+   "spriteSourceSize": {
+    "h": 76,
+    "w": 118,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_leaf": {
+   "anchor": {
+    "x": 0.552,
+    "y": 0.543
+   },
+   "frame": {
+    "h": 70,
+    "w": 192,
+    "x": 816,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 70,
+    "w": 192
+   },
+   "spriteSourceSize": {
+    "h": 70,
+    "w": 192,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_mint_leaf": {
+   "anchor": {
+    "x": 0.537,
+    "y": 0.554
+   },
+   "frame": {
+    "h": 112,
+    "w": 164,
+    "x": 266,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 112,
+    "w": 164
+   },
+   "spriteSourceSize": {
+    "h": 112,
+    "w": 164,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_moss_tuft": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 136,
+    "w": 136,
+    "x": 128,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 136,
+    "w": 136
+   },
+   "spriteSourceSize": {
+    "h": 136,
+    "w": 136,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_pepper_hot": {
+   "anchor": {
+    "x": 0.513,
+    "y": 0.511
+   },
+   "frame": {
+    "h": 94,
+    "w": 156,
+    "x": 538,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 94,
+    "w": 156
+   },
+   "spriteSourceSize": {
+    "h": 94,
+    "w": 156,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_rotten_banana_bit": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.493
+   },
+   "frame": {
+    "h": 142,
+    "w": 144,
+    "x": 2,
+    "y": 158
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 142,
+    "w": 144
+   },
+   "spriteSourceSize": {
+    "h": 142,
+    "w": 144,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_sugar_cube": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 104,
+    "w": 104,
+    "x": 432,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 104,
+    "w": 104
+   },
+   "spriteSourceSize": {
+    "h": 104,
+    "w": 104,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  }
+ },
+ "meta": {
+  "format": "RGBA8888",
+  "image": "items_food_1@2x.png",
+  "scale": 2,
+  "size": {
+   "h": 304,
+   "w": 1012
+  }
+ }
+}

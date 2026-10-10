@@ -1,0 +1,109 @@
+{
+ "canvas": {
+  "h": 768,
+  "w": 1024
+ },
+ "face": [
+  "eye_white",
+  "eye_pupil",
+  "eye_closed",
+  "eye_happy",
+  "eye_squint",
+  "eye_squeezed",
+  "eye_spiral",
+  "eye_heart",
+  "eye_sleepy_lid",
+  "brow_angry",
+  "brow_worried",
+  "brow_polite",
+  "cheek",
+  "mouth_smile",
+  "mouth_grin",
+  "mouth_o",
+  "mouth_whee",
+  "mouth_aah",
+  "mouth_chew_1",
+  "mouth_chew_2",
+  "mouth_wobble_1",
+  "mouth_wobble_2",
+  "mouth_flat",
+  "mouth_frown",
+  "mouth_lick",
+  "mouth_tongue",
+  "mouth_teeth",
+  "mouth_puff"
+ ],
+ "faceAnchors": {
+  "eye": {
+   "r": 18.584,
+   "x": 653.128,
+   "y": 346.096
+  },
+  "mouth": {
+   "s": 38.64,
+   "x": 668.584,
+   "y": 398.72
+  }
+ },
+ "ground": 568,
+ "id": "bug_tardigrade_wubbo",
+ "kind": "bug",
+ "origin": {
+  "x": 512,
+  "y": 384
+ },
+ "parts": [
+  {
+   "kind": "static",
+   "name": "body",
+   "note": "The chubby bean body, head end at the front. No face.",
+   "pivot": {
+    "x": 488.08,
+    "y": 363.76
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "snout",
+   "note": "The round tube mouth at the front.",
+   "pivot": {
+    "x": 696,
+    "y": 413.44
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_upper",
+   "length": 38.684,
+   "name": "leg_upper",
+   "note": "Hip to knee, drawn straight down from the hip dot. Round nub at the top.",
+   "pivot": {
+    "x": 521.2,
+    "y": 487.04
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_lower",
+   "length": 38.684,
+   "name": "leg_lower",
+   "note": "Knee to foot, straight down from the knee dot, with the foot.",
+   "pivot": {
+    "x": 521.2,
+    "y": 525.724
+   },
+   "required": true
+  }
+ ],
+ "rigHash": "34d70d2823baa708",
+ "safe": {
+  "x0": 32,
+  "x1": 992,
+  "y0": 32,
+  "y1": 736
+ },
+ "scale": 4,
+ "schema": 1,
+ "title": "Wubbo the tardigrade (bug_tardigrade_wubbo)"
+}

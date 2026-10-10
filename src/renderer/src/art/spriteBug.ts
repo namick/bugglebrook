@@ -1,7 +1,7 @@
 import type { Texture } from 'pixi.js';
 import { Container, Graphics, MeshRope, Point, Sprite } from 'pixi.js';
 import type { BugDef } from '../../../game/data/types';
-import type { BugFrame } from '../render/draw/bug';
+import type { BugFrame, LightSpot } from '../render/draw/bug';
 import { BugSprite, footRipple } from '../render/draw/bug';
 import { drawEye, drawMouth } from '../render/draw/face';
 import { drawPaintPatches, paintColors } from '../render/draw/paint';
@@ -15,7 +15,8 @@ import type { AtlasSet, LoadedArt } from './artStore';
 import type { FacePiece } from './faceKit';
 import { cheekPiece, eyePieces, isMouth, mouthPiece, politePiece } from './faceKit';
 import { KIT_EYE_R, KIT_MOUTH_W } from './kit';
-import type { ManifestPart } from './rigFile';
+import type { BugColors, BugLight, ManifestPart } from './rigFile';
+import { alongRope, lightInForm } from './setLights';
 
 /** Leg pieces stretch at most this much before the foot falls short instead. */
 const STRETCH = [0.8, 1.25] as const;
@@ -24,6 +25,9 @@ const FAR_TINT = darken(0xffffff, 0.25);
 const FAR_ALPHA = 0.75;
 /** Points along a bendy feeler. */
 const ROPE_POINTS = 9;
+/** Scratch points for placing night lights. */
+const AT = new Point();
+const IN = new Point();
 
 interface Tex {
   texture: Texture;
@@ -49,6 +53,8 @@ export interface SpriteShown {
   paint: number;
   /** Effects the game draws over the art (ripples, the cocoon's thread, a chop's swoosh). */
   extras: string[];
+  /** The color the game put on each tint layer it showed: tintable parts and the sleepy eyelid. */
+  tints: Record<string, number>;
 }
 
 /** A bendy feeler: the mesh, the points it follows, and the part it shows. */
@@ -88,10 +94,17 @@ export class SpriteBugView extends BugSprite {
     ball: null,
     paint: 0,
     extras: [],
+    tints: {},
   };
   /** The last skeleton drawn (tests). */
   lastSkeleton: Skeleton | null = null;
   private readonly parts: Record<string, ManifestPart>;
+  /** The set's own colors for this bug (art/setColors.ts); the game's own where it names none. */
+  private readonly colors: BugColors;
+  /** The set's night lights on this bug (art/setLights.ts), by the part each sits on. */
+  private readonly lights = new Map<string, BugLight[]>();
+  /** Sprites and feelers showing a far-side copy of a part: those carry no lights. */
+  private readonly far = new WeakSet<object>();
   private pageScale: 1 | 2 = 1;
   private readonly sRim = new Container();
   private readonly slots: Record<Slot, Container>;
@@ -113,6 +126,13 @@ export class SpriteBugView extends BugSprite {
   ) {
     super(def);
     this.parts = art.entry.parts;
+    this.colors = art.entry.colors ?? {};
+    if (this.colors.sheen && this.painter?.sheenEnds) this.painter.sheenEnds = this.colors.sheen;
+    for (const light of art.entry.lights ?? []) {
+      const on = this.lights.get(light.part);
+      if (on) on.push(light);
+      else this.lights.set(light.part, [light]);
+    }
     for (const g of [
       this.legsBack,
       this.wings,
@@ -164,6 +184,78 @@ export class SpriteBugView extends BugSprite {
     const holder = this.ball.parent!;
     holder.addChildAt(this.sBall, holder.getChildIndex(this.ball) + 1);
     this.pageScale = this.pickScale();
+  }
+
+  override get bodyColor(): number {
+    return this.colors.body ?? this.def.body;
+  }
+
+  /** The paint patches and the sprites that clip them. The test hook draws this layer alone. */
+  get paintLayer(): Container {
+    return this.sPaint;
+  }
+
+  /**
+   * The set's night lights as they sit this frame. Each rides the sprite of
+   * the part it was painted on, so it turns, stretches, and flips with it. A
+   * light is left out while its part is hidden, on far-side copies of a part,
+   * outside its forms, and under a worn thing.
+   */
+  override nightLights(space: Container, out: LightSpot[]): void {
+    if (this.lights.size === 0 || !this.visible) return;
+    const form = this.form ?? 'normal';
+    const from = out.length;
+    // Art pixels per game pixel, and how big the whole bug is drawn (potions).
+    const k = this.pageScale;
+    const size = Math.sqrt(Math.abs(this.scale.x * this.scale.y));
+    const put = (light: BugLight, node: Container, x: number, y: number): void => {
+      if (!lightInForm(light, form)) return;
+      const p = space.toLocal(AT.set(x, y), node, IN);
+      out.push({ x: p.x, y: p.y, r: light.r * size, color: light.color, alpha: 1 });
+    };
+    if (this.shown.ball) {
+      for (const light of this.lights.get(this.shown.ball) ?? [])
+        put(light, this.ballSprite, light.x * k, light.y * k);
+    } else {
+      for (const slot of SLOTS)
+        for (const n of this.nodes[slot]) {
+          if (this.far.has(n)) continue;
+          if (isRope(n)) {
+            const lights = n.mesh.visible ? this.lights.get(n.part) : undefined;
+            if (!lights) continue;
+            // A feeler bends: the light sits as far along it as it was painted above the base.
+            const length = this.parts[n.part]?.length || 1;
+            for (const light of lights) {
+              const at = alongRope(n.pts, -light.y / length, AT);
+              put(light, n.mesh, at.x, at.y);
+            }
+            continue;
+          }
+          const lights = n.visible ? this.lights.get(n.label) : undefined;
+          if (!lights) continue;
+          // Feeler pieces used as rigid sprites are stored lying along +x.
+          const lying = this.parts[n.label]?.kind === 'rope';
+          for (const light of lights)
+            if (lying) put(light, n, -light.y * k, light.x * k);
+            else put(light, n, light.x * k, light.y * k);
+        }
+    }
+    this.hideCovered(space, out, from);
+  }
+
+  /** Take out the lights a worn thing covers: a hat hides the glow under it. */
+  private hideCovered(space: Container, out: LightSpot[], from: number): void {
+    if (!this.wearFront.visible) return;
+    const worn = this.wearFront.children.filter((w) => w.visible);
+    if (worn.length === 0) return;
+    for (let i = out.length - 1; i >= from; i--)
+      for (const w of worn) {
+        const p = w.toLocal(out[i]!, space, IN);
+        const b = w.getLocalBounds();
+        if (p.x < b.minX || p.x > b.maxX || p.y < b.minY || p.y > b.maxY) continue;
+        out.splice(i, 1);
+        break;
+      }
   }
 
   /** The rig container (BugSprite's `rig`, named apart from the skeleton). */
@@ -267,7 +359,10 @@ export class SpriteBugView extends BugSprite {
   }
 
   private color(s: Sprite, item: SkeletonItem): void {
-    const tint = item.tint ?? (this.parts[s.label]?.tintable ? this.def.body : null);
+    const tint = item.tint ?? (this.parts[s.label]?.tintable ? this.bodyColor : null);
+    if (tint !== null && s.visible) this.shown.tints[s.label] = tint;
+    if (item.far) this.far.add(s);
+    else this.far.delete(s);
     s.tint = tint ?? (item.far ? FAR_TINT : 0xffffff);
     s.alpha = item.alpha ?? (item.far ? FAR_ALPHA : 1);
   }
@@ -317,6 +412,7 @@ export class SpriteBugView extends BugSprite {
       this.clear();
     }
     this.shown.scale = this.pageScale;
+    this.shown.tints = {};
 
     // Feelers follow the body's acceleration, as on the code-drawn bug.
     const dt = Math.max(1e-3, frame.dt);
@@ -380,6 +476,7 @@ export class SpriteBugView extends BugSprite {
       const at = pivotOf(this.bones, ball.part);
       this.place(s, at.x, at.y, k);
       s.tint = ball.tint ?? 0xffffff;
+      if (ball.tint !== undefined) this.shown.tints[ball.part] = ball.tint;
     }
     this.sBall.rotation = frame.angle;
     this.sBall.scale.set(frame.squashX, frame.squashY);
@@ -406,6 +503,8 @@ export class SpriteBugView extends BugSprite {
         });
         rope.mesh.tint = item.tint ?? (item.far ? FAR_TINT : 0xffffff);
         rope.mesh.alpha = item.alpha ?? (item.far ? FAR_ALPHA : 1);
+        if (item.far) this.far.add(rope);
+        else this.far.delete(rope);
         parts.add(item.part);
         continue;
       }
@@ -478,6 +577,7 @@ export class SpriteBugView extends BugSprite {
       this.place(s, p.x, p.y, (p.size / t.ref) * t.k, p.rotation, p.sx, p.sy);
       s.tint = p.tint ?? 0xffffff;
       s.alpha = p.alpha;
+      if (p.tint !== null) this.shown.tints[p.name] = p.tint;
       this.shown.face.push(p.name);
     };
     /** Show pieces from art if all of them are drawn; otherwise let the code draw this one. */
@@ -489,7 +589,9 @@ export class SpriteBugView extends BugSprite {
     };
     if (spot) {
       const look = spot.look ?? { x: frame.look.x * frame.facing, y: frame.look.y };
-      for (const e of spot.eyes) {
+      const lid = this.colors.lid;
+      for (const rigEye of spot.eyes) {
+        const e = lid === undefined ? rigEye : { ...rigEye, lid };
         const open = e.open ?? frame.pose.eyeOpen;
         if (tryArt(eyePieces(e, look, open, frame.time))) {
           const brow = spot.polite ? politePiece(e) : null;
@@ -518,7 +620,7 @@ export class SpriteBugView extends BugSprite {
     for (const e of extras) {
       if (e.kind === 'thread') drawThread(back, this.r);
       else if (e.kind === 'swoosh') drawSwoosh(top, this.r, e.alpha);
-      else footRipple(top, this.r, this.def.body, frame.pose);
+      else footRipple(top, this.r, this.bodyColor, frame.pose);
     }
   }
 
@@ -580,7 +682,10 @@ export class SpriteBugView extends BugSprite {
         drawPaintPatches(g, cs, b, Math.round(this.r) + this.def.id.length + idx);
       }
       g.visible = true;
-      g.mask = mask;
+      // Clip to the drawing's alpha. Left alone, Pixi reads a sprite mask's red channel, and paint
+      // comes out only as opaque as the art under it is red. `setMask` marks the render group for
+      // a rebuild on every call, so call it only when the mask changes.
+      if (g.mask !== mask) g.setMask({ mask, channel: 'alpha' });
     }
     for (let i = n; i < this.paintPool.length; i++) {
       const slot = this.paintPool[i]!;

@@ -1,0 +1,109 @@
+{
+ "frames": {
+  "item_disco_ball": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.549
+   },
+   "frame": {
+    "h": 71,
+    "w": 64,
+    "x": 622,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 71,
+    "w": 64
+   },
+   "spriteSourceSize": {
+    "h": 71,
+    "w": 64,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_magnet_crane": {
+   "anchor": {
+    "x": 0.496,
+    "y": 0.517
+   },
+   "frame": {
+    "h": 116,
+    "w": 248,
+    "x": 43,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 116,
+    "w": 248
+   },
+   "spriteSourceSize": {
+    "h": 116,
+    "w": 248,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_popsicle_seesaw": {
+   "anchor": {
+    "x": 0.498,
+    "y": 0.564
+   },
+   "frame": {
+    "h": 94,
+    "w": 327,
+    "x": 293,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 94,
+    "w": 327
+   },
+   "spriteSourceSize": {
+    "h": 94,
+    "w": 327,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_straw_rocket": {
+   "anchor": {
+    "x": 0.487,
+    "y": 0.516
+   },
+   "frame": {
+    "h": 122,
+    "w": 39,
+    "x": 2,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 122,
+    "w": 39
+   },
+   "spriteSourceSize": {
+    "h": 122,
+    "w": 39,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  }
+ },
+ "meta": {
+  "format": "RGBA8888",
+  "image": "items_toys_2@1x.png",
+  "scale": 1,
+  "size": {
+   "h": 128,
+   "w": 688
+  }
+ }
+}

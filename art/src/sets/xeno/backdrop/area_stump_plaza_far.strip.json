@@ -1,0 +1,26 @@
+{
+ "area": "area_stump_plaza",
+ "blend": {
+  "left": 128,
+  "right": 128
+ },
+ "canvas": {
+  "h": 2160,
+  "w": 2662
+ },
+ "cover": 940,
+ "ground": 900,
+ "hidden": [],
+ "id": "area_stump_plaza_far",
+ "kind": "strip",
+ "layer": "far",
+ "scale": 2,
+ "schema": 1,
+ "span": {
+  "x0": 2483,
+  "x1": 3558
+ },
+ "stripHash": "777ba65c7a7b6661",
+ "title": "Mossy Stump Plaza, far layer",
+ "x": 2355
+}

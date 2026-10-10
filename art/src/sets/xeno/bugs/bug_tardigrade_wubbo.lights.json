@@ -1,0 +1,7 @@
+{
+  "lights": [
+    { "part": "body", "x": 594, "y": 222, "r": 54, "color": "#8fdcff" },
+    { "part": "body", "x": 646, "y": 227, "r": 60, "color": "#8fdcff" },
+    { "part": "body", "x": 472, "y": 344, "r": 90, "color": "#8fdcff" }
+  ]
+}

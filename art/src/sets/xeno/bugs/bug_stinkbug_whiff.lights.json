@@ -1,0 +1,11 @@
+{
+  "lights": [
+    { "part": "shield", "x": 345, "y": 575, "r": 36, "color": "#c98bff" },
+    { "part": "shield", "x": 433, "y": 576, "r": 36, "color": "#c98bff" },
+    { "part": "shield", "x": 521, "y": 575, "r": 36, "color": "#c98bff" },
+    { "part": "shield", "x": 381, "y": 320, "r": 38, "color": "#c98bff" },
+    { "part": "shield", "x": 479, "y": 374, "r": 36, "color": "#c98bff" },
+    { "part": "shield", "x": 577, "y": 400, "r": 36, "color": "#c98bff" },
+    { "part": "antenna_tip", "x": 704, "y": 316, "r": 74, "color": "#c98bff" }
+  ]
+}

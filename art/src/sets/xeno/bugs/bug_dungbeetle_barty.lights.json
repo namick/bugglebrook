@@ -1,0 +1,14 @@
+{
+  "lights": [
+    { "part": "shine", "x": 322, "y": 578, "r": 60, "color": "#8dffb0" },
+    { "part": "shine", "x": 346, "y": 503, "r": 60, "color": "#8dffb0" },
+    { "part": "shine", "x": 399, "y": 443, "r": 60, "color": "#8dffb0" },
+    { "part": "shine", "x": 475, "y": 420, "r": 60, "color": "#8dffb0" },
+    { "part": "shine", "x": 550, "y": 447, "r": 57, "color": "#8dffb0" },
+    { "part": "leg_lower", "x": 574, "y": 730, "r": 36, "color": "#8dffb0" },
+    { "part": "antenna_tip", "x": 699, "y": 373, "r": 75, "color": "#8dffb0" },
+    { "part": "ball_tint", "x": 530, "y": 343, "r": 60, "color": "#8dffb0" },
+    { "part": "ball_tint", "x": 350, "y": 492, "r": 60, "color": "#8dffb0" },
+    { "part": "ball_tint", "x": 507, "y": 680, "r": 60, "color": "#8dffb0" }
+  ]
+}

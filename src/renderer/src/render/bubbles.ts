@@ -3,7 +3,7 @@ import type { EntityId } from '../../../game/core/entities';
 import type { BugDef, ItemDef } from '../../../game/data/types';
 import type { Glyph } from '../../../game/data/glyphs';
 import { drawGlyph } from './draw/glyphs';
-import { ItemSprite } from './draw/item';
+import { makeItemView } from '../art/itemViews';
 import { drawFriend, drawPicto } from './draw/pictogram';
 import { stroke } from './palette';
 import type { Picto } from './reactions';
@@ -91,7 +91,7 @@ class Bubble extends Container {
       const x = -w / 2 + PAD / 2 + SLOT / 2 + i * SLOT;
       const y = -h / 2;
       if (p === 'food' && food) {
-        const icon = new ItemSprite(food, 3);
+        const icon = makeItemView(food, 3);
         const s = food.shape;
         const size = s.type === 'circle' ? s.radius * 2 : Math.max(s.width, s.height);
         icon.scale.set(Math.min(1.4, 0.4 / size));

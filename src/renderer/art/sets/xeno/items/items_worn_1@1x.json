@@ -1,0 +1,205 @@
+{
+ "frames": {
+  "item_acc_backpack_matchbox": {
+   "anchor": {
+    "x": 0.493,
+    "y": 0.508
+   },
+   "frame": {
+    "h": 59,
+    "w": 67,
+    "x": 33,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 59,
+    "w": 67
+   },
+   "spriteSourceSize": {
+    "h": 59,
+    "w": 67,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_acc_cape_leaf": {
+   "anchor": {
+    "x": 0.494,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 28,
+    "w": 85,
+    "x": 102,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 28,
+    "w": 85
+   },
+   "spriteSourceSize": {
+    "h": 28,
+    "w": 85,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_acc_googly_glasses": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.484
+   },
+   "frame": {
+    "h": 31,
+    "w": 66,
+    "x": 2,
+    "y": 147
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 31,
+    "w": 66
+   },
+   "spriteSourceSize": {
+    "h": 31,
+    "w": 66,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_acc_headlamp": {
+   "anchor": {
+    "x": 0.493,
+    "y": 0.393
+   },
+   "frame": {
+    "h": 28,
+    "w": 67,
+    "x": 102,
+    "y": 32
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 28,
+    "w": 67
+   },
+   "spriteSourceSize": {
+    "h": 28,
+    "w": 67,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_acc_monocle": {
+   "anchor": {
+    "x": 0.489,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 64,
+    "w": 47,
+    "x": 2,
+    "y": 81
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 64,
+    "w": 47
+   },
+   "spriteSourceSize": {
+    "h": 64,
+    "w": 47,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_acc_roller_skates": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.467
+   },
+   "frame": {
+    "h": 30,
+    "w": 72,
+    "x": 51,
+    "y": 63
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 30,
+    "w": 72
+   },
+   "spriteSourceSize": {
+    "h": 30,
+    "w": 72,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_acc_snorkel": {
+   "anchor": {
+    "x": 0.414,
+    "y": 0.519
+   },
+   "frame": {
+    "h": 77,
+    "w": 29,
+    "x": 2,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 77,
+    "w": 29
+   },
+   "spriteSourceSize": {
+    "h": 77,
+    "w": 29,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_acc_sunglasses": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.483
+   },
+   "frame": {
+    "h": 29,
+    "w": 68,
+    "x": 51,
+    "y": 95
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 29,
+    "w": 68
+   },
+   "spriteSourceSize": {
+    "h": 29,
+    "w": 68,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  }
+ },
+ "meta": {
+  "format": "RGBA8888",
+  "image": "items_worn_1@1x.png",
+  "scale": 1,
+  "size": {
+   "h": 180,
+   "w": 192
+  }
+ }
+}

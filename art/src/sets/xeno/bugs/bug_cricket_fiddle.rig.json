@@ -1,0 +1,162 @@
+{
+ "canvas": {
+  "h": 1408,
+  "w": 1152
+ },
+ "face": [
+  "eye_white",
+  "eye_pupil",
+  "eye_closed",
+  "eye_happy",
+  "eye_squint",
+  "eye_squeezed",
+  "eye_spiral",
+  "eye_heart",
+  "eye_sleepy_lid",
+  "brow_angry",
+  "brow_worried",
+  "brow_polite",
+  "cheek",
+  "mouth_smile",
+  "mouth_grin",
+  "mouth_o",
+  "mouth_whee",
+  "mouth_aah",
+  "mouth_chew_1",
+  "mouth_chew_2",
+  "mouth_wobble_1",
+  "mouth_wobble_2",
+  "mouth_flat",
+  "mouth_frown",
+  "mouth_lick",
+  "mouth_tongue",
+  "mouth_teeth",
+  "mouth_puff"
+ ],
+ "faceAnchors": {
+  "eye": {
+   "r": 26.864,
+   "x": 700.6,
+   "y": 597.864
+  },
+  "mouth": {
+   "s": 41.216,
+   "x": 695.816,
+   "y": 640.736
+  }
+ },
+ "ground": 824,
+ "id": "bug_cricket_fiddle",
+ "kind": "bug",
+ "origin": {
+  "x": 512,
+  "y": 640
+ },
+ "parts": [
+  {
+   "kind": "limb_upper",
+   "length": 182.707,
+   "name": "hindleg_thigh",
+   "note": "The thick back thigh, hip at the dot, drawn straight down to the knee.",
+   "pivot": {
+    "x": 453.12,
+    "y": 713.6
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_lower",
+   "length": 272.469,
+   "name": "hindleg_shin",
+   "note": "Knee to foot, straight down from the knee dot, with the foot.",
+   "pivot": {
+    "x": 453.12,
+    "y": 896.307
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_upper",
+   "length": 34.145,
+   "name": "leg_upper",
+   "note": "Hip to knee, drawn straight down from the hip dot. Round nub at the top.",
+   "pivot": {
+    "x": 604,
+    "y": 717.28
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_lower",
+   "length": 92.11,
+   "name": "leg_lower",
+   "note": "Knee to foot, straight down from the knee dot, with the foot.",
+   "pivot": {
+    "x": 604,
+    "y": 751.425
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "abdomen",
+   "note": "The long, low body with the tail prongs.",
+   "pivot": {
+    "x": 429.2,
+    "y": 709.92
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "wing_folded",
+   "note": "Folded wings along his back, with veins.",
+   "pivot": {
+    "x": 420,
+    "y": 673.12
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "thorax",
+   "note": "The shoulder plate between body and head.",
+   "pivot": {
+    "x": 581.92,
+    "y": 676.8
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "head",
+   "note": "The head with the dark beret spot on top. No face.",
+   "pivot": {
+    "x": 672.08,
+    "y": 599.52
+   },
+   "required": true
+  },
+  {
+   "kind": "rope",
+   "length": 338.376,
+   "name": "antenna",
+   "note": "One feeler, drawn straight up from its base dot. The game bends it.",
+   "pivot": {
+    "x": 707.776,
+    "y": 537.88
+   },
+   "required": true
+  }
+ ],
+ "rigHash": "8858610f23bdcd34",
+ "safe": {
+  "x0": 32,
+  "x1": 1120,
+  "y0": 32,
+  "y1": 1376
+ },
+ "scale": 4,
+ "schema": 1,
+ "title": "Fiddle the cricket (bug_cricket_fiddle)"
+}

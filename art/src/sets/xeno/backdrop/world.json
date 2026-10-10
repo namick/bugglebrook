@@ -1,0 +1,14 @@
+{
+  "tone": [
+    { "from": "#5aa845", "to": "#cf6fa0", "spread": 70 },
+    { "from": "#a8744f", "to": "#6a58b0", "spread": 26 },
+    { "from": "#7fb3a8", "to": "#ffc078", "spread": 20 },
+    { "from": "#9fb4c8", "to": "#b9aae2", "spread": 18 }
+  ],
+  "shade": [
+    { "area": "area_under_porch", "from": "#4a3540", "to": "#3d2f7a" },
+    { "area": "area_under_porch", "from": "#2a2438", "to": "#241a52" },
+    { "area": "area_under_porch", "from": "#64695e", "to": "#745b85", "reach": 32 }
+  ],
+  "water": { "surface": "#8ff5e2", "deep": "#4a63d6", "dusk": "#ffc4d4", "night": "#8f8cf0" }
+}

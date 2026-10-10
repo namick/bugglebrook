@@ -1,0 +1,31 @@
+{
+ "area": "area_under_porch",
+ "blend": {
+  "left": 128,
+  "right": 128
+ },
+ "canvas": {
+  "h": 2160,
+  "w": 4032
+ },
+ "cover": 932,
+ "ground": 900,
+ "hidden": [
+  [
+   6648,
+   7252
+  ]
+ ],
+ "id": "area_under_porch_mid",
+ "kind": "strip",
+ "layer": "mid",
+ "scale": 2,
+ "schema": 1,
+ "span": {
+  "x0": 6064,
+  "x1": 7824
+ },
+ "stripHash": "ce30dcd0f26ad81d",
+ "title": "Under the Porch, mid layer",
+ "x": 5936
+}

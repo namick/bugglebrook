@@ -1,8 +1,8 @@
 # Bugglebrook art guide
 
-This is two documents in one. Part A is for the artist who will hand-draw the bugs, and later the backgrounds, in Krita. Part B is the spec engineers build the art pipeline milestone against.
+This is two documents in one. Part A is for the artist who hand-draws the bugs, the items, and the world behind them in Krita. Part B is the spec engineers build the art pipeline against.
 
-The game draws bugs in code by default. The owner approved hand-drawn replacements in `00-decisions.md`. Players can choose a named art set in Settings, and each incomplete set falls back to the original bugs for anything not yet drawn.
+The game draws everything in code by default. The owner approved hand-drawn replacements in `00-decisions.md`. Players choose a named art set in Settings. A set can supply bugs and their faces (A3 to A6), its own colors and night lights for those bugs (A3), items (A9), and a backdrop: a sky, painted hills and big plants, and new colors for the ground (A7). Every piece is optional. Whatever a set has not drawn stays as the game draws it, one bug, one item, and one stretch of background at a time.
 
 Krita facts below were checked on 2026-10-01 against the Krita site, the Krita manual, and Krita's own source code. Where a detail could not be confirmed, the guide says so and gives an instruction that works either way.
 
@@ -102,9 +102,9 @@ Bugglebrook looks like flat cut-paper toys: chunky dark outlines, round friendly
 
 ### Choosing and adding an art set
 
-Open the pause board or the main menu's gear. Use the arrows beside **Art** to choose **Original bugs**, **Krita reference**, **Storybook**, or another installed set. The selected artist credit appears below the set name. The choice applies at once, including bugs and twigs in the pocket, and stays selected after restarting. It is a machine setting, shared by all save slots. Changing it does not change the bugs or their saved game state.
+Open the pause board or the main menu's gear. Use the arrows beside **Art** to choose **Original bugs**, **Krita reference**, **Storybook**, **Alien planet**, or another installed set. The selected artist credit appears below the set name. The choice applies at once to everything the set has: the bugs, the items (the ones in the pocket too), and the sky and world behind them. It stays selected after restarting. It is a machine setting, shared by all save slots. Changing it does not change the bugs or their saved game state.
 
-The Krita reference set is agent-created reference artwork, separate from the daughter's drawings. Its sources stay in `art/src/bugs/` and `art/src/faces/`. Storybook is a second agent-created set in a shaded style, kept in `art/src/sets/storybook/` and described in `art/STORYBOOK-SET.md`.
+The Krita reference set is agent-created reference artwork, separate from the daughter's drawings. Its sources stay in `art/src/bugs/` and `art/src/faces/`. Storybook is a second agent-created set in a shaded style, kept in `art/src/sets/storybook/` and described in `art/STORYBOOK-SET.md`. Alien planet is a third, with the bugs as creatures from another planet and its own items and backdrop, kept in `art/src/sets/xeno/` and described in `art/XENO-SET.md`.
 
 To start a separate set, choose a lowercase ID with underscores, for example `garden_drawings`:
 
@@ -121,7 +121,34 @@ This creates empty templates under `art/src/sets/garden_drawings/bugs/` and `fac
 }
 ```
 
-Draw in those templates using the same layer names, canvas and pivots described below. Save each ORA next to its `.rig.json`. You can finish one bug at a time. The set uses its own face kit and per-bug faces; it never borrows another artist's drawings. Missing, empty or broken bug art uses the original code-drawn bug. Missing face pieces use the code-drawn face.
+A set's folder can hold all of this. Only `set.json` is required, and you can add the rest in any order:
+
+| In `art/src/sets/garden_drawings/` | What it is | Where to read |
+|---|---|---|
+| `set.json` | The set's name and its artist's credit | above |
+| `bugs/<bug_id>.ora`, `faces/face_kit.ora` | The bugs and their faces | the rest of A3, A4 to A6 |
+| `colors.json` | Your colors for the few things the game tints on a bug | just below |
+| `bugs/<bug_id>.lights.json` | Spots on a bug that glow after dark | just below |
+| `items/items_<group>_<n>.ora` | Painted items, a few to a sheet | A9 |
+| `backdrop/` | The sky, the far and mid strips, and the world's colors | A7 |
+
+If your bugs are different colors from the originals, add a `colors.json` beside `set.json`. The game tints the sleepy eyelid and Barty's shell itself, and draws a few things beside a bug in its main color. Without the file it uses the original bugs' colors for those. With it, you choose them:
+
+```json
+{
+  "bugs": {
+    "bug_ladybug_dot": { "lid": "#2a3a60", "body": "#3c8fe8" }
+  }
+}
+```
+
+The keys are `lid` (the sleepy eyelid), `body` (the bug's main color), `sheen` (two colors Barty's shell shimmers between), and `glow` (Flick's light at night). Leave out any you don't need. Section B19 has the details.
+
+The game shines Flick's light on the tip of his tail, where the original lantern is. If you paint his lantern somewhere else, say where with `lantern`, using the spot's place on his template: `"bug_firefly_flick": { "glow": "#d8ff4f", "lantern": { "x": 232, "y": 540 } }`.
+
+If parts of your bugs should glow in the dark, don't paint the glow brighter. The game darkens the whole bug at night. Instead, list the glowing spots in a file beside the bug's drawing, `bug_ladybug_dot.lights.json`, and the game lights them after dark. Section B20 shows how.
+
+Draw in those templates using the same layer names, canvas and pivots described below. Save each ORA next to its `.rig.json`. You can finish one bug at a time. The set uses its own face kit and per-bug faces; it never borrows another artist's drawings. Missing, empty or broken bug art uses the original code-drawn bug. Missing face pieces use the code-drawn face. Items and the backdrop fall back the same way, one item and one strip at a time.
 
 ```sh
 pnpm art:build
@@ -129,7 +156,7 @@ pnpm art:check
 pnpm art:watch --set garden_drawings bug_ladybug_dot
 ```
 
-Build and check process every set. Watch opens the Art Lab for the chosen set and updates it when you save in Krita. Commit the sources, `set.json`, and the generated `src/renderer/art/` files together. The built game offers all sets in its catalog; copying an ORA into an already installed game does not add a set until the game is rebuilt.
+Build and check process every set, and everything in it: bugs, colors, lights, items, and the backdrop. Watch opens the Art Lab for the chosen set and updates it when you save a bug in Krita. Commit the sources, `set.json`, and the generated `src/renderer/art/` files together. The built game offers all sets in its catalog; copying an ORA into an already installed game does not add a set until the game is rebuilt.
 
 `pnpm art:templates --set garden_drawings --refresh-guides` refreshes that set's guides while keeping its drawings. Without `--refresh-guides`, existing drawings are kept and fresh comparison templates go to `art/templates/sets/garden_drawings/`.
 
@@ -487,7 +514,7 @@ Her arms fold like praying hands, punch out for karate, and swing loose when hel
 Colors now: stick `#8B6A45`, lighter `#B08A5C`.
 
 - `leg_upper`, `leg_lower`: six very thin legs.
-- `stick`: his body. **He must look exactly like the plaza's twig item.** He hides by lying among real twigs. The game uses your `stick` drawing for the twig item too, so the disguise keeps working.
+- `stick`: his body. **He must look exactly like the plaza's twig item.** He hides by lying among real twigs. The game uses your `stick` drawing for the twig item too, so the disguise keeps working. Keep the twig's shape from the guide: the bar and its two nubs, to within 16 pixels. A twig's paint and what it touches follow that shape whatever you draw, so a curl or a knob past it hangs in the air. The importer warns when the drawing leaves the shape.
 - `antenna`: two thin feelers off the front end.
 
 Face: tiny, heavy-lidded eyes and a very small, flat mouth. If the kit's eyes look too big even when shrunk, draw `eye_white`, `eye_pupil`, and `eye_closed` in his `face` group.
@@ -578,6 +605,14 @@ bug_ladybug_dot.ora
 
 ✗ means the game can't use the bug yet and keeps showing the code-drawn version. ! is a warning: the game works, but have a look.
 
+The Art Lab shows bugs. Items and the backdrop have their own quick checks and screenshot tours (A9 and A7). To see the whole set together in the real game, ask for any screenshot tour with your set on:
+
+```sh
+BB_SHOTS_SET=garden_drawings BB_ART_SOURCE=1 pnpm shots -g "areas.spec"
+```
+
+That one walks every area by day, at dusk, at night, and in rain, with your bugs, items, sky, strips, and colors all showing, and saves the pictures to `/tmp/bb-shots`. `BB_ART_SOURCE=1` reads your files as they are right now, so you don't need `pnpm art:build` first.
+
 ## A6. Suggested order
 
 1. **Draw the face kit first, roughly.** Even quick faces help, because every bug uses them.
@@ -585,7 +620,8 @@ bug_ladybug_dot.ora
 3. **The starting cast:** Rollo, Glorp, Skeet, Boing. Players see these first.
 4. **Polish the face kit**, now that you've seen it on five bugs.
 5. **The found bugs:** Flick, Whiff, Moose, Barty, Munch, Prim, Twig, in any order.
-6. **Backgrounds, later** (section A7). Then maybe items.
+6. **Items, whenever you like** (section A9). One at a time is fine.
+7. **The backdrop, when the bugs feel right** (section A7). Start with `sky.json` and `world.json`. They are two small text files and change the whole world.
 
 Checklist for each bug:
 
@@ -602,52 +638,107 @@ Checklist for each bug:
 - [ ] Watched it in the Art Lab: walk, fly or hop, held, thrown, asleep, every form.
 - [ ] Seen next to the other bugs in the real world. Does it fit?
 
-## A7. Backgrounds (later)
+## A7. Backgrounds
 
-Backgrounds come after the bugs. This is a preview so you know what's coming.
+A set can change the world behind the bugs too. There are three pieces, and each one is optional. Whatever a set leaves out stays as the game draws it now, area by area and layer by layer.
+
+| Piece | File in your set's `backdrop/` folder | What it changes |
+|---|---|---|
+| The sky | `sky.json` | The sky's colors through the day, the color of the light on everything, the sun, the moon, the stars, and the rainbow |
+| Painted strips | `<area_id>_far.ora` and `<area_id>_mid.ora` | The hills far away and the big plants in the middle distance, behind one area |
+| The world's colors | `world.json` | A tone map that recolors the ground, the soil, the plants, the stump, and the rooms the game draws, shade rules for one area's greys, and the pond's water |
+
+The ground the bugs walk on, the fixtures, and the grass in front of the screen stay drawn by the game. The tone map is how a set recolors them.
 
 ### How the world is laid out
 
-The world is one long strip, six areas side by side, and the camera slides left and right. It never moves up or down: the screen always shows the full height.
+The world is one long strip, six areas side by side, and the camera slides left and right. It never moves up or down: the screen always shows the full height. Two more areas (the Ant Hill Depths and Gnome Hollow) are sealed rooms with no sky, so they take no strips.
 
-| Area | Width in the game | Near layer canvas (2x) |
-|---|---|---|
-| Flowerbed Stage | 32 m | 6400 x 2160 |
-| Puddle Pond | 32 m | 6400 x 2160 |
-| Mossy Stump Plaza | 38.4 m | 7680 x 2160 |
-| Under the Porch | 32 m | 6400 x 2160 |
-| Compost Lab | 28.8 m | 5760 x 2160 |
-| Treehouse Arcade | 32 m | 6400 x 2160 |
+One screen is 1920 x 1080 game pixels. Strips are painted at **2 times** game size, so a screen is 3840 x 2160 on your canvas.
 
-Backgrounds are drawn at **2 times** game size, not 4. They don't get as big as bugs can, and they're huge already.
+### The two layers you can paint
 
-### Parallax layers
+**Parallax** is the trick where far things slide by slower than near things, which makes the world feel deep. Back to front, the game stacks: the sky, the sun and moon, the stars, the clouds, the **far** layer, the **mid** layer, then the world the bugs live in, then dark grass in front.
 
-**Parallax** is the trick where far things slide by slower than near things, which makes the world feel deep. Each area has these layers, back to front:
-
-| Layer | Speed | What goes there | Canvas width |
+| Layer | Speed | What the game draws there now | What to know |
 |---|---|---|---|
-| Sky | | Stays code: its colors change with time of day and weather. Sun, moon, stars, rainbow too. | none |
-| Clouds | 0.12 | Optional: a few loose cloud drawings the game drifts around | small, separate |
-| `far` | 0.28 | Hills, far fence, the house far away | about 28% of the area's width |
-| `mid` | 0.55 | Big grass, dandelions, far plants | about 55% of the area's width |
-| `near` | 1.0 | The ground, soil, roots, props behind the bugs. Bugs walk here. | the full width (table above) |
-| `front` | 1.22 | Dark grass blades and leaves in front of the bugs | about 122% of the area's width |
+| `far` | 0.28 | Two rows of pale hills | It never leans. Hard things (rocks, towers, a planet on the horizon) belong here. |
+| `mid` | 0.55 | Tall grass, clover, dandelions, a huge watering can, the fence behind the flowerbed | The wind leans this whole layer, so paint things that bend. |
 
-Each area's file has all its layers. The templates show where the next area's art starts at each end, so the edges join up.
+Each area has its own canvas for each layer:
 
-Huge canvases are slow. If Krita struggles, the template can be split into segments (left, middle, right). The game cuts everything into 1024 px pieces anyway.
+| Area | ID | `far` canvas | `mid` canvas |
+|---|---|---|---|
+| Flowerbed Stage | `area_flowerbed_stage` | 3430 x 2160 | 4640 x 2160 |
+| Puddle Pond | `area_puddle_pond` | 2304 x 2160 | 4032 x 2160 |
+| Mossy Stump Plaza | `area_stump_plaza` | 2662 x 2160 | 4736 x 2160 |
+| Under the Porch | `area_under_porch` | 2304 x 2160 | 4032 x 2160 |
+| Compost Lab | `area_compost_lab` | 2126 x 2160 | 3680 x 2160 |
+| Treehouse Arcade | `area_treehouse_arcade` | 3430 x 2160 | 4640 x 2160 |
 
-### What must stay clear
+The porch and the treehouse are rooms that hide the sky. Their strips show only on the way in, so paint them last.
 
-- **The ground line.** The bugs walk on an invisible line that bumps over roots and dips into puddles. The template shows it. Your ground's top edge must follow it, or bugs will float or sink.
-- **Fixtures.** The stage, the gnome, the cauldron, the sundial, the vane, and the other things you can click are drawn by the game for now. The template marks them with boxes. Keep those boxes plain.
-- **The pond water** is the game's (it ripples and splashes). Draw the basin around it, not the water.
-- **Behind the bugs, keep it calm.** Busy patterns behind the play area make bugs hard to see. Lower contrast, thinner and lighter outlines than the bugs, and less saturated colors than the bugs. Save the bright stuff for things you can touch.
+### Getting templates
+
+```sh
+pnpm art:backdrop-templates --set garden_drawings
+```
+
+This writes a template for every strip into `art/src/sets/garden_drawings/backdrop/`, with a `.strip.json` next to each one (don't edit or rename those), plus a starter `sky.json` and `world.json` that change nothing until you edit them. Name one strip (`area_puddle_pond_far`) or one area (`area_puddle_pond`) to make only those. Like the bug templates, it never overwrites a file you have painted in: add `--refresh-guides` to update only the guides.
+
+In Krita a template looks like this, top to bottom:
+
+```
+guides            (locked)   notes, pink lines, and grey hatching
+glow              empty      paint here what should light up at night
+paint             empty      paint here, or add layers of your own
+guides_under      (locked)   the game's own drawing of this layer, and the noon sky
+```
+
+### Painting a strip
+
+- **Every layer not named `guide...` or `glow` is the picture.** Add as many as you like, with any names.
+- **Hidden layers still count**, as they do for bugs. Name a sketch `guide_sketch` to keep it out.
+- Only the blend modes Normal, Multiply, and Inherit Alpha work.
+- **See-through means sky.** Don't paint a sky. Leave open whatever should show the game's sky, sun, moon, and clouds. Keep the top half mostly open, or they vanish behind your paint.
+- **Pink lines are seams**, where your area's strip meets the next one. The pink hatching round a seam is a **blend zone**: the game fades your strip out there, over its neighbour. Paint right through it to the edge of the canvas. Two strips don't have to match exactly at a seam, only roughly: the same horizon height and the same light.
+- **Grey hatching is never on screen.** The ground or a room always covers it. Leave it empty.
+- **Keep it calmer than the bugs.** Softer edges, less contrast, and less saturated colors than anything the player can touch.
 
 ### Day and night
 
-Draw everything in **daylight**. The game tints the whole scene for dawn, dusk, night, and rain. Don't paint shadows of the sun or glows into the background. Anything that should glow at night (a lamp, a window) goes on its own layer named `glow`, and the game lights it up after dark.
+Paint **noon daylight**. The game tints each layer for dawn, dusk, night, and rain by multiplying your colors with the color of the light. Don't paint the sun's shadows or glows into the picture.
+
+Multiplying can only darken. At night the far layer keeps about a third of its brightness, so very dark paint goes black. Keep things that must show at night at 40 percent lightness or more.
+
+Anything that should glow at night (a lamp, a window, a glowing plant) goes on the layer named `glow`. Paint the light itself on a see-through layer. The game adds it on top after dark. You can set that layer to Addition in Krita to preview it; the game ignores its blend mode.
+
+### The sky and the world's colors
+
+`sky.json` and `world.json` are small text files of colors written like `"#8fd3f0"`. The starter files list everything; change what you want and delete the rest.
+
+- In `sky.json` each moment of the day (`night`, `late_night`, `dawn`, `morning`, `day`, `afternoon`, `dusk`, `sunset`, `twilight`) has a sky color for the top and the bottom, a glow along the horizon, and the color of the light on each layer. `near` is the light on the bugs and everything they touch.
+- The game checks that night still reads as night and day as day. It refuses a sky whose day light is too dark or whose night is too bright, and tells you which number to change.
+- In `world.json`, `tone` is a list of rules like `{ "from": "#5aa845", "to": "#8a5fe0" }`. That one turns every grass green in the code-drawn world violet, keeping the light and dark shades. `water` sets the pond's colors.
+- A tone rule works by hue, so it cannot move a grey. The soil under the porch and the porch's shadows are plum greys, and under a violet world they still look like Earth dirt. `shade` is for those: `{ "area": "area_under_porch", "from": "#4a3540", "to": "#3d2f7a" }` turns the porch's soil, and the colors close to it, into shades of the new color. A shade rule works in the one area it names and nowhere else.
+
+B14 has every key and every rule.
+
+### Checking and looking
+
+```sh
+pnpm art:check-backdrop art/src/sets/garden_drawings/backdrop/ --out /tmp/look
+```
+
+This checks every file in the folder in a few seconds and tells you what to fix. With `--out` it also saves a picture of each strip over the noon sky and the night sky, tinted the way the game tints it. Give it one file to check only that one.
+
+To see the whole world with your backdrop on:
+
+```sh
+BB_BACKDROP_SRC=art/src/sets/garden_drawings pnpm shots -g "backdrop tour"
+```
+
+That saves screenshots of every area by day, at dusk, at night, and in rain, and of every seam, to `/tmp/bb-shots`. It shows the backdrop with the game's own bugs and items. A5 has the command that shows your whole set together. When you are happy, `pnpm art:build` puts the backdrop in the game with the rest of your set.
 
 ## A8. Your art is yours
 
@@ -658,11 +749,75 @@ Draw everything in **daylight**. The game tints the whole scene for dawn, dusk, 
 - **Credits.** The game gets a credits board with your name, written the way you want it (real name, artist name, or both). You decide.
 - Keep your files. The `.ora` and `.kra` files are your originals. Back them up somewhere besides the game's folder.
 
+## A9. Items
+
+You can paint the things in the world too: the pebble, the berries, the hats, the toys. An item is much less work than a bug. It is one flat picture on one layer, and the game does the rest. Paint one or paint a hundred. Whatever you leave blank stays the way the code draws it.
+
+### Getting the sheets
+
+Items come on **sheets**, a few items to a file, grouped by kind: `things`, `food`, `toys`, `music`, `hats`, and `worn` (glasses, capes, skates). Ask for them once:
+
+```sh
+pnpm art:item-templates --set garden_drawings
+```
+
+That puts 23 sheets in `art/src/sets/garden_drawings/items/`, like `items_food_1.ora`. Each has a `.rig.json` next to it. Leave that file alone, the same as for a bug.
+
+### What a sheet looks like
+
+Open one. Every item has:
+
+- a **dashed blue box**. All your paint for that item stays inside it.
+- the item as the code draws it, faint. This is your guide.
+- a **green outline**, the solid shape the game bumps into, and a **pink dot** at its middle.
+- its own layer in the `items` group, named exactly like the item (`item_berry_red`). Paint there.
+
+The sheet is 4 times game size, like the bug templates. Most items are only 40 to 70 pixels across in the game, so paint bold. An outline about 16 to 20 px wide on the sheet matches the bugs.
+
+### The one rule: keep the shape
+
+Change anything inside the outline. Change the colors, the material, what the thing is. A berry can be a glowing seed pod. But keep it the same shape and size as the faint guide, and the same way up.
+
+The game puts things on top of your painting and it places them from the guide's shape, not from your pixels:
+
+- **Paint.** A dipped item gets a wash of color in the guide's shape, with a dark line around it. If your item is fatter or thinner than the guide, you see two outlines.
+- **Bites.** Munch nibbles notches out of the guide's top and bottom edge. If your edge is somewhere else, the bite misses.
+- **The ground.** The green shape is what rests on the ground and stacks. If your painting stops short of it, the item floats.
+- **Hats.** A hat sits on a bug's head by its green box. Keep the brim on the box's bottom edge and fill its width.
+
+A good guide is 4 game pixels, which is 16 on the sheet. Stay that close to the guide's edge and everything lines up. Thin extras past the edge are fine: a curl, a feeler, a sparkle.
+
+A few more things:
+
+- Paint in daylight. No shadows on the ground, no glow. The game adds night, wet, and frost.
+- Every pebble in the game gets your one pebble. The code-drawn ones differ a little from each other. Yours do not, and that is fine.
+- The three marbles, the two balloons, and the six paint drops each have a layer of their own, so you can keep them different colors. Keep each paint drop the color of its paint.
+- Hats are flipped when a bug faces left. No letters.
+- In the journal, a thing you have not found yet shows as a dark shape of your painting. Make sure the shape alone says what it is.
+
+### Things you cannot paint
+
+Six things stay code-drawn because part of them moves or changes: potion bottles (the liquid changes color), the spring, the pinwheel, the paper boat, the big lattice, and the twig. The twig comes from the `stick` layer in Twig's own file, so paint it there.
+
+### Checking your work
+
+```sh
+pnpm art:check-one art/src/sets/garden_drawings/items/items_food_1.ora --preview /tmp/my-preview
+```
+
+It answers in a second or two. It lists each item as `painted` or `blank`, tells you about anything wrong in plain words, and with `--preview` it saves a picture of your items at game size on grass. Look at that picture. Small things read differently small.
+
+`x` means the game cannot use that item yet and keeps the code drawing. `!` is a warning, and the two you will meet are "strays from the guide's shape" and "leaves part of the guide's shape empty". Both mean the outline moved.
+
+To see a whole sheet in the game beside the code-drawn items, with paint and bites on them, ask for the item tour (`pnpm shots -g "item art"`, section B21).
+
+When a sheet is done: `pnpm art:build`, then pick your set in Settings.
+
 ---
 
 # Part B: Art pipeline spec (for engineers)
 
-This is the milestone that makes hand-drawn bugs work. Backgrounds and items are follow-up milestones. The code-drawn art stays as the fallback, so the game never breaks for lack of art.
+B1 to B18 are the milestone that made hand-drawn bugs work. Four follow-ups are built on top of it: a set's own colors (B19), its night lights (B20), item art (B21), and the backdrop (B14). The code-drawn art stays as the fallback for every piece, so the game never breaks for lack of art.
 
 ## B1. Decisions this milestone needs
 
@@ -695,7 +850,13 @@ art/
     bugs/<bug_id>.rig.json     generated by art:template, committed, not hand-edited
     faces/face_kit.ora
     faces/face_kit.rig.json
-    backgrounds/               later milestone; not committed (see B13)
+    sets/<set_id>/             another artist's set, laid out like art/src itself:
+      set.json                   its name and credit
+      bugs/, faces/              its bugs and face kit
+      colors.json                its own colors for what the game tints (B19)
+      bugs/<bug_id>.lights.json  a bug's night lights (B20)
+      items/                     item sheets, items_<group>_<n>.ora with a .rig.json each (B21)
+      backdrop/                  sky.json, world.json, and far and mid strips (B14)
   templates/                   fresh templates from art:template, git-ignored
 scripts/art/
   template.mjs                 the template generator
@@ -708,6 +869,10 @@ src/renderer/art/
   manifest.json
   bugs/<bug_id>@1x.png, <bug_id>@1x.json, <bug_id>@2x.png, <bug_id>@2x.json
   faces/face_kit@1x.png, ... (and per-bug face overrides go in the bug's own atlas)
+  sets.json                    every set's ID, name, credit, and folder
+  sets/<set_id>/               one set's build: the same manifest.json, bugs/, and faces/, plus
+    items/manifest.json, items/<sheet>@1x.png, ...   its item pages (B21)
+    backdrop.json, backdrop/<strip>.png, <strip>.glow.png   its backdrop (B14)
 src/renderer/src/art/
   artStore.ts                  loads the manifest and textures, answers hasArt(id)
   spriteBug.ts                 SpriteBugView, the cutout rig renderer
@@ -716,7 +881,7 @@ src/renderer/src/render/rig/
   bugRig.ts                    pure: part anchors and joint positions per species
 ```
 
-`package.json` scripts: `art:templates`, `art:build`, `art:check`, `art:watch`.
+`package.json` scripts: `art:templates`, `art:build`, `art:check`, `art:watch`, and since the follow-ups `art:check-one`, `art:item-templates`, `art:backdrop-templates`, and `art:check-backdrop`.
 
 New dev dependencies: `fflate` (zip read and write, pure JS) and `fast-xml-parser` (stack.xml). Image work uses `@napi-rs/canvas`, which is already a dev dependency: PNG decode and encode, compositing, and resampling. A maxrects packer is about 150 lines. Write it instead of adding a dependency, so packing is deterministic and tested.
 
@@ -808,17 +973,17 @@ Per frame:
 - **Paint.** Patches drawn as now into `paintG`, masked by a sprite of `body` (or `shield`, `abdomen`, segments for Munch). `paintBox` comes from the rig.
 - **Tintable parts.** `_tint` sprites get `tint` every frame from the existing color function (Barty's `sheenColors`). `shine` sits above them untinted.
 - **Hover rim.** A rim container behind the rig mirrors every visible part's transform with its `@rim` texture, at the current rim alpha.
-- **Effects stay as they are.** Dizzy stars and steam (`drawStars` with `crown`), Flick's night glow (the `WeatherView` light at the lantern anchor), Whiff's cloud, Glorp's slime, foot ripples, water dimples.
+- **Effects stay as they are.** Dizzy stars and steam (`drawStars` with `crown`), Flick's night glow (the `WeatherView` light on his tail, or where the set's `colors.json` puts his lantern), Whiff's cloud, Glorp's slime, foot ripples, water dimples.
 
 Budget: about 20 to 45 sprites per bug, 16 bugs, one or two texture pages each. That's well under what Pixi batches cheaply. Add a perf check to `tests/unit/perf.test.ts` style or an E2E frame-time check with all bugs drawn.
 
 ### Twig and the twig item
 
-`draw/item.ts` draws `item_twig` with the same shape Twig copies. When Twig has art, the item renders from his `stick` sprite too (scaled to the item's 1.3 m by 0.11 m), so his disguise holds. Test it: with art on, the item twig and disguised Twig use the same texture.
+`draw/item.ts` draws `item_twig` with the same shape Twig copies. When Twig has art, the item renders from his `stick` sprite too (scaled to the item's 1.3 m by 0.11 m), so his disguise holds. Test it: with art on, the item twig and disguised Twig use the same texture. The importer holds his `stick` to the twig's outline (B10), because the item's paint and body do not follow the drawing.
 
 ## B8. Tint layers
 
-Tinting multiplies, so the rules for the artist (A4) are: light greys for color, darker grey for shade, white for highlights, dark outline. The importer checks that a `_tint` layer has low saturation: mean saturation of opaque pixels under 0.12, as a warning. Required now: Barty's `shell_tint`, `thorax_tint`, `head_tint`, `ball_tint`, and the kit's `eye_sleepy_lid`. Later uses: paint-colored potion wings (a shared extras file), and color variants if the game ever wants them.
+Tinting multiplies, so the rules for the artist (A4) are: light greys for color, darker grey for shade, white for highlights, dark outline. The importer checks that a `_tint` layer has low saturation: mean saturation of opaque pixels under 0.12, as a warning. Required now: Barty's `shell_tint`, `thorax_tint`, `head_tint`, `ball_tint`, and the kit's `eye_sleepy_lid`. Later uses: paint-colored potion wings (a shared extras file), and color variants if the game ever wants them. A set chooses the colors these layers take in its `colors.json` (B19).
 
 ## B9. Hot reload
 
@@ -861,8 +1026,11 @@ Every message names the file and the layer, says what's wrong in plain words, an
 | A leg or arm doesn't go straight down from its pivot, or a feeler straight up (drawn sideways or backward) | warning |
 | A leg, arm, or feeler is under 0.6 or over 1.6 times its guide length | warning |
 | A `_tint` layer is too colorful | warning |
+| Twig's `stick` goes more than 16 px outside the twig item's outline, or leaves any of that outline more than 16 px from paint | warning, with the distance |
 | `rig.json` hash differs from the current rig | error: "This template is out of date. Run `pnpm art:templates --refresh-guides`." |
 | File over 8 MB | warning |
+
+The `stick` check exists because the layer is also every loose twig (B7), and a twig's paint, bite marks, and physics body follow the code-drawn twig. It works as the item sheets' outline check does (B21). The painting and the twig's outline both become shapes at game size, with the outline's middle on the part's pivot or on the `pivot_stick` dot. Then no pixel of either may lie more than 16 template pixels from the other, counting a diagonal step as one. It is stricter than the item check, which lets 3% of a painting stray, because a thin curl 53 pixels long is under 3% of a twig. The outline is written out in `art/twigShape.ts`, since the importer has no Pixi to draw the item with, and `tests/unit/twigShape.test.ts` reads the item's real drawing and fails if the two differ. `pnpm art:check-one` on Twig's file prints how far the stick is off each way.
 
 ## B11. Tests
 
@@ -895,7 +1063,7 @@ Decision:
 
 - **Commit bug and face sources** (`art/src/bugs/`, `art/src/faces/`). They're the record of what shipped, and the importer and CI need them. Commit when a bug is finished or reaches a checkpoint, not on every save. Every save rewrites the whole zip, and git keeps every version.
 - **Commit generated atlases and the manifest.** Builds then don't depend on the importer, and `art:check` proves they match the sources.
-- **Don't commit background sources.** Keep them in a backed-up folder outside the repo and point `BB_ART_SRC` at it. Commit only their generated tiles. Revisit Git LFS when backgrounds start. CI runners would need LFS checkout, which costs bandwidth quota, so avoid it until the size forces it.
+- **Commit backdrop strips** (2026-10-10). The plan was to keep background sources out of the repo, because whole painted areas would have been 10 to 40 MB a file. What got built is the far and mid strips only (B14), which are a few megabytes each, and `art:check` needs the sources to prove the built strips match. Commit them like bugs, at checkpoints.
 - Never commit `.kra` files or `art/templates/`. Add both to `.gitignore`.
 
 ## B13. Licensing in the repo
@@ -905,15 +1073,87 @@ Decision:
 - `package.json` stays `UNLICENSED`. If the code is ever released under an open-source license, state in writing that `art/` and `src/renderer/art/` are excluded, as the music brief already does for the music.
 - **Credits board.** Add a small credits board to the menu (the same plank board style as settings, with `markUi`), reachable from the main menu, listing art, music, and code. The artist's credit name comes from `art/CREDITS.json` so she controls the text. Give it an E2E test that opens it with the real mouse.
 
-## B14. Backgrounds (follow-up milestone, sketch)
+## B14. Backdrops: the sky, the far and mid strips, and the world's tone
 
-Background art uses the same `.ora` route: one file per area, layers `far`, `mid`, `near`, `front`, and optional `glow`, at 2x.
+Built on 2026-10-10. A set's backdrop lives in `art/src/sets/<id>/backdrop/` (`art/src/backdrop/` for the reference set) and has three optional parts: `sky.json`, `world.json`, and one `.ora` per area and layer for the far and mid parallax layers. Anything missing, empty, or broken falls back to the code-drawn look for that area and layer.
 
-- Canvas widths: `near` is the area width at 200 px per meter. Layer `f` is `f` times that, for `f` in 0.28, 0.55, 1.22. The last area's `far` and `mid` extend by `(1 - f) * 1920` px at 1x so the layer covers the screen at the far end of the world. `front` overhangs too. The generator computes all of it from `PARALLAX` in `background.ts` and the area table.
-- Guides: the terrain polyline (from the area's `terrain`), fixture boxes (from `fixtures`, keep-clear), the pond's water region, the porch's and treehouse's opaque backdrop zones, and 256 px strips of the neighbors' art at each end.
-- Import cuts each layer into 1024 px wide tiles, which `LazyLayer` already bakes and frees on the fly. The art tiles replace the baked procedural tiles one for one.
-- `glow` goes into `WeatherView`'s additive light layer at night, outside the graded container, like other lights.
-- Sky, sun, moon, stars, rain, water, and every live fixture stay code until a later milestone gives them parts.
+Painting whole areas was the first plan here. It did not survive the numbers: the near layer alone is about 107 megapixels at 2x, follows the terrain, and has every fixture standing on it. So the near and front layers stay code-drawn, and a set restyles them with a tone map.
+
+### Strips
+
+- Layers: `far` (the hills, parallax 0.28) and `mid` (the big grass, 0.55). `render/stripLayout.ts` (pure) works out the geometry from the area table. Each area under the sky owns the stretch of a layer that passes the middle of the screen while the camera is in that area: from `(xStart * 100 - 960) * f + 960` to the same for `xEnd`. The first area's stretch starts at the layer's left edge and the last one's ends at what the screen shows with the camera at the far end of the surface. The two hidden areas have no sky and no strips.
+- A canvas is its area's stretch plus a 128 px blend zone past each seam (none at the ends of the world), 1080 px tall, at 2 template px per game px. `--scale 1` makes 1x canvases.
+- `<id>.strip.json` (type `StripFile` in `art/backdropData.ts`) holds the canvas, where it sits in the layer, the stretch, the blend zones, `cover` (the y below which nothing is ever on screen), `hidden` (stretches always behind a room), and `stripHash`. The hash covers the geometry only. A hidden `guide_strip_<hash>` layer stamps the template, as `guide_rig_<hash>` does for bugs, and a unit test checks the test fixture's hashes against the area table.
+- Every top-level layer or group not named `guide...` or `glow` is flattened into the painting, with opacity and the three blend modes bugs allow. Hidden layers count and get a warning. A layer or group named `glow` is built on its own; its own blend mode, opacity, and visibility are ignored.
+- The importer (`scripts/art/backdrop.ts`, `buildStrip`) halves a 2x canvas, empties the rows from `cover` down and the `hidden` columns, fades the alpha across each blend zone with a smoothstep, trims to the alpha bounds plus 2 px, bleeds color into the edge, and writes `backdrop/<id>.png` (and `<id>.glow.png`). Placement goes in `backdrop.json`.
+- Strips ship at 1x. The far and mid layers bake at resolution 1 on every screen today, so a painted strip is as sharp as the code-drawn layer it replaces: exact on a 1080p screen, soft on a HiDPI one. A set's twelve strips come to about 8128 px of far and 12880 px of mid at 1x. With flat cartoon art in every strip the build is 1.4 MB of PNG and 36 MB decoded; the worst case (every strip painted solid from the top of the screen to the ground) is about 80 MB decoded. A built strip over 3 MB and a source over 8 MB get warnings.
+
+### What is never on screen
+
+The template generator works it out by looking, so it stays right when an area's art changes. `art/backdropTemplate.ts` renders the code-drawn near layer at a quarter size and marks where it is opaque (plus each pond's water below its surface, which is drawn live). A spot of a layer at x `L` sits behind the world from `L + (L - 1920) / f * (1 - f)` to `L + L / f * (1 - f)` as the camera pans (`frontRange`). The spot is never seen when that whole stretch is opaque at its height (`neverSeen`, with slack for the wind's lean). The template shades those pixels, and `seenSummary` turns them into `cover` and `hidden` with safety margins.
+
+For the far layer one spot passes behind 4937 px of world, more than any room is wide, so only the ground hides it. For the mid layer it is 1571 px, and the porch (3200 px) always covers the middle of its own mid strip.
+
+### Seams
+
+A strip that is drawn replaces the code-drawn art across its whole stretch, transparent parts and all. Strips are drawn left to right, each over the last, and each fades out across its blend zones. Where two painted strips meet, the right one fades in over the left one's solid end, so nothing of the code-drawn layer shows through and silhouettes that differ cross-fade over 256 px. Where a painted strip meets a code-drawn stretch, the code-drawn art starts hard at the seam and the strip fades out over it.
+
+### The sky
+
+`sky.json` is read over `DEFAULT_SKY` by `parseSky` (`art/backdropData.ts`): nine named moments with fixed hours (`SKY_HOURS`; the sim owns the clock), each with the sky's top, bottom, and horizon colors, the multiply tint for each layer, the clouds' tint, the stars, and the warmth; then the colors of the sun, moon, stars, shooting stars, rainbow, and the light in the two hidden rooms. `skyLook(hour, weather, palette)` eases between the palette's moments as it always did between its own keys.
+
+`skyRules` keeps the game readable whatever the colors (brightness is 0.30 R + 0.55 G + 0.15 B):
+
+- `day.near` is at least 225. It tints every bug and item, and the night lights come on by how dark `near` is (`glow = (235 - brightness) / 110`), so a darker day would light the fireflies at noon.
+- `night.near` and `late_night.near` are between 105 and 170: dark enough for the night lights, bright enough to see the bugs.
+- The night sky is at most 60 percent as bright as the day sky.
+
+A sky that breaks a rule is an error and the set falls back to the game's own sky. Rain and cloud are not in the file: `applyWeather` greys, cools, and dims whatever the palette gives, so rain reads as rain in any sky.
+
+### The world's tone
+
+`world.json` has `tone`, a list of up to 12 rules `{from, to, spread}`, `shade`, a list of up to 12 rules `{area, from, to, reach}`, and `water`.
+
+- `toneColor` (pure) maps one color. A rule pulls colors near `from`'s hue: full strength within half of `spread` degrees (default 40), easing off to nothing at `spread`. The hue turns by the angle from `from` to `to`, saturation scales by their ratio, and lightness bends by a power that sends `from`'s lightness to `to`'s. So `from` lands on `to` exactly and the rest of its hue family follows with its shading intact. Colors with less than 0.1 chroma (greys, the outline) fade out of the map. The parser warns when overlapping rules stop a `from` from landing on its `to`.
+- The tone map is applied to shapes, not pixels. `toneGraphics` (`render/worldTone.ts`) walks the code-drawn hills, mid, near, and front layers once, before they are baked, and maps each fill and stroke color and each gradient's stops. Mapping pixels after antialiasing would leave fringes of in-between hues where two colors meet.
+- Live plants take it at draw time through a cached function (`makeTone`): the pond's lily pads, blooms, and weed, the stems and leaves of the flowerbed's flowers and the sunflower, and the leaves the wind blows. The mushrooms' night glow takes the color their caps became.
+- It leaves alone: painted strips, the water itself (which `water.surface` and `water.deep` set on purpose, and the parser checks the surface is the lighter one), petals, every fixture, bugs, items, particles, rain, and the UI. Fixtures share colors with things that mean something (potions, paint, the sequencer's caps), so a blanket recolor would break those matches.
+- `WORLD_SWATCHES` lists the code-drawn world's main colors, each with its area when it belongs to one. The validator prints what the tone map and that area's shade rules do to each.
+
+Shade rules are for the near-greys the tone map cannot see. The porch's soil (`#4a3540`) and shadow (`#2a2438`) have under 0.1 chroma, and the outline (`#2b1d2e`) sits ten steps from that shadow, so no rule that works on color alone can take one and leave the other. A shade rule names its place:
+
+```json
+"shade": [
+  { "area": "area_under_porch", "from": "#4a3540", "to": "#3d2f7a" },
+  { "area": "area_under_porch", "from": "#2a2438", "to": "#241a52", "reach": 40 }
+]
+```
+
+| Key | Meaning |
+|---|---|
+| `area` | The area whose own scenery the rule changes: its soil and ground, its room, its props in the back. One of the eight area IDs (`WORLD_AREAS`). |
+| `from` | A color in that area today. Any color but the outline. |
+| `to` | What `from` becomes, exactly. |
+| `reach` | How far from `from` a color may be and still be caught, as the biggest difference in red, green, or blue, 8 to 96 of 255. Default 48. Full strength out to half of it, easing off to nothing at `reach`. |
+
+- A color the rule reaches becomes a shade of `to`: `to`'s hue and saturation, with its lightness bent by the power that sends `from`'s lightness to `to`'s. The soil's gradient, its darker strata, and the roots drawn a little darker all follow, darker ones still darker. Hue is not used to match or to turn, because a grey's hue is noise.
+- A shade rule looks at the color as the game draws it, and where it reaches all the way it replaces what the tone map made of that color. At the edge of its reach the two are mixed.
+- When two rules in one area reach the same color, they share it by nearness squared, so a color on one rule's `from` is all that rule's and each `from` still lands on its own `to`. The parser warns only when two rules in one area start from the same color.
+- The outline never changes, whatever a rule starts from.
+- A shade rule reaches static scenery only. `Background` labels each piece of an area's own scenery with the area's ID (`scenery` in `background.ts`), `makeTones` builds one map for each area that has rules, and `toneGraphics` uses that map for a labelled container and everything under it. The soil and the ground's top are one `Graphics` for each area for this reason. Grass tufts, the front grass, and the far and mid layers' shared shapes belong to no area, and neither do live plants or fixtures.
+- It costs what the tone map costs: each color is mapped once when a `Background` is built, and nothing runs per frame.
+- New scenery for one area gets its shade rules by being added through `scenery(area, ...)`.
+
+### Tools
+
+- `pnpm art:backdrop-templates --set <id> [strip ...] [--scale 1|2] [--refresh-guides] [--out dir] [--no-build]` (`scripts/art/backdropTemplates.ts`) builds the app and runs `tests/art/backdropTemplate.spec.ts` on the virtual display. `__bb.backdropTemplate(id, scale)` draws the guides; `scripts/art/backdropTemplate.ts` writes the `.ora`.
+- `pnpm art:check-backdrop <file or folder ...> [--out dir] [--strict]` (`scripts/art/checkBackdrop.ts`) checks a strip, a `sky.json`, or a `world.json` on its own in a second or two, and with `--out` writes the built strip and a noon and a night preview. It reads only what it is given, so painters can run many at once. `pnpm art:build` rebuilds every set and is not safe to run concurrently.
+- `pnpm art:build` and `pnpm art:check` call `buildBackdrop` for every set and write `backdrop.json` and `backdrop/*.png` beside the set's atlases. A set with no `backdrop/` folder gets no new files.
+- `pnpm shots -g "backdrop tour"` (`tests/shots/backdrop.spec.ts`) shows every area and every seam. `BB_BACKDROP_SRC` builds a set's backdrop from its sources on the spot.
+
+### Not built
+
+Painted near and front layers, cloud drawings, and art for fixtures. The glow layer covers the far and mid strips only.
 
 ## B15. Milestone scope and acceptance
 
@@ -961,6 +1201,195 @@ Built on 2026-10-02.
 - **Art Lab poses added:** skate (Skeet), fly with wings open (Prim), karate pose without the chop (Prim), fluttering and floating (Munch).
 - Still not built: the Krita-saved fixture and a frame-time check with all bugs drawn.
 - **M11's music bugs.** Buzzby, Fiddle, and Luma have painters (`species/bee.ts`, `cricket.ts`, `moth.ts`), rigs, templates, and crude test art like the rest. Buzzby's and Luma's wings flap in flight (`fly` in the Art Lab); Fiddle's `fiddle` pose bows his near back leg across the far one (`frame.fiddling`, or while performing or playing).
+
+## B19. A set's own colors
+
+Built on 2026-10-10.
+
+The game colors a few things itself, from the original bugs' palette. A set that paints a bug in other colors can name its own in `colors.json`, next to `set.json`. The reference set's file would be `art/src/colors.json`.
+
+```json
+{
+  "bugs": {
+    "bug_ladybug_dot": { "lid": "#3a2a40", "body": "#e8453c" },
+    "bug_dungbeetle_barty": { "sheen": ["#2e8b7a", "#6a4fa3"] },
+    "bug_firefly_flick": { "glow": "#d8ff4f", "lantern": { "x": 272, "y": 528 } }
+  }
+}
+```
+
+Every key is optional, for each bug. A key left out keeps the game's value, so a set with no file looks as it always has. The example above lists the game's own values for those three bugs.
+
+| Key | What it colors | Without it |
+|---|---|---|
+| `lid` | The tint multiplied over `eye_sleepy_lid`. | A color the rig picks from the original palette: plum `#3a2a40` for Dot and Flick, the body color lightened for most others. |
+| `sheen` | Two colors. Barty's `shell_tint`, `thorax_tint`, and `ball_tint` shimmer between them, and `head_tint` is the shell's color mixed a quarter of the way to the outline plum. His eyelid is the first color darkened the same way, unless `lid` is given. The same color twice holds the shell still. | Teal `#2e8b7a` and violet `#6a4fa3`. |
+| `body` | The bug's main color, for what the game draws beside the bug: Glorp's foot ripples, the puffs behind a flung bug, the fur of the hairy potion, and the frame behind the bug's portrait in the journal. | `BugDef.body`. |
+| `glow` | The light a glowing bug casts at night. Only Flick glows. The light's core is the same color mixed 65% of the way to white. | Yellow-green `#d8ff4f` with a `#f4ffc0` core. |
+| `lantern` | Where that light sits: `{ "x": 272, "y": 528 }`, the middle of the painted lantern in template pixels on the bug's canvas. These are the coordinates `.lights.json` uses (B20). | The tip of the code-drawn tail, 0.7 of the bug's radius behind its middle and 0.1 below it. On Flick's template that is (272, 528). |
+
+Colors are six-digit hex strings. `pnpm art:build` stops, naming the file and every problem in it, if a key is unknown, a color is malformed, a `lantern` is not a spot on the bug's canvas, or the file names a bug the set has no `.ora` for. The build copies each bug's colors into its manifest entry (`ManifestAsset.colors`, as numbers), so the packs that hot reload and the tests install carry them too. It reads `lantern` against the bug's `.rig.json` and writes it in game pixels from the rig's origin. `tests/unit/setColors.test.ts` fails a shipped set that gives `glow` or `lantern` to a bug that does not glow, or `sheen` to one with no tint layers.
+
+The lantern's light is not one of the bug's night lights (B20). It follows the bug's middle and the way it faces, and it does not tilt with a held bug or grow with a potion, as before. A star painted far from the bug's middle will drift off its light when the bug tilts, so keep the lantern near the body.
+
+The colors apply only while the selected set draws that bug. `SpriteBugView` reads them from its manifest entry. `ArtStore.colors(def)` serves the two places outside the sprite: the night light in `WeatherView` and the journal's frame. The file's checks, the glow rule (`glowColors`), and the lantern's place (`lanternAt`) are in `art/setColors.ts`. `__bb.weatherLightSpots()` lists where each light is drawn.
+
+Some colors are left out on purpose. Paint, potion tints, wet, frozen, hot, the red and green face washes, the far side's darkening, and the white hover rim are the game's own signals and mean the same thing in every set. Pictograms in thought bubbles, the journal's small friend faces, and the face stickers are code-drawn pictures of the original bugs, so they keep the original colors.
+
+## B20. A set's night lights
+
+Built on 2026-10-10.
+
+Set art sits in the container the sky grades, so anything painted to glow goes dark at night with the rest of the bug. A set can list points on a bug that the game lights after dark. The game draws each as a soft additive glow in `WeatherView`'s light layer, outside the graded container, riding the part it was painted on.
+
+The points are data, one file for each bug that has any, beside its `.ora`: `art/src/sets/<id>/bugs/<bug_id>.lights.json`.
+
+```json
+{
+  "lights": [
+    { "part": "shell", "x": 350, "y": 634, "r": 60, "color": "#7dffe0" },
+    { "part": "wing", "x": 420, "y": 250, "r": 50, "color": "#bff8ff", "forms": ["flying"] }
+  ]
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `part` | The rig part the light sits on: the layer the glowing spot is painted on. Face pieces cannot carry lights. |
+| `x`, `y` | The spot's center in template pixels on the bug's canvas, the coordinates the layer is painted in and the pivots in `.rig.json` use. |
+| `r` | How far the glow reaches, in template pixels, 1 to 400. The glow is brightest in the middle and gone at `r`, so about three times the painted spot's radius is a good start. |
+| `color` | Six-digit hex. It is added as light, so a dark color barely shows. |
+| `forms` | Optional. Limits the light to some of `normal`, `curled`, `in_shell`, `flying`. |
+
+A bug may list 16 lights.
+
+How a light follows its part:
+
+- It shows only while its part is drawn. A light on `shell` is off when Rollo is a ball. The ball, the closed shell, the cocoon, and the butterfly parts get lights of their own. `forms` is for a part that is drawn in a form where its light should be off, such as a belly spot the shell covers unless the bug is flying. The glow is added over everything, so a light under another part shines through it.
+- A part drawn several times shows its light on each near-side copy: one light on `leg_lower` is three lights. Far-side copies, which the game draws darker behind the body, get none.
+- On a feeler (a `rope` part) the light sits as far along the feeler as it was painted above the base dot, and follows the bend. Its sideways offset is ignored.
+
+When they show:
+
+- Their brightness follows `SkyLook.glow`, the curve the mushrooms and Flick's lantern use, so they rise at dusk and fall at dawn. At or below 0.1 they are off and cost nothing. The glow is read from the light on the near layer, so under a set's own sky (B14) the lights follow that sky. Its rules leave at most 0.09 of glow at noon, which keeps the lights off by day, and at least 0.59 at night.
+- A sleeping bug's lights are half as bright. They go out under water, as the lantern does. They fade with a see-through bug and scale with potion size.
+- A bug in the pocket or off screen has none. Neither has Twig while he is disguised: plain twigs do not glow, and lights would give him away. A light under a worn thing on the front of the bug is hidden.
+- The world draws at most 150 at once (`BUG_LIGHTS` in `weatherView.ts`). They are sprites of one texture in one layer, so they draw as one batch. Placing 166 lights on sixteen walking bugs added about 0.15 ms a frame, and 345 lights about 0.8 ms, measured in Node on a desktop that was heavily loaded at the time. The frame-time bars are judged on CI.
+
+The importer checks the file against the bug's rig. A light that is wrong is left out and reported as a warning in that bug's report, and the bug still draws. The build writes each light into the manifest (`ManifestAsset.lights`) in game pixels from its part's pivot. `art/setLights.ts` has the checks, the form rule, the brightness rule, and the feeler math. `SpriteBugView.nightLights` places the lights by asking each part's sprite where the point is. `WorldView` gathers them as it poses each bug, after the bug has moved, so they do not trail a frame behind.
+
+To see them: the Art Lab's night look draws them, so the cast tour's `<set>-<bug>-night.png` shows them, and `pnpm shots -g '<set name> night'` photographs each bug on the plaza after dark, held up and then left alone (`<set>-<bug>-night-held.png`, `-night-world.png`). `__bb.bugLights()` lists the lights drawn in the world.
+
+## B21. Item art
+
+Built on 2026-10-10. A set can paint items. Each painted item replaces the code drawing of that one item, everywhere an item is shown. Everything else stays code-drawn.
+
+### What a set may paint
+
+147 of the 186 items. Six art keys stay code-drawn, listed with their reasons in `CODE_DRAWN` (`src/renderer/src/art/itemSheets.ts`):
+
+| Art key | Items | Why |
+|---|---|---|
+| `potion` | 34 | `setLiquid` recolors the liquid for the brew inside, and every bottle shares one drawing. |
+| `spring` | 1 | The coil is a second `Graphics`, redrawn every frame as it squashes. |
+| `pinwheel` | 1 | The wheel is a second `Graphics` that turns on the stick. |
+| `paper_boat` | 1 | `setSoggy` redraws it as it soaks. |
+| `twig` | 1 | It uses Twig's `stick` (B7), so his disguise holds. |
+| `lattice` | 1 | With its vines it is 7 m across. Its picture would need more texture than every other item together. |
+
+A new item with a part that moves or redraws belongs in that table. Anything else is paintable as soon as it exists.
+
+### Sources
+
+```
+art/src/sets/<id>/items/items_<group>_<n>.ora        one paint layer per item, named by item ID
+art/src/sets/<id>/items/items_<group>_<n>.rig.json   the layout, written by the generator
+```
+
+The reference set's would sit in `art/src/items/`. It has none.
+
+Layers are named by item ID, not by art key. Marbles, balloons, paint drops, blueprints, and map scraps share a key and differ by color or mark, and item IDs are the names saves and the journal already use.
+
+`planSheets` (pure) splits the paintable items into sheets: by group (`things`, `food`, `toys`, `music`, `hats`, `worn`), then in registry order, up to 8 to a sheet and fewer when the bodies are big. A new item lands at the end of its group, so earlier sheets keep their items. Today that makes 23 sheets.
+
+`layoutSheet` (pure) gives each item a box: the code-drawn item's bounds and its body, plus 32 px, snapped to 8. Boxes go left to right in rows on a canvas 1600 px wide or wider. The scale is 4 template pixels to a game pixel, as for bugs. The anchor is the center of the physics body. Since the painter paints in place over the guide, and the importer measures each frame's anchor from that point, a painted item lands where the code-drawn one does.
+
+`rig.json` (`ItemSheetFile` in `art/itemSheet.ts`) holds the canvas, `sheetHash`, and per item its `cell`, `anchor`, `body`, `guide` bounds, and `mask`. The mask is the code-drawn item's shape at game size, run-length coded. The hash covers the boxes, anchors, and bodies, not the masks, which depend on the rasterizer. The sheet carries the hash as a hidden `guide_sheet_<hash>` layer, like a bug's `guide_rig_<hash>`.
+
+### Templates
+
+```sh
+pnpm art:item-templates [--set <id>] [--out <dir>] [--refresh-guides] [sheet_id ...]
+```
+
+`scripts/art/itemTemplates.ts` builds the app and runs `tests/art/itemTemplate.spec.ts` on the virtual display. The game draws each sheet's guides (`art/itemTemplate.ts`, `__bb.artItemTemplate`): `guide_current` (the items as the code draws them, seed 0, at 35%), `guide_boxes` (boxes, bodies, anchors), `guide_notes`. `scripts/art/itemTemplate.ts` writes the `.ora` with an empty layer per item.
+
+It never overwrites a sheet. `--refresh-guides` swaps the guides and the rig.json, keeps every painting, and moves a painted layer by however far its anchor moved. `--out` writes to any folder, so templates can be made without creating a set in the repo. `pnpm art:templates` passes the item spec by, and the other way round.
+
+### Importer
+
+`scripts/art/items.ts`. `buildAll` calls `buildItems` for each set, so `pnpm art:build` and `pnpm art:check` cover item sheets with no extra step.
+
+- Each item's layer (or group of that name, flattened) is trimmed and cut around its anchor with the bugs' `cut`, halved to 2x and again to 1x, and bled.
+- Pages go to `src/renderer/art/sets/<id>/items/<sheet>@1x|2x.png` and `.json`, one or more per sheet. Pages are only as big as their frames, not rounded up to a power of two.
+- `items/manifest.json` (`ItemManifest`) lists each sheet's status, pages, painted items, and report. It is separate from the set's bug manifest, which does not change. A set with no item sheets writes nothing.
+- No rim frames. The hover rim is the code-drawn outline, which the painting keeps to. That halves the pages.
+
+Each item stands alone. One with an error is left out and the rest of the sheet builds.
+
+| Check | Level |
+|---|---|
+| Not a readable ORA, wrong canvas size, stamp does not match rig.json | error, whole sheet |
+| Paint outside the item's box | error, that item |
+| Layer covers more than 95% of its box | error, that item |
+| Two layers with one item's name, a filter, an unsupported blend mode in a group | error, that item |
+| More than 3% of the painting lies over 4 game px outside the guide's shape | warning |
+| More than 3% of the guide's shape has no paint within 4 game px | warning |
+| Unknown layer name, opacity under 100%, blend mode on the item layer, 16-bit or non-sRGB, file over 8 MB | warning |
+| Items not painted yet | info, one line |
+
+The two outline checks (`outlineFit`) compare the painting with the rig's mask on a grid of game pixels, with a square brush for the tolerance. Thin extras pass. A different shape does not.
+
+`pnpm art:check-one <file.ora> [--preview <dir>] [--strict]` (`scripts/art/checkOne.ts`) checks one item sheet, bug, or kit against the rig.json next to it and touches nothing else. It takes a second or two and is safe to run many at once, which `pnpm art:build` is not. `--preview` writes the pages and the paintings on grass at 2x and 1x. `--strict` passes only a finished file with an empty report.
+
+### What follows the code-drawn shape
+
+The painting replaces the drawing and nothing else. These still come from the code:
+
+| Thing | Placed from | Tolerance |
+|---|---|---|
+| Collider, shadow, stacking, hit testing | `def.shape` | Reach the body's edges where the guide does |
+| Paint (`setPaint`) | `outline()`: a 62% wash, a 4 px line, drips at the guide's bottom edge | About 4 game px |
+| Bites (`setBites`) | `g.containsPoint` on the code drawing, at 66% and 32% across | About 4 game px at those edges |
+| Hover rim | `outline()` | Loose |
+| Wear seats (`wearLook.ts`) | The body's width and half height | Keep the lower edge and the width |
+| Tag looks, toasting, potions on items, sky grading | Tint, alpha, and scale on the whole view | None |
+
+For an item whose `outline()` returns false, paint and the rim use the body's rounded box, as they do for the code drawing.
+
+### Runtime
+
+- `art/itemArt.ts`: `ItemArtBook` holds each set's painted items by item ID. `Game.start` loads the bundled ones after the bug art. Installing a sheet bumps `artStore.version`.
+- `art/itemSheets.ts`: `chooseItemArt` is the pure choice. Art off gives code. The twig follows Twig. A `CODE_DRAWN` key gives code whatever the set holds. Otherwise the painting if the selected set has one.
+- `art/itemViews.ts`: `makeItemView(def, seed)` builds an `ItemSprite` and gives it the art. Every place that shows an item calls it: the world and the hand, worn things, the pocket, the journal, thought bubbles, wish hints, the bench, the cauldron, the hollow's shelf, the clues window, the ant hill, the ghost hand, the whistle's swoosh. It keeps a weak list of live views. `syncItemViews`, called from `WorldView.update`, swaps each one's drawing in place when the art version changes, so a set switch reaches cached icons too.
+- `ItemSprite.useArt(art | null)` hides the code drawing and its heavy outline, puts the sprite just above them, and leaves paint, bite edges, and the code rim where they were. The frame's scale follows the screen as for bugs: 2x pages above a resolution of 1.25.
+
+### Tests and review
+
+- `tests/unit/itemSheets.test.ts`: the importer, every check, the outline measure, templates and refresh, a set built through `buildSets`, `checkOne`.
+- `tests/unit/itemArt.test.ts`: the plan and layout over every real item, the choice, the book, views swapping on a set change, paint and bites over a painting, the board. It also checks every committed item sheet: its rig.json must match the game's layout now, and it must build without errors. `pnpm art:check` cannot see the first of those, because a sheet and its own rig.json still agree after an item changes size in the game. Add a finished set's ID to `COMPLETE_ITEM_SETS` there and the test holds it to all 147 items and an empty report.
+- `tests/e2e/items.spec.ts`: the crude item sheets go through the importer into the game. A painted item is drawn from its sheet in the world, in the hand, in the pocket, and on a bug's head. A blank one and a spring fall back. The set is chosen with the real mouse.
+- `tests/e2e/fixtures/art/items/` holds three crude sheets. `makeItems.ts` paints each item as its own guide shape in a loud flat color, and leaves the cork and the leaf raft blank on purpose. A unit test fails when an item on those sheets changes shape, and names the two commands to rerun.
+- `pnpm shots -g "item art"` (`tests/shots/itemArt.spec.ts`) opens the item board (`art/itemBoard.ts`, `__bb.itemBoard`) on every sheet: each item as code, painting, painting with paint, with bites, and under the night tint. Then the plaza by day and night. `BB_ITEMS_SRC=<set folder>` builds that folder's sheets on the spot, with no `pnpm art:build`. `BB_ART_SET=<id>` shows a built set. `BB_ITEMS_ONLY` picks sheets. Files are `itemart-*` in `BB_SHOTS_DIR`.
+
+### Size
+
+A full set, all 147 items, built from the code-drawn guides as paint: 509 KB at 1x and 941 KB at 2x in 23 pages each, plus 111 KB of JSON. That is 1.1 and 4.3 megapixels of texture. Flat color compresses well, so expect painted art to be two or three times the bytes. A unit test keeps the boxes' total under 6 megapixels at 2x.
+
+### Not built
+
+- `pnpm art:watch` rebuilds the committed pages when an item sheet is saved, but does not send them to the running game. Use the tour.
+- Fixtures, water, and UI. Each fixture is an animated view with sim state, not one picture.
 
 ## B17. What we're unsure about
 

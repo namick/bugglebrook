@@ -3,6 +3,7 @@ import type { EntityView, Sim } from '../../../../game/sim';
 import type { HintLook } from '../hints';
 import type { Particles } from '../particles';
 import type { SkyLook, WeatherMix } from '../skyLook';
+import type { Tone } from '../worldTone';
 
 /** Draw an additive light (a soft glow sprite) this frame: world px, radius, color, alpha, stretch. */
 export type LightFn = (
@@ -59,6 +60,12 @@ export interface AreaFrame {
   reduced?: boolean;
   /** The music (M9): the sequencer's playhead column and how loud it plays here, and the beat. */
   music?: AreaMusic | null;
+  /**
+   * The art set's tone map, for live plants: their stems and leaves follow the
+   * grass around them. Fixtures and anything whose color means something
+   * (petals to pick, potions, paint) keep their own colors.
+   */
+  tone?: Tone;
 }
 
 export interface AreaMusic {

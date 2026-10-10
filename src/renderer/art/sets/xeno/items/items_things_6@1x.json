@@ -1,0 +1,205 @@
+{
+ "frames": {
+  "item_balloon_blue": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.4
+   },
+   "frame": {
+    "h": 110,
+    "w": 78,
+    "x": 2,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 110,
+    "w": 78
+   },
+   "spriteSourceSize": {
+    "h": 110,
+    "w": 78,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_balloon_red": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.4
+   },
+   "frame": {
+    "h": 110,
+    "w": 78,
+    "x": 2,
+    "y": 114
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 110,
+    "w": 78
+   },
+   "spriteSourceSize": {
+    "h": 110,
+    "w": 78,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_balloon_scrap": {
+   "anchor": {
+    "x": 0.525,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 24,
+    "w": 59,
+    "x": 56,
+    "y": 318
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 24,
+    "w": 59
+   },
+   "spriteSourceSize": {
+    "h": 24,
+    "w": 59,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_glass_bead": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 52,
+    "w": 52,
+    "x": 2,
+    "y": 291
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 52,
+    "w": 52
+   },
+   "spriteSourceSize": {
+    "h": 52,
+    "w": 52,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_maple_seed": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.52
+   },
+   "frame": {
+    "h": 25,
+    "w": 70,
+    "x": 56,
+    "y": 291
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 25,
+    "w": 70
+   },
+   "spriteSourceSize": {
+    "h": 25,
+    "w": 70,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_paint_red": {
+   "anchor": {
+    "x": 0.492,
+    "y": 0.512
+   },
+   "frame": {
+    "h": 41,
+    "w": 59,
+    "x": 2,
+    "y": 345
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 41,
+    "w": 59
+   },
+   "spriteSourceSize": {
+    "h": 41,
+    "w": 59,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_string": {
+   "anchor": {
+    "x": 0.495,
+    "y": 0.478
+   },
+   "frame": {
+    "h": 23,
+    "w": 101,
+    "x": 67,
+    "y": 226
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 23,
+    "w": 101
+   },
+   "spriteSourceSize": {
+    "h": 23,
+    "w": 101,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_yo_yo": {
+   "anchor": {
+    "x": 0.492,
+    "y": 0.492
+   },
+   "frame": {
+    "h": 63,
+    "w": 63,
+    "x": 2,
+    "y": 226
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 63,
+    "w": 63
+   },
+   "spriteSourceSize": {
+    "h": 63,
+    "w": 63,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  }
+ },
+ "meta": {
+  "format": "RGBA8888",
+  "image": "items_things_6@1x.png",
+  "scale": 1,
+  "size": {
+   "h": 388,
+   "w": 172
+  }
+ }
+}

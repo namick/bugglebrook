@@ -8,23 +8,29 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { KIT_EYE_R, KIT_MOUTH_W, kitCell } from '../../src/renderer/src/art/kit.ts';
+import { parseBugLights } from '../../src/renderer/src/art/setLights.ts';
 import type {
   ArtMessage,
   ArtPack,
   AtlasFrame,
   AtlasJson,
+  BugColors,
   Manifest,
   ManifestAsset,
   ManifestPart,
   RigFile,
 } from '../../src/renderer/src/art/rigFile.ts';
+import { BACKDROP_DIR, buildBackdrop } from './backdrop.ts';
+import { readSetColors } from './colors.ts';
+import { readBugLights } from './lights.ts';
 import type { Rect } from './image.ts';
 import { bleed, crop, halve, rimOf, rotateCw } from './image.ts';
 import { pack } from './pack.ts';
 import type { Rgba } from './png.ts';
 import { encodePng } from './png.ts';
-import type { PartPixels } from './validate.ts';
+import type { PartPixels, StickFit } from './validate.ts';
 import { analyze } from './validate.ts';
+import { buildItems } from './items.ts';
 import { sourceSets, setSource } from './sets.ts';
 
 export const ROOT = resolve(import.meta.dirname, '../..');
@@ -55,7 +61,7 @@ const r3 = (v: number): number => Math.round(v * 1000) / 1000;
 const down = (v: number): number => Math.floor(v / 4) * 4;
 const up = (v: number): number => Math.ceil(v / 4) * 4;
 
-interface Piece {
+export interface Piece {
   name: string;
   /** The 4x picture, already rotated for feelers. */
   img: Rgba;
@@ -65,7 +71,7 @@ interface Piece {
 }
 
 /** Cut a part out at 4x, trimmed and aligned to 4 pixels so it halves cleanly. Feelers are turned to lie along +x. */
-function cut(
+export function cut(
   name: string,
   px: PartPixels,
   pivot: { x: number; y: number },
@@ -103,10 +109,20 @@ export interface BuiltAsset {
   /** Output files by path relative to the output folder. */
   files: Record<string, Uint8Array>;
   messages: ArtMessage[];
+  /** Twig only: how his `stick` sits against the twig item's outline. */
+  stick?: StickFit;
+}
+
+/** What a set supplies for a bug besides its drawing. */
+export interface BugOwn {
+  /** Its own colors for the bug, from the set's colors.json. */
+  colors?: BugColors;
+  /** The text of the bug's .lights.json: its night lights. */
+  lights?: string;
 }
 
 /** Import one .ora against its rig. Pure: bytes in, files out. */
-export function buildAsset(bytes: Uint8Array, rig: RigFile): BuiltAsset {
+export function buildAsset(bytes: Uint8Array, rig: RigFile, own: BugOwn = {}): BuiltAsset {
   const a = analyze(bytes, rig);
   const dir = rig.kind === 'face_kit' ? 'faces' : 'bugs';
   const entry: ManifestAsset = {
@@ -119,6 +135,7 @@ export function buildAsset(bytes: Uint8Array, rig: RigFile): BuiltAsset {
     parts: {},
     face: [],
     ...(rig.faceAnchors ? { faceAnchors: scaledAnchors(rig) } : {}),
+    ...(own.colors ? { colors: own.colors } : {}),
     report: a.messages,
   };
   const files: Record<string, Uint8Array> = {};
@@ -143,6 +160,12 @@ export function buildAsset(bytes: Uint8Array, rig: RigFile): BuiltAsset {
     if (part.tintable) mp.tintable = true;
     if (part.form) mp.form = part.form;
     entry.parts[part.name] = mp;
+  }
+  if (own.lights !== undefined) {
+    // A light that is wrong is left out with a warning; the bug still draws.
+    const { lights, problems } = parseBugLights(own.lights, rig, a.pivots);
+    if (lights.length) entry.lights = lights;
+    for (const text of problems) a.messages.push({ level: 'warning', text });
   }
   for (const name of [...a.face.keys()].sort()) {
     const px = a.face.get(name)!;
@@ -209,7 +232,7 @@ export function buildAsset(bytes: Uint8Array, rig: RigFile): BuiltAsset {
       entry.pages[String(scale) as '1' | '2'].push(`${dir}/${base}`);
     });
   }
-  return { entry, files, messages: a.messages };
+  return { entry, files, messages: a.messages, ...(a.stick ? { stick: a.stick } : {}) };
 }
 
 /** Built assets as a pack the game can install while running (hot reload, tests). */
@@ -273,6 +296,11 @@ export function buildAll(srcDir = SRC_DIR): BuildAll {
   const manifest: Manifest = { schema: 1, assets: {} };
   const files: Record<string, Uint8Array> = {};
   const messages = new Map<string, ArtMessage[]>();
+  const colors = readSetColors(srcDir);
+  // The set's item sheets build on their own, into `items/` with a manifest of their own.
+  const items = buildItems(srcDir);
+  Object.assign(files, items.files);
+  for (const [id, m] of items.messages) messages.set(id, m);
   for (const s of findSources(srcDir)) {
     if (!existsSync(s.rig)) {
       messages.set(s.id, [
@@ -284,7 +312,8 @@ export function buildAll(srcDir = SRC_DIR): BuildAll {
       continue;
     }
     const rig = JSON.parse(readFileSync(s.rig, 'utf8')) as RigFile;
-    const built = buildAsset(new Uint8Array(readFileSync(s.ora)), rig);
+    const own = { colors: colors[s.id], lights: readBugLights(s.ora) };
+    const built = buildAsset(new Uint8Array(readFileSync(s.ora)), rig, own);
     manifest.assets[s.id] = built.entry;
     Object.assign(files, built.files);
     messages.set(s.id, built.messages);
@@ -303,6 +332,12 @@ export function buildSets(srcDir = SRC_DIR): BuildAll {
     for (const [path, bytes] of Object.entries(built.files))
       result.files[set.path ? `${set.path}/${path}` : path] = bytes;
     for (const [id, messages] of built.messages) result.messages.set(`${set.id}/${id}`, messages);
+    // The set's backdrop: its sky, its world style, and its painted strips (scripts/art/backdrop.ts).
+    const backdrop = buildBackdrop(setSource(srcDir, set.id));
+    for (const [path, bytes] of Object.entries(backdrop.files))
+      result.files[set.path ? `${set.path}/${path}` : path] = bytes;
+    for (const [id, messages] of backdrop.messages)
+      result.messages.set(`${set.id}/${BACKDROP_DIR}/${id}`, messages);
   }
   result.files['sets.json'] = new TextEncoder().encode(stableJson({ sets }));
   return result;
@@ -353,7 +388,7 @@ const MARK = { error: 'x', warning: '!', info: '-' } as const;
 
 /** The report as the artist sees it in the terminal. */
 export function formatReport(id: string, messages: readonly ArtMessage[]): string {
-  const lines = [`${id}.ora`];
+  const lines = [id.endsWith('.json') ? id : `${id}.ora`];
   for (const m of messages) lines.push(`  ${MARK[m.level]} ${m.text}`);
   if (!messages.length) lines.push('  - All good.');
   return lines.join('\n');

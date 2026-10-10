@@ -1,0 +1,26 @@
+{
+ "area": "area_flowerbed_stage",
+ "blend": {
+  "left": 0,
+  "right": 128
+ },
+ "canvas": {
+  "h": 2160,
+  "w": 3430
+ },
+ "cover": 940,
+ "ground": 900,
+ "hidden": [],
+ "id": "area_flowerbed_stage_far",
+ "kind": "strip",
+ "layer": "far",
+ "scale": 2,
+ "schema": 1,
+ "span": {
+  "x0": 0,
+  "x1": 1587
+ },
+ "stripHash": "d2910b3674880469",
+ "title": "Flowerbed Stage, far layer",
+ "x": 0
+}

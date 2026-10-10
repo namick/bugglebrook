@@ -1,0 +1,9 @@
+{
+  "lights": [
+    { "part": "body", "x": 368, "y": 777, "r": 36, "color": "#ff8a4a" },
+    { "part": "body", "x": 353, "y": 692, "r": 36, "color": "#ff8a4a" },
+    { "part": "body", "x": 330, "y": 740, "r": 36, "color": "#ff8a4a" },
+    { "part": "hindleg_shin", "x": 550, "y": 887, "r": 69, "color": "#ff8a4a" },
+    { "part": "antenna", "x": 824, "y": 284, "r": 60, "color": "#ff8a4a" }
+  ]
+}

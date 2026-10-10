@@ -4,7 +4,8 @@ import type { AreaDef, FixtureDef } from '../../../../game/data/types';
 import type { Sim } from '../../../../game/sim';
 import { BENCH_SHAKE, TRAY_OFFSETS } from '../../../../game/systems/bench';
 import { SIM_HZ } from '../../../../game/core/loop';
-import { ItemSprite } from '../draw/item';
+import type { ItemSprite } from '../draw/item';
+import { makeItemView } from '../../art/itemViews';
 import { drawTagIcon } from '../draw/tagIcon';
 import type { Particles } from '../particles';
 import { OUTLINE, darken, lighten, stroke } from '../palette';
@@ -199,7 +200,7 @@ export class BenchLive extends AreaLive {
   private showGhost(sim: Sim, defId: string, tray: number): void {
     this.ghost.removeChildren();
     if (!sim.content.items.has(defId)) return;
-    const s = new ItemSprite(sim.content.items.get(defId), 7);
+    const s = makeItemView(sim.content.items.get(defId), 7);
     s.position.set(this.cx + (TRAY_OFFSETS[tray] ?? 0) * PPM, this.top - 26);
     s.scale.set(0.8);
     this.ghost.addChild(s);
@@ -331,7 +332,7 @@ export class BenchLive extends AreaLive {
       if (!recipe) return;
       let icon = this.icons.get(id);
       if (!icon) {
-        icon = new ItemSprite(f.sim.content.items.get(recipe.output), 3);
+        icon = makeItemView(f.sim.content.items.get(recipe.output), 3);
         this.icons.set(id, icon);
         this.board.addChild(icon);
       }

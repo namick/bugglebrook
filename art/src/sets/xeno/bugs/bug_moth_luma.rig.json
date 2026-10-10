@@ -1,0 +1,150 @@
+{
+ "canvas": {
+  "h": 896,
+  "w": 1152
+ },
+ "face": [
+  "eye_white",
+  "eye_pupil",
+  "eye_closed",
+  "eye_happy",
+  "eye_squint",
+  "eye_squeezed",
+  "eye_spiral",
+  "eye_heart",
+  "eye_sleepy_lid",
+  "brow_angry",
+  "brow_worried",
+  "brow_polite",
+  "cheek",
+  "mouth_smile",
+  "mouth_grin",
+  "mouth_o",
+  "mouth_whee",
+  "mouth_aah",
+  "mouth_chew_1",
+  "mouth_chew_2",
+  "mouth_wobble_1",
+  "mouth_wobble_2",
+  "mouth_flat",
+  "mouth_frown",
+  "mouth_lick",
+  "mouth_tongue",
+  "mouth_teeth",
+  "mouth_puff"
+ ],
+ "faceAnchors": {
+  "eye": {
+   "r": 29.072,
+   "x": 683.12,
+   "y": 473.544
+  },
+  "mouth": {
+   "s": 40.48,
+   "x": 676.496,
+   "y": 517.336
+  }
+ },
+ "ground": 696,
+ "id": "bug_moth_luma",
+ "kind": "bug",
+ "origin": {
+  "x": 512,
+  "y": 512
+ },
+ "parts": [
+  {
+   "kind": "wing",
+   "name": "wing_hind",
+   "note": "The rounder back wing with its eye-spot, root at the dot, pointing up and back.",
+   "pivot": {
+    "x": 526.72,
+    "y": 493.6
+   },
+   "required": true
+  },
+  {
+   "kind": "wing",
+   "name": "wing_fore",
+   "note": "The broad front wing with the big eye-spot, root at the dot, pointing up.",
+   "pivot": {
+    "x": 526.72,
+    "y": 493.6
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_upper",
+   "length": 35.536,
+   "name": "leg_upper",
+   "note": "Hip to knee, drawn straight down from the hip dot. Round nub at the top.",
+   "pivot": {
+    "x": 585.6,
+    "y": 604
+   },
+   "required": true
+  },
+  {
+   "kind": "limb_lower",
+   "length": 81.231,
+   "name": "leg_lower",
+   "note": "Knee to foot, straight down from the knee dot, with the foot.",
+   "pivot": {
+    "x": 585.6,
+    "y": 639.536
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "abdomen",
+   "note": "The fuzzy lavender body.",
+   "pivot": {
+    "x": 410.8,
+    "y": 574.56
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "thorax",
+   "note": "The fluffy thorax with the pale ruff.",
+   "pivot": {
+    "x": 545.12,
+    "y": 548.8
+   },
+   "required": true
+  },
+  {
+   "kind": "static",
+   "name": "head",
+   "note": "The head, with no face. The game draws the face on top.",
+   "pivot": {
+    "x": 655.52,
+    "y": 475.2
+   },
+   "required": true
+  },
+  {
+   "kind": "rope",
+   "length": 174.064,
+   "name": "antenna",
+   "note": "One feathery feeler, drawn straight up from its base dot. The game bends it.",
+   "pivot": {
+    "x": 679.808,
+    "y": 403.992
+   },
+   "required": true
+  }
+ ],
+ "rigHash": "34f9f0cbb75cbfe0",
+ "safe": {
+  "x0": 32,
+  "x1": 1120,
+  "y0": 32,
+  "y1": 864
+ },
+ "scale": 4,
+ "schema": 1,
+ "title": "Luma the moth (bug_moth_luma)"
+}

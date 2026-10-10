@@ -4,6 +4,7 @@ import type { Content } from '../../../game/data';
 import { ESSENCE_IDS, ESSENCE_ITEMS, ESSENCE_TAGS, MOON_ITEMS } from '../../../game/data/essences';
 import type { BugCard, JournalBook, JournalEntry, MysteryPage, PageId, PhotoRecord } from '../../../game';
 import { PAGE_IDS } from '../../../game';
+import { artStore } from '../art/artStore';
 import { OUTLINE, darken, lighten, stroke } from '../render/palette';
 import { drawNumber } from '../render/draw/digits';
 import { drawAreaIcon, drawGlyph } from '../render/draw/glyphs';
@@ -484,7 +485,7 @@ class Builder {
       .stroke(stroke(5));
     // The portrait in a frame.
     g.roundRect(52, 24, 236, 236, 26)
-      .fill(found ? lighten(def.body, 0.75) : 0xd9d0e3)
+      .fill(found ? lighten(artStore.colors(def).body ?? def.body, 0.75) : 0xd9d0e3)
       .stroke(stroke(5));
     tape(g, 170, 26, -0.08);
     const picture = new Picture(
