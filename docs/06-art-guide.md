@@ -514,7 +514,7 @@ Her arms fold like praying hands, punch out for karate, and swing loose when hel
 Colors now: stick `#8B6A45`, lighter `#B08A5C`.
 
 - `leg_upper`, `leg_lower`: six very thin legs.
-- `stick`: his body. **He must look exactly like the plaza's twig item.** He hides by lying among real twigs. The game uses your `stick` drawing for the twig item too, so the disguise keeps working.
+- `stick`: his body. **He must look exactly like the plaza's twig item.** He hides by lying among real twigs. The game uses your `stick` drawing for the twig item too, so the disguise keeps working. Keep the twig's shape from the guide: the bar and its two nubs, to within 16 pixels. A twig's paint and what it touches follow that shape whatever you draw, so a curl or a knob past it hangs in the air. The importer warns when the drawing leaves the shape.
 - `antenna`: two thin feelers off the front end.
 
 Face: tiny, heavy-lidded eyes and a very small, flat mouth. If the kit's eyes look too big even when shrunk, draw `eye_white`, `eye_pupil`, and `eye_closed` in his `face` group.
@@ -978,7 +978,7 @@ Budget: about 20 to 45 sprites per bug, 16 bugs, one or two texture pages each. 
 
 ### Twig and the twig item
 
-`draw/item.ts` draws `item_twig` with the same shape Twig copies. When Twig has art, the item renders from his `stick` sprite too (scaled to the item's 1.3 m by 0.11 m), so his disguise holds. Test it: with art on, the item twig and disguised Twig use the same texture.
+`draw/item.ts` draws `item_twig` with the same shape Twig copies. When Twig has art, the item renders from his `stick` sprite too (scaled to the item's 1.3 m by 0.11 m), so his disguise holds. Test it: with art on, the item twig and disguised Twig use the same texture. The importer holds his `stick` to the twig's outline (B10), because the item's paint and body do not follow the drawing.
 
 ## B8. Tint layers
 
@@ -1026,9 +1026,12 @@ Every message names the file and the layer, says what's wrong in plain words, an
 | A leg, arm, or feeler is under 0.6 or over 1.6 times its guide length | warning |
 | A `_tint` layer is too colorful | warning |
 | `rig.json` hash differs from the current rig | error: "This template is out of date. Run `pnpm art:templates --refresh-guides`." |
+| Twig's `stick` goes more than 16 px outside the twig item's outline, or leaves any of that outline more than 16 px from paint | warning, with the distance |
 | File over 8 MB | warning |
 
 ## B11. Tests
+The `stick` check exists because the layer is also every loose twig (B7), and a twig's paint, bite marks, and physics body follow the code-drawn twig. It works as the item sheets' outline check does (B21). The painting and the twig's outline both become shapes at game size, with the outline's middle on the part's pivot or on the `pivot_stick` dot. Then no pixel of either may lie more than 16 template pixels from the other, counting a diagonal step as one. It is stricter than the item check, which lets 3% of a painting stray, because a thin curl 53 pixels long is under 3% of a twig. The outline is written out in `art/twigShape.ts`, since the importer has no Pixi to draw the item with, and `tests/unit/twigShape.test.ts` reads the item's real drawing and fails if the two differ. `pnpm art:check-one` on Twig's file prints how far the stick is off each way.
+
 
 Every rule here gets a test. The pipeline is engineering like everything else.
 

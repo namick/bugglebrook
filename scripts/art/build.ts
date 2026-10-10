@@ -28,7 +28,7 @@ import { bleed, crop, halve, rimOf, rotateCw } from './image.ts';
 import { pack } from './pack.ts';
 import type { Rgba } from './png.ts';
 import { encodePng } from './png.ts';
-import type { PartPixels } from './validate.ts';
+import type { PartPixels, StickFit } from './validate.ts';
 import { analyze } from './validate.ts';
 import { buildItems } from './items.ts';
 import { sourceSets, setSource } from './sets.ts';
@@ -109,6 +109,8 @@ export interface BuiltAsset {
   /** Output files by path relative to the output folder. */
   files: Record<string, Uint8Array>;
   messages: ArtMessage[];
+  /** Twig only: how his `stick` sits against the twig item's outline. */
+  stick?: StickFit;
 }
 
 /** What a set supplies for a bug besides its drawing. */
@@ -230,7 +232,7 @@ export function buildAsset(bytes: Uint8Array, rig: RigFile, own: BugOwn = {}): B
       entry.pages[String(scale) as '1' | '2'].push(`${dir}/${base}`);
     });
   }
-  return { entry, files, messages: a.messages };
+  return { entry, files, messages: a.messages, ...(a.stick ? { stick: a.stick } : {}) };
 }
 
 /** Built assets as a pack the game can install while running (hot reload, tests). */

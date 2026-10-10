@@ -4,8 +4,16 @@
 
 import { KIT_TINTABLE } from '../../src/renderer/src/art/kit.ts';
 import type { ArtMessage, RigFile, RigPart } from '../../src/renderer/src/art/rigFile.ts';
+import {
+  STICK_TOLERANCE,
+  TWIG_STICK,
+  outlineBox,
+  outlineMask,
+  twigOutline,
+} from '../../src/renderer/src/art/twigShape.ts';
 import type { BlendMode, Rect } from './image.ts';
 import { BLEND_MODES, alphaBounds, composite, countOpaque, crop, meanSaturation } from './image.ts';
+import { maskOfCell } from './items.ts';
 import type { OraLayer, OraNode, OraStack } from './ora.ts';
 import { OraError, mimetypeProblem, readOra } from './ora.ts';
 import type { Rgba } from './png.ts';
@@ -30,6 +38,16 @@ export interface Analysis {
   untouched: boolean;
   /** The rig hash the template was made for, if the file says. */
   madeFor: string | null;
+  /** Twig only: how his `stick` sits against the twig item's outline. */
+  stick?: StickFit;
+}
+
+/** How Twig's `stick` sits against the twig the game draws, in template pixels. */
+export interface StickFit {
+  /** The furthest any of the painting lies outside the twig's shape. */
+  outside: number;
+  /** The furthest any of the twig's shape lies from the painting. */
+  empty: number;
 }
 
 /** The biggest file that doesn't get a size warning. */
@@ -395,9 +413,69 @@ export function analyze(bytes: Uint8Array, rig: RigFile): Analysis {
       text: `"${name}" now turns around your dot at ${Math.round(c.x)}, ${Math.round(c.y)} instead of ${Math.round(part.pivot.x)}, ${Math.round(part.pivot.y)}.`,
     });
   }
+  // Twig's stick is every loose twig's picture too, so it keeps the twig's outline.
+  const stick = rig.id === TWIG_STICK.bug ? partPix.get(TWIG_STICK.part) : undefined;
+  const stickPart = rig.parts.find((p) => p.name === TWIG_STICK.part);
+  if (stick && stickPart) {
+    const fit = stickFit(stick, result.pivots.get(stickPart.name) ?? stickPart.pivot, rig.scale);
+    result.stick = fit;
+    const name = stickPart.name;
+    if (fit.outside > STICK_TOLERANCE)
+      say({
+        level: 'warning',
+        layer: name,
+        text: `"${name}" goes ${fit.outside} pixels outside the twig's shape, and ${STICK_TOLERANCE} pixels is the most it may. Every loose twig in the world is drawn with this layer, and its rim, paint, and what it touches follow the twig on the guide. Keep to that outline.`,
+      });
+    if (fit.empty > STICK_TOLERANCE)
+      say({
+        level: 'warning',
+        layer: name,
+        text: Number.isFinite(fit.empty)
+          ? `"${name}" leaves part of the twig's shape empty: ${fit.empty} pixels from the nearest paint, and ${STICK_TOLERANCE} pixels is the most it may. Fill the same shape as the twig on the guide, or loose twigs will look like they float and their paint will hang in the air.`
+          : `"${name}" has only faint marks on it, so the twig's shape is empty. Paint the twig on the guide at full strength: every loose twig in the world is drawn with this layer.`,
+      });
+  }
   result.parts = partPix;
   result.face = facePix;
   return result;
+}
+
+/** The furthest any pixel of `a` is from the nearest pixel of `b`, counting diagonal steps as one. */
+function furthest(a: Uint8Array, b: Uint8Array, w: number, h: number): number {
+  const at: number[] = [];
+  for (let i = 0; i < w * h; i++) if (b[i]) at.push(i % w, Math.floor(i / w));
+  let worst = 0;
+  for (let i = 0; i < w * h; i++) {
+    if (!a[i] || b[i]) continue;
+    const x = i % w;
+    const y = Math.floor(i / w);
+    let best = Infinity;
+    for (let k = 0; k < at.length && best > worst; k += 2)
+      best = Math.min(best, Math.max(Math.abs(at[k]! - x), Math.abs(at[k + 1]! - y)));
+    worst = Math.max(worst, best);
+  }
+  return worst;
+}
+
+/**
+ * Compare a painted `stick` with the twig the game draws, the way item sheets
+ * compare a painting with its guide: both as shapes at game size, the twig's
+ * middle on the part's pivot. Distances come back in template pixels.
+ */
+export function stickFit(px: PartPixels, pivot: { x: number; y: number }, scale: number): StickFit {
+  const twig = twigOutline();
+  const box = outlineBox(twig);
+  // A grid of game pixels round the pivot that holds the twig and the painting.
+  const x0 = Math.floor(Math.min(box.x0, (px.x - pivot.x) / scale)) - 1;
+  const y0 = Math.floor(Math.min(box.y0, (px.y - pivot.y) / scale)) - 1;
+  const x1 = Math.ceil(Math.max(box.x1, (px.x + px.img.w - pivot.x) / scale)) + 1;
+  const y1 = Math.ceil(Math.max(box.y1, (px.y + px.img.h - pivot.y) / scale)) + 1;
+  const w = x1 - x0;
+  const h = y1 - y0;
+  const cell = { x: pivot.x + x0 * scale, y: pivot.y + y0 * scale, w: w * scale, h: h * scale };
+  const art = maskOfCell(px, cell, scale);
+  const guide = outlineMask(twig, x0, y0, w, h, scale);
+  return { outside: furthest(art, guide, w, h) * scale, empty: furthest(guide, art, w, h) * scale };
 }
 
 function checkCover(

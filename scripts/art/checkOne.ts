@@ -15,6 +15,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { ItemSheetFile } from '../../src/renderer/src/art/itemSheet.ts';
 import type { ArtMessage, RigFile } from '../../src/renderer/src/art/rigFile.ts';
+import { STICK_TOLERANCE } from '../../src/renderer/src/art/twigShape.ts';
 import { buildAsset, formatReport } from './build.ts';
 import { composite, halve } from './image.ts';
 import { analyzeItems, buildItemSheet } from './items.ts';
@@ -91,6 +92,10 @@ export function checkOne(
     `status=${e.status} parts=${Object.keys(e.parts).length}/${rig.parts.length} face=${e.face.length}/${rig.face.length} pages1x=${e.pages['1'].length} pages2x=${e.pages['2'].length}`,
   ];
   if (missing.length) lines.push(`face pieces not drawn in this file: ${missing.join(', ')}`);
+  if (built.stick)
+    lines.push(
+      `stick against the twig's shape: ${built.stick.outside} pixels outside at most, ${Number.isFinite(built.stick.empty) ? built.stick.empty : 'all'} left empty at most (the limit is ${STICK_TOLERANCE} each way)`,
+    );
   return {
     text: lines.join('\n'),
     ok: e.status !== 'broken' && clean(built.messages),
