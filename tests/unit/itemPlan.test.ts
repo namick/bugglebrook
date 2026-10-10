@@ -198,7 +198,7 @@ function setsWithItems(): [string, string][] {
  * Sets whose items are finished: every one of the paintable items painted,
  * and not a message from the importer. Add a set's ID here when it gets there.
  */
-const COMPLETE_ITEM_SETS: string[] = [];
+const COMPLETE_ITEM_SETS: string[] = ['xeno'];
 
 describe('committed item sheets', () => {
   it("match the game's items now (run pnpm art:item-templates --set <id> --refresh-guides if not)", () => {

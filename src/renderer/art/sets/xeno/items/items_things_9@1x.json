@@ -1,0 +1,157 @@
+{
+ "frames": {
+  "item_cloud_jar": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 84,
+    "w": 70,
+    "x": 120,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 84,
+    "w": 70
+   },
+   "spriteSourceSize": {
+    "h": 84,
+    "w": 70,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_gnome_nose": {
+   "anchor": {
+    "x": 0.494,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 72,
+    "w": 79,
+    "x": 192,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 72,
+    "w": 79
+   },
+   "spriteSourceSize": {
+    "h": 72,
+    "w": 79,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_marble_gold": {
+   "anchor": {
+    "x": 0.493,
+    "y": 0.493
+   },
+   "frame": {
+    "h": 67,
+    "w": 67,
+    "x": 273,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 67,
+    "w": 67
+   },
+   "spriteSourceSize": {
+    "h": 67,
+    "w": 67,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_paint_rainbow": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 46,
+    "w": 64,
+    "x": 445,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 46,
+    "w": 64
+   },
+   "spriteSourceSize": {
+    "h": 46,
+    "w": 64,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_tidy_whistle": {
+   "anchor": {
+    "x": 0.386,
+    "y": 0.525
+   },
+   "frame": {
+    "h": 61,
+    "w": 101,
+    "x": 342,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 61,
+    "w": 101
+   },
+   "spriteSourceSize": {
+    "h": 61,
+    "w": 101,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_treasure_map": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 90,
+    "w": 116,
+    "x": 2,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 90,
+    "w": 116
+   },
+   "spriteSourceSize": {
+    "h": 90,
+    "w": 116,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  }
+ },
+ "meta": {
+  "format": "RGBA8888",
+  "image": "items_things_9@1x.png",
+  "scale": 1,
+  "size": {
+   "h": 96,
+   "w": 512
+  }
+ }
+}

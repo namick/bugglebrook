@@ -1,0 +1,109 @@
+{
+ "frames": {
+  "item_acc_bandaid": {
+   "anchor": {
+    "x": 0.491,
+    "y": 0.481
+   },
+   "frame": {
+    "h": 27,
+    "w": 57,
+    "x": 143,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 27,
+    "w": 57
+   },
+   "spriteSourceSize": {
+    "h": 27,
+    "w": 57,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_acc_bowtie_ribbon": {
+   "anchor": {
+    "x": 0.493,
+    "y": 0.513
+   },
+   "frame": {
+    "h": 39,
+    "w": 69,
+    "x": 2,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 39,
+    "w": 69
+   },
+   "spriteSourceSize": {
+    "h": 39,
+    "w": 69,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_acc_mustache": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.516
+   },
+   "frame": {
+    "h": 31,
+    "w": 68,
+    "x": 73,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 31,
+    "w": 68
+   },
+   "spriteSourceSize": {
+    "h": 31,
+    "w": 68,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_acc_scarf_yarn": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 20,
+    "w": 74,
+    "x": 202,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 20,
+    "w": 74
+   },
+   "spriteSourceSize": {
+    "h": 20,
+    "w": 74,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  }
+ },
+ "meta": {
+  "format": "RGBA8888",
+  "image": "items_worn_2@1x.png",
+  "scale": 1,
+  "size": {
+   "h": 44,
+   "w": 280
+  }
+ }
+}

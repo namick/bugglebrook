@@ -1,0 +1,205 @@
+{
+ "frames": {
+  "item_blueprint_balloon_basket": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.563
+   },
+   "frame": {
+    "h": 64,
+    "w": 144,
+    "x": 828,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 64,
+    "w": 144
+   },
+   "spriteSourceSize": {
+    "h": 64,
+    "w": 144,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_blueprint_disco_ball": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.563
+   },
+   "frame": {
+    "h": 64,
+    "w": 144,
+    "x": 974,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 64,
+    "w": 144
+   },
+   "spriteSourceSize": {
+    "h": 64,
+    "w": 144,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_blueprint_magnet_crane": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.563
+   },
+   "frame": {
+    "h": 64,
+    "w": 144,
+    "x": 1120,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 64,
+    "w": 144
+   },
+   "spriteSourceSize": {
+    "h": 64,
+    "w": 144,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_key_tiny": {
+   "anchor": {
+    "x": 0.513,
+    "y": 0.49
+   },
+   "frame": {
+    "h": 102,
+    "w": 160,
+    "x": 666,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 102,
+    "w": 160
+   },
+   "spriteSourceSize": {
+    "h": 102,
+    "w": 160,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_map_scrap_1": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.493
+   },
+   "frame": {
+    "h": 134,
+    "w": 164,
+    "x": 2,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 134,
+    "w": 164
+   },
+   "spriteSourceSize": {
+    "h": 134,
+    "w": 164,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_map_scrap_2": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.493
+   },
+   "frame": {
+    "h": 134,
+    "w": 164,
+    "x": 168,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 134,
+    "w": 164
+   },
+   "spriteSourceSize": {
+    "h": 134,
+    "w": 164,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_map_scrap_3": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.493
+   },
+   "frame": {
+    "h": 134,
+    "w": 164,
+    "x": 334,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 134,
+    "w": 164
+   },
+   "spriteSourceSize": {
+    "h": 134,
+    "w": 164,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_map_scrap_4": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.493
+   },
+   "frame": {
+    "h": 134,
+    "w": 164,
+    "x": 500,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 134,
+    "w": 164
+   },
+   "spriteSourceSize": {
+    "h": 134,
+    "w": 164,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  }
+ },
+ "meta": {
+  "format": "RGBA8888",
+  "image": "items_things_8@2x.png",
+  "scale": 2,
+  "size": {
+   "h": 140,
+   "w": 1268
+  }
+ }
+}

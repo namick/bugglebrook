@@ -1,0 +1,85 @@
+{
+ "frames": {
+  "item_popcorn": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.508
+   },
+   "frame": {
+    "h": 122,
+    "w": 120,
+    "x": 2,
+    "y": 148
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 122,
+    "w": 120
+   },
+   "spriteSourceSize": {
+    "h": 122,
+    "w": 120,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_popcorn_kernel": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 100,
+    "w": 72,
+    "x": 78,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 100,
+    "w": 72
+   },
+   "spriteSourceSize": {
+    "h": 100,
+    "w": 72,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_sprout": {
+   "anchor": {
+    "x": 0.486,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 144,
+    "w": 74,
+    "x": 2,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 144,
+    "w": 74
+   },
+   "spriteSourceSize": {
+    "h": 144,
+    "w": 74,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  }
+ },
+ "meta": {
+  "format": "RGBA8888",
+  "image": "items_food_4@2x.png",
+  "scale": 2,
+  "size": {
+   "h": 272,
+   "w": 152
+  }
+ }
+}

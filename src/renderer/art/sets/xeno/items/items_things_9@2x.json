@@ -1,0 +1,157 @@
+{
+ "frames": {
+  "item_cloud_jar": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 168,
+    "w": 140,
+    "x": 236,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 168,
+    "w": 140
+   },
+   "spriteSourceSize": {
+    "h": 168,
+    "w": 140,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_gnome_nose": {
+   "anchor": {
+    "x": 0.494,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 144,
+    "w": 158,
+    "x": 378,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 144,
+    "w": 158
+   },
+   "spriteSourceSize": {
+    "h": 144,
+    "w": 158,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_marble_gold": {
+   "anchor": {
+    "x": 0.493,
+    "y": 0.493
+   },
+   "frame": {
+    "h": 134,
+    "w": 134,
+    "x": 538,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 134,
+    "w": 134
+   },
+   "spriteSourceSize": {
+    "h": 134,
+    "w": 134,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_paint_rainbow": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 92,
+    "w": 128,
+    "x": 878,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 92,
+    "w": 128
+   },
+   "spriteSourceSize": {
+    "h": 92,
+    "w": 128,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_tidy_whistle": {
+   "anchor": {
+    "x": 0.386,
+    "y": 0.525
+   },
+   "frame": {
+    "h": 122,
+    "w": 202,
+    "x": 674,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 122,
+    "w": 202
+   },
+   "spriteSourceSize": {
+    "h": 122,
+    "w": 202,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_treasure_map": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 180,
+    "w": 232,
+    "x": 2,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 180,
+    "w": 232
+   },
+   "spriteSourceSize": {
+    "h": 180,
+    "w": 232,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  }
+ },
+ "meta": {
+  "format": "RGBA8888",
+  "image": "items_things_9@2x.png",
+  "scale": 2,
+  "size": {
+   "h": 184,
+   "w": 1008
+  }
+ }
+}

@@ -1,0 +1,157 @@
+{
+ "frames": {
+  "item_balloon_basket": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.604
+   },
+   "frame": {
+    "h": 450,
+    "w": 292,
+    "x": 2,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 450,
+    "w": 292
+   },
+   "spriteSourceSize": {
+    "h": 450,
+    "w": 292,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_matchbox_racer": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 104,
+    "w": 272,
+    "x": 180,
+    "y": 454
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 104,
+    "w": 272
+   },
+   "spriteSourceSize": {
+    "h": 104,
+    "w": 272,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_parachute": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.526
+   },
+   "frame": {
+    "h": 114,
+    "w": 192,
+    "x": 2,
+    "y": 844
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 114,
+    "w": 192
+   },
+   "spriteSourceSize": {
+    "h": 114,
+    "w": 192,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_slingshot_twig": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.485
+   },
+   "frame": {
+    "h": 264,
+    "w": 176,
+    "x": 2,
+    "y": 454
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 264,
+    "w": 176
+   },
+   "spriteSourceSize": {
+    "h": 264,
+    "w": 176,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_spring_launcher": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.492
+   },
+   "frame": {
+    "h": 122,
+    "w": 140,
+    "x": 2,
+    "y": 720
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 122,
+    "w": 140
+   },
+   "spriteSourceSize": {
+    "h": 122,
+    "w": 140,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_tin_can_phone": {
+   "anchor": {
+    "x": 0.521,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 104,
+    "w": 434,
+    "x": 144,
+    "y": 720
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 104,
+    "w": 434
+   },
+   "spriteSourceSize": {
+    "h": 104,
+    "w": 434,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  }
+ },
+ "meta": {
+  "format": "RGBA8888",
+  "image": "items_toys_1@2x.png",
+  "scale": 2,
+  "size": {
+   "h": 960,
+   "w": 580
+  }
+ }
+}

@@ -1,0 +1,37 @@
+{
+ "frames": {
+  "item_inst_leaf_xylophone": {
+   "anchor": {
+    "x": 0.491,
+    "y": 0.486
+   },
+   "frame": {
+    "h": 74,
+    "w": 232,
+    "x": 2,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 74,
+    "w": 232
+   },
+   "spriteSourceSize": {
+    "h": 74,
+    "w": 232,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  }
+ },
+ "meta": {
+  "format": "RGBA8888",
+  "image": "items_music_2@2x.png",
+  "scale": 2,
+  "size": {
+   "h": 80,
+   "w": 236
+  }
+ }
+}
