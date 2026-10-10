@@ -4,7 +4,8 @@ import type { ItemDef } from '../../../game/data/types';
 import type { GhostFrame } from '../app/ghost';
 import { solidMatrix } from '../journal/entryArt';
 import { HandCursor } from '../ui/cursor';
-import { ItemSprite } from './draw/item';
+import type { ItemSprite } from './draw/item';
+import { makeItemView } from '../art/itemViews';
 import { twinkle } from './fixtureArt';
 import type { HintKey, HintLook } from './hints';
 
@@ -134,7 +135,7 @@ export class GhostHand extends Container {
       this.carriedDef = frame.carry;
       const def = frame.carry ? this.itemDef(frame.carry) : undefined;
       if (def) {
-        this.carried = new ItemSprite(def, 7);
+        this.carried = makeItemView(def, 7);
         this.carried.tint = GHOST_TINT;
         this.addChildAt(this.carried, 0);
       }

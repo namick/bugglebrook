@@ -13,6 +13,8 @@ import type { Settings } from '../../../shared/settings';
 import type { Game, SceneName } from '../app/game';
 import type { ArtHook } from '../art/artHook';
 import { artHook } from '../art/artHook';
+import type { ItemArtHook } from '../art/itemHook';
+import { itemArtHook } from '../art/itemHook';
 import type { DemoKind } from '../app/ghost';
 import type { PhotoRecord } from '../../../game';
 import { BUG_LIGHTS } from '../render/weatherView';
@@ -114,7 +116,7 @@ export interface PhotoInfo {
  * Test-only API on window.__bb. Installed only when the app is launched with
  * BUGGLEBROOK_TEST=1, so E2E tests can assert on game state instead of pixels.
  */
-export interface TestHook extends ArtHook {
+export interface TestHook extends ArtHook, ItemArtHook {
   scene(): SceneName;
   tick(): number;
   entities(): EntityView[];
@@ -669,6 +671,7 @@ export function installTestHook(game: Game, boundary?: ErrorBoundary): void {
 
   window.__bb = {
     ...artHook(game),
+    ...itemArtHook(game),
     scene: () => game.scene,
     tick: () => game.session?.sim.tick ?? 0,
     entities: () => game.session?.sim.views() ?? [],

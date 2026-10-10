@@ -39,7 +39,7 @@ export const MAX_TINT_SATURATION = 0.12;
 /** How close (template pixels) a limb or feeler must come to its pivot. */
 export const REACH = 24;
 
-const isGuide = (name: string): boolean => /^guide/i.test(name.trim());
+export const isGuide = (name: string): boolean => /^guide/i.test(name.trim());
 const RIG_LAYER = /^guide_rig_([0-9a-f]+)$/;
 
 /** Edit distance, for "did you mean". */
@@ -125,7 +125,13 @@ function layerPixels(
  * front with their opacity and blend mode. Hidden layers count (hiding is for
  * working, never for turning a part off); `guide...` layers inside are skipped.
  */
-function flatten(node: OraNode, w: number, h: number, say: (m: ArtMessage) => void, part: string): Rgba {
+export function flatten(
+  node: OraNode,
+  w: number,
+  h: number,
+  say: (m: ArtMessage) => void,
+  part: string,
+): Rgba {
   if (node.kind === 'layer') return layerPixels(node, w, h, say).img;
   const out = blank(w, h);
   for (const child of [...node.children].reverse()) {

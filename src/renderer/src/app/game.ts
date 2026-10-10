@@ -32,6 +32,7 @@ import { Camera } from '../render/camera';
 import { GhostHand, HintMarks } from '../render/hintView';
 import { ArtLab } from '../art/artLab';
 import { artStore } from '../art/artStore';
+import { itemArtBook } from '../art/itemArt';
 import { WorldView } from '../render/worldView';
 import type { PictureButton } from '../ui/button';
 import { isUi } from '../ui/button';
@@ -384,6 +385,7 @@ export class Game {
   async start(): Promise<void> {
     await this.settings.load();
     await artStore.loadBundled().catch((err: unknown) => console.error('Art failed to load', err));
+    await itemArtBook.loadBundled().catch((err: unknown) => console.error('Item art failed to load', err));
     void this.music.load();
     void this.samples.load();
     void fetchJson('sfx/credits.json')

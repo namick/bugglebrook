@@ -4,7 +4,8 @@ import type { AreaDef, FixtureDef } from '../../../../game/data/types';
 import type { Sim } from '../../../../game/sim';
 import { STIR_RATE } from '../../../../game/systems/bugMachines';
 import { MOUTH_HALF } from '../../../../game/systems/cauldron';
-import { ItemSprite } from '../draw/item';
+import type { ItemSprite } from '../draw/item';
+import { makeItemView } from '../../art/itemViews';
 import { drawTagIcon } from '../draw/tagIcon';
 import type { Particles } from '../particles';
 import { OUTLINE, darken, lighten, mix, stroke } from '../palette';
@@ -142,7 +143,7 @@ export class CauldronLive extends AreaLive {
         this.lens.addChild(this.lensG);
         this.scopeSprite = null;
         if (e.defId && e.tag !== 'wubbo') {
-          const s = new ItemSprite(sim.content.items.get(e.defId), 11);
+          const s = makeItemView(sim.content.items.get(e.defId), 11);
           this.scopeSprite = s;
           this.lens.addChild(s);
         }

@@ -3,7 +3,7 @@ import { PIXELS_PER_METER } from '../../../../game/constants';
 import { HOLLOW_CEILING } from '../../../../game/data/hiddenAreas';
 import type { AreaDef, ItemDef } from '../../../../game/data/types';
 import type { Sim } from '../../../../game/sim';
-import { ItemSprite } from '../draw/item';
+import { makeItemView } from '../../art/itemViews';
 import type { Particles } from '../particles';
 import { darken, lighten, stroke } from '../palette';
 import { HOLLOW_COLORS, LOST_SHELVES, starPath } from './hollow';
@@ -201,7 +201,7 @@ export class HollowLive extends AreaLive {
         .stroke(stroke(2.5));
       g.roundRect(-w / 2, -h, w, h, 3).fill(i % 2 ? 0xe9f3fb : 0xfff5e0);
       frame.addChild(g);
-      const icon = new ItemSprite(def, i);
+      const icon = makeItemView(def, i);
       const s = def.shape;
       const size = s.type === 'circle' ? s.radius * 2 : Math.max(s.width, s.height);
       icon.scale.set(Math.min(0.9, 0.32 / Math.max(0.05, size)));

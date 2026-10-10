@@ -43,6 +43,8 @@
     "shots": "electron-vite build && node scripts/display.mjs playwright test -c playwright.shots.config.ts",
     "art:build": "node scripts/art/build.ts",
     "art:check": "node scripts/art/build.ts --check",
+    "art:check-one": "node scripts/art/checkOne.ts",
+    "art:item-templates": "node scripts/art/itemTemplates.ts",
     "art:templates": "node scripts/art/templates.ts",
     "art:watch": "node scripts/art/dev.ts"
   },

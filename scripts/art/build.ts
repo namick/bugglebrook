@@ -29,6 +29,7 @@ import type { Rgba } from './png.ts';
 import { encodePng } from './png.ts';
 import type { PartPixels } from './validate.ts';
 import { analyze } from './validate.ts';
+import { buildItems } from './items.ts';
 import { sourceSets, setSource } from './sets.ts';
 
 export const ROOT = resolve(import.meta.dirname, '../..');
@@ -59,7 +60,7 @@ const r3 = (v: number): number => Math.round(v * 1000) / 1000;
 const down = (v: number): number => Math.floor(v / 4) * 4;
 const up = (v: number): number => Math.ceil(v / 4) * 4;
 
-interface Piece {
+export interface Piece {
   name: string;
   /** The 4x picture, already rotated for feelers. */
   img: Rgba;
@@ -69,7 +70,7 @@ interface Piece {
 }
 
 /** Cut a part out at 4x, trimmed and aligned to 4 pixels so it halves cleanly. Feelers are turned to lie along +x. */
-function cut(
+export function cut(
   name: string,
   px: PartPixels,
   pivot: { x: number; y: number },
@@ -293,6 +294,10 @@ export function buildAll(srcDir = SRC_DIR): BuildAll {
   const files: Record<string, Uint8Array> = {};
   const messages = new Map<string, ArtMessage[]>();
   const colors = readSetColors(srcDir);
+  // The set's item sheets build on their own, into `items/` with a manifest of their own.
+  const items = buildItems(srcDir);
+  Object.assign(files, items.files);
+  for (const [id, m] of items.messages) messages.set(id, m);
   for (const s of findSources(srcDir)) {
     if (!existsSync(s.rig)) {
       messages.set(s.id, [

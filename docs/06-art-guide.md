@@ -2,7 +2,7 @@
 
 This is two documents in one. Part A is for the artist who will hand-draw the bugs, and later the backgrounds, in Krita. Part B is the spec engineers build the art pipeline milestone against.
 
-The game draws bugs in code by default. The owner approved hand-drawn replacements in `00-decisions.md`. Players can choose a named art set in Settings, and each incomplete set falls back to the original bugs for anything not yet drawn.
+The game draws bugs in code by default. The owner approved hand-drawn replacements in `00-decisions.md`. Players can choose a named art set in Settings, and each incomplete set falls back to the original bugs for anything not yet drawn. A set may paint items too (A9 and B21), one item at a time.
 
 Krita facts below were checked on 2026-10-01 against the Krita site, the Krita manual, and Krita's own source code. Where a detail could not be confirmed, the guide says so and gives an instruction that works either way.
 
@@ -102,7 +102,7 @@ Bugglebrook looks like flat cut-paper toys: chunky dark outlines, round friendly
 
 ### Choosing and adding an art set
 
-Open the pause board or the main menu's gear. Use the arrows beside **Art** to choose **Original bugs**, **Krita reference**, **Storybook**, or another installed set. The selected artist credit appears below the set name. The choice applies at once, including bugs and twigs in the pocket, and stays selected after restarting. It is a machine setting, shared by all save slots. Changing it does not change the bugs or their saved game state.
+Open the pause board or the main menu's gear. Use the arrows beside **Art** to choose **Original bugs**, **Krita reference**, **Storybook**, or another installed set. The selected artist credit appears below the set name. The choice applies at once, including the bugs and things in the pocket, and stays selected after restarting. It is a machine setting, shared by all save slots. Changing it does not change the bugs or their saved game state.
 
 The Krita reference set is agent-created reference artwork, separate from the daughter's drawings. Its sources stay in `art/src/bugs/` and `art/src/faces/`. Storybook is a second agent-created set in a shaded style, kept in `art/src/sets/storybook/` and described in `art/STORYBOOK-SET.md`.
 
@@ -599,7 +599,8 @@ bug_ladybug_dot.ora
 3. **The starting cast:** Rollo, Glorp, Skeet, Boing. Players see these first.
 4. **Polish the face kit**, now that you've seen it on five bugs.
 5. **The found bugs:** Flick, Whiff, Moose, Barty, Munch, Prim, Twig, in any order.
-6. **Backgrounds, later** (section A7). Then maybe items.
+6. **Items, whenever you like** (section A9). One at a time is fine.
+7. **Backgrounds, later** (section A7).
 
 Checklist for each bug:
 
@@ -671,6 +672,70 @@ Draw everything in **daylight**. The game tints the whole scene for dawn, dusk, 
 - If the game's code is ever shared publicly, your art doesn't come along. It stays under your license.
 - **Credits.** The game gets a credits board with your name, written the way you want it (real name, artist name, or both). You decide.
 - Keep your files. The `.ora` and `.kra` files are your originals. Back them up somewhere besides the game's folder.
+
+## A9. Items
+
+You can paint the things in the world too: the pebble, the berries, the hats, the toys. An item is much less work than a bug. It is one flat picture on one layer, and the game does the rest. Paint one or paint a hundred. Whatever you leave blank stays the way the code draws it.
+
+### Getting the sheets
+
+Items come on **sheets**, a few items to a file, grouped by kind: `things`, `food`, `toys`, `music`, `hats`, and `worn` (glasses, capes, skates). Ask for them once:
+
+```sh
+pnpm art:item-templates --set garden_drawings
+```
+
+That puts 23 sheets in `art/src/sets/garden_drawings/items/`, like `items_food_1.ora`. Each has a `.rig.json` next to it. Leave that file alone, the same as for a bug.
+
+### What a sheet looks like
+
+Open one. Every item has:
+
+- a **dashed blue box**. All your paint for that item stays inside it.
+- the item as the code draws it, faint. This is your guide.
+- a **green outline**, the solid shape the game bumps into, and a **pink dot** at its middle.
+- its own layer in the `items` group, named exactly like the item (`item_berry_red`). Paint there.
+
+The sheet is 4 times game size, like the bug templates. Most items are only 40 to 70 pixels across in the game, so paint bold. An outline about 16 to 20 px wide on the sheet matches the bugs.
+
+### The one rule: keep the shape
+
+Change anything inside the outline. Change the colors, the material, what the thing is. A berry can be a glowing seed pod. But keep it the same shape and size as the faint guide, and the same way up.
+
+The game puts things on top of your painting and it places them from the guide's shape, not from your pixels:
+
+- **Paint.** A dipped item gets a wash of color in the guide's shape, with a dark line around it. If your item is fatter or thinner than the guide, you see two outlines.
+- **Bites.** Munch nibbles notches out of the guide's top and bottom edge. If your edge is somewhere else, the bite misses.
+- **The ground.** The green shape is what rests on the ground and stacks. If your painting stops short of it, the item floats.
+- **Hats.** A hat sits on a bug's head by its green box. Keep the brim on the box's bottom edge and fill its width.
+
+A good guide is 4 game pixels, which is 16 on the sheet. Stay that close to the guide's edge and everything lines up. Thin extras past the edge are fine: a curl, a feeler, a sparkle.
+
+A few more things:
+
+- Paint in daylight. No shadows on the ground, no glow. The game adds night, wet, and frost.
+- Every pebble in the game gets your one pebble. The code-drawn ones differ a little from each other. Yours do not, and that is fine.
+- The three marbles, the two balloons, and the six paint drops each have a layer of their own, so you can keep them different colors. Keep each paint drop the color of its paint.
+- Hats are flipped when a bug faces left. No letters.
+- In the journal, a thing you have not found yet shows as a dark shape of your painting. Make sure the shape alone says what it is.
+
+### Things you cannot paint
+
+Six things stay code-drawn because part of them moves or changes: potion bottles (the liquid changes color), the spring, the pinwheel, the paper boat, the big lattice, and the twig. The twig comes from the `stick` layer in Twig's own file, so paint it there.
+
+### Checking your work
+
+```sh
+pnpm art:check-one art/src/sets/garden_drawings/items/items_food_1.ora --preview /tmp/my-preview
+```
+
+It answers in a second or two. It lists each item as `painted` or `blank`, tells you about anything wrong in plain words, and with `--preview` it saves a picture of your items at game size on grass. Look at that picture. Small things read differently small.
+
+`x` means the game cannot use that item yet and keeps the code drawing. `!` is a warning, and the two you will meet are "strays from the guide's shape" and "leaves part of the guide's shape empty". Both mean the outline moved.
+
+To see a whole sheet in the game beside the code-drawn items, with paint and bites on them, ask for the item tour (`pnpm shots -g "item art"`, section B21).
+
+When a sheet is done: `pnpm art:build`, then pick your set in Settings.
 
 ---
 
@@ -1050,6 +1115,117 @@ When they show:
 The importer checks the file against the bug's rig. A light that is wrong is left out and reported as a warning in that bug's report, and the bug still draws. The build writes each light into the manifest (`ManifestAsset.lights`) in game pixels from its part's pivot. `art/setLights.ts` has the checks, the form rule, the brightness rule, and the feeler math. `SpriteBugView.nightLights` places the lights by asking each part's sprite where the point is. `WorldView` gathers them as it poses each bug, after the bug has moved, so they do not trail a frame behind.
 
 To see them: the Art Lab's night look draws them, so the cast tour's `<set>-<bug>-night.png` shows them, and `pnpm shots -g '<set name> night'` photographs each bug on the plaza after dark, held up and then left alone (`<set>-<bug>-night-held.png`, `-night-world.png`). `__bb.bugLights()` lists the lights drawn in the world.
+
+## B21. Item art
+
+Built on 2026-10-10. A set can paint items. Each painted item replaces the code drawing of that one item, everywhere an item is shown. Everything else stays code-drawn.
+
+### What a set may paint
+
+147 of the 186 items. Six art keys stay code-drawn, listed with their reasons in `CODE_DRAWN` (`src/renderer/src/art/itemSheets.ts`):
+
+| Art key | Items | Why |
+|---|---|---|
+| `potion` | 34 | `setLiquid` recolors the liquid for the brew inside, and every bottle shares one drawing. |
+| `spring` | 1 | The coil is a second `Graphics`, redrawn every frame as it squashes. |
+| `pinwheel` | 1 | The wheel is a second `Graphics` that turns on the stick. |
+| `paper_boat` | 1 | `setSoggy` redraws it as it soaks. |
+| `twig` | 1 | It uses Twig's `stick` (B7), so his disguise holds. |
+| `lattice` | 1 | With its vines it is 7 m across. Its picture would need more texture than every other item together. |
+
+A new item with a part that moves or redraws belongs in that table. Anything else is paintable as soon as it exists.
+
+### Sources
+
+```
+art/src/sets/<id>/items/items_<group>_<n>.ora        one paint layer per item, named by item ID
+art/src/sets/<id>/items/items_<group>_<n>.rig.json   the layout, written by the generator
+```
+
+The reference set's would sit in `art/src/items/`. It has none.
+
+Layers are named by item ID, not by art key. Marbles, balloons, paint drops, blueprints, and map scraps share a key and differ by color or mark, and item IDs are the names saves and the journal already use.
+
+`planSheets` (pure) splits the paintable items into sheets: by group (`things`, `food`, `toys`, `music`, `hats`, `worn`), then in registry order, up to 8 to a sheet and fewer when the bodies are big. A new item lands at the end of its group, so earlier sheets keep their items. Today that makes 23 sheets.
+
+`layoutSheet` (pure) gives each item a box: the code-drawn item's bounds and its body, plus 32 px, snapped to 8. Boxes go left to right in rows on a canvas 1600 px wide or wider. The scale is 4 template pixels to a game pixel, as for bugs. The anchor is the center of the physics body. Since the painter paints in place over the guide, and the importer measures each frame's anchor from that point, a painted item lands where the code-drawn one does.
+
+`rig.json` (`ItemSheetFile` in `art/itemSheet.ts`) holds the canvas, `sheetHash`, and per item its `cell`, `anchor`, `body`, `guide` bounds, and `mask`. The mask is the code-drawn item's shape at game size, run-length coded. The hash covers the boxes, anchors, and bodies, not the masks, which depend on the rasterizer. The sheet carries the hash as a hidden `guide_sheet_<hash>` layer, like a bug's `guide_rig_<hash>`.
+
+### Templates
+
+```sh
+pnpm art:item-templates [--set <id>] [--out <dir>] [--refresh-guides] [sheet_id ...]
+```
+
+`scripts/art/itemTemplates.ts` builds the app and runs `tests/art/itemTemplate.spec.ts` on the virtual display. The game draws each sheet's guides (`art/itemTemplate.ts`, `__bb.artItemTemplate`): `guide_current` (the items as the code draws them, seed 0, at 35%), `guide_boxes` (boxes, bodies, anchors), `guide_notes`. `scripts/art/itemTemplate.ts` writes the `.ora` with an empty layer per item.
+
+It never overwrites a sheet. `--refresh-guides` swaps the guides and the rig.json, keeps every painting, and moves a painted layer by however far its anchor moved. `--out` writes to any folder, so templates can be made without creating a set in the repo. `pnpm art:templates` passes the item spec by, and the other way round.
+
+### Importer
+
+`scripts/art/items.ts`. `buildAll` calls `buildItems` for each set, so `pnpm art:build` and `pnpm art:check` cover item sheets with no extra step.
+
+- Each item's layer (or group of that name, flattened) is trimmed and cut around its anchor with the bugs' `cut`, halved to 2x and again to 1x, and bled.
+- Pages go to `src/renderer/art/sets/<id>/items/<sheet>@1x|2x.png` and `.json`, one or more per sheet. Pages are only as big as their frames, not rounded up to a power of two.
+- `items/manifest.json` (`ItemManifest`) lists each sheet's status, pages, painted items, and report. It is separate from the set's bug manifest, which does not change. A set with no item sheets writes nothing.
+- No rim frames. The hover rim is the code-drawn outline, which the painting keeps to. That halves the pages.
+
+Each item stands alone. One with an error is left out and the rest of the sheet builds.
+
+| Check | Level |
+|---|---|
+| Not a readable ORA, wrong canvas size, stamp does not match rig.json | error, whole sheet |
+| Paint outside the item's box | error, that item |
+| Layer covers more than 95% of its box | error, that item |
+| Two layers with one item's name, a filter, an unsupported blend mode in a group | error, that item |
+| More than 3% of the painting lies over 4 game px outside the guide's shape | warning |
+| More than 3% of the guide's shape has no paint within 4 game px | warning |
+| Unknown layer name, opacity under 100%, blend mode on the item layer, 16-bit or non-sRGB, file over 8 MB | warning |
+| Items not painted yet | info, one line |
+
+The two outline checks (`outlineFit`) compare the painting with the rig's mask on a grid of game pixels, with a square brush for the tolerance. Thin extras pass. A different shape does not.
+
+`pnpm art:check-one <file.ora> [--preview <dir>] [--strict]` (`scripts/art/checkOne.ts`) checks one item sheet, bug, or kit against the rig.json next to it and touches nothing else. It takes a second or two and is safe to run many at once, which `pnpm art:build` is not. `--preview` writes the pages and the paintings on grass at 2x and 1x. `--strict` passes only a finished file with an empty report.
+
+### What follows the code-drawn shape
+
+The painting replaces the drawing and nothing else. These still come from the code:
+
+| Thing | Placed from | Tolerance |
+|---|---|---|
+| Collider, shadow, stacking, hit testing | `def.shape` | Reach the body's edges where the guide does |
+| Paint (`setPaint`) | `outline()`: a 62% wash, a 4 px line, drips at the guide's bottom edge | About 4 game px |
+| Bites (`setBites`) | `g.containsPoint` on the code drawing, at 66% and 32% across | About 4 game px at those edges |
+| Hover rim | `outline()` | Loose |
+| Wear seats (`wearLook.ts`) | The body's width and half height | Keep the lower edge and the width |
+| Tag looks, toasting, potions on items, sky grading | Tint, alpha, and scale on the whole view | None |
+
+For an item whose `outline()` returns false, paint and the rim use the body's rounded box, as they do for the code drawing.
+
+### Runtime
+
+- `art/itemArt.ts`: `ItemArtBook` holds each set's painted items by item ID. `Game.start` loads the bundled ones after the bug art. Installing a sheet bumps `artStore.version`.
+- `art/itemSheets.ts`: `chooseItemArt` is the pure choice. Art off gives code. The twig follows Twig. A `CODE_DRAWN` key gives code whatever the set holds. Otherwise the painting if the selected set has one.
+- `art/itemViews.ts`: `makeItemView(def, seed)` builds an `ItemSprite` and gives it the art. Every place that shows an item calls it: the world and the hand, worn things, the pocket, the journal, thought bubbles, wish hints, the bench, the cauldron, the hollow's shelf, the clues window, the ant hill, the ghost hand, the whistle's swoosh. It keeps a weak list of live views. `syncItemViews`, called from `WorldView.update`, swaps each one's drawing in place when the art version changes, so a set switch reaches cached icons too.
+- `ItemSprite.useArt(art | null)` hides the code drawing and its heavy outline, puts the sprite just above them, and leaves paint, bite edges, and the code rim where they were. The frame's scale follows the screen as for bugs: 2x pages above a resolution of 1.25.
+
+### Tests and review
+
+- `tests/unit/itemSheets.test.ts`: the importer, every check, the outline measure, templates and refresh, a set built through `buildSets`, `checkOne`.
+- `tests/unit/itemArt.test.ts`: the plan and layout over every real item, the choice, the book, views swapping on a set change, paint and bites over a painting, the board. It also checks every committed item sheet: its rig.json must match the game's layout now, and it must build without errors. `pnpm art:check` cannot see the first of those, because a sheet and its own rig.json still agree after an item changes size in the game. Add a finished set's ID to `COMPLETE_ITEM_SETS` there and the test holds it to all 147 items and an empty report.
+- `tests/e2e/items.spec.ts`: the crude item sheets go through the importer into the game. A painted item is drawn from its sheet in the world, in the hand, in the pocket, and on a bug's head. A blank one and a spring fall back. The set is chosen with the real mouse.
+- `tests/e2e/fixtures/art/items/` holds three crude sheets. `makeItems.ts` paints each item as its own guide shape in a loud flat color, and leaves the cork and the leaf raft blank on purpose. A unit test fails when an item on those sheets changes shape, and names the two commands to rerun.
+- `pnpm shots -g "item art"` (`tests/shots/itemArt.spec.ts`) opens the item board (`art/itemBoard.ts`, `__bb.itemBoard`) on every sheet: each item as code, painting, painting with paint, with bites, and under the night tint. Then the plaza by day and night. `BB_ITEMS_SRC=<set folder>` builds that folder's sheets on the spot, with no `pnpm art:build`. `BB_ART_SET=<id>` shows a built set. `BB_ITEMS_ONLY` picks sheets. Files are `itemart-*` in `BB_SHOTS_DIR`.
+
+### Size
+
+A full set, all 147 items, built from the code-drawn guides as paint: 509 KB at 1x and 941 KB at 2x in 23 pages each, plus 111 KB of JSON. That is 1.1 and 4.3 megapixels of texture. Flat color compresses well, so expect painted art to be two or three times the bytes. A unit test keeps the boxes' total under 6 megapixels at 2x.
+
+### Not built
+
+- `pnpm art:watch` rebuilds the committed pages when an item sheet is saved, but does not send them to the running game. Use the tour.
+- Fixtures, water, and UI. Each fixture is an animated view with sim state, not one picture.
 
 ## B17. What we're unsure about
 

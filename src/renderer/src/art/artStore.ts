@@ -49,7 +49,7 @@ export function atlasSet(source: TextureSource, json: AtlasJson, into?: AtlasSet
   return set;
 }
 
-async function sourceFrom(url: string): Promise<TextureSource> {
+export async function sourceFrom(url: string): Promise<TextureSource> {
   const img = new Image();
   img.src = url;
   await img.decode();
