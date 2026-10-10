@@ -3,6 +3,8 @@ import type { MusicReport } from '../audio/musicEngine';
 import type { SequencerReport } from '../audio/musicDirector';
 import { WebAudioMusicSink, fetchBytes } from '../audio/musicPlayer';
 import type { NoteLog } from '../audio/musicToys';
+import type { MusicLabHook } from '../musicLab/musicLabHook';
+import { musicLabHook } from '../musicLab/musicLabHook';
 import { SEQ_COLS, SEQ_ROWS, cellCenter } from '../../../game/systems/sequencer';
 import { PIXELS_PER_METER as PPM, VIEW_WIDTH_PX } from '../../../game/constants';
 import type { Command, EntityView, PageId } from '../../../game';
@@ -113,7 +115,7 @@ export interface PhotoInfo {
  * Test-only API on window.__bb. Installed only when the app is launched with
  * BUGGLEBROOK_TEST=1, so E2E tests can assert on game state instead of pixels.
  */
-export interface TestHook extends ArtHook {
+export interface TestHook extends ArtHook, MusicLabHook {
   scene(): SceneName;
   tick(): number;
   entities(): EntityView[];
@@ -661,6 +663,7 @@ export function installTestHook(game: Game, boundary?: ErrorBoundary): void {
 
   window.__bb = {
     ...artHook(game),
+    ...musicLabHook(game),
     scene: () => game.scene,
     tick: () => game.session?.sim.tick ?? 0,
     entities: () => game.session?.sim.views() ?? [],
