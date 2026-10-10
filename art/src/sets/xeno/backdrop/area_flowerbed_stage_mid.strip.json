@@ -1,0 +1,26 @@
+{
+ "area": "area_flowerbed_stage",
+ "blend": {
+  "left": 0,
+  "right": 128
+ },
+ "canvas": {
+  "h": 2160,
+  "w": 4640
+ },
+ "cover": 940,
+ "ground": 900,
+ "hidden": [],
+ "id": "area_flowerbed_stage_mid",
+ "kind": "strip",
+ "layer": "mid",
+ "scale": 2,
+ "schema": 1,
+ "span": {
+  "x0": 0,
+  "x1": 2192
+ },
+ "stripHash": "b9a90aa80fb2bde1",
+ "title": "Flowerbed Stage, mid layer",
+ "x": 0
+}

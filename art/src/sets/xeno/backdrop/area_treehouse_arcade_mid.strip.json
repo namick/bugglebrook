@@ -1,0 +1,26 @@
+{
+ "area": "area_treehouse_arcade",
+ "blend": {
+  "left": 128,
+  "right": 0
+ },
+ "canvas": {
+  "h": 2160,
+  "w": 4640
+ },
+ "cover": 1080,
+ "ground": 900,
+ "hidden": [],
+ "id": "area_treehouse_arcade_mid",
+ "kind": "strip",
+ "layer": "mid",
+ "scale": 2,
+ "schema": 1,
+ "span": {
+  "x0": 9408,
+  "x1": 11600
+ },
+ "stripHash": "4d54df0c566fd619",
+ "title": "Treehouse Arcade, mid layer",
+ "x": 9280
+}

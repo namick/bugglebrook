@@ -1,0 +1,26 @@
+{
+ "area": "area_compost_lab",
+ "blend": {
+  "left": 128,
+  "right": 128
+ },
+ "canvas": {
+  "h": 2160,
+  "w": 3680
+ },
+ "cover": 1080,
+ "ground": 900,
+ "hidden": [],
+ "id": "area_compost_lab_mid",
+ "kind": "strip",
+ "layer": "mid",
+ "scale": 2,
+ "schema": 1,
+ "span": {
+  "x0": 7824,
+  "x1": 9408
+ },
+ "stripHash": "fd7c6f34b29e76bf",
+ "title": "Compost Lab, mid layer",
+ "x": 7696
+}

@@ -57,7 +57,7 @@ export class ItemSprite extends Container {
   private readonly rim = new Graphics();
   /** The heavier outline behind small things. */
   private backing: Graphics | null = null;
-  /** Hand-drawn art shown instead of `g` (the twig, from Twig's stick), and its rim. */
+  /** Hand-drawn art shown instead of `g` (a set's painting, or Twig's stick for the twig), and its rim. */
   private artSprite: Sprite | null = null;
   private artRim: Sprite | null = null;
   /** Stink lines and a fly, while the thing is smelly. */
@@ -318,27 +318,41 @@ export class ItemSprite extends Container {
   }
 
   /**
-   * Draw this item from hand-drawn art instead of code: the twig item uses
-   * Twig's `stick`, so a disguised Twig and a real twig always match.
+   * Draw this item from hand-drawn art instead of code (a set's painting of
+   * it, or Twig's `stick` for the twig), or pass null to go back to the code
+   * drawing. The picture replaces only the drawing: paint, bite marks, and
+   * the rest still sit over it, placed from the code-drawn shape.
    */
-  useArt(art: ItemArt): void {
-    this.g.visible = false;
+  useArt(art: ItemArt | null): void {
+    if (art && this.artSprite?.texture === art.texture) return;
+    const rimOn = (this.artRim ?? this.rim).visible;
+    const rimAlpha = (this.artRim ?? this.rim).alpha;
+    this.artSprite?.destroy();
+    this.artRim?.destroy();
+    this.artSprite = null;
+    this.artRim = null;
+    this.g.visible = !art;
+    if (this.backing) this.backing.visible = !art;
     this.rim.visible = false;
-    if (this.backing) this.backing.visible = false;
-    const s = new Sprite(art.texture);
-    s.anchor.set(art.anchor.x, art.anchor.y);
-    s.scale.set(art.k);
-    s.label = 'item art';
-    this.artSprite = s;
-    if (art.rim) {
-      const rim = new Sprite(art.rim.texture);
-      rim.anchor.set(art.rim.anchor.x, art.rim.anchor.y);
-      rim.scale.set(art.k);
-      rim.visible = false;
-      this.artRim = rim;
-      this.art.addChild(rim);
+    if (art) {
+      const s = new Sprite(art.texture);
+      s.anchor.set(art.anchor.x, art.anchor.y);
+      s.scale.set(art.k);
+      s.label = 'item art';
+      this.artSprite = s;
+      // Just above the code drawing, so paint and bite marks stay on top.
+      this.art.addChildAt(s, this.art.getChildIndex(this.g) + 1);
+      if (art.rim) {
+        const rim = new Sprite(art.rim.texture);
+        rim.anchor.set(art.rim.anchor.x, art.rim.anchor.y);
+        rim.scale.set(art.k);
+        rim.visible = false;
+        rim.label = 'item rim';
+        this.artRim = rim;
+        this.art.addChildAt(rim, 0);
+      }
     }
-    this.art.addChild(s);
+    this.setRim(rimOn, rimAlpha);
   }
 
   /** The hand-drawn texture this item shows, or null when it is code-drawn (test hook). */
@@ -1099,8 +1113,9 @@ export class ItemSprite extends Container {
     this.paintId = id;
     if (!this.paintLayer) {
       this.paintLayer = new Graphics();
-      // Above the drawing, under the bite edges.
-      this.art.addChildAt(this.paintLayer, this.art.getChildIndex(this.g) + (this.coil ? 2 : 1));
+      // Above the drawing (the code's or the hand-drawn one), under the bite edges.
+      const top = this.artSprite ?? this.coil ?? this.g;
+      this.art.addChildAt(this.paintLayer, this.art.getChildIndex(top) + 1);
     }
     const g = this.paintLayer.clear();
     const color = id === undefined ? undefined : PAINT_COLORS[id];

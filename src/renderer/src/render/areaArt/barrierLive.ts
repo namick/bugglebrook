@@ -117,7 +117,7 @@ export class SunflowerLive extends AreaLive {
         head.x - 40 * (1 - k),
         head.y - 10 * (1 - k),
       )
-      .stroke({ width: 18, color: 0x5ea24a, cap: 'round' });
+      .stroke({ width: 18, color: f.tone?.(0x5ea24a) ?? 0x5ea24a, cap: 'round' });
     g.moveTo(x, ground)
       .bezierCurveTo(
         x - 10,
@@ -139,7 +139,7 @@ export class SunflowerLive extends AreaLive {
       g.moveTo(lx, ly)
         .quadraticCurveTo(lx + side * 50, ly - 30 + droop * 40, lx + side * 90, ly + droop * 60)
         .quadraticCurveTo(lx + side * 50, ly + 10 + droop * 30, lx, ly)
-        .fill(0x6fbf4a)
+        .fill(f.tone?.(0x6fbf4a) ?? 0x6fbf4a)
         .stroke(soft(2.5, 0.55));
     }
     // The head: petals limp and pointing down when thirsty, a sunny face once it stands.

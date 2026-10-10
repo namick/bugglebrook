@@ -2,7 +2,8 @@ import { Container, Graphics } from 'pixi.js';
 import { PIXELS_PER_METER } from '../../../../game/constants';
 import type { AreaDef, ItemDef } from '../../../../game/data/types';
 import type { Sim } from '../../../../game/sim';
-import { ItemSprite } from '../draw/item';
+import type { ItemSprite } from '../draw/item';
+import { makeItemView } from '../../art/itemViews';
 import type { Particles } from '../particles';
 import { OUTLINE, darken, stroke } from '../palette';
 import { ANTS } from './depths';
@@ -42,7 +43,7 @@ export class AntHillLive extends AreaLive {
     this.front.addChild(this.fg, this.bubble);
     this.bubble.addChild(this.bubbleG);
     if (sugarDef) {
-      this.sugar = new ItemSprite(sugarDef, 5);
+      this.sugar = makeItemView(sugarDef, 5);
       this.sugar.scale.set(1.25);
       this.bubble.addChild(this.sugar);
     }

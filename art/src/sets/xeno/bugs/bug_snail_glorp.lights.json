@@ -1,0 +1,12 @@
+{
+  "lights": [
+    { "part": "body", "x": 826, "y": 760, "r": 36, "color": "#ff6fb7" },
+    { "part": "body", "x": 866, "y": 786, "r": 39, "color": "#ff6fb7" },
+    { "part": "body", "x": 908, "y": 800, "r": 36, "color": "#ff6fb7" },
+    { "part": "body", "x": 250, "y": 708, "r": 90, "color": "#ff6fb7" },
+    { "part": "shell", "x": 391, "y": 433, "r": 75, "color": "#ff6fb7" },
+    { "part": "shell", "x": 562, "y": 622, "r": 163, "color": "#ff6fb7" },
+    { "part": "shell_closed", "x": 449, "y": 428, "r": 84, "color": "#ff6fb7" },
+    { "part": "shell_closed", "x": 640, "y": 640, "r": 182, "color": "#ff6fb7" }
+  ]
+}

@@ -32,6 +32,8 @@ import { Camera } from '../render/camera';
 import { GhostHand, HintMarks } from '../render/hintView';
 import { ArtLab } from '../art/artLab';
 import { artStore } from '../art/artStore';
+import { backdropStore } from '../art/backdropStore';
+import { itemArtBook } from '../art/itemArt';
 import { WorldView } from '../render/worldView';
 import type { PictureButton } from '../ui/button';
 import { isUi } from '../ui/button';
@@ -384,6 +386,8 @@ export class Game {
   async start(): Promise<void> {
     await this.settings.load();
     await artStore.loadBundled().catch((err: unknown) => console.error('Art failed to load', err));
+    await itemArtBook.loadBundled().catch((err: unknown) => console.error('Item art failed to load', err));
+    backdropStore.loadBundled();
     void this.music.load();
     void this.samples.load();
     void fetchJson('sfx/credits.json')
@@ -1188,6 +1192,8 @@ export class Game {
 
   private frame(dt: number): void {
     this.frameCount++;
+    // The selected art set's backdrop loads as soon as it is chosen, menu or world.
+    backdropStore.sync();
     this.artLab?.update(dt);
     if (this.menu && !this.menuFrozen) this.menu.update(dt);
     if (this.panel) this.panel.update(dt);

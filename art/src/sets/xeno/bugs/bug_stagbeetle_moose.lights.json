@@ -1,0 +1,9 @@
+{
+  "lights": [
+    { "part": "antler", "x": 1291, "y": 586, "r": 80, "color": "#ff8a4a" },
+    { "part": "antler", "x": 1302, "y": 769, "r": 68, "color": "#ff8a4a" },
+    { "part": "antler", "x": 1077, "y": 683, "r": 65, "color": "#ff8a4a" },
+    { "part": "shell", "x": 207, "y": 663, "r": 53, "color": "#ff8a4a" },
+    { "part": "shell", "x": 269, "y": 613, "r": 53, "color": "#ff8a4a" }
+  ]
+}

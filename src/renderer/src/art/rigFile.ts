@@ -71,6 +71,42 @@ export interface ManifestPart {
   form?: string;
 }
 
+/**
+ * Colors an art set names for one bug, for the things the game would
+ * otherwise color from the original palette (art/setColors.ts). Each is
+ * 0xRRGGBB, and each is optional: without one the game keeps its own color.
+ */
+export interface BugColors {
+  /** The sleepy eyelid's tint. */
+  lid?: number;
+  /** The two colors the tint layers shimmer between (Barty's shell). */
+  sheen?: [number, number];
+  /** The bug's main color, for what the game draws beside it: ripples, a flung trail, potion fur, the journal's frame. */
+  body?: number;
+  /** The light a glowing bug casts at night (Flick's lantern). */
+  glow?: number;
+  /** Where that light sits: game pixels from the rig's origin, as the bug faces right. */
+  lantern?: XY;
+}
+
+/**
+ * One night light an art set puts on a bug (art/setLights.ts): a soft glow
+ * that rides a part after dark. Built from the bug's `.lights.json`.
+ */
+export interface BugLight {
+  /** The part it sits on. It shows while that part does, on each near-side copy of it. */
+  part: string;
+  /** Where it sits: game pixels from the part's pivot, as the part is drawn in the template. */
+  x: number;
+  y: number;
+  /** How far the glow reaches, in game pixels. */
+  r: number;
+  /** 0xRRGGBB. */
+  color: number;
+  /** Only in these body forms, when given. */
+  forms?: string[];
+}
+
 export interface ManifestAsset {
   id: string;
   kind: 'bug' | 'face_kit';
@@ -85,6 +121,10 @@ export interface ManifestAsset {
   /** Face pieces drawn in this file. */
   face: string[];
   faceAnchors?: { eye: XY & { r: number }; mouth: XY & { s: number } };
+  /** The set's own colors for this bug, from its colors.json. */
+  colors?: BugColors;
+  /** The set's night lights on this bug, from its lights.json. */
+  lights?: BugLight[];
   /** The importer's messages, for the Art Lab. */
   report: ArtMessage[];
 }

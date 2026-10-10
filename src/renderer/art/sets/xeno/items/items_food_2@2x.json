@@ -1,0 +1,205 @@
+{
+ "frames": {
+  "item_bluebell_bloom": {
+   "anchor": {
+    "x": 0.484,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 116,
+    "w": 124,
+    "x": 258,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 116,
+    "w": 124
+   },
+   "spriteSourceSize": {
+    "h": 116,
+    "w": 124,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_blueberry": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 116,
+    "w": 116,
+    "x": 384,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 116,
+    "w": 116
+   },
+   "spriteSourceSize": {
+    "h": 116,
+    "w": 116,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_cheese_puff": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.476
+   },
+   "frame": {
+    "h": 84,
+    "w": 144,
+    "x": 502,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 84,
+    "w": 144
+   },
+   "spriteSourceSize": {
+    "h": 84,
+    "w": 144,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_honey_drop": {
+   "anchor": {
+    "x": 0.492,
+    "y": 0.492
+   },
+   "frame": {
+    "h": 118,
+    "w": 122,
+    "x": 134,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 118,
+    "w": 122
+   },
+   "spriteSourceSize": {
+    "h": 118,
+    "w": 122,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_lavender_sprig": {
+   "anchor": {
+    "x": 0.488,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 40,
+    "w": 160,
+    "x": 888,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 40,
+    "w": 160
+   },
+   "spriteSourceSize": {
+    "h": 40,
+    "w": 160,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_petal": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.59
+   },
+   "frame": {
+    "h": 78,
+    "w": 124,
+    "x": 648,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 78,
+    "w": 124
+   },
+   "spriteSourceSize": {
+    "h": 78,
+    "w": 124,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_pollen_puff": {
+   "anchor": {
+    "x": 0.492,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 128,
+    "w": 130,
+    "x": 2,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 128,
+    "w": 130
+   },
+   "spriteSourceSize": {
+    "h": 128,
+    "w": 130,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_seed_sunflower": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 72,
+    "w": 112,
+    "x": 774,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 72,
+    "w": 112
+   },
+   "spriteSourceSize": {
+    "h": 72,
+    "w": 112,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  }
+ },
+ "meta": {
+  "format": "RGBA8888",
+  "image": "items_food_2@2x.png",
+  "scale": 2,
+  "size": {
+   "h": 132,
+   "w": 1052
+  }
+ }
+}

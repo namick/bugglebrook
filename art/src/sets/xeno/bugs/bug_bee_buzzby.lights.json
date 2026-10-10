@@ -1,0 +1,10 @@
+{
+  "lights": [
+    { "part": "stinger", "x": 164, "y": 392, "r": 75, "color": "#4dffe1" },
+    { "part": "body", "x": 296, "y": 366, "r": 46, "color": "#4dffe1" },
+    { "part": "body", "x": 296, "y": 466, "r": 46, "color": "#4dffe1" },
+    { "part": "body", "x": 376, "y": 366, "r": 46, "color": "#4dffe1" },
+    { "part": "body", "x": 376, "y": 466, "r": 46, "color": "#4dffe1" },
+    { "part": "antenna_tip", "x": 537, "y": 205, "r": 62, "color": "#4dffe1" }
+  ]
+}

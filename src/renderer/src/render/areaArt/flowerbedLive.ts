@@ -65,6 +65,9 @@ export class FlowerbedLive extends AreaLive {
   private readonly cones = new Graphics();
   private readonly stems: Stem[] = [];
   private petals: Petal[] = [];
+  /** Stem and leaf green, through the art set's tone map. */
+  private stem: number = FLOWERBED.stem;
+  private leaf: number = FLOWERBED.leaf;
   private readonly ax: number;
   private wobble: Record<string, number> = {};
   private flash = 0;
@@ -162,6 +165,8 @@ export class FlowerbedLive extends AreaLive {
     const g = this.g.clear();
     const fg = this.fg.clear();
     this.cones.clear();
+    this.stem = f.tone?.(FLOWERBED.stem) ?? FLOWERBED.stem;
+    this.leaf = f.tone?.(FLOWERBED.leaf) ?? FLOWERBED.leaf;
     for (const k of Object.keys(this.wobble)) this.wobble[k] = Math.max(0, this.wobble[k]! - f.dt * 1.6);
     for (const k of Object.keys(this.ripple)) this.ripple[k] = Math.max(0, this.ripple[k]! - f.dt * 1.2);
     this.flash = Math.max(0, this.flash - f.dt);
@@ -196,7 +201,7 @@ export class FlowerbedLive extends AreaLive {
       const head = { x: s.x + sway + droop * 28, y: 905 - s.h + droop * s.r * 0.9 };
       g.moveTo(base.x, base.y)
         .quadraticCurveTo(base.x + sway * 0.3, base.y - s.h * 0.55, head.x, head.y)
-        .stroke({ width: 11, color: FLOWERBED.stem, cap: 'round' });
+        .stroke({ width: 11, color: this.stem, cap: 'round' });
       g.moveTo(base.x, base.y)
         .quadraticCurveTo(base.x + sway * 0.3, base.y - s.h * 0.55, head.x, head.y)
         .stroke(soft(2, 0.4));
@@ -208,11 +213,11 @@ export class FlowerbedLive extends AreaLive {
         const lx = base.x + (head.x - base.x) * t * 0.6 + sway * t * 0.3;
         const ly = base.y - s.h * t;
         g.ellipse(lx + side * 24, ly, 28, 11)
-          .fill(FLOWERBED.leaf)
+          .fill(this.leaf)
           .stroke(soft(2.5, 0.5));
         g.moveTo(lx, ly)
           .lineTo(lx + side * 44, ly - 2)
-          .stroke({ width: 2, color: darken(FLOWERBED.leaf, 0.25), alpha: 0.6 });
+          .stroke({ width: 2, color: darken(this.leaf, 0.25), alpha: 0.6 });
       }
       // Aphids: little green beads bobbing on the stem.
       for (let k = 0; k < s.aphids; k++) {
@@ -257,7 +262,7 @@ export class FlowerbedLive extends AreaLive {
           .lineTo(head.x, head.y + s.r * 0.3)
           .stroke({ width: 2, color: darken(s.color, 0.2), alpha: 0.7 });
         g.ellipse(head.x, head.y + s.r * 0.45, s.r * 0.3, s.r * 0.16)
-          .fill(FLOWERBED.leaf)
+          .fill(this.leaf)
           .stroke(soft(2, 0.5));
       }
       if (rain > 0.3 && Math.random() < f.dt * 0.8 * rain)
@@ -381,9 +386,9 @@ export class FlowerbedLive extends AreaLive {
       const top = tulip.y;
       g.moveTo(x, 908)
         .quadraticCurveTo(x - 10, (908 + top) / 2, x + buzz * 0.4, top + 30)
-        .stroke({ width: 9, color: FLOWERBED.stem, cap: 'round' });
+        .stroke({ width: 9, color: this.stem, cap: 'round' });
       g.ellipse(x - 26, 820, 26, 10)
-        .fill(FLOWERBED.leaf)
+        .fill(this.leaf)
         .stroke(soft(2, 0.5));
       g.moveTo(x - 30 + buzz, top + 34)
         .quadraticCurveTo(x - 36 + buzz, top - 20, x - 12 + buzz, top - 40)
@@ -411,7 +416,7 @@ export class FlowerbedLive extends AreaLive {
       const hy = b.y + (muted ? 30 : 0);
       g.moveTo(b.x, 908)
         .quadraticCurveTo(b.x - dir * 20, 800, hx, hy)
-        .stroke({ width: 10, color: FLOWERBED.stem, cap: 'round' });
+        .stroke({ width: 10, color: this.stem, cap: 'round' });
       g.moveTo(b.x, 908)
         .quadraticCurveTo(b.x - dir * 20, 800, hx, hy)
         .stroke(soft(2, 0.4));

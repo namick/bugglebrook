@@ -3,7 +3,7 @@ import { PIXELS_PER_METER } from '../../../../game/constants';
 import type { AreaDef, FixtureDef } from '../../../../game/data/types';
 import type { Sim } from '../../../../game/sim';
 import type { Particles } from '../particles';
-import { ItemSprite } from '../draw/item';
+import { makeItemView } from '../../art/itemViews';
 import { drawPicto } from '../draw/pictogram';
 import type { Picto } from '../reactions';
 import { OUTLINE, darken, lighten, mix, stroke } from '../palette';
@@ -533,7 +533,7 @@ export class TelescopeLive extends AreaLive {
         e.hint.forEach((h, i) => {
           const def = sim.content.items.tryGet(h);
           if (!def) return;
-          const v = new ItemSprite(def, i);
+          const v = makeItemView(def, i);
           v.position.set(this.window.x + 260 + (i - (n - 1) / 2) * 90, this.window.y + 130);
           v.scale.set(1.3);
           this.items.addChild(v);

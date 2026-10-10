@@ -87,6 +87,15 @@ export interface WornLook {
 /** How long a flipped hat (Boing's trick) is in the air, seconds. */
 const FLIP_SECONDS = 0.7;
 
+/** A night light on a bug this frame: where, how far it reaches, its color, and how bright (0 to 1). */
+export interface LightSpot {
+  x: number;
+  y: number;
+  r: number;
+  color: number;
+  alpha: number;
+}
+
 /**
  * A procedurally drawn bug. Static parts are drawn once per body form;
  * legs, face, antennae, and effects are redrawn every frame. The root sits
@@ -943,6 +952,17 @@ export class BugSprite extends Container {
   get life(): number {
     return this.painter?.life ?? 0;
   }
+
+  /** The bug's main color as it is drawn, for what the game draws beside it (a flung trail, potion fur). */
+  get bodyColor(): number {
+    return this.def.body;
+  }
+
+  /**
+   * Add the night lights an art set put on this bug, where they sit this
+   * frame, in `space`'s coordinates. The code-drawn bug has none.
+   */
+  nightLights(_space: Container, _out: LightSpot[]): void {}
 
   /** A bug drawn by its species painter: the same rig, with the painter filling in the art. */
   private updatePainted(frame: BugFrame, p: SpeciesPainter): void {

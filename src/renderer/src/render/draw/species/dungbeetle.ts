@@ -34,12 +34,15 @@ export class DungbeetlePainter extends BasePainter {
   override readonly curls = true;
   /** Where the sheen is in its teal-to-violet cycle; it runs faster as he moves. */
   private sheen = 0;
+  /** The two colors the sheen moves between: teal and violet, unless an art set names its own. */
+  sheenEnds: readonly [number, number] = [TEAL, VIOLET];
 
   private sheenColors(): [number, number, number] {
+    const [a, b] = this.sheenEnds;
     const k = 0.5 + 0.5 * Math.sin(this.sheen);
     const k2 = 0.5 + 0.5 * Math.sin(this.sheen + 2.1);
     const k3 = 0.5 + 0.5 * Math.sin(this.sheen + 4.2);
-    return [mix(TEAL, VIOLET, k), mix(TEAL, VIOLET, k2), mix(lighten(TEAL, 0.35), lighten(VIOLET, 0.35), k3)];
+    return [mix(a, b, k), mix(a, b, k2), mix(lighten(a, 0.35), lighten(b, 0.35), k3)];
   }
 
   private shellPts(): number[] {
@@ -278,7 +281,7 @@ export class DungbeetlePainter extends BasePainter {
   private faceSpots(frame: BugFrame, fid: ReturnType<typeof bartyFiddle>): SkeletonFace {
     const { r } = this;
     const f = frame.face;
-    const lid = darken(TEAL, 0.25);
+    const lid = darken(this.sheenEnds[0], 0.25);
     const look = this.aloof(frame)
       ? { x: 0.3 + fid.glance * 0.6, y: -0.85 + Math.abs(fid.glance) * 0.55 }
       : rigLook(frame);

@@ -1,0 +1,205 @@
+{
+ "frames": {
+  "item_acc_crown_foil": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.509
+   },
+   "frame": {
+    "h": 53,
+    "w": 74,
+    "x": 203,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 53,
+    "w": 74
+   },
+   "spriteSourceSize": {
+    "h": 53,
+    "w": 74,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_hat_bubble": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.456
+   },
+   "frame": {
+    "h": 57,
+    "w": 66,
+    "x": 2,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 57,
+    "w": 66
+   },
+   "spriteSourceSize": {
+    "h": 57,
+    "w": 66,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_hat_mushroom": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.533
+   },
+   "frame": {
+    "h": 45,
+    "w": 74,
+    "x": 416,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 45,
+    "w": 74
+   },
+   "spriteSourceSize": {
+    "h": 45,
+    "w": 74,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_hat_pirate": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.529
+   },
+   "frame": {
+    "h": 34,
+    "w": 74,
+    "x": 492,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 34,
+    "w": 74
+   },
+   "spriteSourceSize": {
+    "h": 34,
+    "w": 74,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_hat_propeller": {
+   "anchor": {
+    "x": 0.444,
+    "y": 0.49
+   },
+   "frame": {
+    "h": 49,
+    "w": 63,
+    "x": 279,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 49,
+    "w": 63
+   },
+   "spriteSourceSize": {
+    "h": 49,
+    "w": 63,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_hat_thimble": {
+   "anchor": {
+    "x": 0.492,
+    "y": 0.474
+   },
+   "frame": {
+    "h": 57,
+    "w": 61,
+    "x": 70,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 57,
+    "w": 61
+   },
+   "spriteSourceSize": {
+    "h": 57,
+    "w": 61,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_hat_viking": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.479
+   },
+   "frame": {
+    "h": 48,
+    "w": 70,
+    "x": 344,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 48,
+    "w": 70
+   },
+   "spriteSourceSize": {
+    "h": 48,
+    "w": 70,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_hat_yarn_beanie": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.491
+   },
+   "frame": {
+    "h": 55,
+    "w": 68,
+    "x": 133,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 55,
+    "w": 68
+   },
+   "spriteSourceSize": {
+    "h": 55,
+    "w": 68,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  }
+ },
+ "meta": {
+  "format": "RGBA8888",
+  "image": "items_hats_1@1x.png",
+  "scale": 1,
+  "size": {
+   "h": 64,
+   "w": 568
+  }
+ }
+}

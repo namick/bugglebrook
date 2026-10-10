@@ -1,0 +1,157 @@
+{
+ "frames": {
+  "item_balloon_basket": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.604
+   },
+   "frame": {
+    "h": 225,
+    "w": 146,
+    "x": 2,
+    "y": 2
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 225,
+    "w": 146
+   },
+   "spriteSourceSize": {
+    "h": 225,
+    "w": 146,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_matchbox_racer": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 52,
+    "w": 136,
+    "x": 92,
+    "y": 229
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 52,
+    "w": 136
+   },
+   "spriteSourceSize": {
+    "h": 52,
+    "w": 136,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_parachute": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.526
+   },
+   "frame": {
+    "h": 57,
+    "w": 96,
+    "x": 2,
+    "y": 426
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 57,
+    "w": 96
+   },
+   "spriteSourceSize": {
+    "h": 57,
+    "w": 96,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_slingshot_twig": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.485
+   },
+   "frame": {
+    "h": 132,
+    "w": 88,
+    "x": 2,
+    "y": 229
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 132,
+    "w": 88
+   },
+   "spriteSourceSize": {
+    "h": 132,
+    "w": 88,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_spring_launcher": {
+   "anchor": {
+    "x": 0.5,
+    "y": 0.492
+   },
+   "frame": {
+    "h": 61,
+    "w": 70,
+    "x": 2,
+    "y": 363
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 61,
+    "w": 70
+   },
+   "spriteSourceSize": {
+    "h": 61,
+    "w": 70,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  },
+  "item_tin_can_phone": {
+   "anchor": {
+    "x": 0.521,
+    "y": 0.5
+   },
+   "frame": {
+    "h": 52,
+    "w": 217,
+    "x": 74,
+    "y": 363
+   },
+   "rotated": false,
+   "sourceSize": {
+    "h": 52,
+    "w": 217
+   },
+   "spriteSourceSize": {
+    "h": 52,
+    "w": 217,
+    "x": 0,
+    "y": 0
+   },
+   "trimmed": true
+  }
+ },
+ "meta": {
+  "format": "RGBA8888",
+  "image": "items_toys_1@1x.png",
+  "scale": 1,
+  "size": {
+   "h": 488,
+   "w": 296
+  }
+ }
+}

@@ -1,0 +1,10 @@
+{
+  "lights": [
+    { "part": "tail", "x": 232, "y": 540, "r": 80, "color": "#c8ff4a" },
+    { "part": "shell", "x": 332, "y": 551, "r": 44, "color": "#c8ff4a" },
+    { "part": "shell", "x": 374, "y": 559, "r": 44, "color": "#c8ff4a" },
+    { "part": "shell", "x": 416, "y": 560, "r": 44, "color": "#c8ff4a" },
+    { "part": "shell", "x": 458, "y": 552, "r": 44, "color": "#c8ff4a" },
+    { "part": "antenna_tip", "x": 536, "y": 351, "r": 71, "color": "#c8ff4a" }
+  ]
+}

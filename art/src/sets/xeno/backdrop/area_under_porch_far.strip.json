@@ -1,0 +1,26 @@
+{
+ "area": "area_under_porch",
+ "blend": {
+  "left": 128,
+  "right": 128
+ },
+ "canvas": {
+  "h": 2160,
+  "w": 2304
+ },
+ "cover": 932,
+ "ground": 900,
+ "hidden": [],
+ "id": "area_under_porch_far",
+ "kind": "strip",
+ "layer": "far",
+ "scale": 2,
+ "schema": 1,
+ "span": {
+  "x0": 3558,
+  "x1": 4454
+ },
+ "stripHash": "6201f27bbac81db2",
+ "title": "Under the Porch, far layer",
+ "x": 3430
+}

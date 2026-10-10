@@ -1,0 +1,14 @@
+{
+  "lights": [
+    { "part": "segment_a", "x": 552, "y": 630, "r": 50, "color": "#ffd84a" },
+    { "part": "segment_b", "x": 476, "y": 706, "r": 45, "color": "#ffd84a" },
+    { "part": "antenna_tip", "x": 700, "y": 507, "r": 74, "color": "#ffd84a" },
+    { "part": "tail_horn", "x": 162, "y": 642, "r": 50, "color": "#ffd84a" },
+    { "part": "cocoon", "x": 548, "y": 668, "r": 106, "color": "#ffd84a" },
+    { "part": "cocoon", "x": 511, "y": 806, "r": 42, "color": "#ffd84a" },
+    { "part": "bf_body", "x": 339, "y": 732, "r": 45, "color": "#ffd84a" },
+    { "part": "bf_wing_fore", "x": 513, "y": 447, "r": 75, "color": "#ffd84a" },
+    { "part": "bf_wing_hind", "x": 468, "y": 587, "r": 45, "color": "#ffd84a" },
+    { "part": "bf_antenna_tip", "x": 682, "y": 428, "r": 65, "color": "#ffd84a" }
+  ]
+}

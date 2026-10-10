@@ -102,6 +102,8 @@ export interface SpeciesPainter {
   readonly life?: number;
   /** Where worn things go this frame (M11): the head as drawn, the top, the back, the feet. */
   wearSpot(frame: BugFrame): WearSpot;
+  /** The two colors its tint layers shimmer between (Barty). An art set may bring its own (art/setColors.ts). */
+  sheenEnds?: readonly [number, number];
 }
 
 export interface PainterArgs {

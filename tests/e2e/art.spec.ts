@@ -10,17 +10,23 @@ import { EYE_PIECES, MOUTH_PIECES } from '../../src/renderer/src/art/faceKit';
 import type { ArtPack, RigFile } from '../../src/renderer/src/art/rigFile';
 import type { EyeShape, MouthShape } from '../../src/renderer/src/render/bugFace';
 import {
+  PLAZA_X,
   bugNamed,
+  chooseArtSet,
   content,
   clickUi,
+  entities,
   entity,
   frames,
   freeze,
   glideFrames,
+  jumpTo,
   launchApp as launch,
   lookAt,
   openFrozen,
   pressFrozen,
+  spawnFrozen,
+  toClient,
   waitForScene,
 } from './app';
 
@@ -249,6 +255,74 @@ test('the Art Lab shows the drawn Dot beside the code one, and its buttons work 
   }
 });
 
+test('paint dropped on a drawn bug is solid, whatever color the art under it is', async () => {
+  const { page, close, errors } = await launchApp();
+  try {
+    // The crude Skeet's body is blue, with hardly any red in it. Paint clipped by the art's red
+    // barely shows on him.
+    const skeetId = 'bug_waterstrider_skeet';
+    const built = [
+      buildAsset(oraOf(skeetId), rigOf(skeetId)),
+      buildAsset(oraOf('face_kit'), rigOf('face_kit')),
+    ];
+    expect(built.map((b) => b.entry.status)).toEqual(['drawn', 'drawn']);
+    await install(page, toArtPack(built));
+    await page.evaluate(() => window.__bb!.artMode('drawn'));
+    await openFrozen(page, 0);
+    // A Skeet of our own on flat ground in the plaza.
+    const at = PLAZA_X + 20;
+    const before = new Set((await entities(page)).map((e) => e.id));
+    await page.evaluate(
+      ([defId, x]) => window.__bb!.send({ type: 'spawn', kind: 'bug', defId: defId!, x: x!, y: 7 }),
+      [skeetId, at] as const,
+    );
+    await frames(page, 2);
+    const skeet = (await entities(page)).find((e) => !before.has(e.id) && e.defId === skeetId)!.id;
+    await content(page, skeet);
+    await frames(page, 60);
+    await jumpTo(page, at - 8);
+    const drop = await spawnFrozen(page, 'item_paint_red', at - 3);
+    await content(page, skeet);
+    await expect.poll(async () => (await art(page, skeet))?.art).toBe('drawn');
+    expect((await art(page, skeet))!.shown!.paint).toBe(0);
+    expect(await page.evaluate((id) => window.__bb!.bugPaintPixels(id), skeet)).toEqual({
+      shown: 0,
+      solid: 0,
+    });
+
+    // Carry a red paint drop over with the real mouse and let it go on his middle.
+    const from = await pressFrozen(page, drop);
+    const middle = async (): Promise<{ x: number; y: number }> => {
+      const e = (await entity(page, skeet))!;
+      return toClient(page, e.x, e.y);
+    };
+    const on = await middle();
+    const up = await glideFrames(page, from, 0, -90, 8, 2);
+    const over = await glideFrames(page, up, on.x - up.x, 0, 10, 2);
+    await glideFrames(page, over, 0, on.y - over.y, 8, 2);
+    // Hold still over him for a moment, following him if he moves, so letting go is a drop.
+    for (let i = 0; i < 4; i++) {
+      const p = await middle();
+      await page.mouse.move(p.x, p.y + (i % 2) * 0.5);
+      await frames(page, 6);
+    }
+    await page.mouse.up();
+    await frames(page, 4);
+    expect((await entity(page, skeet))!.paint).toEqual(['paint_red']);
+    expect(await entity(page, drop)).toBeNull();
+
+    // The patch is on, and the renderer draws it solid wherever his body is. Only its soft edge is
+    // see-through: about a tenth of it, or a fifth where the renderer smooths edges.
+    await expect.poll(async () => (await art(page, skeet))!.shown!.paint).toBeGreaterThan(0);
+    const paint = (await page.evaluate((id) => window.__bb!.bugPaintPixels(id), skeet))!;
+    expect(paint.shown).toBeGreaterThan(150);
+    expect(paint.solid / paint.shown).toBeGreaterThan(0.5);
+    expect(errors).toEqual([]);
+  } finally {
+    await close();
+  }
+});
+
 test('the production build carries no hot reload code', () => {
   const dir = join(ROOT, 'out/renderer/assets');
   const js = readdirSync(dir).filter((f) => f.endsWith('.js'));
@@ -286,7 +360,13 @@ test('players switch named art sets with the mouse and keep their choice after r
     expect((await art(page, dot.id))?.art).toBe('drawn');
     expect((await art(page, rollo.id))?.art).toBe('drawn');
     await clickUi(page, 'art_next');
-    expect(await page.evaluate(() => window.__bb!.settings().artSet)).toBe('family_drawing');
+    expect(await page.evaluate(() => window.__bb!.settings().artSet)).toBe('xeno');
+    expect((await page.evaluate(() => window.__bb!.artChoice()))?.name).toBe('Alien planet');
+    await frames(page, 2);
+    expect((await art(page, dot.id))?.art).toBe('drawn');
+    expect((await art(page, rollo.id))?.art).toBe('drawn');
+    // The set this test installed comes after every set the build carries.
+    await chooseArtSet(page, 'family_drawing');
     await frames(page, 2);
     expect((await art(page, dot.id))?.art).toBe('drawn');
     expect((await art(page, rollo.id))?.reason).toBe('no art file');
@@ -333,9 +413,7 @@ test('switching sets refreshes pocketed bugs and twigs and shows the selected ar
     const pocketArt = () => page.evaluate(() => [window.__bb!.pocketArt(0), window.__bb!.pocketArt(1)]);
     expect(await pocketArt()).toEqual(['code', 'code']);
     await clickUi(page, 'pause');
-    await clickUi(page, 'art_next');
-    await clickUi(page, 'art_next');
-    await clickUi(page, 'art_next');
+    await chooseArtSet(page, 'family');
     expect(await page.evaluate(() => window.__bb!.artChoice())).toEqual({
       name: 'Family drawing',
       credit: 'Drawn by Juniper',

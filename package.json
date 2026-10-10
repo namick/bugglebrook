@@ -41,8 +41,12 @@
     "dist:win": "electron-vite build && electron-builder --win --publish never",
     "dist:mac": "electron-vite build && electron-builder --mac --publish never",
     "shots": "electron-vite build && node scripts/display.mjs playwright test -c playwright.shots.config.ts",
+    "art:backdrop-templates": "node scripts/art/backdropTemplates.ts",
     "art:build": "node scripts/art/build.ts",
     "art:check": "node scripts/art/build.ts --check",
+    "art:check-backdrop": "node scripts/art/checkBackdrop.ts",
+    "art:check-one": "node scripts/art/checkOne.ts",
+    "art:item-templates": "node scripts/art/itemTemplates.ts",
     "art:templates": "node scripts/art/templates.ts",
     "art:watch": "node scripts/art/dev.ts"
   },
