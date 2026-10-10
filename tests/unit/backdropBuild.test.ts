@@ -546,6 +546,8 @@ describe('a set with a backdrop in the whole build', () => {
     ).toMatch(/^painted\/backdrop\/sky\.json\n {2}x /);
   });
 
+  // A set with every strip painted is twelve pictures at 2x. Decoding and halving them takes
+  // ten seconds or so on a quiet machine and much longer on a busy one.
   it('reads every committed set: each backdrop file in the repo builds without an error', () => {
     for (const set of sourceSets(join(ROOT, 'art/src'))) {
       const dir = set.id === 'reference' ? join(ROOT, 'art/src') : join(ROOT, 'art/src/sets', set.id);
@@ -556,5 +558,5 @@ describe('a set with a backdrop in the whole build', () => {
           `${set.id}/${id}`,
         ).toEqual([]);
     }
-  });
+  }, 180_000);
 });
